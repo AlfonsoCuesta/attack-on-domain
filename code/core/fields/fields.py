@@ -1,5 +1,5 @@
 import re
-from typing import Any, Callable, Literal, overload
+from typing import Any, Callable, overload
 
 import annotated_types
 from pydantic import Field as PField
@@ -77,50 +77,18 @@ def Field(default: Any = ..., **kwargs: Any) -> Any:
 
 @overload
 def PrivateField(
-    default: Any = ...,
-    *,
-    default_factory: None = None,
-    init: Literal[False] = False,
-    **kwargs: Any,
+    default: Any = ..., *, default_factory: None = None
 ) -> Any: ...
 
 
 @overload
-def PrivateField(
-    *,
-    default_factory: Callable[[], Any],
-    init: Literal[False] = False,
-    **kwargs: Any,
-) -> Any: ...
-
-
-@overload
-def PrivateField(
-    default: Any = ...,
-    *,
-    default_factory: None = None,
-    init: Literal[True],
-    **kwargs: Any,
-) -> Any: ...
-
-
-@overload
-def PrivateField(
-    *,
-    default_factory: Callable[[], Any],
-    init: Literal[True],
-    **kwargs: Any,
-) -> Any: ...
+def PrivateField(*, default_factory: Callable[[], Any]) -> Any: ...
 
 
 def PrivateField(
-    default: Any = ...,
-    *,
-    default_factory: Callable[[], Any] | None = None,
-    **kwargs: Any,
+    default: Any = ..., *, default_factory: Callable[[], Any] | None = None
 ) -> Any:
-    init = kwargs.get("init", False)
     if default_factory is not None:
-        return PrivateAttr(default_factory=default_factory, init=init)
+        return PrivateAttr(default_factory=default_factory, init=False)
     field_default = Unset() if default is ... else default
-    return PrivateAttr(default=field_default, init=init)
+    return PrivateAttr(default=field_default, init=False)

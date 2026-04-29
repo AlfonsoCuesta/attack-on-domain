@@ -3,7 +3,7 @@ from typing import Any, ClassVar, Self, Type, dataclass_transform
 
 from pydantic import BaseModel
 
-from .fields import Field, PrivateField
+from .fields import Field
 from .model_maker import (
     RAW_MODEL_KEY,
     VALIDATION_MODEL_KEY,
@@ -27,9 +27,7 @@ class PydanticFacadeMeta(type):
         return cls
 
 
-@dataclass_transform(
-    field_specifiers=(Field, PrivateField), kw_only_default=True
-)
+@dataclass_transform(field_specifiers=(Field,), kw_only_default=True)
 class BaseValidator(metaclass=PydanticFacadeMeta):
     __validation_model__: ClassVar[Type[BaseModel]]
     __raw_model__: ClassVar[Type[BaseModel]]
@@ -45,8 +43,9 @@ class BaseValidator(metaclass=PydanticFacadeMeta):
             setattr(self, k, v)
 
         private = getattr(validated, "__pydantic_private__", {})
-        for k, v in private.items():
-            setattr(self, k, v)
+        if private:
+            for k, v in private.items():
+                setattr(self, k, v)
 
     def __repr__(self):
         fields = self.__validation_model__.model_fields.keys()

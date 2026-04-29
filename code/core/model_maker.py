@@ -1,6 +1,6 @@
 from typing import Annotated, Any, Type, get_args, get_origin
 
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 from pydantic.fields import ModelPrivateAttr
 
 from .validators import is_validator
@@ -18,12 +18,20 @@ def get_parent_models(
     return parent_models
 
 
+def get_model_config(cls: Type[Any]) -> ConfigDict:
+    existing_config = getattr(cls, "model_config", None)
+    if isinstance(existing_config, dict):
+        return ConfigDict(**existing_config, arbitrary_types_allowed=True)
+    return ConfigDict(arbitrary_types_allowed=True)
+
+
 def make_validation_model(
     cls: Type[Any],
     name: str,
     bases: tuple[Type[Any], ...],
 ) -> Type[BaseModel]:
     full_ns = {
+        "model_config": get_model_config(cls),
         "__annotations__": cls.__annotations__,
         **{k: getattr(cls, k) for k in cls.__annotations__ if hasattr(cls, k)},
     }
@@ -49,7 +57,10 @@ def make_raw_model(
     annotations = {
         k: strip_validators(v) for k, v in cls.__annotations__.items()
     }
-    ns: dict[str, Any] = {"__annotations__": annotations}
+    ns: dict[str, Any] = {
+        "model_config": get_model_config(cls),
+        "__annotations__": annotations,
+    }
 
     for base in reversed(cls.__mro__):
         for k, v in getattr(base, "__dict__", {}).items():
