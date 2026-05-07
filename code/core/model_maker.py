@@ -32,6 +32,8 @@ def make_validation_model(
 ) -> Type[BaseModel]:
     full_ns = {
         "model_config": get_model_config(cls),
+        "__module__": cls.__module__,
+        "__qualname__": f"{cls.__qualname__}.{name}ValidationModel",
         "__annotations__": cls.__annotations__,
         **{k: getattr(cls, k) for k in cls.__annotations__ if hasattr(cls, k)},
     }
@@ -59,6 +61,8 @@ def make_raw_model(
     }
     ns: dict[str, Any] = {
         "model_config": get_model_config(cls),
+        "__module__": cls.__module__,
+        "__qualname__": f"{cls.__qualname__}.{name}RawModel",
         "__annotations__": annotations,
     }
 

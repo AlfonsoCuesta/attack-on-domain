@@ -1,3 +1,5 @@
+from typing import Literal, cast
+
 import pytest
 from core.base_mutable import BaseMutable, MutatingContext, MutatingState
 
@@ -17,6 +19,62 @@ def test_mutating_context_state_transitions() -> None:
 
     ctx.exit(MutatingState.PASS)
     assert ctx.status == MutatingState.BLOCK
+
+
+def test_base_mutable_uses_same_mutating_context_across_inheritance_levels() -> (
+    None
+):
+    class RecordingContext(MutatingContext):
+        def __init__(self) -> None:
+            super().__init__()
+            self.events: list[tuple[str, MutatingState]] = []
+
+        def enter(
+            self, state: Literal[MutatingState.PASS, MutatingState.SUPER]
+        ) -> None:
+            self.events.append(("enter", state))
+            super().enter(state)
+
+        def exit(
+            self, state: Literal[MutatingState.PASS, MutatingState.SUPER]
+        ) -> None:
+            self.events.append(("exit", state))
+            super().exit(state)
+
+    class Inner(BaseMutable):
+        __mutating_context_class__ = RecordingContext
+        age: int
+
+        def inner_set(self, value: int) -> None:
+            self.age = value
+
+    class Outer(Inner):
+        def outer_set(self, value: int) -> None:
+            self.inner_set(value)
+
+    obj = Outer(age=1)
+    ctx_before = obj._get_mutating_context()
+
+    obj.outer_set(2)
+    obj.inner_set(3)
+
+    ctx_after = cast(RecordingContext, obj._get_mutating_context())
+    assert ctx_before is ctx_after
+
+    # __init__ is wrapped (dunder starts with "_") so it contributes SUPER events.
+    # Then: 1 nested call (outer_set -> inner_set) + 1 direct call (inner_set).
+    assert ctx_after.events == [
+        ("enter", MutatingState.SUPER),
+        ("enter", MutatingState.SUPER),
+        ("exit", MutatingState.SUPER),
+        ("exit", MutatingState.SUPER),
+        ("enter", MutatingState.PASS),
+        ("enter", MutatingState.PASS),
+        ("exit", MutatingState.PASS),
+        ("exit", MutatingState.PASS),
+        ("enter", MutatingState.PASS),
+        ("exit", MutatingState.PASS),
+    ]
 
 
 def test_base_mutable_blocks_direct_attribute_mutation() -> None:

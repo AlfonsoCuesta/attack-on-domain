@@ -2,7 +2,7 @@ import inspect
 from contextlib import contextmanager
 from enum import StrEnum
 from functools import wraps
-from typing import Any, Callable, Generator, Literal, cast
+from typing import Any, Callable, Generator, Literal, Type, cast
 
 from .base_validator import BaseValidator, PydanticFacadeMeta
 
@@ -80,13 +80,16 @@ class MutableBaseMeta(PydanticFacadeMeta):
 
 class BaseMutable(BaseValidator, metaclass=MutableBaseMeta):
     __mutating_context__: MutatingContext | None = None
+    __mutating_context_class__: Type[MutatingContext] = MutatingContext
 
     def can_mutate(self) -> bool:
         return True
 
     def _get_mutating_context(self) -> MutatingContext:
         if self.__mutating_context__ is None:
-            super().__setattr__("__mutating_context__", MutatingContext())
+            object.__setattr__(
+                self, "__mutating_context__", self.__mutating_context_class__()
+            )
         return cast(MutatingContext, self.__mutating_context__)
 
     @contextmanager
