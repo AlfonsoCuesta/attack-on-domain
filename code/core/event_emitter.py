@@ -1,8 +1,14 @@
+from datetime import datetime, timezone
 from typing import List, Protocol, runtime_checkable
 
+from core.base_inmutable import BaseInmutable
+from core.fields.fields import Field
 
-class Event:
-    pass
+
+class Event(BaseInmutable):
+    emmited_at: datetime = Field(
+        default_factory=lambda: datetime.now(timezone.utc), init=False
+    )
 
 
 @runtime_checkable
