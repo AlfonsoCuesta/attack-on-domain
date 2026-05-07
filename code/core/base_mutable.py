@@ -45,8 +45,6 @@ class MutatingContext:
 
 class MutableBaseMeta(PydanticFacadeMeta):
     NOT_MUTABLE_CALLABLES = {
-        "__setattr__",
-        "__mutate__",
         "can_mutate",
         "_get_mutating_context",
     }
@@ -68,6 +66,8 @@ class MutableBaseMeta(PydanticFacadeMeta):
 
         for base in cls.__mro__:
             for attr_name, attr_value in base.__dict__.items():
+                if attr_name.startswith("__") and attr_name.endswith("__"):
+                    continue
                 if attr_name in cls.NOT_MUTABLE_CALLABLES or getattr(
                     attr_value, "__mutable__", False
                 ):

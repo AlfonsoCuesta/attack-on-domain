@@ -61,19 +61,15 @@ def test_base_mutable_uses_same_mutating_context_across_inheritance_levels() -> 
     ctx_after = cast(RecordingContext, obj._get_mutating_context())
     assert ctx_before is ctx_after
 
-    # __init__ is wrapped (dunder starts with "_") so it contributes SUPER events.
-    # Then: 1 nested call (outer_set -> inner_set) + 1 direct call (inner_set).
     assert ctx_after.events == [
-        ("enter", MutatingState.SUPER),
-        ("enter", MutatingState.SUPER),
-        ("exit", MutatingState.SUPER),
-        ("exit", MutatingState.SUPER),
-        ("enter", MutatingState.PASS),
-        ("enter", MutatingState.PASS),
-        ("exit", MutatingState.PASS),
-        ("exit", MutatingState.PASS),
-        ("enter", MutatingState.PASS),
-        ("exit", MutatingState.PASS),
+        ("enter", MutatingState.SUPER),  # _set_attributes
+        ("exit", MutatingState.SUPER),  # _set_attributes
+        ("enter", MutatingState.PASS),  # outer_set
+        ("enter", MutatingState.PASS),  # inner_set (nested)
+        ("exit", MutatingState.PASS),  # inner_set
+        ("exit", MutatingState.PASS),  # outer_set
+        ("enter", MutatingState.PASS),  # inner_set (direct)
+        ("exit", MutatingState.PASS),  # inner_set (direct)
     ]
 
 
