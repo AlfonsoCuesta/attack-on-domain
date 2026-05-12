@@ -1,9 +1,10 @@
 [build-system]
-requires = ["setuptools>=75", "wheel"]
+requires = ["setuptools>=77.0.3", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "deedee"
+# Name on PyPI / `pip install …`. The import package remains `deedee` (folder `code/deedee/`).
+name = "deedee-domain"
 version = "0.1.0"
 description = "DDD building blocks: entities, value objects, bounded contexts, and validation helpers."
 readme = "README.md"
@@ -13,9 +14,11 @@ license-files = ["LICENSE"]
 authors = [
     { name = "Alfonso Cuesta" },
 ]
+keywords = ["ddd", "domain-driven-design", "entity", "value-object"]
 classifiers = [
     "Development Status :: 4 - Beta",
     "Intended Audience :: Developers",
+    "Operating System :: OS Independent",
     "Programming Language :: Python :: 3 :: Only",
     "Programming Language :: Python :: 3.14",
     "Topic :: Software Development :: Libraries :: Python Modules",
