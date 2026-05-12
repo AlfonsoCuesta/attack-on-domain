@@ -7,7 +7,7 @@ name = "deedee"
 version = "0.1.0"
 description = "DDD building blocks: entities, value objects, bounded contexts, and validation helpers."
 readme = "README.md"
-requires-python = ">=3.12"
+requires-python = ">=3.14"
 license = "Apache-2.0"
 license-files = ["LICENSE"]
 classifiers = [
@@ -39,7 +39,7 @@ pythonpath = ["code"]
 testpaths = ["code/tests"]
 
 [tool.mypy]
-python_version = "3.12"
+python_version = "3.14"
 mypy_path = ["code"]
 files = ["code"]
 explicit_package_bases = true
