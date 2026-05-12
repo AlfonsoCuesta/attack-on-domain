@@ -5,6 +5,7 @@ from functools import wraps
 from typing import Any, Callable, Generator, Literal, Type, cast
 
 from .base_validator import BaseValidator, PydanticFacadeMeta
+from .domain_exception import MutationForbiddenError
 
 
 class MutatingState(StrEnum):
@@ -112,5 +113,5 @@ class BaseMutable(BaseValidator, metaclass=MutableBaseMeta):
         )
         can_mutate = super_mutate or pass_mutate
         if not can_mutate:
-            raise ValueError("Cannot mutate this object")
+            raise MutationForbiddenError()
         super().__setattr__(name, value)

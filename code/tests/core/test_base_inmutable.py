@@ -2,6 +2,7 @@ from typing import Any, cast
 
 import pytest
 from core.base_inmutable import BaseInmutable
+from core.domain_exception import MutationForbiddenError
 
 
 def test_base_inmutable_blocks_mutation_after_init() -> None:
@@ -10,7 +11,7 @@ def test_base_inmutable_blocks_mutation_after_init() -> None:
 
     user = User(age=1)
 
-    with pytest.raises(ValueError, match="Cannot mutate this object"):
+    with pytest.raises(MutationForbiddenError, match="Cannot mutate this object"):
         user.age = 5
 
 

@@ -2,6 +2,7 @@ from typing import Literal, cast
 
 import pytest
 from core.base_mutable import BaseMutable, MutatingContext, MutatingState
+from core.domain_exception import MutationForbiddenError
 
 
 def test_mutating_context_state_transitions() -> None:
@@ -79,7 +80,7 @@ def test_base_mutable_blocks_direct_attribute_mutation() -> None:
 
     user = User(age=1)
 
-    with pytest.raises(ValueError, match="Cannot mutate this object"):
+    with pytest.raises(MutationForbiddenError, match="Cannot mutate this object"):
         user.age = 3
 
 
@@ -108,7 +109,7 @@ def test_base_mutable_respects_can_mutate_for_public_methods() -> None:
 
     user = User(age=1)
 
-    with pytest.raises(ValueError, match="Cannot mutate this object"):
+    with pytest.raises(MutationForbiddenError, match="Cannot mutate this object"):
         user.set_age(10)
 
 

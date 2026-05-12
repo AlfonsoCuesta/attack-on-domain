@@ -1,4 +1,10 @@
 import pytest
+
+from core.domain_exception import (
+    ClassExpectedError,
+    InvalidEntityTypeError,
+    InvalidRootEntityTypeError,
+)
 from domain.bounded_context import BoundedContext
 from domain.entity import Entity, RootEntity
 from domain.service import Service
@@ -21,7 +27,7 @@ def test_bounded_context_rejects_non_entity_class() -> None:
     class NotEntity:
         pass
 
-    with pytest.raises(ValueError, match="is not an Entity"):
+    with pytest.raises(InvalidEntityTypeError, match="is not an Entity"):
         BoundedContext([NotEntity])  # type: ignore[list-item]
 
 
@@ -29,7 +35,7 @@ def test_bounded_context_rejects_non_root_entity() -> None:
     class NotRoot(Entity):
         id: int
 
-    with pytest.raises(ValueError, match="is not a root Entity"):
+    with pytest.raises(InvalidRootEntityTypeError, match="is not a root Entity"):
         BoundedContext([NotRoot])  # type: ignore[list-item]
 
 
@@ -39,7 +45,7 @@ def test_bounded_context_rejects_entity_instance() -> None:
 
     order = Order(id=1)
 
-    with pytest.raises(TypeError):
+    with pytest.raises(ClassExpectedError, match="aggregate root"):
         BoundedContext([order])  # type: ignore[list-item]
 
 

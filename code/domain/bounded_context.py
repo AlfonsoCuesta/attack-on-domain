@@ -2,6 +2,13 @@ from __future__ import annotations
 
 from typing import Iterable, Optional, TypeAlias
 
+from core.domain_exception import (
+    ClassExpectedError,
+    InvalidEntityTypeError,
+    InvalidRootEntityTypeError,
+    InvalidServiceTypeError,
+)
+
 from .entity import Entity, RootEntity
 from .service import Service
 
@@ -27,14 +34,18 @@ class BoundedContext:
             services = []
 
         for item in aggregate_roots:
+            if not isinstance(item, type):
+                raise ClassExpectedError(role="aggregate root", got=item)
             if not issubclass(item, Entity):
-                raise ValueError(f"{item.__name__} is not an Entity")
+                raise InvalidEntityTypeError(item.__name__)
             if not item.is_root():
-                raise ValueError(f"{item.__name__} is not a root Entity")
+                raise InvalidRootEntityTypeError(item.__name__)
 
         for service in services:
+            if not isinstance(service, type):
+                raise ClassExpectedError(role="service", got=service)
             if not issubclass(service, Service):
-                raise TypeError(f"{service.__name__} is not a Service")
+                raise InvalidServiceTypeError(service.__name__)
 
         self.aggregate_roots: tuple[RootEntityType, ...] = tuple(
             aggregate_roots
