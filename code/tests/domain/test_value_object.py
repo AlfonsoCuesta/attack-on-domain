@@ -1,7 +1,6 @@
 import pytest
-
-from core.domain_exception import MutationForbiddenError
-from domain.value_object import ValueObject
+from deedee._internal.core.domain_exception import MutationForbiddenError
+from deedee._internal.domain.value_object import ValueObject
 
 
 def test_value_object_is_immutable_after_init() -> None:
@@ -10,6 +9,7 @@ def test_value_object_is_immutable_after_init() -> None:
 
     m = Money(amount=1)
 
-    with pytest.raises(MutationForbiddenError, match="Cannot mutate this object"):
+    with pytest.raises(
+        MutationForbiddenError, match="Cannot mutate this object"
+    ):
         m.amount = 2
-

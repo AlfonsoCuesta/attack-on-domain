@@ -2,9 +2,9 @@ import inspect
 from typing import Annotated, Any, Callable, cast
 
 import pytest
-from core.base_validator import BaseValidator
-from core.fields import Field, PrivateField
-from core.validators import AfterValidator, field_validator
+from deedee._internal.core.base_validator import BaseValidator
+from deedee._internal.core.fields import Field, PrivateField
+from deedee._internal.core.validators import AfterValidator, field_validator
 from pydantic import ValidationError
 
 
@@ -62,7 +62,9 @@ def test_base_validator_supports_annotated_field_constraints() -> None:
     assert user.name == "alf"
 
 
-def test_base_validator_annotated_field_constraints_raise_validation_error() -> None:
+def test_base_validator_annotated_field_constraints_raise_validation_error() -> (
+    None
+):
     class User(BaseValidator):
         name: Annotated[str, Field(min_length=3)]
 
@@ -94,7 +96,9 @@ def test_base_validator_sets_private_field_default_value() -> None:
     assert user._token == "secret"
 
 
-def test_base_validator_private_field_default_factory_creates_unique_values() -> None:
+def test_base_validator_private_field_default_factory_creates_unique_values() -> (
+    None
+):
     class User(BaseValidator):
         age: int
         _tags: list[str] = PrivateField(default_factory=list)

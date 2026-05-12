@@ -1,8 +1,8 @@
 from datetime import datetime, timedelta, timezone
 
-from core.event_emitter import Event
-from domain.entity import Entity, RootEntity
-from domain.value_object import ValueObject
+from deedee._internal.core.event_emitter import Event
+from deedee._internal.domain.entity import Entity, RootEntity
+from deedee._internal.domain.value_object import ValueObject
 
 
 def test_value_object_emit_poll_clear() -> None:

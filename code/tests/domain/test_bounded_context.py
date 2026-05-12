@@ -1,13 +1,12 @@
 import pytest
-
-from core.domain_exception import (
+from deedee._internal.core.domain_exception import (
     ClassExpectedError,
     InvalidEntityTypeError,
     InvalidRootEntityTypeError,
 )
-from domain.bounded_context import BoundedContext
-from domain.entity import Entity, RootEntity
-from domain.service import Service
+from deedee._internal.domain.bounded_context import BoundedContext
+from deedee._internal.domain.entity import Entity, RootEntity
+from deedee._internal.domain.service import Service
 
 
 def test_bounded_context_accepts_only_root_entities() -> None:
@@ -35,7 +34,9 @@ def test_bounded_context_rejects_non_root_entity() -> None:
     class NotRoot(Entity):
         id: int
 
-    with pytest.raises(InvalidRootEntityTypeError, match="is not a root Entity"):
+    with pytest.raises(
+        InvalidRootEntityTypeError, match="is not a root Entity"
+    ):
         BoundedContext([NotRoot])  # type: ignore[list-item]
 
 

@@ -1,4 +1,4 @@
-from core.base_mutable import MutatingContext, MutatingState
+from deedee._internal.core.base_mutable import MutatingContext, MutatingState
 
 
 def test_mutating_context_state_transitions() -> None:

@@ -1,6 +1,4 @@
-import pytest
-
-from domain.entity import Entity, RootEntity
+from deedee._internal.domain.entity import Entity, RootEntity
 
 
 def test_entity_is_not_root_by_default() -> None:
@@ -37,4 +35,3 @@ def test_root_entity_is_root() -> None:
 
 def test_root_entity_inherits_entity() -> None:
     assert issubclass(RootEntity, Entity)
-

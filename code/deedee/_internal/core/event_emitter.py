@@ -1,8 +1,8 @@
 from datetime import datetime, timezone
 from typing import List, Protocol, runtime_checkable
 
-from core.base_inmutable import BaseInmutable
-from core.fields.fields import Field
+from .base_inmutable import BaseInmutable
+from .fields.fields import Field
 
 
 class Event(BaseInmutable):
