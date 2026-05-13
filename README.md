@@ -1,33 +1,31 @@
-# deedee
+# attack-on-domain
 
 Helpers for **domain-driven design** in Python: entities, value objects, bounded contexts, domain events, and Pydantic v2–based validation.
 
 ## Install
 
 ```bash
-pip install deedee-domain
+pip install attack-on-domain
 ```
 
-With **uv** in another project (adds the dependency to that project’s `pyproject.toml`):
+With **uv** in another project:
 
 ```bash
-uv add deedee-domain
+uv add attack-on-domain
 ```
 
-Or install into the active environment without editing a project file:
+Or install into the active environment:
 
 ```bash
-uv pip install deedee-domain
+uv pip install attack-on-domain
 ```
-
-The installed module is still named `deedee`, so imports do not change.
 
 ## Usage
 
 Import only from the top-level package:
 
 ```python
-from deedee import (
+from aod import (
     BoundedContext,
     DomainEvent,
     DomainException,

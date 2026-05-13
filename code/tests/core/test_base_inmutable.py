@@ -1,8 +1,8 @@
 from typing import Any, cast
 
 import pytest
-from deedee._internal.core.base_inmutable import BaseInmutable
-from deedee._internal.core.domain_exception import MutationForbiddenError
+from aod._internal.core.base_inmutable import BaseInmutable
+from aod._internal.core.domain_exception import MutationForbiddenError
 
 
 def test_base_inmutable_blocks_mutation_after_init() -> None:

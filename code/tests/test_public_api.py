@@ -1,11 +1,11 @@
-"""Smoke tests for the supported public import surface (`deedee` package)."""
+"""Smoke tests for the supported public import surface (`aod` package)."""
 
-import deedee
-from deedee._internal.core.event_emitter import Event
+import aod
+from aod._internal.core.event_emitter import Event
 
 
-def test_deedee_exports_documented_api() -> None:
-    assert deedee.__all__ == [
+def test_aod_exports_documented_api() -> None:
+    assert aod.__all__ == [
         "BoundedContext",
         "DomainEvent",
         "DomainException",
@@ -13,9 +13,9 @@ def test_deedee_exports_documented_api() -> None:
         "RootEntity",
         "ValueObject",
     ]
-    assert deedee.DomainEvent is Event
-    assert issubclass(deedee.DomainException, Exception)
-    assert deedee.Entity.__name__ == "Entity"
-    assert deedee.RootEntity.__name__ == "RootEntity"
-    assert deedee.ValueObject.__name__ == "ValueObject"
-    assert deedee.BoundedContext.__name__ == "BoundedContext"
+    assert aod.DomainEvent is Event
+    assert issubclass(aod.DomainException, Exception)
+    assert aod.Entity.__name__ == "Entity"
+    assert aod.RootEntity.__name__ == "RootEntity"
+    assert aod.ValueObject.__name__ == "ValueObject"
+    assert aod.BoundedContext.__name__ == "BoundedContext"

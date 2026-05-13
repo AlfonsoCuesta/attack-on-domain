@@ -3,8 +3,7 @@ requires = ["setuptools>=77.0.3", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-# Name on PyPI / `pip install …`. The import package remains `deedee` (folder `code/deedee/`).
-name = "deedee-domain"
+name = "attack-on-domain"
 version = "0.1.0"
 description = "DDD building blocks: entities, value objects, bounded contexts, and validation helpers."
 readme = "README.md"
@@ -35,14 +34,14 @@ Repository = "https://github.com/AlfonsoCuesta/deedee"
 Issues = "https://github.com/AlfonsoCuesta/deedee/issues"
 
 [tool.setuptools.package-data]
-deedee = ["py.typed"]
+aod = ["py.typed"]
 
 [tool.setuptools.package-dir]
 "" = "code"
 
 [tool.setuptools.packages.find]
 where = ["code"]
-include = ["deedee*"]
+include = ["aod*"]
 exclude = ["tests*", "tests"]
 
 [dependency-groups]

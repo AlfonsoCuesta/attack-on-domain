@@ -1,6 +1,6 @@
 import pytest
-from deedee._internal.core.domain_exception import MutationForbiddenError
-from deedee._internal.domain.value_object import ValueObject
+from aod._internal.core.domain_exception import MutationForbiddenError
+from aod._internal.domain.value_object import ValueObject
 
 
 def test_value_object_is_immutable_after_init() -> None:

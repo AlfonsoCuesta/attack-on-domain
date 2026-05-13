@@ -1,4 +1,4 @@
-from deedee._internal.domain.entity import Entity, RootEntity
+from aod._internal.domain.entity import Entity, RootEntity
 
 
 def test_entity_is_not_root_by_default() -> None:

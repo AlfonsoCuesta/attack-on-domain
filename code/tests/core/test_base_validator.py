@@ -2,9 +2,9 @@ import inspect
 from typing import Annotated, Any, Callable, cast
 
 import pytest
-from deedee._internal.core.base_validator import BaseValidator
-from deedee._internal.core.fields import Field, PrivateField
-from deedee._internal.core.validators import AfterValidator, field_validator
+from aod._internal.core.base_validator import BaseValidator
+from aod._internal.core.fields import Field, PrivateField
+from aod._internal.core.validators import AfterValidator, field_validator
 from pydantic import ValidationError
 
 

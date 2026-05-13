@@ -2,9 +2,9 @@ from __future__ import annotations
 
 from typing import ClassVar, Generator, List
 
-from deedee._internal.core.base_mutable import BaseMutable, MutableBaseMeta
-from deedee._internal.core.event_emitter import Event, EventEmitter
-from deedee._internal.core.fields import PrivateField
+from aod._internal.core.base_mutable import BaseMutable, MutableBaseMeta
+from aod._internal.core.event_emitter import Event, EventEmitter
+from aod._internal.core.fields import PrivateField
 
 
 class EntityMeta(MutableBaseMeta):

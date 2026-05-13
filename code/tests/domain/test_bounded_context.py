@@ -1,12 +1,12 @@
 import pytest
-from deedee._internal.core.domain_exception import (
+from aod._internal.core.domain_exception import (
     ClassExpectedError,
     InvalidEntityTypeError,
     InvalidRootEntityTypeError,
 )
-from deedee._internal.domain.bounded_context import BoundedContext
-from deedee._internal.domain.entity import Entity, RootEntity
-from deedee._internal.domain.service import Service
+from aod._internal.domain.bounded_context import BoundedContext
+from aod._internal.domain.entity import Entity, RootEntity
+from aod._internal.domain.service import Service
 
 
 def test_bounded_context_accepts_only_root_entities() -> None:

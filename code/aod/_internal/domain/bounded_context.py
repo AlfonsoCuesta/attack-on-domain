@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Iterable, Optional, TypeAlias
 
-from deedee._internal.core.domain_exception import (
+from aod._internal.core.domain_exception import (
     ClassExpectedError,
     InvalidEntityTypeError,
     InvalidRootEntityTypeError,

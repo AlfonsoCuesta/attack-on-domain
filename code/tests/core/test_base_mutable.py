@@ -1,12 +1,12 @@
 from typing import Literal, cast
 
 import pytest
-from deedee._internal.core.base_mutable import (
+from aod._internal.core.base_mutable import (
     BaseMutable,
     MutatingContext,
     MutatingState,
 )
-from deedee._internal.core.domain_exception import MutationForbiddenError
+from aod._internal.core.domain_exception import MutationForbiddenError
 
 
 def test_mutating_context_state_transitions() -> None:
