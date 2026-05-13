@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "attack-on-domain"
-version = "0.1.0"
+version = "0.0.1"
 description = "DDD building blocks: entities, value objects, bounded contexts, and validation helpers."
 readme = "README.md"
 requires-python = ">=3.14"
@@ -29,9 +29,9 @@ dependencies = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/AlfonsoCuesta/deedee"
-Repository = "https://github.com/AlfonsoCuesta/deedee"
-Issues = "https://github.com/AlfonsoCuesta/deedee/issues"
+Homepage = "https://github.com/AlfonsoCuesta/attack-on-domain"
+Repository = "https://github.com/AlfonsoCuesta/attack-on-domain"
+Issues = "https://github.com/AlfonsoCuesta/attack-on-domain/issues"
 
 [tool.setuptools.package-data]
 aod = ["py.typed"]
