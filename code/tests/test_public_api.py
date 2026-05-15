@@ -16,6 +16,7 @@ def test_aod_exports_documented_api() -> None:
         "PrivateField",
         "field_validator",
         "post_init",
+        "post_init_validation",
     ]
     assert aod.DomainEvent is Event
     assert issubclass(aod.DomainException, Exception)
@@ -27,3 +28,4 @@ def test_aod_exports_documented_api() -> None:
     assert aod.PrivateField.__name__ == "PrivateField"
     assert aod.field_validator.__name__ == "field_validator"
     assert aod.post_init.__name__ == "post_init"
+    assert aod.post_init_validation.__name__ == "post_init_validation"

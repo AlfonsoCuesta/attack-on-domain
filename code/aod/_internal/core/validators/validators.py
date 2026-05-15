@@ -8,6 +8,7 @@ from pydantic import (
 )
 
 VALIDATOR_KEY = "__field_validator_info__"
+INIT_KEY = "__init_completion_info__"
 
 
 class ValidatorInfo:
@@ -44,6 +45,21 @@ def field_validator(
 
 
 def post_init(fn):
+    validator_info = ValidatorInfo(validation=pydantic_model_validator, mode="after")
+    setattr(
+        fn,
+        VALIDATOR_KEY,
+        validator_info,
+    )
+    setattr(
+        fn,
+        INIT_KEY,
+        validator_info,
+    )
+    return fn
+
+
+def post_init_validation(fn):
     setattr(
         fn,
         VALIDATOR_KEY,
@@ -53,7 +69,15 @@ def post_init(fn):
 
 
 def is_validator(fn) -> ValidatorInfo | None:
-    has_key = getattr(fn, VALIDATOR_KEY, None)
-    if not has_key and isinstance(fn, classmethod):
-        has_key = getattr(fn.__func__, VALIDATOR_KEY, None)
-    return has_key
+    return _get_validator_key(fn, VALIDATOR_KEY)
+
+
+def is_initializer(fn) -> ValidatorInfo | None:
+    return _get_validator_key(fn, INIT_KEY)
+
+
+def _get_validator_key(fn, key: str) -> ValidatorInfo | None:
+    value = getattr(fn, key, None)
+    if value is None and isinstance(fn, classmethod):
+        return getattr(fn.__func__, key, None)
+    return value

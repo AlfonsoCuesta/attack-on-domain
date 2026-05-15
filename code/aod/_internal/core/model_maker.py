@@ -3,15 +3,13 @@ from typing import Annotated, Any, Type, get_args, get_origin
 from pydantic import BaseModel, ConfigDict
 from pydantic.fields import ModelPrivateAttr
 
-from .validators import is_validator
+from .validators import is_initializer, is_validator
 
 VALIDATION_MODEL_KEY = "__validation_model__"
 RAW_MODEL_KEY = "__raw_model__"
 
 
-def get_parent_models(
-    bases: tuple[Type[Any], ...], key: str
-) -> tuple[Type[Any], ...]:
+def get_parent_models(bases: tuple[Type[Any], ...], key: str) -> tuple[Type[Any], ...]:
     parent_models = tuple(getattr(b, key) for b in bases if hasattr(b, key))
     if not parent_models:
         parent_models = (BaseModel,)
@@ -56,15 +54,16 @@ def make_raw_model(
     name: str,
     bases: tuple[Type[Any], ...],
 ) -> Type[BaseModel]:
-    annotations = {
-        k: strip_validators(v) for k, v in cls.__annotations__.items()
-    }
+    annotations = {k: strip_validators(v) for k, v in cls.__annotations__.items()}
     ns: dict[str, Any] = {
         "model_config": get_model_config(cls),
         "__module__": cls.__module__,
         "__qualname__": f"{cls.__qualname__}.{name}RawModel",
         "__annotations__": annotations,
     }
+    for k, v in cls.__dict__.copy().items():
+        if initializer_info := is_initializer(v):
+            ns[k] = initializer_info(v)
 
     for base in reversed(cls.__mro__):
         for k, v in getattr(base, "__dict__", {}).items():

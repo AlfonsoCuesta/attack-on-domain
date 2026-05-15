@@ -22,7 +22,7 @@ class PydanticFacadeMeta(type):
         setattr(cls, VALIDATION_MODEL_KEY, validation_model)
         setattr(cls, RAW_MODEL_KEY, raw_model)
 
-        cls.__init__.__signature__ = inspect.signature(validation_model)
+        setattr(cls.__init__, "__signature__", inspect.signature(validation_model))
 
         return cls
 
