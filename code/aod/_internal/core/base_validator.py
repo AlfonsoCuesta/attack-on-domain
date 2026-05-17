@@ -21,6 +21,7 @@ class PydanticFacadeMeta(type):
 
         setattr(cls, VALIDATION_MODEL_KEY, validation_model)
         setattr(cls, RAW_MODEL_KEY, raw_model)
+        setattr(cls, "__model_fields__", validation_model.model_fields)
 
         setattr(cls.__init__, "__signature__", inspect.signature(validation_model))
 
@@ -31,6 +32,7 @@ class PydanticFacadeMeta(type):
 class BaseValidator(metaclass=PydanticFacadeMeta):
     __validation_model__: ClassVar[Type[BaseModel]]
     __raw_model__: ClassVar[Type[BaseModel]]
+    __model_fields__: ClassVar[dict[str, Any]]
 
     def __init__(self, **kwargs: Any) -> None:
         model = self.__class__.__validation_model__

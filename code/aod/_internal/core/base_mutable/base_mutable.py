@@ -1,53 +1,19 @@
 import inspect
 from contextlib import contextmanager
-from enum import StrEnum
 from functools import wraps
 from typing import Any, Callable, Generator, Literal, Type, cast
 
-from .base_validator import BaseValidator, PydanticFacadeMeta
-from .domain_exception import MutationForbiddenError
-
-
-class MutatingState(StrEnum):
-    BLOCK = "block"
-    PASS = "pass"
-    SUPER = "super"
-
-
-class MutatingContext:
-    def __init__(self):
-        self._deep_states = {
-            MutatingState.PASS: 0,
-            MutatingState.SUPER: 0,
-        }
-
-    def enter(
-        self, state: Literal[MutatingState.PASS, MutatingState.SUPER]
-    ) -> None:
-        self._deep_states[state] += 1
-
-    def exit(
-        self, state: Literal[MutatingState.PASS, MutatingState.SUPER]
-    ) -> None:
-        self._deep_states[state] -= 1 if self._deep_states[state] > 0 else 0
-
-    @property
-    def status(
-        self,
-    ) -> Literal[MutatingState.BLOCK, MutatingState.PASS, MutatingState.SUPER]:
-        return (
-            MutatingState.SUPER
-            if self._deep_states[MutatingState.SUPER] > 0
-            else MutatingState.PASS
-            if self._deep_states[MutatingState.PASS] > 0
-            else MutatingState.BLOCK
-        )
+from ..base_validator import BaseValidator, PydanticFacadeMeta
+from ..domain_exception import MutationForbiddenError
+from .immutable_object import make_immutable
+from .mutating_context import MutatingContext, MutatingState
 
 
 class MutableBaseMeta(PydanticFacadeMeta):
     NOT_MUTABLE_CALLABLES = {
         "can_mutate",
         "_get_mutating_context",
+        "_mutating_status",
     }
 
     def __new__(mcls, name, bases, namespace):
@@ -57,7 +23,7 @@ class MutableBaseMeta(PydanticFacadeMeta):
         def mutate(fn: Callable) -> Callable:
             @wraps(fn)
             def wrapper(self: BaseMutable, *args: Any, **kwargs: Any) -> Any:
-                super_mutate = fn.__name__.startswith("_")
+                super_mutate = getattr(fn, "__name__").startswith("_")
                 with self.__mutate__(super_mutate=super_mutate):
                     return fn(self, *args, **kwargs)
 
@@ -93,10 +59,12 @@ class BaseMutable(BaseValidator, metaclass=MutableBaseMeta):
             )
         return cast(MutatingContext, self.__mutating_context__)
 
+    @property
+    def _mutation_status(self) -> MutatingState:
+        return self._get_mutating_context().status
+
     @contextmanager
-    def __mutate__(
-        self, super_mutate: bool = False
-    ) -> Generator[None, None, None]:
+    def __mutate__(self, super_mutate: bool = False) -> Generator[None, None, None]:
         mutating_context = self._get_mutating_context()
         mutation: Literal[MutatingState.PASS, MutatingState.SUPER] = (
             MutatingState.SUPER if super_mutate else MutatingState.PASS
@@ -106,12 +74,24 @@ class BaseMutable(BaseValidator, metaclass=MutableBaseMeta):
         mutating_context.exit(mutation)
 
     def __setattr__(self, name: str, value: Any) -> None:
-        mutating_status = self._get_mutating_context().status
+        mutating_status = object.__getattribute__(self, "_mutation_status")
         super_mutate = mutating_status == MutatingState.SUPER
-        pass_mutate = (
-            mutating_status == MutatingState.PASS and self.can_mutate()
-        )
-        can_mutate = super_mutate or pass_mutate
-        if not can_mutate:
+        pass_mutate = mutating_status == MutatingState.PASS and self.can_mutate()
+        if not (super_mutate or pass_mutate):
             raise MutationForbiddenError()
         super().__setattr__(name, value)
+
+    def __getattribute__(self, name):
+        value = object.__getattribute__(self, name)
+        if name.startswith("_"):
+            return value
+        if name not in object.__getattribute__(self, "__model_fields__"):
+            return value
+
+        mutating_status = object.__getattribute__(self, "_mutation_status")
+        can_mutate = object.__getattribute__(self, "can_mutate")
+        super_mutate = mutating_status == MutatingState.SUPER
+        pass_mutate = mutating_status == MutatingState.PASS and can_mutate()
+        if super_mutate or pass_mutate:
+            return value
+        return make_immutable(value)

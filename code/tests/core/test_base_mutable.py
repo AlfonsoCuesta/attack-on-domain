@@ -26,9 +26,7 @@ def test_mutating_context_state_transitions() -> None:
     assert ctx.status == MutatingState.BLOCK
 
 
-def test_base_mutable_uses_same_mutating_context_across_inheritance_levels() -> (
-    None
-):
+def test_base_mutable_uses_same_mutating_context_across_inheritance_levels() -> None:
     class RecordingContext(MutatingContext):
         def __init__(self) -> None:
             super().__init__()
@@ -40,9 +38,7 @@ def test_base_mutable_uses_same_mutating_context_across_inheritance_levels() -> 
             self.events.append(("enter", state))
             super().enter(state)
 
-        def exit(
-            self, state: Literal[MutatingState.PASS, MutatingState.SUPER]
-        ) -> None:
+        def exit(self, state: Literal[MutatingState.PASS, MutatingState.SUPER]) -> None:
             self.events.append(("exit", state))
             super().exit(state)
 
@@ -84,9 +80,7 @@ def test_base_mutable_blocks_direct_attribute_mutation() -> None:
 
     user = User(age=1)
 
-    with pytest.raises(
-        MutationForbiddenError, match="Cannot mutate this object"
-    ):
+    with pytest.raises(MutationForbiddenError, match="Cannot mutate this object"):
         user.age = 3
 
 
@@ -115,9 +109,7 @@ def test_base_mutable_respects_can_mutate_for_public_methods() -> None:
 
     user = User(age=1)
 
-    with pytest.raises(
-        MutationForbiddenError, match="Cannot mutate this object"
-    ):
+    with pytest.raises(MutationForbiddenError, match="Cannot mutate this object"):
         user.set_age(10)
 
 
@@ -151,3 +143,184 @@ def test_base_mutable_nested_method_calls_keep_context() -> None:
     user.set_age(7)
 
     assert user.age == 7
+
+
+# ---------------------------------------------------------------------------
+# MutableObjectProxy — complex fields
+# ---------------------------------------------------------------------------
+
+
+def test_complex_field_list_mutation_blocked_when_cannot_mutate() -> None:
+    class Bag(BaseMutable):
+        items: list = []
+
+        def can_mutate(self) -> bool:
+            return False
+
+        def add(self, item) -> None:
+            self.items.append(item)
+
+    bag = Bag()
+
+    with pytest.raises(MutationForbiddenError, match="Cannot modify an immutable list"):
+        bag.add(1)
+
+
+def test_complex_field_list_mutation_allowed_when_can_mutate() -> None:
+    class Bag(BaseMutable):
+        items: list = []
+
+        def add(self, item) -> None:
+            self.items.append(item)
+
+    bag = Bag()
+    bag.add(1)
+
+    assert bag.items == [1]
+
+
+def test_complex_field_list_read_allowed_when_cannot_mutate() -> None:
+    """Non-mutating calls on a complex field must not raise even if can_mutate is False."""
+
+    class Bag(BaseMutable):
+        items: list = []
+
+        def can_mutate(self) -> bool:
+            return False
+
+        def count(self, item) -> int:
+            return self.items.count(item)
+
+    bag = Bag()
+
+    assert bag.count(1) == 0
+
+
+def test_complex_field_dict_mutation_blocked_when_cannot_mutate() -> None:
+    class Store(BaseMutable):
+        data: dict = {}
+
+        def can_mutate(self) -> bool:
+            return False
+
+        def put(self, key, value) -> None:
+            self.data[key] = value
+
+    store = Store()
+
+    with pytest.raises(MutationForbiddenError, match="Cannot modify an immutable dict"):
+        store.put("x", 1)
+
+
+def test_complex_field_dict_mutation_allowed_when_can_mutate() -> None:
+    class Store(BaseMutable):
+        data: dict = {}
+
+        def put(self, key, value) -> None:
+            self.data[key] = value
+
+    store = Store()
+    store.put("x", 1)
+
+    assert store.data == {"x": 1}
+
+
+def test_complex_field_set_mutation_blocked_when_cannot_mutate() -> None:
+    class Tags(BaseMutable):
+        values: set = set()
+
+        def can_mutate(self) -> bool:
+            return False
+
+        def add(self, tag) -> None:
+            self.values.add(tag)
+
+    tags = Tags()
+
+    with pytest.raises(MutationForbiddenError, match="Cannot modify an immutable set"):
+        tags.add("foo")
+
+
+def test_complex_field_mutation_blocked_from_outside_when_cannot_mutate() -> None:
+    """Mutation attempted directly from outside the class must also be blocked."""
+
+    class Bag(BaseMutable):
+        items: list = []
+
+        def can_mutate(self) -> bool:
+            return False
+
+    bag = Bag()
+
+    with pytest.raises(MutationForbiddenError, match="Cannot modify an immutable list"):
+        bag.items.append(1)
+
+
+def test_complex_field_custom_object_mutation_blocked_when_cannot_mutate() -> None:
+    """A custom object whose mutating method modifies internal state is also protected."""
+
+    class Counter:
+        def __init__(self):
+            self.value = 0
+
+        def increment(self):
+            self.value += 1
+
+        def get(self):
+            return self.value
+
+        def __eq__(self, other):
+            return isinstance(other, Counter) and self.value == other.value
+
+        def __copy__(self):
+            c = Counter()
+            c.value = self.value
+            return c
+
+    class Widget(BaseMutable):
+        counter: Counter
+
+        def can_mutate(self) -> bool:
+            return False
+
+        def tick(self) -> None:
+            self.counter.increment()
+
+    widget = Widget(counter=Counter())
+
+    with pytest.raises(
+        MutationForbiddenError, match="Cannot modify an immutable object"
+    ):
+        widget.tick()
+
+
+def test_complex_field_custom_object_read_allowed_when_cannot_mutate() -> None:
+    """A non-mutating method on a custom object must not raise."""
+
+    class Counter:
+        def __init__(self):
+            self.value = 0
+
+        def get(self):
+            return self.value
+
+        def __eq__(self, other):
+            return isinstance(other, Counter) and self.value == other.value
+
+        def __copy__(self):
+            c = Counter()
+            c.value = self.value
+            return c
+
+    class Widget(BaseMutable):
+        counter: Counter
+
+        def can_mutate(self) -> bool:
+            return False
+
+        def read(self) -> int:
+            return self.counter.get()
+
+    widget = Widget(counter=Counter())
+
+    assert widget.read() == 0
