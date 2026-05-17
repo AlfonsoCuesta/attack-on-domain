@@ -1,7 +1,9 @@
 from types import BuiltinFunctionType, BuiltinMethodType, FunctionType, MethodType
 
-from .builtin import ImmutableDict, ImmutableList, ImmutableSet
-from .custom import _make_immutable_object
+from .immutable_custom import _make_immutable_object
+from .immutable_dict import ImmutableDict
+from .immutable_list import ImmutableList
+from .immutable_set import ImmutableSet
 
 _PRIMITIVE_TYPES = (int, float, str, bool, bytes, type(None))
 

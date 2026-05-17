@@ -5,17 +5,18 @@ from typing import Any, Callable, Generator, Literal, Type, cast
 
 from ..base_validator import BaseValidator, PydanticFacadeMeta
 from ..domain_exception import MutationForbiddenError
-from .immutable_object import make_immutable
+from .make_immutable import make_immutable
 from .mutating_context import MutatingContext, MutatingState
+
+NOT_MUTABLE_CALLABLES = {
+    "_can_mutate",
+    "_is_mutation_allowed",
+    "_get_mutating_context",
+    "_mutating_status",
+}
 
 
 class MutableBaseMeta(PydanticFacadeMeta):
-    NOT_MUTABLE_CALLABLES = {
-        "can_mutate",
-        "_get_mutating_context",
-        "_mutating_status",
-    }
-
     def __new__(mcls, name, bases, namespace):
 
         cls = super().__new__(mcls, name, bases, namespace)
@@ -35,7 +36,7 @@ class MutableBaseMeta(PydanticFacadeMeta):
             for attr_name, attr_value in base.__dict__.items():
                 if attr_name.startswith("__") and attr_name.endswith("__"):
                     continue
-                if attr_name in cls.NOT_MUTABLE_CALLABLES or getattr(
+                if attr_name in NOT_MUTABLE_CALLABLES or getattr(
                     attr_value, "__mutable__", False
                 ):
                     continue
@@ -49,7 +50,7 @@ class BaseMutable(BaseValidator, metaclass=MutableBaseMeta):
     __mutating_context__: MutatingContext | None = None
     __mutating_context_class__: Type[MutatingContext] = MutatingContext
 
-    def can_mutate(self) -> bool:
+    def _can_mutate(self) -> bool:
         return True
 
     def _get_mutating_context(self) -> MutatingContext:
@@ -73,11 +74,19 @@ class BaseMutable(BaseValidator, metaclass=MutableBaseMeta):
         yield
         mutating_context.exit(mutation)
 
-    def __setattr__(self, name: str, value: Any) -> None:
+    @property
+    def _is_mutation_allowed(self) -> bool:
         mutating_status = object.__getattribute__(self, "_mutation_status")
-        super_mutate = mutating_status == MutatingState.SUPER
-        pass_mutate = mutating_status == MutatingState.PASS and self.can_mutate()
-        if not (super_mutate or pass_mutate):
+        if mutating_status == MutatingState.SUPER:
+            return True
+        if mutating_status == MutatingState.BLOCK:
+            return False
+        can_mutate = object.__getattribute__(self, "_can_mutate")
+        return can_mutate()
+
+    def __setattr__(self, name: str, value: Any) -> None:
+        is_mutation_allowed = object.__getattribute__(self, "_is_mutation_allowed")
+        if not is_mutation_allowed:
             raise MutationForbiddenError()
         super().__setattr__(name, value)
 
@@ -88,10 +97,7 @@ class BaseMutable(BaseValidator, metaclass=MutableBaseMeta):
         if name not in object.__getattribute__(self, "__model_fields__"):
             return value
 
-        mutating_status = object.__getattribute__(self, "_mutation_status")
-        can_mutate = object.__getattribute__(self, "can_mutate")
-        super_mutate = mutating_status == MutatingState.SUPER
-        pass_mutate = mutating_status == MutatingState.PASS and can_mutate()
-        if super_mutate or pass_mutate:
+        is_mutation_allowed = object.__getattribute__(self, "_is_mutation_allowed")
+        if is_mutation_allowed:
             return value
         return make_immutable(value)

@@ -7,14 +7,16 @@ _immutable_cache: dict[type, type] = {}
 
 def _make_immutable_class(cls: type, factory) -> type:
     def _raise_set(self, name, value):
-        raise MutationForbiddenError(f"Cannot set '{name}' on an immutable object")
+        raise MutationForbiddenError("Cannot modify an immutable object")
 
     def _raise_del(self, name):
-        raise MutationForbiddenError(f"Cannot delete '{name}' on an immutable object")
+        raise MutationForbiddenError("Cannot modify an immutable object")
 
     def _getattribute(self, name):
         value = super(immutable_cls, self).__getattribute__(name)
-        return factory(value)  # factory inyectado, sin import circular
+        if name.startswith("__"):
+            return value
+        return factory(value)
 
     immutable_cls = type(
         f"Immutable{cls.__name__}",
@@ -30,7 +32,9 @@ def _make_immutable_class(cls: type, factory) -> type:
 
 def _copy_state(src: Any, dst: Any) -> None:
     if hasattr(src, "__dict__"):
-        dst.__dict__.update(src.__dict__)
+        src_dict = object.__getattribute__(src, "__dict__")
+        dst_dict = object.__getattribute__(dst, "__dict__")
+        dst_dict.update(src_dict)
 
     for klass in type(src).__mro__:
         for slot in getattr(klass, "__slots__", ()):

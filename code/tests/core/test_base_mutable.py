@@ -101,7 +101,7 @@ def test_base_mutable_respects_can_mutate_for_public_methods() -> None:
     class User(BaseMutable):
         age: int
 
-        def can_mutate(self) -> bool:
+        def _can_mutate(self) -> bool:
             return False
 
         def set_age(self, value: int) -> None:
@@ -117,7 +117,7 @@ def test_base_mutable_allows_super_mutate_in_private_methods() -> None:
     class User(BaseMutable):
         age: int
 
-        def can_mutate(self) -> bool:
+        def _can_mutate(self) -> bool:
             return False
 
         def _force_set_age(self, value: int) -> None:
@@ -154,7 +154,7 @@ def test_complex_field_list_mutation_blocked_when_cannot_mutate() -> None:
     class Bag(BaseMutable):
         items: list = []
 
-        def can_mutate(self) -> bool:
+        def _can_mutate(self) -> bool:
             return False
 
         def add(self, item) -> None:
@@ -185,7 +185,7 @@ def test_complex_field_list_read_allowed_when_cannot_mutate() -> None:
     class Bag(BaseMutable):
         items: list = []
 
-        def can_mutate(self) -> bool:
+        def _can_mutate(self) -> bool:
             return False
 
         def count(self, item) -> int:
@@ -200,7 +200,7 @@ def test_complex_field_dict_mutation_blocked_when_cannot_mutate() -> None:
     class Store(BaseMutable):
         data: dict = {}
 
-        def can_mutate(self) -> bool:
+        def _can_mutate(self) -> bool:
             return False
 
         def put(self, key, value) -> None:
@@ -229,7 +229,7 @@ def test_complex_field_set_mutation_blocked_when_cannot_mutate() -> None:
     class Tags(BaseMutable):
         values: set = set()
 
-        def can_mutate(self) -> bool:
+        def _can_mutate(self) -> bool:
             return False
 
         def add(self, tag) -> None:
@@ -247,7 +247,7 @@ def test_complex_field_mutation_blocked_from_outside_when_cannot_mutate() -> Non
     class Bag(BaseMutable):
         items: list = []
 
-        def can_mutate(self) -> bool:
+        def _can_mutate(self) -> bool:
             return False
 
     bag = Bag()
@@ -280,7 +280,7 @@ def test_complex_field_custom_object_mutation_blocked_when_cannot_mutate() -> No
     class Widget(BaseMutable):
         counter: Counter
 
-        def can_mutate(self) -> bool:
+        def _can_mutate(self) -> bool:
             return False
 
         def tick(self) -> None:
@@ -315,7 +315,7 @@ def test_complex_field_custom_object_read_allowed_when_cannot_mutate() -> None:
     class Widget(BaseMutable):
         counter: Counter
 
-        def can_mutate(self) -> bool:
+        def _can_mutate(self) -> bool:
             return False
 
         def read(self) -> int:
@@ -324,3 +324,93 @@ def test_complex_field_custom_object_read_allowed_when_cannot_mutate() -> None:
     widget = Widget(counter=Counter())
 
     assert widget.read() == 0
+
+
+# ---------------------------------------------------------------------------
+# Nested BaseMutable objects
+# ---------------------------------------------------------------------------
+
+
+def test_nested_base_mutable_allows_mutation_when_both_can_mutate() -> None:
+    class Child(BaseMutable):
+        age: int
+
+        def set_age(self, value: int) -> None:
+            self.age = value
+
+    class Parent(BaseMutable):
+        child: Child
+
+        def set_child_age(self, value: int) -> None:
+            self.child.set_age(value)
+
+    parent = Parent(child=Child(age=1))
+    parent.set_child_age(5)
+
+    assert parent.child.age == 5
+
+
+def test_nested_base_mutable_blocks_when_parent_cannot_mutate() -> None:
+    class Child(BaseMutable):
+        age: int
+
+        def set_age(self, value: int) -> None:
+            self.age = value
+
+    class Parent(BaseMutable):
+        child: Child
+
+        def _can_mutate(self) -> bool:
+            return False
+
+        def set_child_age(self, value: int) -> None:
+            self.child.set_age(value)
+
+    parent = Parent(child=Child(age=1))
+
+    with pytest.raises(
+        MutationForbiddenError, match="Cannot modify an immutable object"
+    ):
+        parent.set_child_age(9)
+
+
+def test_nested_base_mutable_blocks_when_only_child_cannot_mutate() -> None:
+    class Child(BaseMutable):
+        age: int
+
+        def _can_mutate(self) -> bool:
+            return False
+
+        def set_age(self, value: int) -> None:
+            self.age = value
+
+    class Parent(BaseMutable):
+        child: Child
+
+        def set_child_age(self, value: int) -> None:
+            self.child.set_age(value)
+
+    parent = Parent(child=Child(age=1))
+
+    with pytest.raises(MutationForbiddenError, match="Cannot mutate this object"):
+        parent.set_child_age(9)
+
+
+def test_nested_base_mutable_direct_external_mutation_blocked_when_parent_cannot_mutate() -> (
+    None
+):
+    class Child(BaseMutable):
+        age: int
+
+    class Parent(BaseMutable):
+        child: Child
+
+        def _can_mutate(self) -> bool:
+            return False
+
+    parent = Parent(child=Child(age=1))
+
+    with pytest.raises(
+        MutationForbiddenError, match="Cannot modify an immutable object"
+    ):
+        parent.child.age = 8
