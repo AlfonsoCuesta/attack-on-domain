@@ -2,6 +2,8 @@ from ...domain_exception import MutationForbiddenError
 
 
 class ImmutableDict(dict):
+    __immutable_class__ = dict
+
     @classmethod
     def from_dict(cls, data: dict) -> "ImmutableDict":
         obj = super().__new__(cls)

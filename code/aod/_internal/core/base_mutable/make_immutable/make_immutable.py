@@ -17,6 +17,8 @@ def make_immutable(value):
         return value
     if isinstance(value, ImmutableList | ImmutableDict | ImmutableSet | frozenset):
         return value
+    if getattr(value, "__immutable_class__", None):
+        return value
     if isinstance(value, list):
         return ImmutableList.from_list(value)
     if isinstance(value, dict):

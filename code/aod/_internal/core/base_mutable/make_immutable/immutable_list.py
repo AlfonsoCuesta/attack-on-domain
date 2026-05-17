@@ -2,6 +2,8 @@ from ...domain_exception import MutationForbiddenError
 
 
 class ImmutableList(list):
+    __immutable_class__ = list
+
     @classmethod
     def from_list(cls, data: list) -> "ImmutableList":
         obj = super().__new__(cls)

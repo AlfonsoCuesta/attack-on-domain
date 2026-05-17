@@ -2,6 +2,8 @@ from ...domain_exception import MutationForbiddenError
 
 
 class ImmutableSet(set):
+    __immutable_class__ = set
+
     @classmethod
     def from_set(cls, data: set) -> "ImmutableSet":
         obj = super().__new__(cls)
