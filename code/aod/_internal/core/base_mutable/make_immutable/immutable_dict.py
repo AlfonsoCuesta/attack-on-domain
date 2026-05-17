@@ -1,4 +1,4 @@
-from ...domain_exception import MutationForbiddenError
+from ...domain_exception import MutationForbiddenException
 
 
 class ImmutableDict(dict):
@@ -11,7 +11,7 @@ class ImmutableDict(dict):
         return obj
 
     def _raise(self, *args, **kwargs):
-        raise MutationForbiddenError("Cannot modify an immutable dict")
+        raise MutationForbiddenException("Cannot modify an immutable dict")
 
     __setitem__ = __delitem__ = update = _raise
     pop = popitem = clear = setdefault = _raise

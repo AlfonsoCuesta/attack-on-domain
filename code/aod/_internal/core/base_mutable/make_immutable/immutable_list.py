@@ -1,4 +1,4 @@
-from ...domain_exception import MutationForbiddenError
+from ...domain_exception import MutationForbiddenException
 
 
 class ImmutableList(list):
@@ -11,7 +11,7 @@ class ImmutableList(list):
         return obj
 
     def _raise(self, *args, **kwargs):
-        raise MutationForbiddenError("Cannot modify an immutable list")
+        raise MutationForbiddenException("Cannot modify an immutable list")
 
     append = extend = insert = remove = _raise
     pop = clear = sort = reverse = _raise

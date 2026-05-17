@@ -1,11 +1,11 @@
 from datetime import datetime, timezone
 from typing import List, Protocol, runtime_checkable
 
-from .base_inmutable import BaseInmutable
+from .base_immutable import BaseImmutable
 from .fields.fields import Field
 
 
-class Event(BaseInmutable):
+class Event(BaseImmutable):
     emmited_at: datetime = Field(
         default_factory=lambda: datetime.now(timezone.utc), init=False
     )

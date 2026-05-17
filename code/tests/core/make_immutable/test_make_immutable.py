@@ -1,5 +1,8 @@
 from __future__ import annotations
 
+import datetime
+import decimal
+import uuid
 from copy import copy
 
 import pytest
@@ -10,7 +13,7 @@ from aod._internal.core.base_mutable.make_immutable.immutable_dict import Immuta
 from aod._internal.core.base_mutable.make_immutable.immutable_list import ImmutableList
 from aod._internal.core.base_mutable.make_immutable.immutable_set import ImmutableSet
 from aod._internal.core.base_mutable.make_immutable.make_immutable import make_immutable
-from aod._internal.core.domain_exception import MutationForbiddenError
+from aod._internal.core.domain_exception import MutationForbiddenException
 
 
 @pytest.mark.parametrize(
@@ -76,7 +79,9 @@ def test_make_immutable_converts_list_and_blocks_mutations() -> None:
     assert isinstance(value, ImmutableList)
     assert value == [1, 2, 3]
 
-    with pytest.raises(MutationForbiddenError, match="Cannot modify an immutable list"):
+    with pytest.raises(
+        MutationForbiddenException, match="Cannot modify an immutable list"
+    ):
         value.append(4)
 
 
@@ -86,7 +91,9 @@ def test_make_immutable_converts_dict_and_blocks_mutations() -> None:
     assert isinstance(value, ImmutableDict)
     assert value == {"a": 1}
 
-    with pytest.raises(MutationForbiddenError, match="Cannot modify an immutable dict"):
+    with pytest.raises(
+        MutationForbiddenException, match="Cannot modify an immutable dict"
+    ):
         value["b"] = 2
 
 
@@ -96,7 +103,9 @@ def test_make_immutable_converts_set_and_blocks_mutations() -> None:
     assert isinstance(value, ImmutableSet)
     assert value == {1, 2, 3}
 
-    with pytest.raises(MutationForbiddenError, match="Cannot modify an immutable set"):
+    with pytest.raises(
+        MutationForbiddenException, match="Cannot modify an immutable set"
+    ):
         value.add(4)
 
 
@@ -160,7 +169,7 @@ def test_make_immutable_custom_object_blocks_setattr() -> None:
     immutable = make_immutable(User())
 
     with pytest.raises(
-        MutationForbiddenError,
+        MutationForbiddenException,
         match="Cannot modify an immutable object User",
     ):
         immutable.name = "Otro"
@@ -170,7 +179,7 @@ def test_make_immutable_custom_object_blocks_delattr() -> None:
     immutable = make_immutable(User())
 
     with pytest.raises(
-        MutationForbiddenError,
+        MutationForbiddenException,
         match="Cannot modify an immutable object User",
     ):
         del immutable.name
@@ -183,7 +192,9 @@ def test_make_immutable_custom_object_wraps_nested_containers_on_read() -> None:
     assert isinstance(immutable.meta, ImmutableDict)
     assert isinstance(immutable.groups, ImmutableSet)
 
-    with pytest.raises(MutationForbiddenError, match="Cannot modify an immutable list"):
+    with pytest.raises(
+        MutationForbiddenException, match="Cannot modify an immutable list"
+    ):
         immutable.tags.append("x")
 
 
@@ -194,7 +205,7 @@ def test_make_immutable_custom_object_wraps_nested_custom_objects_on_read() -> N
     assert isinstance(address, Address)
 
     with pytest.raises(
-        MutationForbiddenError,
+        MutationForbiddenException,
         match="Cannot modify an immutable object",
     ):
         address.city = "Barcelona"
@@ -210,7 +221,7 @@ def test_make_immutable_custom_object_blocks_mutating_method_body() -> None:
     immutable = make_immutable(User())
 
     with pytest.raises(
-        MutationForbiddenError,
+        MutationForbiddenException,
         match="Cannot modify an immutable object",
     ):
         immutable.increase_age()
@@ -263,7 +274,9 @@ def test_make_immutable_custom_object_dunder_getattribute_still_works() -> None:
 def test_copy_of_immutable_container_raises_due_to_mutation_protection() -> None:
     immutable_list = ImmutableList.from_list([1, 2])
 
-    with pytest.raises(MutationForbiddenError, match="Cannot modify an immutable list"):
+    with pytest.raises(
+        MutationForbiddenException, match="Cannot modify an immutable list"
+    ):
         copy(immutable_list)
 
 
@@ -275,7 +288,7 @@ def test_make_immutable_does_not_modify_original_custom_instance() -> None:
     assert immutable.name == "Alf"
 
     with pytest.raises(
-        MutationForbiddenError,
+        MutationForbiddenException,
         match="Cannot modify an immutable object",
     ):
         immutable.name = "cambio"
@@ -292,7 +305,7 @@ def test_make_immutable_nested_read_returns_immutable_each_time() -> None:
     assert type(first) is type(second)
     assert first is not second
     with pytest.raises(
-        MutationForbiddenError,
+        MutationForbiddenException,
         match="Cannot modify an immutable object",
     ):
         first.city = "X"
@@ -303,9 +316,29 @@ def test_make_immutable_keeps_boolean_identity() -> None:
     assert make_immutable(False) is False
 
 
+def test_make_immutable_keeps_datetime_objects_unchanged() -> None:
+    value = datetime.datetime(
+        2026, 5, 17, 18, 44, 30, 547255, tzinfo=datetime.timezone.utc
+    )
+
+    assert make_immutable(value) is value
+
+
 def test_make_immutable_custom_object_nested_bound_method_is_callable() -> None:
     immutable = make_immutable(User())
     append = immutable.tags.count
 
     assert callable(append)
     assert append("dev") == 1
+
+
+def test_make_immutable_keeps_decimal_unchanged() -> None:
+    value = decimal.Decimal("123.45")
+
+    assert make_immutable(value) is value
+
+
+def test_make_immutable_keeps_uuid_unchanged() -> None:
+    value = uuid.UUID("12345678-1234-5678-1234-567812345678")
+
+    assert make_immutable(value) is value

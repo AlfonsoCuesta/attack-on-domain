@@ -1,18 +1,18 @@
 from typing import Any
 
-from ...domain_exception import MutationForbiddenError
+from ...domain_exception import MutationForbiddenException
 
 _immutable_cache: dict[type, type] = {}
 
 
 def _make_immutable_class(cls: type, factory) -> type:
     def _raise_set(self, name, value):
-        raise MutationForbiddenError(
+        raise MutationForbiddenException(
             f"Cannot modify an immutable object {self.__immutable_class__.__name__}"
         )
 
     def _raise_del(self, name):
-        raise MutationForbiddenError(
+        raise MutationForbiddenException(
             f"Cannot modify an immutable object {self.__immutable_class__.__name__}"
         )
 
@@ -57,6 +57,9 @@ def _make_immutable_object(obj, factory) -> object:
         _immutable_cache[cls] = _make_immutable_class(cls, factory)
 
     immutable_cls = _immutable_cache[cls]
-    new_obj = object.__new__(immutable_cls)
+    try:
+        new_obj = object.__new__(immutable_cls)
+    except TypeError:
+        return obj
     _copy_state(obj, new_obj)
     return new_obj

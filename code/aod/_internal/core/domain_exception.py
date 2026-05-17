@@ -4,7 +4,7 @@ class DomainException(Exception):
     pass
 
 
-class MutationForbiddenError(DomainException):
+class MutationForbiddenException(DomainException):
     """Raised when a mutable or immutable object is updated outside allowed context."""
 
     def __init__(self, message: str = "Cannot mutate this object") -> None:

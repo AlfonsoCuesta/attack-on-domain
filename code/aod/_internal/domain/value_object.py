@@ -2,12 +2,12 @@ from __future__ import annotations
 
 from typing import List
 
-from aod._internal.core.base_inmutable import BaseInmutable
+from aod._internal.core.base_immutable import BaseImmutable
 from aod._internal.core.event_emitter import Event
 from aod._internal.core.fields import PrivateField
 
 
-class ValueObject(BaseInmutable):
+class ValueObject(BaseImmutable):
     """Domain Value Object base (immutable) with domain events."""
 
     _events: List[Event] = PrivateField(default_factory=list)

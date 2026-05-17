@@ -6,7 +6,7 @@ from aod._internal.core.base_mutable import (
     MutatingContext,
     MutatingState,
 )
-from aod._internal.core.domain_exception import MutationForbiddenError
+from aod._internal.core.domain_exception import MutationForbiddenException
 
 
 def test_mutating_context_state_transitions() -> None:
@@ -80,7 +80,7 @@ def test_base_mutable_blocks_direct_attribute_mutation() -> None:
 
     user = User(age=1)
 
-    with pytest.raises(MutationForbiddenError, match="Cannot mutate this object"):
+    with pytest.raises(MutationForbiddenException, match="Cannot mutate this object"):
         user.age = 3
 
 
@@ -109,7 +109,7 @@ def test_base_mutable_respects_can_mutate_for_public_methods() -> None:
 
     user = User(age=1)
 
-    with pytest.raises(MutationForbiddenError, match="Cannot mutate this object"):
+    with pytest.raises(MutationForbiddenException, match="Cannot mutate this object"):
         user.set_age(10)
 
 
@@ -162,7 +162,9 @@ def test_complex_field_list_mutation_blocked_when_cannot_mutate() -> None:
 
     bag = Bag()
 
-    with pytest.raises(MutationForbiddenError, match="Cannot modify an immutable list"):
+    with pytest.raises(
+        MutationForbiddenException, match="Cannot modify an immutable list"
+    ):
         bag.add(1)
 
 
@@ -208,7 +210,9 @@ def test_complex_field_dict_mutation_blocked_when_cannot_mutate() -> None:
 
     store = Store()
 
-    with pytest.raises(MutationForbiddenError, match="Cannot modify an immutable dict"):
+    with pytest.raises(
+        MutationForbiddenException, match="Cannot modify an immutable dict"
+    ):
         store.put("x", 1)
 
 
@@ -237,7 +241,9 @@ def test_complex_field_set_mutation_blocked_when_cannot_mutate() -> None:
 
     tags = Tags()
 
-    with pytest.raises(MutationForbiddenError, match="Cannot modify an immutable set"):
+    with pytest.raises(
+        MutationForbiddenException, match="Cannot modify an immutable set"
+    ):
         tags.add("foo")
 
 
@@ -252,7 +258,9 @@ def test_complex_field_mutation_blocked_from_outside_when_cannot_mutate() -> Non
 
     bag = Bag()
 
-    with pytest.raises(MutationForbiddenError, match="Cannot modify an immutable list"):
+    with pytest.raises(
+        MutationForbiddenException, match="Cannot modify an immutable list"
+    ):
         bag.items.append(1)
 
 
@@ -289,7 +297,7 @@ def test_complex_field_custom_object_mutation_blocked_when_cannot_mutate() -> No
     widget = Widget(counter=Counter())
 
     with pytest.raises(
-        MutationForbiddenError, match="Cannot modify an immutable object"
+        MutationForbiddenException, match="Cannot modify an immutable object"
     ):
         widget.tick()
 
@@ -369,7 +377,7 @@ def test_nested_base_mutable_blocks_when_parent_cannot_mutate() -> None:
     parent = Parent(child=Child(age=1))
 
     with pytest.raises(
-        MutationForbiddenError, match="Cannot modify an immutable object"
+        MutationForbiddenException, match="Cannot modify an immutable object"
     ):
         parent.set_child_age(9)
 
@@ -392,7 +400,7 @@ def test_nested_base_mutable_blocks_when_only_child_cannot_mutate() -> None:
 
     parent = Parent(child=Child(age=1))
 
-    with pytest.raises(MutationForbiddenError, match="Cannot mutate this object"):
+    with pytest.raises(MutationForbiddenException, match="Cannot mutate this object"):
         parent.set_child_age(9)
 
 
@@ -411,6 +419,6 @@ def test_nested_base_mutable_direct_external_mutation_blocked_when_parent_cannot
     parent = Parent(child=Child(age=1))
 
     with pytest.raises(
-        MutationForbiddenError, match="Cannot modify an immutable object"
+        MutationForbiddenException, match="Cannot modify an immutable object"
     ):
         parent.child.age = 8

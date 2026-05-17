@@ -4,7 +4,7 @@ from functools import wraps
 from typing import Any, Callable, Generator, Literal, Type, cast
 
 from ..base_validator import BaseValidator, PydanticFacadeMeta
-from ..domain_exception import MutationForbiddenError
+from ..domain_exception import MutationForbiddenException
 from .make_immutable import make_immutable
 from .mutating_context import MutatingContext, MutatingState
 
@@ -77,17 +77,17 @@ class BaseMutable(BaseValidator, metaclass=MutableBaseMeta):
     @property
     def _is_mutation_allowed(self) -> bool:
         mutating_status = object.__getattribute__(self, "_mutation_status")
-        if mutating_status == MutatingState.SUPER:
-            return True
         if mutating_status == MutatingState.BLOCK:
             return False
+        if mutating_status == MutatingState.SUPER:
+            return True
         can_mutate = object.__getattribute__(self, "_can_mutate")
         return can_mutate()
 
     def __setattr__(self, name: str, value: Any) -> None:
         is_mutation_allowed = object.__getattribute__(self, "_is_mutation_allowed")
         if not is_mutation_allowed:
-            raise MutationForbiddenError()
+            raise MutationForbiddenException()
         super().__setattr__(name, value)
 
     def __getattribute__(self, name):

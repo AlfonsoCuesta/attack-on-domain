@@ -51,15 +51,24 @@ def test_entity_clear_clears_children_events_too() -> None:
     class Child(Entity, root=True):
         id: int
 
+        def add_event(self, event: Event) -> None:
+            self._emit(event)
+
     class Parent(RootEntity):
         child: Child
+
+        def add_event(self, event: Event) -> None:
+            self._emit(event)
+
+        def clear_events(self) -> None:
+            self._clear_events()
 
     child = Child(id=1)
     parent = Parent(child=child)
 
-    parent._emit(Event())
-    child._emit(Event())
+    parent.add_event(Event())
+    child.add_event(Event())
 
     assert len(parent.poll_events()) == 2
-    parent._clear_events()
+    parent.clear_events()
     assert parent.poll_events() == []

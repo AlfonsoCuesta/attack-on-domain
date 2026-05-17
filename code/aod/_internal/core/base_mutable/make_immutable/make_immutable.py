@@ -1,3 +1,6 @@
+import datetime
+import decimal
+import uuid
 from types import BuiltinFunctionType, BuiltinMethodType, FunctionType, MethodType
 
 from .immutable_custom import _make_immutable_object
@@ -5,7 +8,21 @@ from .immutable_dict import ImmutableDict
 from .immutable_list import ImmutableList
 from .immutable_set import ImmutableSet
 
-_PRIMITIVE_TYPES = (int, float, str, bool, bytes, type(None))
+_PRIMITIVE_TYPES = (
+    int,
+    float,
+    str,
+    bool,
+    bytes,
+    type(None),
+    datetime.date,
+    datetime.time,
+    datetime.datetime,
+    datetime.timedelta,
+    datetime.timezone,
+    decimal.Decimal,
+    uuid.UUID,
+)
 
 _CALLABLE_TYPES = (MethodType, FunctionType, BuiltinMethodType, BuiltinFunctionType)
 

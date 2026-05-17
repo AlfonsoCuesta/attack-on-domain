@@ -1,4 +1,4 @@
-from ...domain_exception import MutationForbiddenError
+from ...domain_exception import MutationForbiddenException
 
 
 class ImmutableSet(set):
@@ -11,7 +11,7 @@ class ImmutableSet(set):
         return obj
 
     def _raise(self, *args, **kwargs):
-        raise MutationForbiddenError("Cannot modify an immutable set")
+        raise MutationForbiddenException("Cannot modify an immutable set")
 
     add = discard = remove = _raise
     pop = clear = update = _raise
