@@ -9,7 +9,6 @@ from .make_immutable import make_immutable
 from .mutating_context import MutatingContext, MutatingState
 
 NOT_MUTABLE_CALLABLES = {
-    "_can_mutate",
     "_is_mutation_allowed",
     "_get_mutating_context",
     "_mutating_status",
@@ -92,7 +91,7 @@ class BaseMutable(BaseValidator, metaclass=MutableBaseMeta):
 
     def __getattribute__(self, name):
         value = object.__getattribute__(self, name)
-        if name.startswith("_"):
+        if name.startswith("_") or name in NOT_MUTABLE_CALLABLES:
             return value
         if name not in object.__getattribute__(self, "__model_fields__"):
             return value

@@ -67,9 +67,13 @@ def test_base_mutable_uses_same_mutating_context_across_inheritance_levels() -> 
         ("exit", MutatingState.SUPER),  # _set_attributes
         ("enter", MutatingState.PASS),  # outer_set
         ("enter", MutatingState.PASS),  # inner_set (nested)
+        ("enter", MutatingState.SUPER),  # _can_mutate check inside __setattr__
+        ("exit", MutatingState.SUPER),  # _can_mutate check inside __setattr__
         ("exit", MutatingState.PASS),  # inner_set
         ("exit", MutatingState.PASS),  # outer_set
         ("enter", MutatingState.PASS),  # inner_set (direct)
+        ("enter", MutatingState.SUPER),  # _can_mutate check inside __setattr__
+        ("exit", MutatingState.SUPER),  # _can_mutate check inside __setattr__
         ("exit", MutatingState.PASS),  # inner_set (direct)
     ]
 
@@ -422,3 +426,19 @@ def test_nested_base_mutable_direct_external_mutation_blocked_when_parent_cannot
         MutationForbiddenException, match="Cannot modify an immutable object"
     ):
         parent.child.age = 8
+
+
+def test_can_mutate_accessor_does_not_recurse_infinitely() -> None:
+    class NoMutationClass(BaseMutable):
+        data: int
+        mutate: bool = False
+
+        def change_data(self, value: int) -> None:
+            self.data = value
+
+        def _can_mutate(self) -> bool:
+            return self.mutate
+
+    no_mutation = NoMutationClass(data=1)
+    with pytest.raises(MutationForbiddenException, match="Cannot mutate this object"):
+        no_mutation.change_data(2)
