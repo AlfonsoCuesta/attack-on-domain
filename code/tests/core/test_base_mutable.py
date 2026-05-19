@@ -63,8 +63,10 @@ def test_base_mutable_uses_same_mutating_context_across_inheritance_levels() -> 
     assert ctx_before is ctx_after
 
     assert ctx_after.events == [
-        ("enter", MutatingState.SUPER),  # _set_attributes
-        ("exit", MutatingState.SUPER),  # _set_attributes
+        ("enter", MutatingState.SUPER),  # __init__
+        ("enter", MutatingState.PASS),  # _set_model_attributes
+        ("exit", MutatingState.PASS),  # _set_model_attributes
+        ("exit", MutatingState.SUPER),  # __init__
         ("enter", MutatingState.PASS),  # outer_set
         ("enter", MutatingState.PASS),  # inner_set (nested)
         ("enter", MutatingState.SUPER),  # _can_mutate check inside __setattr__
@@ -428,7 +430,7 @@ def test_nested_base_mutable_direct_external_mutation_blocked_when_parent_cannot
         parent.child.age = 8
 
 
-def test_can_mutate_accessor_does_not_recurse_infinitely() -> None:
+def test_can_mutate_override_inherits_super_mutable_and_does_not_recurse() -> None:
     class NoMutationClass(BaseMutable):
         data: int
         mutate: bool = False
