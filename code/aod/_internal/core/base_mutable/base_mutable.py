@@ -3,9 +3,13 @@ from contextlib import contextmanager
 from functools import wraps
 from typing import Any, Callable, ClassVar, Generator, Literal, Type
 
-from ..base_validator import BaseValidator, PydanticFacadeMeta
+from ..base_validator import (
+    BaseValidator,
+    PydanticFacadeMeta,
+)
 from ..domain_exception import MutationForbiddenException
 from ..fields import PrivateField
+from ..validators.validators import INIT_KEY, VALIDATOR_KEY
 from .make_immutable import make_immutable
 from .mutating_context import MutatingContext, MutatingState
 
@@ -13,7 +17,7 @@ MUTABLE_KEY = "__mutable__"
 
 
 def is_dunder(name: str) -> bool:
-    return name.startswith("__") and name.endswith("__")
+    return name.startswith("__")
 
 
 def mark_mutable(
@@ -44,18 +48,25 @@ class MutableBaseMeta(PydanticFacadeMeta):
         cls = super().__new__(mcls, name, bases, namespace)
         super_attrs = {
             attr_name
-            for base in cls.__mro__[1:]
+            for base in cls.__mro__
             for attr_name, attr_value in base.__dict__.items()
             if getattr(attr_value, MUTABLE_KEY, False) == MutatingState.SUPER
         }
 
         for base in cls.__mro__:
+            if getattr(base, "__stop_context_mutating__", False):
+                break
+            print(base.__name__)
             for attr_name, attr_value in base.__dict__.items():
+                if not inspect.isfunction(attr_value):
+                    continue
                 if is_dunder(attr_name):
                     continue
-                if getattr(attr_value, MUTABLE_KEY, False):
+                if getattr(attr_value, VALIDATOR_KEY, False):
                     continue
-                if not inspect.isfunction(attr_value):
+                if getattr(attr_value, INIT_KEY, False):
+                    continue
+                if getattr(attr_value, MUTABLE_KEY, False):
                     continue
 
                 super_mutate = attr_name in super_attrs
@@ -64,16 +75,17 @@ class MutableBaseMeta(PydanticFacadeMeta):
 
 
 class BaseMutable(BaseValidator, metaclass=MutableBaseMeta):
-    _mutating_context: MutatingContext
-    _initialized: bool = False
+    _mutating_context: MutatingContext = PrivateField()
+    _initialized: bool = PrivateField(default=False)
     __mutating_context_class__: ClassVar[Type[MutatingContext]] = MutatingContext
+    __stop_context_mutating__: ClassVar[bool] = True
 
-    @super_mutate
     def __init__(self, **kwargs: Any) -> None:
-        self._mutating_context = self.__mutating_context_class__()
         super().__init__(**kwargs)
+        self._mutating_context = self.__mutating_context_class__()
         self._initialized = True
 
+    @super_mutate
     def _can_mutate(self) -> bool:
         return True
 
@@ -95,6 +107,8 @@ class BaseMutable(BaseValidator, metaclass=MutableBaseMeta):
 
     @property
     def _is_mutation_allowed(self) -> bool:
+        if not self._initialized:
+            return True
         mutating_status = self._mutation_status
         if mutating_status == MutatingState.BLOCK:
             return False

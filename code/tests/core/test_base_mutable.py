@@ -54,12 +54,12 @@ def test_base_mutable_uses_same_mutating_context_across_inheritance_levels() -> 
             self.inner_set(value)
 
     obj = Outer(age=1)
-    ctx_before = obj._get_mutating_context()
+    ctx_before = obj._mutating_context
 
     obj.outer_set(2)
     obj.inner_set(3)
 
-    ctx_after = cast(RecordingContext, obj._get_mutating_context())
+    ctx_after = cast(RecordingContext, obj._mutating_context)
     assert ctx_before is ctx_after
 
     assert ctx_after.events == [

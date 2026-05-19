@@ -38,16 +38,16 @@ class BaseValidator(metaclass=PydanticFacadeMeta):
         model = self.__class__.__validation_model__
         validated = model(**kwargs)
 
-        self._set_model_attributes(validated)
+        self.__set_model_attributes(validated)
 
-    def _set_model_attributes(self, validated: BaseModel) -> None:
+    def __set_model_attributes(self, validated: BaseModel) -> None:
         for k, v in validated.model_dump().items():
-            setattr(self, k, v)
+            object.__setattr__(self, k, v)
 
         private = getattr(validated, "__pydantic_private__", {})
         if private:
             for k, v in private.items():
-                setattr(self, k, v)
+                object.__setattr__(self, k, v)
 
     def __repr__(self):
         fields = self.__validation_model__.model_fields.keys()
@@ -58,5 +58,5 @@ class BaseValidator(metaclass=PydanticFacadeMeta):
     def from_existing(cls, **kwargs) -> Self:
         object = cls.__raw_model__(**kwargs)
         instance = cls.__new__(cls)
-        instance._set_model_attributes(object)
+        instance.__set_model_attributes(object)
         return instance
