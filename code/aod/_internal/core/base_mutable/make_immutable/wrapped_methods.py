@@ -130,8 +130,8 @@ def _wrap_iterator(self: Any, iterator) -> Any:
         yield _wrap_result(self, value)
 
 
-def _has_dunder(obj: Any, name: str) -> bool:
-    return any(name in klass.__dict__ for klass in type(obj).__mro__)
+def _has_dunder(cls: type, name: str) -> bool:
+    return any(name in klass.__dict__ for klass in cls.__mro__)
 
 
 def _make_wrapped_method(name: str) -> Callable:
@@ -163,15 +163,15 @@ def _make_blocked_method(name: str) -> Callable:
     return _blocked
 
 
-def get_wrapped_methods(obj: Any) -> dict[str, Callable]:
+def get_wrapped_methods(cls: type) -> dict[str, Callable]:
     wrapped_methods = {
         name: _make_wrapped_method(name)
         for name in _WRAPPED_METHODS
-        if _has_dunder(obj, name)
+        if _has_dunder(cls, name)
     }
     blocked_methods = {
         name: _make_blocked_method(name)
         for name in _MUTATING_METHODS
-        if _has_dunder(obj, name)
+        if _has_dunder(cls, name)
     }
     return {**wrapped_methods, **blocked_methods}

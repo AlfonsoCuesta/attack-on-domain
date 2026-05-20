@@ -405,7 +405,7 @@ def test_get_wrapped_methods_returns_supported_dunders_defined_by_object() -> No
         def __gt__(self, other) -> bool:
             return True
 
-    methods = get_wrapped_methods(Comparable())
+    methods = get_wrapped_methods(Comparable)
 
     assert "__gt__" in methods
 

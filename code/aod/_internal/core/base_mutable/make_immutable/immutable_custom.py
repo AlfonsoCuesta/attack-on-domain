@@ -1,13 +1,11 @@
-from typing import Any
+from typing import Any, Type
 
 from .wrapped_methods import get_wrapped_methods
 
 _immutable_cache: dict[type, type] = {}
 
 
-def _make_immutable_class(obj: Any, factory) -> type:
-    cls = type(obj)
-
+def _make_immutable_class(cls: Type, factory) -> type:
     def _getattribute(self, name):
         value = super(immutable_cls, self).__getattribute__(name)
         if name.startswith("__"):
@@ -21,8 +19,8 @@ def _make_immutable_class(obj: Any, factory) -> type:
             "__immutable_factory__": factory,
             "__immutable_class__": cls,
             "__getattribute__": _getattribute,
-            "__wrapped_object__": obj,
-            **get_wrapped_methods(obj),
+            "__wrapped_object__": None,
+            **get_wrapped_methods(cls),
         },
     )
     return immutable_cls
@@ -47,11 +45,12 @@ def _copy_state(src: Any, dst: Any) -> None:
 def _make_immutable_object(obj, factory) -> object:
     cls = type(obj)
     if cls not in _immutable_cache:
-        _immutable_cache[cls] = _make_immutable_class(obj, factory)
+        _immutable_cache[cls] = _make_immutable_class(cls, factory)
 
     immutable_cls = _immutable_cache[cls]
     try:
         new_obj = object.__new__(immutable_cls)
+        object.__setattr__(new_obj, "__wrapped_object__", obj)
     except TypeError:
         return obj
     _copy_state(obj, new_obj)
