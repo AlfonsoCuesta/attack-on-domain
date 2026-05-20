@@ -119,8 +119,7 @@ class BaseMutable(BaseValidator, metaclass=MutableBaseMeta):
         return self._can_mutate()
 
     def __setattr__(self, name: str, value: Any) -> None:
-        is_mutation_allowed = self._is_mutation_allowed
-        if not is_mutation_allowed:
+        if not self._is_mutation_allowed:
             raise MutationForbiddenException(
                 "Cannot mutate this object " + self.__class__.__name__
             )
@@ -135,7 +134,8 @@ class BaseMutable(BaseValidator, metaclass=MutableBaseMeta):
         if inspect.isfunction(value):
             return value
 
-        is_mutation_allowed = self._is_mutation_allowed
-        if is_mutation_allowed:
+        if self._mutation_status == MutatingState.SUPER:
+            return value
+        if self._mutation_status == MutatingState.PASS and self._can_mutate():
             return value
         return make_immutable(value)

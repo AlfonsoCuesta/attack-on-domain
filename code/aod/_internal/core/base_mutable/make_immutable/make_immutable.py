@@ -37,9 +37,9 @@ def make_immutable(value):
     if getattr(value, "__immutable_class__", None):
         return value
     if isinstance(value, list):
-        return ImmutableList.from_list(value)
+        return ImmutableList.from_list(value, make_immutable)
     if isinstance(value, dict):
-        return ImmutableDict.from_dict(value)
+        return ImmutableDict.from_dict(value, make_immutable)
     if isinstance(value, set):
-        return ImmutableSet.from_set(value)
+        return ImmutableSet.from_set(value, make_immutable)
     return _make_immutable_object(value, make_immutable)

@@ -1,4 +1,4 @@
-from typing import Literal
+from typing import Literal, Self
 
 import pytest
 from aod._internal.core.base_mutable import (
@@ -490,21 +490,44 @@ def test_can_mutate_override_inherits_super_mutable_and_does_not_recurse() -> No
         no_mutation.change_data(2)
 
 
-def test_compare_two_objects_with_one_immutable() -> None:
-    class ImmutableClass(BaseMutable):
+def test_check_immutable_object_from_immutable_getattr() -> None:
+    class ImmutableListItem(BaseMutable):
         data: int
 
         def _can_mutate(self) -> bool:
             return False
 
-    class MutableClass(BaseMutable):
-        data: ImmutableClass
-        list_data: list[ImmutableClass]
+    class ImmutableList(BaseMutable):
+        data_list: list[ImmutableListItem]
 
-    immutable = ImmutableClass(data=1)
-    list_int = [immutable, immutable]
-    mutable = MutableClass(data=immutable, list_data=list_int)
-    assert mutable.list_data == list_int
-    assert mutable.data == immutable
-    assert mutable.data.__class__.__name__ == "ImmutableImmutableClass"
-    assert mutable.list_data[0].__class__.__name__ == "ImmutableImmutableClass"
+        def _can_mutate(self) -> bool:
+            return False
+
+    immutable_item = ImmutableListItem(data=1)
+    immutable = ImmutableList(data_list=[immutable_item])
+    assert immutable.data_list == [immutable_item]
+    assert immutable.data_list.__class__.__name__ == "ImmutableList"
+    assert immutable.data_list[0].__class__.__name__ == "ImmutableImmutableListItem"
+
+
+def test_check_mutable_object_from_mutable_getattr() -> None:
+    class ImmutableListItem(BaseMutable):
+        data: int
+
+        def _can_mutate(self) -> bool:
+            return False
+
+    class MutableList(BaseMutable):
+        data_list: list[ImmutableListItem]
+
+        def get_data_list(self) -> list[ImmutableListItem]:
+            return self.data_list
+
+    immutable_item = ImmutableListItem(data=1)
+    mutable = MutableList(data_list=[immutable_item])
+    assert mutable.data_list == [immutable_item]
+    assert mutable.data_list.__class__.__name__ == "ImmutableList"
+    assert mutable.data_list[0].__class__.__name__ == "ImmutableImmutableListItem"
+    assert mutable.get_data_list() == [immutable_item]
+    assert mutable.get_data_list().__class__ is list
+    assert mutable.get_data_list()[0].__class__.__name__ == "ImmutableListItem"

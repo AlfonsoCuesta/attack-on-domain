@@ -5,9 +5,10 @@ class ImmutableSet(set):
     __immutable_class__ = set
 
     @classmethod
-    def from_set(cls, data: set) -> "ImmutableSet":
+    def from_set(cls, data: set, factory) -> "ImmutableSet":
         obj = super().__new__(cls)
         set.update(obj, data)
+        obj.__factory__ = factory
         return obj
 
     def _raise(self, *args, **kwargs):
