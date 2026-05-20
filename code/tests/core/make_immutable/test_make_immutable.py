@@ -59,19 +59,19 @@ def test_make_immutable_returns_frozenset_unchanged() -> None:
 
 
 def test_make_immutable_returns_immutable_list_unchanged() -> None:
-    immutable = ImmutableList.from_list([1, 2, 3])
+    immutable = ImmutableList([1, 2, 3], make_immutable)
 
     assert make_immutable(immutable) is immutable
 
 
 def test_make_immutable_returns_immutable_dict_unchanged() -> None:
-    immutable = ImmutableDict.from_dict({"a": 1})
+    immutable = ImmutableDict({"a": 1}, make_immutable)
 
     assert make_immutable(immutable) is immutable
 
 
 def test_make_immutable_returns_immutable_set_unchanged() -> None:
-    immutable = ImmutableSet.from_set({"a", "b"})
+    immutable = ImmutableSet({"a", "b"}, make_immutable)
 
     assert make_immutable(immutable) is immutable
 
@@ -114,7 +114,7 @@ def test_make_immutable_converts_set_and_blocks_mutations() -> None:
 
 def test_immutable_list_from_list_creates_copy() -> None:
     original = [1, 2, 3]
-    immutable = ImmutableList.from_list(original)
+    immutable = ImmutableList(original, make_immutable)
     original.append(4)
 
     assert immutable == [1, 2, 3]
@@ -122,7 +122,7 @@ def test_immutable_list_from_list_creates_copy() -> None:
 
 def test_immutable_dict_from_dict_creates_copy() -> None:
     original = {"a": 1}
-    immutable = ImmutableDict.from_dict(original)
+    immutable = ImmutableDict(original, make_immutable)
     original["b"] = 2
 
     assert immutable == {"a": 1}
@@ -130,7 +130,7 @@ def test_immutable_dict_from_dict_creates_copy() -> None:
 
 def test_immutable_set_from_set_creates_copy() -> None:
     original = {1, 2}
-    immutable = ImmutableSet.from_set(original)
+    immutable = ImmutableSet(original, make_immutable)
     original.add(3)
 
     assert immutable == {1, 2}
@@ -275,7 +275,7 @@ def test_make_immutable_custom_object_dunder_getattribute_still_works() -> None:
 
 
 def test_copy_of_immutable_container_raises_due_to_mutation_protection() -> None:
-    immutable_list = ImmutableList.from_list([1, 2])
+    immutable_list = ImmutableList([1, 2], make_immutable)
 
     with pytest.raises(
         MutationForbiddenException, match="Cannot modify an immutable list"
@@ -345,6 +345,59 @@ def test_make_immutable_keeps_uuid_unchanged() -> None:
     value = uuid.UUID("12345678-1234-5678-1234-567812345678")
 
     assert make_immutable(value) is value
+
+
+def test_immutable_list_getters_return_immutable_values() -> None:
+    immutable = make_immutable([[1], {"a": []}, {Address("Madrid")}])
+
+    first = immutable[0]
+    sliced = immutable[:2]
+    iterated = list(immutable)
+
+    assert isinstance(first, ImmutableList)
+    assert isinstance(sliced, ImmutableList)
+    assert isinstance(iterated[1], ImmutableDict)
+    assert isinstance(next(iter(iterated[2])), Address)
+    assert next(iter(iterated[2])).__class__.__name__ == "ImmutableAddress"
+
+    with pytest.raises(
+        MutationForbiddenException, match="Cannot modify an immutable list"
+    ):
+        first.append(2)
+
+
+def test_immutable_dict_getters_return_immutable_values() -> None:
+    immutable = make_immutable({"items": [], "meta": {"nested": []}})
+
+    item = immutable["items"]
+    item_from_get = immutable.get("items")
+    values = list(immutable.values())
+    pairs = dict(immutable.items())
+
+    assert isinstance(item, ImmutableList)
+    assert isinstance(item_from_get, ImmutableList)
+    assert isinstance(values[0], ImmutableList)
+    assert isinstance(pairs["meta"], ImmutableDict)
+
+    with pytest.raises(
+        MutationForbiddenException, match="Cannot modify an immutable list"
+    ):
+        item_from_get.append(1)
+
+
+def test_immutable_set_getters_return_immutable_values() -> None:
+    address = Address("Madrid")
+    immutable = make_immutable({address})
+
+    item = next(iter(immutable))
+
+    assert isinstance(item, Address)
+
+    with pytest.raises(
+        MutationForbiddenException,
+        match="Cannot modify an immutable object Address",
+    ):
+        item.city = "Barcelona"
 
 
 def test_get_wrapped_methods_returns_supported_dunders_defined_by_object() -> None:

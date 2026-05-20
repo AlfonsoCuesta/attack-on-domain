@@ -1,4 +1,4 @@
-from typing import Literal, Self
+from typing import Literal
 
 import pytest
 from aod._internal.core.base_mutable import (

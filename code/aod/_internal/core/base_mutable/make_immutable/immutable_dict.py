@@ -1,15 +1,14 @@
+from typing import Any, Callable
+
 from ...domain_exception import MutationForbiddenException
 
 
 class ImmutableDict(dict):
     __immutable_class__ = dict
 
-    @classmethod
-    def from_dict(cls, data: dict, factory) -> "ImmutableDict":
-        obj = super().__new__(cls)
-        dict.update(obj, data)
-        obj.__factory__ = factory
-        return obj
+    def __init__(self, object: Any, factory: Callable):
+        super().__init__(object)
+        self.__factory__ = factory
 
     def _raise(self, *args, **kwargs):
         raise MutationForbiddenException("Cannot modify an immutable dict")
@@ -20,3 +19,24 @@ class ImmutableDict(dict):
     def __getitem__(self, key):
         item = super().__getitem__(key)
         return self.__factory__(item)
+
+    def __iter__(self):
+        for key in super().__iter__():
+            yield self.__factory__(key)
+
+    def get(self, key, default=None):
+        if key not in self:
+            return self.__factory__(default)
+        return self[key]
+
+    def items(self):
+        for key, value in super().items():
+            yield self.__factory__(key), self.__factory__(value)
+
+    def keys(self):
+        for key in super().keys():
+            yield self.__factory__(key)
+
+    def values(self):
+        for value in super().values():
+            yield self.__factory__(value)
