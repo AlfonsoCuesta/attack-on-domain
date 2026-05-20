@@ -36,4 +36,5 @@ def test_aod_validation_documented_api() -> None:
         "field_validator",
         "post_init",
         "post_init_validation",
+        "super_context",
     ]

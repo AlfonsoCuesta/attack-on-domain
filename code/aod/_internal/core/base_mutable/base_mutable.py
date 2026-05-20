@@ -8,7 +8,6 @@ from ..base_validator import (
     PydanticFacadeMeta,
 )
 from ..domain_exception import MutationForbiddenException
-from ..fields import PrivateField
 from ..validators.validators import INIT_KEY, VALIDATOR_KEY
 from .make_immutable import make_immutable
 from .mutating_context import MutatingContext, MutatingState
@@ -38,7 +37,7 @@ def mutate(fn: Callable, *, super_mutate: bool = False) -> Callable:
     return mark_mutable(wrapper, state=mutate_state)
 
 
-def super_mutate(fn: Callable) -> Callable:
+def super_context(fn: Callable) -> Callable:
     return mutate(fn, super_mutate=True)
 
 
@@ -54,13 +53,14 @@ class MutableBaseMeta(PydanticFacadeMeta):
         }
 
         for base in cls.__mro__:
-            if getattr(base, "__stop_context_mutating__", False):
+            if base.__dict__.get("__stop_context_mutating__", False):
                 break
-            print(base.__name__)
             for attr_name, attr_value in base.__dict__.items():
                 if not inspect.isfunction(attr_value):
                     continue
                 if is_dunder(attr_name):
+                    continue
+                if inspect.ismethod(attr_value):
                     continue
                 if getattr(attr_value, VALIDATOR_KEY, False):
                     continue
@@ -75,29 +75,33 @@ class MutableBaseMeta(PydanticFacadeMeta):
 
 
 class BaseMutable(BaseValidator, metaclass=MutableBaseMeta):
-    _mutating_context: MutatingContext = PrivateField()
-    _initialized: bool = PrivateField(default=False)
     __mutating_context_class__: ClassVar[Type[MutatingContext]] = MutatingContext
     __stop_context_mutating__: ClassVar[bool] = True
 
     def __init__(self, **kwargs: Any) -> None:
         super().__init__(**kwargs)
-        self._mutating_context = self.__mutating_context_class__()
-        self._initialized = True
+        self.__mutating_context__ = self.__mutating_context_class__()
+        self.__initialized__ = True
 
-    @super_mutate
+    @super_context
     def _can_mutate(self) -> bool:
         return True
 
     @property
     def _mutation_status(self) -> MutatingState:
-        if not self._initialized:
+        if not self._is_initialized:
             return MutatingState.SUPER
-        return self._mutating_context.status
+        return self.__mutating_context__.status
+
+    @property
+    def _is_initialized(self) -> bool:
+        if not hasattr(self, "__initialized__"):
+            return False
+        return object.__getattribute__(self, "__initialized__")
 
     @contextmanager
     def __mutate__(self, super_mutate: bool = False) -> Generator[None, None, None]:
-        mutating_context = self._mutating_context
+        mutating_context = self.__mutating_context__
         mutation: Literal[MutatingState.PASS, MutatingState.SUPER] = (
             MutatingState.SUPER if super_mutate else MutatingState.PASS
         )
@@ -107,8 +111,6 @@ class BaseMutable(BaseValidator, metaclass=MutableBaseMeta):
 
     @property
     def _is_mutation_allowed(self) -> bool:
-        if not self._initialized:
-            return True
         mutating_status = self._mutation_status
         if mutating_status == MutatingState.BLOCK:
             return False
@@ -119,7 +121,9 @@ class BaseMutable(BaseValidator, metaclass=MutableBaseMeta):
     def __setattr__(self, name: str, value: Any) -> None:
         is_mutation_allowed = self._is_mutation_allowed
         if not is_mutation_allowed:
-            raise MutationForbiddenException()
+            raise MutationForbiddenException(
+                "Cannot mutate this object " + self.__class__.__name__
+            )
         super().__setattr__(name, value)
 
     def __getattribute__(self, name):
@@ -127,6 +131,8 @@ class BaseMutable(BaseValidator, metaclass=MutableBaseMeta):
         if is_dunder(name):
             return value
         if name not in self.__model_fields__:
+            return value
+        if inspect.isfunction(value):
             return value
 
         is_mutation_allowed = self._is_mutation_allowed

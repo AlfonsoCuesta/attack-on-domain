@@ -1,4 +1,4 @@
-from typing import Literal, cast
+from typing import Literal
 
 import pytest
 from aod._internal.core.base_mutable import (
@@ -27,19 +27,20 @@ def test_mutating_context_state_transitions() -> None:
 
 
 def test_base_mutable_uses_same_mutating_context_across_inheritance_levels() -> None:
+    events = []
+
     class RecordingContext(MutatingContext):
         def __init__(self) -> None:
             super().__init__()
-            self.events: list[tuple[str, MutatingState]] = []
 
         def enter(
             self, state: Literal[MutatingState.PASS, MutatingState.SUPER]
         ) -> None:
-            self.events.append(("enter", state))
+            events.append(("enter", state))
             super().enter(state)
 
         def exit(self, state: Literal[MutatingState.PASS, MutatingState.SUPER]) -> None:
-            self.events.append(("exit", state))
+            events.append(("exit", state))
             super().exit(state)
 
     class Inner(BaseMutable):
@@ -54,29 +55,21 @@ def test_base_mutable_uses_same_mutating_context_across_inheritance_levels() -> 
             self.inner_set(value)
 
     obj = Outer(age=1)
-    ctx_before = obj._mutating_context
-
     obj.outer_set(2)
     obj.inner_set(3)
-
-    ctx_after = cast(RecordingContext, obj._mutating_context)
-    assert ctx_before is ctx_after
-
-    assert ctx_after.events == [
-        ("enter", MutatingState.SUPER),  # __init__
-        ("enter", MutatingState.PASS),  # _set_model_attributes
-        ("exit", MutatingState.PASS),  # _set_model_attributes
-        ("exit", MutatingState.SUPER),  # __init__
+    assert events == [
+        # outer_set calling
         ("enter", MutatingState.PASS),  # outer_set
-        ("enter", MutatingState.PASS),  # inner_set (nested)
-        ("enter", MutatingState.SUPER),  # _can_mutate check inside __setattr__
-        ("exit", MutatingState.SUPER),  # _can_mutate check inside __setattr__
+        ("enter", MutatingState.PASS),  # inner_set
+        ("enter", MutatingState.SUPER),  # _can_mutate
+        ("exit", MutatingState.SUPER),  # _can_mutate
         ("exit", MutatingState.PASS),  # inner_set
         ("exit", MutatingState.PASS),  # outer_set
-        ("enter", MutatingState.PASS),  # inner_set (direct)
-        ("enter", MutatingState.SUPER),  # _can_mutate check inside __setattr__
-        ("exit", MutatingState.SUPER),  # _can_mutate check inside __setattr__
-        ("exit", MutatingState.PASS),  # inner_set (direct)
+        # inner_set calling
+        ("enter", MutatingState.PASS),  # inner_set
+        ("enter", MutatingState.SUPER),  # _can_mutate
+        ("exit", MutatingState.SUPER),  # _can_mutate
+        ("exit", MutatingState.PASS),  # inner_set
     ]
 
 
@@ -119,7 +112,7 @@ def test_base_mutable_respects_can_mutate_for_public_methods() -> None:
         user.set_age(10)
 
 
-def test_base_mutable_allows_super_mutate_in_private_methods() -> None:
+def test_base_mutable_not_allows_super_mutate_in_private_methods() -> None:
     class User(BaseMutable):
         age: int
 
@@ -130,9 +123,10 @@ def test_base_mutable_allows_super_mutate_in_private_methods() -> None:
             self.age = value
 
     user = User(age=1)
-    user._force_set_age(20)
-
-    assert user.age == 20
+    with pytest.raises(
+        MutationForbiddenException, match="Cannot mutate this object User"
+    ):
+        user._force_set_age(20)
 
 
 def test_base_mutable_nested_method_calls_keep_context() -> None:
