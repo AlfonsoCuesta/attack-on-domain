@@ -5,6 +5,7 @@ from aod._internal.core.base_mutable import (
     BaseMutable,
     MutatingContext,
     MutatingState,
+    super_context,
 )
 from aod._internal.core.domain_exception import MutationForbiddenException
 
@@ -142,6 +143,55 @@ def test_base_mutable_nested_method_calls_keep_context() -> None:
     user = User(age=1)
     user.set_age(7)
 
+    assert user.age == 7
+
+
+def test_base_mutable_private_method_no_super() -> None:
+    class User(BaseMutable):
+        age: int
+
+        def _can_mutate(self) -> bool:
+            return False
+
+        def set_age(self, value: int) -> None:
+            self.age = value
+
+        def _set_age(self, value: int) -> None:
+            self.age = value
+
+    user = User(age=1)
+    with pytest.raises(
+        MutationForbiddenException, match="Cannot mutate this object User"
+    ):
+        user.set_age(7)
+
+    with pytest.raises(
+        MutationForbiddenException, match="Cannot mutate this object User"
+    ):
+        user._set_age(7)
+
+
+def test_base_mutable_works_with_super_context() -> None:
+    class User(BaseMutable):
+        age: int
+
+        def _can_mutate(self) -> bool:
+            return False
+
+        def set_age(self, value: int) -> None:
+            self.age = value
+
+        @super_context
+        def super_set_age(self, value: int) -> None:
+            self.age = value
+
+    user = User(age=1)
+    with pytest.raises(
+        MutationForbiddenException, match="Cannot mutate this object User"
+    ):
+        user.set_age(7)
+
+    user.super_set_age(7)
     assert user.age == 7
 
 
