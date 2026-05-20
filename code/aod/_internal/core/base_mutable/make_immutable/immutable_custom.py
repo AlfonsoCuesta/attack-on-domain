@@ -1,20 +1,12 @@
 from typing import Any
 
-from ...domain_exception import MutationForbiddenException
+from .wrapped_methods import get_wrapped_methods
 
 _immutable_cache: dict[type, type] = {}
 
 
-def _make_immutable_class(cls: type, factory) -> type:
-    def _raise_set(self, name, value):
-        raise MutationForbiddenException(
-            f"Cannot modify an immutable object {self.__immutable_class__.__name__}"
-        )
-
-    def _raise_del(self, name):
-        raise MutationForbiddenException(
-            f"Cannot modify an immutable object {self.__immutable_class__.__name__}"
-        )
+def _make_immutable_class(obj: Any, factory) -> type:
+    cls = type(obj)
 
     def _getattribute(self, name):
         value = super(immutable_cls, self).__getattribute__(name)
@@ -26,10 +18,11 @@ def _make_immutable_class(cls: type, factory) -> type:
         f"Immutable{cls.__name__}",
         (cls,),
         {
+            "__immutable_factory__": factory,
             "__immutable_class__": cls,
-            "__setattr__": _raise_set,
-            "__delattr__": _raise_del,
             "__getattribute__": _getattribute,
+            "__wrapped_object__": obj,
+            **get_wrapped_methods(obj),
         },
     )
     return immutable_cls
@@ -54,7 +47,7 @@ def _copy_state(src: Any, dst: Any) -> None:
 def _make_immutable_object(obj, factory) -> object:
     cls = type(obj)
     if cls not in _immutable_cache:
-        _immutable_cache[cls] = _make_immutable_class(cls, factory)
+        _immutable_cache[cls] = _make_immutable_class(obj, factory)
 
     immutable_cls = _immutable_cache[cls]
     try:

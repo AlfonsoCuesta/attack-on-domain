@@ -13,6 +13,9 @@ from aod._internal.core.base_mutable.make_immutable.immutable_dict import Immuta
 from aod._internal.core.base_mutable.make_immutable.immutable_list import ImmutableList
 from aod._internal.core.base_mutable.make_immutable.immutable_set import ImmutableSet
 from aod._internal.core.base_mutable.make_immutable.make_immutable import make_immutable
+from aod._internal.core.base_mutable.make_immutable.wrapped_methods import (
+    get_wrapped_methods,
+)
 from aod._internal.core.domain_exception import MutationForbiddenException
 
 
@@ -342,3 +345,61 @@ def test_make_immutable_keeps_uuid_unchanged() -> None:
     value = uuid.UUID("12345678-1234-5678-1234-567812345678")
 
     assert make_immutable(value) is value
+
+
+def test_get_wrapped_methods_returns_supported_dunders_defined_by_object() -> None:
+    class Comparable:
+        def __gt__(self, other) -> bool:
+            return True
+
+    methods = get_wrapped_methods(Comparable())
+
+    assert "__gt__" in methods
+
+
+def test_make_immutable_custom_object_wraps_comparison_dunder() -> None:
+    class Comparable:
+        def __init__(self, value: int) -> None:
+            self.value = value
+
+        def __gt__(self, other) -> bool:
+            return self.value > other.value
+
+    immutable = make_immutable(Comparable(2))
+
+    assert immutable > Comparable(1)
+
+
+def test_make_immutable_custom_object_blocks_setitem_dunder() -> None:
+    class ItemContainer:
+        def __init__(self) -> None:
+            self.values = {}
+
+        def __setitem__(self, key, value) -> None:
+            self.values[key] = value
+
+    immutable = make_immutable(ItemContainer())
+
+    with pytest.raises(
+        MutationForbiddenException,
+        match="Cannot modify an immutable object ItemContainer",
+    ):
+        immutable["key"] = "value"
+
+
+def test_make_immutable_custom_object_blocks_inplace_dunder() -> None:
+    class Addable:
+        def __init__(self, value: int) -> None:
+            self.value = value
+
+        def __iadd__(self, value: int):
+            self.value += value
+            return self
+
+    immutable = make_immutable(Addable(1))
+
+    with pytest.raises(
+        MutationForbiddenException,
+        match="Cannot modify an immutable object Addable",
+    ):
+        immutable += 1
