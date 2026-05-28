@@ -12,6 +12,7 @@ def test_aod_exports_documented_api() -> None:
         "DomainEvent",
         "Entity",
         "RootEntity",
+        "Service",
         "ValueObject",
         "Field",
         "PrivateField",
@@ -19,6 +20,7 @@ def test_aod_exports_documented_api() -> None:
     assert aod.DomainEvent is Event
     assert aod.Entity.__name__ == "Entity"
     assert aod.RootEntity.__name__ == "RootEntity"
+    assert aod.Service.__name__ == "Service"
     assert aod.ValueObject.__name__ == "ValueObject"
     assert aod.BoundedContext.__name__ == "BoundedContext"
     assert aod.Field.__name__ == "Field"
