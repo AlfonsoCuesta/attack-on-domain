@@ -1,3 +1,4 @@
+import contextvars
 import inspect
 from typing import Any, ClassVar, Self, Type, dataclass_transform
 
@@ -9,6 +10,10 @@ from .model_maker import (
     VALIDATION_MODEL_KEY,
     make_raw_model,
     make_validation_model,
+)
+
+_use_raw_model: contextvars.ContextVar[bool] = contextvars.ContextVar(
+    "_use_raw_model", default=False
 )
 
 
@@ -35,7 +40,11 @@ class BaseValidator(metaclass=PydanticFacadeMeta):
     __model_fields__: ClassVar[dict[str, Any]]
 
     def __init__(self, **kwargs: Any) -> None:
-        model = self.__class__.__validation_model__
+        if _use_raw_model.get():
+            model = self.__class__.__raw_model__
+        else:
+            model = self.__class__.__validation_model__
+
         validated = model(**kwargs)
 
         self.__set_model_attributes(validated)
@@ -56,7 +65,8 @@ class BaseValidator(metaclass=PydanticFacadeMeta):
 
     @classmethod
     def from_existing(cls, **kwargs) -> Self:
-        object = cls.__raw_model__(**kwargs)
-        instance = cls.__new__(cls)
-        instance.__set_model_attributes(object)
-        return instance
+        token = _use_raw_model.set(True)
+        try:
+            return cls(**kwargs)
+        finally:
+            _use_raw_model.reset(token)
