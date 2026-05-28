@@ -39,3 +39,25 @@ class ClassExpectedError(DomainException):
         super().__init__(
             f"Expected a class for {role}, got {type(got).__name__} instance"
         )
+
+
+class InvalidNestedTypeError(DomainException):
+    """Raised when an Entity field references a forbidden domain type."""
+
+    def __init__(self, entity_name: str, field_name: str, type_name: str) -> None:
+        super().__init__(
+            f"Entity '{entity_name}' field '{field_name}' references "
+            f"'{type_name}', which is not allowed"
+        )
+
+
+class InvalidServiceParameterError(DomainException):
+    """Raised when a Service method parameter references a disallowed domain type."""
+
+    def __init__(
+        self, service_name: str, method_name: str, param_name: str, type_name: str
+    ) -> None:
+        super().__init__(
+            f"Service '{service_name}' method '{method_name}' parameter "
+            f"'{param_name}' has type '{type_name}', which is not allowed"
+        )

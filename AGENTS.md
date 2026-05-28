@@ -23,6 +23,10 @@ code/
 │       │   ├── event_emitter.py      # Event, EventEmitter, EventCollector
 │       │   ├── model_maker.py        # Dual Pydantic model generation
 │       │   ├── domain_exception.py   # DomainException hierarchy
+│       │   ├── type_checking/        # DDD type constraints
+│       │   │   ├── __init__.py       # Re-exports: extract_types_from_annotation, check_entity, check_root_entity, check_value_object, check_service
+│       │   │   ├── extractors.py     # extract_types_from_annotation, get_validation_model
+│       │   │   └── checks.py         # check_entity, check_root_entity, check_value_object, check_service
 │       │   ├── fields/fields.py      # Field(), PrivateField() wrappers
 │       │   └── invariances/invariances.py  # field_invariance, invariance, is_validator
 │       └── domain/               # DDD domain primitives
@@ -33,7 +37,14 @@ code/
 └── tests/                        # All tests
     ├── test_public_api.py
     ├── core/                     # Core framework tests
+    │   └── type_checking/
+    │       ├── test_extractors.py
+    │       └── test_checks.py
     └── domain/                   # Domain class tests
+        ├── test_bounded_context.py
+        ├── test_entity.py
+        ├── test_service.py
+        └── test_value_object.py
 ```
 
 ## Key Architectural Decisions
@@ -64,13 +75,53 @@ When an attribute is read outside a mutation context, `BaseMutable.__getattribut
 ### Event Collection via ContextVar
 `EventEmitter.emit()` always appends to its local list. If a `EventCollector` context manager is active (via ContextVar), it also appends to the collector's list. This enables aggregate-level event collection without explicit child traversal.
 
+### Type Checking System (`type_checking/`)
+Three check functions enforce DDD type constraints at `BoundedContext` construction:
+
+#### `check_entity(entity_cls)` / `check_root_entity(entity_cls)`
+Raises `InvalidNestedTypeError` if any field references `RootEntity` (or any subclass of it).
+
+#### `check_value_object(vo_cls)`
+Raises `InvalidNestedTypeError` if any field references `Entity` **or** `RootEntity` (ValueObjects must only contain primitives or other ValueObjects).
+
+#### `check_service(service_cls)`
+Iterates all public methods via `inspect.getmembers`. For each method:
+- Inspects parameters and return type via `inspect.signature`
+- Resolves forward references via `typing.get_type_hints`
+- Raises `InvalidServiceParameterError` if any param or return type is a non-root `Entity`
+
+**Allowed in services**: custom classes, `RootEntity`, `ValueObject`
+**Forbidden in services**: non-root `Entity`
+
+### BoundedContext Constructor
+```python
+class BoundedContext:
+    def __init__(
+        self,
+        aggregate_roots: Optional[Iterable[RootEntityType]] = None,
+        services: Optional[Iterable[ServiceType]] = None,
+    ):
+```
+- Only accepts `aggregate_roots` (RootEntity subclasses) and `services` (Service subclasses)
+- Discovers `entities` and `value_objects` recursively via `_discover_types()`:
+  - Starts from each root entity, gets `typing.get_type_hints()`
+  - For each field type, extracts all types via `extract_types_from_annotation()`
+  - Recursively traverses discovered Entity and ValueObject fields
+- Runs check functions on all discovered types
+
+### Public exceptions in `aod.exceptions`
+Only two exported exceptions:
+- `DomainException` — base for all domain errors
+- `MutationForbiddenException` — raised when mutating an immutable object
+
+Other exceptions (`InvalidNestedTypeError`, `InvalidServiceParameterError`, `ClassExpectedError`, etc.) remain in `_internal` and are not part of the public API.
+
 ## Development Commands
 
 ```bash
-uv run pytest code/tests -q        # Run tests (117 tests)
-uv run pytest code/tests -v        # Verbose
-uv run black code/                  # Format
-uv run mypy code/                   # Type check
+uv run pytest code/tests -q        # Run tests (160 tests)
+uv run black code/ --target-version py314 --check  # Format check
+uv run mypy code/                  # Type check
 ```
 
 ## Coding Conventions
@@ -87,6 +138,8 @@ uv run mypy code/                   # Type check
 - If you change the dual-model system, update `model_maker.py` and verify `test_base_validator.py`
 - If you change the mutation system, update `base_mutable.py` and verify `test_base_mutable.py` + `test_make_immutable.py`
 - If you change domain classes, check `test_event_emitter.py`, `test_entity.py`, `test_value_object.py`
+- If you change type checks, update `type_checking/extractors.py` and/or `type_checking/checks.py` and check `test_extractors.py` + `test_checks.py`
+- If you change bounded context logic, update `bounded_context.py` and check `test_bounded_context.py`
 - Always run all tests before committing
 - The `Event` class has a typo: `emmited_at` instead of `emitted_at`. Do NOT fix it — it's a known established API.
 
