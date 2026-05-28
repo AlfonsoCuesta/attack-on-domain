@@ -8,7 +8,7 @@ from ..base_validator import (
     PydanticFacadeMeta,
 )
 from ..domain_exception import MutationForbiddenException
-from ..validators.validators import VALIDATOR_KEY
+from ..invariances.invariances import VALIDATOR_KEY
 from .make_immutable import make_immutable
 from .mutating_context import MutatingContext, MutatingState
 

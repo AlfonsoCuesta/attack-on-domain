@@ -1,6 +1,6 @@
 from pydantic import AfterValidator, BeforeValidator
 
-from .validators import (
+from .invariances import (
     field_invariance,
     invariance,
     is_validator,

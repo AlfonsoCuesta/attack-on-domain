@@ -4,7 +4,7 @@ from typing import Annotated, Any, Callable, cast
 import pytest
 from aod._internal.core.base_validator import BaseValidator
 from aod._internal.core.fields import Field, PrivateField
-from aod._internal.core.validators import (
+from aod._internal.core.invariances import (
     AfterValidator,
     field_invariance,
     invariance,

@@ -3,7 +3,7 @@ from typing import Annotated, Any, Type, get_args, get_origin
 from pydantic import BaseModel, ConfigDict
 from pydantic.fields import ModelPrivateAttr
 
-from .validators import is_validator
+from .invariances import is_validator
 
 VALIDATION_MODEL_KEY = "__validation_model__"
 RAW_MODEL_KEY = "__raw_model__"
