@@ -1,5 +1,6 @@
+import contextvars
 from datetime import datetime, timezone
-from typing import List, Protocol, runtime_checkable
+from typing import List
 
 from .base_immutable import BaseImmutable
 from .fields.fields import Field
@@ -11,13 +12,35 @@ class Event(BaseImmutable):
     )
 
 
-@runtime_checkable
-class EventEmitter(Protocol):
-    def _emit(self, event: Event) -> None:
-        pass
+class EventEmitter:
+    def __init__(self) -> None:
+        self._events: list[Event] = []
 
-    def _clear_events(self) -> None:
-        pass
+    def emit(self, event: Event) -> None:
+        self._events.append(event)
+        collector = _event_collector.get(None)
+        if collector is not None:
+            collector.append(event)
 
     def poll_events(self) -> List[Event]:
-        pass
+        return list(self._events)
+
+    def clear_events(self) -> None:
+        self._events.clear()
+
+
+_event_collector: contextvars.ContextVar[List[Event]] = contextvars.ContextVar(
+    "_event_collector"
+)
+
+
+class EventCollector:
+    def __init__(self) -> None:
+        self._events: list[Event] = []
+
+    def __enter__(self) -> List[Event]:
+        self._token = _event_collector.set(self._events)
+        return self._events
+
+    def __exit__(self, *args: object) -> None:
+        _event_collector.reset(self._token)

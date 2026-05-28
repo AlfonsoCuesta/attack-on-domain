@@ -1,6 +1,4 @@
-from datetime import datetime, timedelta, timezone
-
-from aod._internal.core.event_emitter import Event
+from aod._internal.core.event_emitter import Event, EventCollector, EventEmitter
 from aod._internal.domain.entity import Entity, RootEntity
 from aod._internal.domain.value_object import ValueObject
 
@@ -11,22 +9,74 @@ def test_value_object_emit_poll_clear() -> None:
 
     p = Price(amount=10)
     e1 = Event()
-    p._emit(e1)
+    p._event_emitter.emit(e1)
 
-    assert p.poll_events() == [e1]
-    p._clear_events()
-    assert p.poll_events() == []
+    assert p._event_emitter.poll_events() == [e1]
+    p._event_emitter.clear_events()
+    assert p._event_emitter.poll_events() == []
 
 
-def test_entity_poll_includes_child_emitters_sorted_by_time() -> None:
-    class MutableEvent:
-        def __init__(self, emmited_at: datetime):
-            self.emmited_at = emmited_at
+def test_event_emitter_emit_poll_clear() -> None:
+    emitter = EventEmitter()
+    e1 = Event()
+    emitter.emit(e1)
 
-    t0 = datetime(2020, 1, 1, tzinfo=timezone.utc)
-    t1 = t0 + timedelta(seconds=1)
-    t2 = t0 + timedelta(seconds=2)
+    assert emitter.poll_events() == [e1]
+    emitter.clear_events()
+    assert emitter.poll_events() == []
 
+
+def test_event_collector_captures_emitted_events() -> None:
+    class Price(ValueObject):
+        amount: int
+
+    p = Price(amount=10)
+
+    with EventCollector() as events:
+        p._event_emitter.emit(Event())
+        p._event_emitter.emit(Event())
+
+    assert len(events) == 2
+
+
+def test_event_collector_does_not_capture_outside_context() -> None:
+    class Price(ValueObject):
+        amount: int
+
+    p = Price(amount=10)
+
+    e1 = Event()
+    p._event_emitter.emit(e1)
+
+    assert p._event_emitter.poll_events() == [e1]
+
+
+def test_entity_emit_poll_clear() -> None:
+    class Child(RootEntity):
+        id: int
+
+    child = Child(id=1)
+    e1 = Event()
+    child._event_emitter.emit(e1)
+
+    assert child._event_emitter.poll_events() == [e1]
+    child._event_emitter.clear_events()
+    assert child._event_emitter.poll_events() == []
+
+
+def test_event_collector_captures_from_entity() -> None:
+    class Child(RootEntity):
+        id: int
+
+    child = Child(id=1)
+
+    with EventCollector() as events:
+        child._event_emitter.emit(Event())
+
+    assert len(events) == 1
+
+
+def test_event_collector_captures_from_aggregate() -> None:
     class Child(RootEntity):
         id: int
 
@@ -36,39 +86,8 @@ def test_entity_poll_includes_child_emitters_sorted_by_time() -> None:
     child = Child(id=1)
     parent = Parent(child=child)
 
-    e_parent = MutableEvent(emmited_at=t1)
-    e_child_early = MutableEvent(emmited_at=t0)
-    e_child_late = MutableEvent(emmited_at=t2)
+    with EventCollector() as events:
+        parent._event_emitter.emit(Event())
+        child._event_emitter.emit(Event())
 
-    parent._emit(e_parent)  # type: ignore
-    child._emit(e_child_early)  # type: ignore
-    child._emit(e_child_late)  # type: ignore
-
-    assert parent.poll_events() == [e_child_early, e_parent, e_child_late]
-
-
-def test_entity_clear_clears_children_events_too() -> None:
-    class Child(Entity, root=True):
-        id: int
-
-        def add_event(self, event: Event) -> None:
-            self._emit(event)
-
-    class Parent(RootEntity):
-        child: Child
-
-        def add_event(self, event: Event) -> None:
-            self._emit(event)
-
-        def clear_events(self) -> None:
-            self._clear_events()
-
-    child = Child(id=1)
-    parent = Parent(child=child)
-
-    parent.add_event(Event())
-    child.add_event(Event())
-
-    assert len(parent.poll_events()) == 2
-    parent.clear_events()
-    assert parent.poll_events() == []
+    assert len(events) == 2
