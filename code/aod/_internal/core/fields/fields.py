@@ -76,9 +76,7 @@ def Field(default: Any = ..., **kwargs: Any) -> Any:
 
 
 @overload
-def PrivateField(
-    default: Any = ..., *, default_factory: None = None
-) -> Any: ...
+def PrivateField(default: Any = ..., *, default_factory: None = None) -> Any: ...
 
 
 @overload

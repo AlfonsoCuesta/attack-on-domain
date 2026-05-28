@@ -3,7 +3,7 @@ from typing import Annotated, Any, Type, get_args, get_origin
 from pydantic import BaseModel, ConfigDict
 from pydantic.fields import ModelPrivateAttr
 
-from .validators import is_initializer, is_validator
+from .validators import is_validator
 
 VALIDATION_MODEL_KEY = "__validation_model__"
 RAW_MODEL_KEY = "__raw_model__"
@@ -61,10 +61,6 @@ def make_raw_model(
         "__qualname__": f"{cls.__qualname__}.{name}RawModel",
         "__annotations__": annotations,
     }
-    for k, v in cls.__dict__.copy().items():
-        if initializer_info := is_initializer(v):
-            ns[k] = initializer_info(v)
-
     for base in reversed(cls.__mro__):
         for k, v in getattr(base, "__dict__", {}).items():
             if isinstance(v, ModelPrivateAttr):

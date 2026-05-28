@@ -33,8 +33,7 @@ def test_aod_validation_documented_api() -> None:
     assert aod.validation.__all__ == [
         "AfterValidator",
         "BeforeValidator",
-        "field_validator",
-        "post_init",
-        "post_init_validation",
+        "field_invariance",
+        "invariance",
         "super_context",
     ]

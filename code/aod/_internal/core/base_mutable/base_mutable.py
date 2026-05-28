@@ -8,7 +8,7 @@ from ..base_validator import (
     PydanticFacadeMeta,
 )
 from ..domain_exception import MutationForbiddenException
-from ..validators.validators import INIT_KEY, VALIDATOR_KEY
+from ..validators.validators import VALIDATOR_KEY
 from .make_immutable import make_immutable
 from .mutating_context import MutatingContext, MutatingState
 
@@ -63,8 +63,6 @@ class MutableBaseMeta(PydanticFacadeMeta):
                 if inspect.ismethod(attr_value):
                     continue
                 if getattr(attr_value, VALIDATOR_KEY, False):
-                    continue
-                if getattr(attr_value, INIT_KEY, False):
                     continue
                 if getattr(attr_value, MUTABLE_KEY, False):
                     continue

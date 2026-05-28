@@ -6,9 +6,8 @@ from aod._internal.core.base_validator import BaseValidator
 from aod._internal.core.fields import Field, PrivateField
 from aod._internal.core.validators import (
     AfterValidator,
-    field_validator,
-    post_init,
-    post_init_validation,
+    field_invariance,
+    invariance,
 )
 from pydantic import ValidationError
 
@@ -34,11 +33,11 @@ def test_base_validator_repr_uses_model_fields() -> None:
     assert repr(user) == "User(age=30, active=False)"
 
 
-def test_base_validator_field_validator_runs() -> None:
+def test_base_validator_field_invariance_runs() -> None:
     class User(BaseValidator):
         age: int
 
-        @field_validator("age")
+        @field_invariance("age")
         def normalize_age(cls, value: int) -> int:
             return value + 10
 
@@ -141,136 +140,64 @@ def test_base_validator_raises_when_required_field_is_missing() -> None:
 
 
 # ---------------------------------------------------------------------------
-# post_init
+# invariance
 # ---------------------------------------------------------------------------
 
 
-def test_post_init_runs_on_normal_construction() -> None:
+def test_invariance_runs_on_normal_construction() -> None:
     class User(BaseValidator):
         age: int
         label: str = ""
 
-        @post_init
-        def set_label(self) -> "User":
+        @invariance
+        def set_label(self) -> None:
             self.label = f"user:{self.age}"
-            return self
 
     user = User(age=5)
 
     assert user.label == "user:5"
 
 
-def test_post_init_runs_on_from_existing() -> None:
-    """post_init must also execute when reconstructing via from_existing."""
+def test_invariance_does_not_run_on_from_existing() -> None:
+    """invariance must be skipped when reconstructing via from_existing."""
 
     class User(BaseValidator):
         age: int
         label: str = ""
 
-        @post_init
-        def set_label(self) -> "User":
+        @invariance
+        def set_label(self) -> None:
             self.label = f"user:{self.age}"
-            return self
 
     user = User.from_existing(age=7, label="")
 
-    assert user.label == "user:7"
+    assert user.label == ""
 
 
-def test_post_init_can_raise_validation_error() -> None:
+def test_invariance_can_raise_validation_error() -> None:
     class User(BaseValidator):
         age: int
 
-        @post_init
-        def reject_minors(self) -> "User":
+        @invariance
+        def reject_minors(self) -> None:
             if self.age < 18:
                 raise ValueError("Must be 18 or older")
-            return self
 
     with pytest.raises(ValidationError, match="Must be 18 or older"):
         User(age=16)
 
 
-def test_post_init_raises_on_from_existing_too() -> None:
-    """Because post_init is injected into the raw model, it also guards from_existing."""
+def test_invariance_does_not_raise_on_from_existing() -> None:
+    """Since invariance is not in the raw model, from_existing bypasses it."""
 
     class User(BaseValidator):
         age: int
 
-        @post_init
-        def reject_minors(self) -> "User":
+        @invariance
+        def reject_minors(self) -> None:
             if self.age < 18:
                 raise ValueError("Must be 18 or older")
-            return self
 
-    with pytest.raises(ValidationError, match="Must be 18 or older"):
-        User.from_existing(age=16)
+    user = User.from_existing(age=16)
 
-
-# ---------------------------------------------------------------------------
-# post_init_validation
-# ---------------------------------------------------------------------------
-
-
-def test_post_init_validation_runs_on_normal_construction() -> None:
-    class User(BaseValidator):
-        age: int
-        label: str = ""
-
-        @post_init_validation
-        def set_label(self) -> "User":
-            self.label = f"validated:{self.age}"
-            return self
-
-    user = User(age=3)
-
-    assert user.label == "validated:3"
-
-
-def test_post_init_validation_does_not_run_on_from_existing() -> None:
-    """post_init_validation must be skipped when reconstructing via from_existing."""
-
-    class User(BaseValidator):
-        age: int
-        label: str = ""
-
-        @post_init_validation
-        def set_label(self) -> "User":
-            self.label = f"validated:{self.age}"
-            return self
-
-    user = User.from_existing(age=3, label="original")
-
-    assert user.label == "original"
-
-
-def test_post_init_validation_can_raise_validation_error() -> None:
-    class User(BaseValidator):
-        age: int
-
-        @post_init_validation
-        def reject_minors(self) -> "User":
-            if self.age < 18:
-                raise ValueError("Must be 18 or older")
-            return self
-
-    with pytest.raises(ValidationError, match="Must be 18 or older"):
-        User(age=10)
-
-
-def test_post_init_validation_does_not_raise_on_from_existing() -> None:
-    """Since post_init_validation is not in the raw model, from_existing bypasses it."""
-
-    class User(BaseValidator):
-        age: int
-
-        @post_init_validation
-        def reject_minors(self) -> "User":
-            if self.age < 18:
-                raise ValueError("Must be 18 or older")
-            return self
-
-    # Should not raise even though age < 18
-    user = User.from_existing(age=10)
-
-    assert user.age == 10
+    assert user.age == 16

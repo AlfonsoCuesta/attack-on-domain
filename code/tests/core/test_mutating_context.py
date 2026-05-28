@@ -18,24 +18,18 @@ def test_mutating_context_state_transitions() -> None:
     assert ctx.status == MutatingState.BLOCK
 
 
-def test_mutating_context_status_returns_block_when_no_states_are_active() -> (
-    None
-):
+def test_mutating_context_status_returns_block_when_no_states_are_active() -> None:
     ctx = MutatingContext()
     assert ctx.status == MutatingState.BLOCK
 
 
-def test_mutating_context_status_returns_pass_when_pass_state_is_active() -> (
-    None
-):
+def test_mutating_context_status_returns_pass_when_pass_state_is_active() -> None:
     ctx = MutatingContext()
     ctx.enter(MutatingState.PASS)
     assert ctx.status == MutatingState.PASS
 
 
-def test_mutating_context_status_returns_super_when_super_state_is_active() -> (
-    None
-):
+def test_mutating_context_status_returns_super_when_super_state_is_active() -> None:
     ctx = MutatingContext()
     ctx.enter(MutatingState.SUPER)
     assert ctx.status == MutatingState.SUPER

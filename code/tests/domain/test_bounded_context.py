@@ -34,9 +34,7 @@ def test_bounded_context_rejects_non_root_entity() -> None:
     class NotRoot(Entity):
         id: int
 
-    with pytest.raises(
-        InvalidRootEntityTypeError, match="is not a root Entity"
-    ):
+    with pytest.raises(InvalidRootEntityTypeError, match="is not a root Entity"):
         BoundedContext([NotRoot])  # type: ignore[list-item]
 
 

@@ -1,3 +1,4 @@
+import functools
 from typing import Callable, Literal
 
 from pydantic import (
@@ -8,7 +9,6 @@ from pydantic import (
 )
 
 VALIDATOR_KEY = "__field_validator_info__"
-INIT_KEY = "__init_completion_info__"
 
 
 class ValidatorInfo:
@@ -21,7 +21,7 @@ class ValidatorInfo:
         return self.validation(*self.args, **self.kwargs)(fn)
 
 
-def field_validator(
+def field_invariance(
     *fields,
     mode: Literal["before", "after"] = "before",
     check_fields: bool = False,
@@ -44,36 +44,19 @@ def field_validator(
     return decorator
 
 
-def post_init(fn):
+def invariance(fn):
+    @functools.wraps(fn)
+    def wrapper(self, *args, **kwargs):
+        fn(self, *args, **kwargs)
+        return self
+
     validator_info = ValidatorInfo(validation=pydantic_model_validator, mode="after")
-    setattr(
-        fn,
-        VALIDATOR_KEY,
-        validator_info,
-    )
-    setattr(
-        fn,
-        INIT_KEY,
-        validator_info,
-    )
-    return fn
-
-
-def post_init_validation(fn):
-    setattr(
-        fn,
-        VALIDATOR_KEY,
-        ValidatorInfo(validation=pydantic_model_validator, mode="after"),
-    )
-    return fn
+    setattr(wrapper, VALIDATOR_KEY, validator_info)
+    return wrapper
 
 
 def is_validator(fn) -> ValidatorInfo | None:
     return _get_validator_key(fn, VALIDATOR_KEY)
-
-
-def is_initializer(fn) -> ValidatorInfo | None:
-    return _get_validator_key(fn, INIT_KEY)
 
 
 def _get_validator_key(fn, key: str) -> ValidatorInfo | None:

@@ -47,7 +47,5 @@ class BoundedContext:
             if not issubclass(service, Service):
                 raise InvalidServiceTypeError(service.__name__)
 
-        self.aggregate_roots: tuple[RootEntityType, ...] = tuple(
-            aggregate_roots
-        )
+        self.aggregate_roots: tuple[RootEntityType, ...] = tuple(aggregate_roots)
         self.services: tuple[ServiceType, ...] = tuple(services)

@@ -28,7 +28,9 @@ class MutatingContext:
         return (
             MutatingState.SUPER
             if self._deep_states[MutatingState.SUPER] > 0
-            else MutatingState.PASS
-            if self._deep_states[MutatingState.PASS] > 0
-            else MutatingState.BLOCK
+            else (
+                MutatingState.PASS
+                if self._deep_states[MutatingState.PASS] > 0
+                else MutatingState.BLOCK
+            )
         )
