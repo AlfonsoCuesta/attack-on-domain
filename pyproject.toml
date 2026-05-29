@@ -46,16 +46,22 @@ exclude = ["tests*", "tests"]
 
 [dependency-groups]
 dev = [
-    "black>=25.11.0",
+    "ruff>=0.15.0",
     "mypy>=1.20.2",
     "pre-commit>=4.4.0",
     "pytest>=9.0.2",
-    "twine>=6.0.0",
 ]
 
 [tool.pytest.ini_options]
 pythonpath = ["code"]
 testpaths = ["code/tests"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py314"
+
+[tool.ruff.format]
+quote-style = "double"
 
 [tool.mypy]
 python_version = "3.14"

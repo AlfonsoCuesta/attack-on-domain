@@ -36,9 +36,7 @@ class ClassExpectedError(DomainException):
     """Raised when a class was required but a non-type value was given."""
 
     def __init__(self, *, role: str, got: object) -> None:
-        super().__init__(
-            f"Expected a class for {role}, got {type(got).__name__} instance"
-        )
+        super().__init__(f"Expected a class for {role}, got {type(got).__name__} instance")
 
 
 class InvalidNestedTypeError(DomainException):

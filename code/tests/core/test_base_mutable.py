@@ -34,9 +34,7 @@ def test_base_mutable_uses_same_mutating_context_across_inheritance_levels() -> 
         def __init__(self) -> None:
             super().__init__()
 
-        def enter(
-            self, state: Literal[MutatingState.PASS, MutatingState.SUPER]
-        ) -> None:
+        def enter(self, state: Literal[MutatingState.PASS, MutatingState.SUPER]) -> None:
             events.append(("enter", state))
             super().enter(state)
 
@@ -124,9 +122,7 @@ def test_base_mutable_not_allows_super_mutate_in_private_methods() -> None:
             self.age = value
 
     user = User(age=1)
-    with pytest.raises(
-        MutationForbiddenException, match="Cannot mutate this object User"
-    ):
+    with pytest.raises(MutationForbiddenException, match="Cannot mutate this object User"):
         user._force_set_age(20)
 
 
@@ -160,14 +156,10 @@ def test_base_mutable_private_method_no_super() -> None:
             self.age = value
 
     user = User(age=1)
-    with pytest.raises(
-        MutationForbiddenException, match="Cannot mutate this object User"
-    ):
+    with pytest.raises(MutationForbiddenException, match="Cannot mutate this object User"):
         user.set_age(7)
 
-    with pytest.raises(
-        MutationForbiddenException, match="Cannot mutate this object User"
-    ):
+    with pytest.raises(MutationForbiddenException, match="Cannot mutate this object User"):
         user._set_age(7)
 
 
@@ -186,9 +178,7 @@ def test_base_mutable_works_with_super_context() -> None:
             self.age = value
 
     user = User(age=1)
-    with pytest.raises(
-        MutationForbiddenException, match="Cannot mutate this object User"
-    ):
+    with pytest.raises(MutationForbiddenException, match="Cannot mutate this object User"):
         user.set_age(7)
 
     user.super_set_age(7)
@@ -212,9 +202,7 @@ def test_complex_field_list_mutation_blocked_when_cannot_mutate() -> None:
 
     bag = Bag()
 
-    with pytest.raises(
-        MutationForbiddenException, match="Cannot modify an immutable list"
-    ):
+    with pytest.raises(MutationForbiddenException, match="Cannot modify an immutable list"):
         bag.add(1)
 
 
@@ -260,9 +248,7 @@ def test_complex_field_dict_mutation_blocked_when_cannot_mutate() -> None:
 
     store = Store()
 
-    with pytest.raises(
-        MutationForbiddenException, match="Cannot modify an immutable dict"
-    ):
+    with pytest.raises(MutationForbiddenException, match="Cannot modify an immutable dict"):
         store.put("x", 1)
 
 
@@ -291,9 +277,7 @@ def test_complex_field_set_mutation_blocked_when_cannot_mutate() -> None:
 
     tags = Tags()
 
-    with pytest.raises(
-        MutationForbiddenException, match="Cannot modify an immutable set"
-    ):
+    with pytest.raises(MutationForbiddenException, match="Cannot modify an immutable set"):
         tags.add("foo")
 
 
@@ -308,9 +292,7 @@ def test_complex_field_mutation_blocked_from_outside_when_cannot_mutate() -> Non
 
     bag = Bag()
 
-    with pytest.raises(
-        MutationForbiddenException, match="Cannot modify an immutable list"
-    ):
+    with pytest.raises(MutationForbiddenException, match="Cannot modify an immutable list"):
         bag.items.append(1)
 
 
@@ -346,9 +328,7 @@ def test_complex_field_custom_object_mutation_blocked_when_cannot_mutate() -> No
 
     widget = Widget(counter=Counter())
 
-    with pytest.raises(
-        MutationForbiddenException, match="Cannot modify an immutable object"
-    ):
+    with pytest.raises(MutationForbiddenException, match="Cannot modify an immutable object"):
         widget.tick()
 
 
@@ -426,9 +406,7 @@ def test_nested_base_mutable_blocks_when_parent_cannot_mutate() -> None:
 
     parent = Parent(child=Child(age=1))
 
-    with pytest.raises(
-        MutationForbiddenException, match="Cannot modify an immutable object"
-    ):
+    with pytest.raises(MutationForbiddenException, match="Cannot modify an immutable object"):
         parent.set_child_age(9)
 
 
@@ -454,9 +432,7 @@ def test_nested_base_mutable_blocks_when_only_child_cannot_mutate() -> None:
         parent.set_child_age(9)
 
 
-def test_nested_base_mutable_direct_external_mutation_blocked_when_parent_cannot_mutate() -> (
-    None
-):
+def test_nested_base_mutable_direct_external_mutation_blocked_when_parent_cannot_mutate() -> None:
     class Child(BaseMutable):
         age: int
 
@@ -468,9 +444,7 @@ def test_nested_base_mutable_direct_external_mutation_blocked_when_parent_cannot
 
     parent = Parent(child=Child(age=1))
 
-    with pytest.raises(
-        MutationForbiddenException, match="Cannot modify an immutable object"
-    ):
+    with pytest.raises(MutationForbiddenException, match="Cannot modify an immutable object"):
         parent.child.age = 8
 
 

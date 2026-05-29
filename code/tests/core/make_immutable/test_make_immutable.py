@@ -82,9 +82,7 @@ def test_make_immutable_converts_list_and_blocks_mutations() -> None:
     assert isinstance(value, ImmutableList)
     assert value == [1, 2, 3]
 
-    with pytest.raises(
-        MutationForbiddenException, match="Cannot modify an immutable list"
-    ):
+    with pytest.raises(MutationForbiddenException, match="Cannot modify an immutable list"):
         value.append(4)
 
 
@@ -94,9 +92,7 @@ def test_make_immutable_converts_dict_and_blocks_mutations() -> None:
     assert isinstance(value, ImmutableDict)
     assert value == {"a": 1}
 
-    with pytest.raises(
-        MutationForbiddenException, match="Cannot modify an immutable dict"
-    ):
+    with pytest.raises(MutationForbiddenException, match="Cannot modify an immutable dict"):
         value["b"] = 2
 
 
@@ -106,9 +102,7 @@ def test_make_immutable_converts_set_and_blocks_mutations() -> None:
     assert isinstance(value, ImmutableSet)
     assert value == {1, 2, 3}
 
-    with pytest.raises(
-        MutationForbiddenException, match="Cannot modify an immutable set"
-    ):
+    with pytest.raises(MutationForbiddenException, match="Cannot modify an immutable set"):
         value.add(4)
 
 
@@ -195,9 +189,7 @@ def test_make_immutable_custom_object_wraps_nested_containers_on_read() -> None:
     assert isinstance(immutable.meta, ImmutableDict)
     assert isinstance(immutable.groups, ImmutableSet)
 
-    with pytest.raises(
-        MutationForbiddenException, match="Cannot modify an immutable list"
-    ):
+    with pytest.raises(MutationForbiddenException, match="Cannot modify an immutable list"):
         immutable.tags.append("x")
 
 
@@ -277,9 +269,7 @@ def test_make_immutable_custom_object_dunder_getattribute_still_works() -> None:
 def test_copy_of_immutable_container_raises_due_to_mutation_protection() -> None:
     immutable_list = ImmutableList([1, 2], make_immutable)
 
-    with pytest.raises(
-        MutationForbiddenException, match="Cannot modify an immutable list"
-    ):
+    with pytest.raises(MutationForbiddenException, match="Cannot modify an immutable list"):
         copy(immutable_list)
 
 
@@ -320,9 +310,7 @@ def test_make_immutable_keeps_boolean_identity() -> None:
 
 
 def test_make_immutable_keeps_datetime_objects_unchanged() -> None:
-    value = datetime.datetime(
-        2026, 5, 17, 18, 44, 30, 547255, tzinfo=datetime.timezone.utc
-    )
+    value = datetime.datetime(2026, 5, 17, 18, 44, 30, 547255, tzinfo=datetime.timezone.utc)
 
     assert make_immutable(value) is value
 
@@ -360,9 +348,7 @@ def test_immutable_list_getters_return_immutable_values() -> None:
     assert isinstance(next(iter(iterated[2])), Address)
     assert next(iter(iterated[2])).__class__.__name__ == "ImmutableAddress"
 
-    with pytest.raises(
-        MutationForbiddenException, match="Cannot modify an immutable list"
-    ):
+    with pytest.raises(MutationForbiddenException, match="Cannot modify an immutable list"):
         first.append(2)
 
 
@@ -379,9 +365,7 @@ def test_immutable_dict_getters_return_immutable_values() -> None:
     assert isinstance(values[0], ImmutableList)
     assert isinstance(pairs["meta"], ImmutableDict)
 
-    with pytest.raises(
-        MutationForbiddenException, match="Cannot modify an immutable list"
-    ):
+    with pytest.raises(MutationForbiddenException, match="Cannot modify an immutable list"):
         item_from_get.append(1)
 
 

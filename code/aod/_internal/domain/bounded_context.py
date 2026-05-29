@@ -72,6 +72,8 @@ class BoundedContext:
         self,
         aggregate_roots: Optional[Iterable[RootEntityType]] = None,
         services: Optional[Iterable[ServiceType]] = None,
+        *,
+        name: str | None = None,
     ):
         if aggregate_roots is None:
             aggregate_roots = []
@@ -104,7 +106,11 @@ class BoundedContext:
         for service_cls in services:
             check_service(service_cls)
 
+        self.name: str | None = name
         self.aggregate_roots: tuple[RootEntityType, ...] = tuple(aggregate_roots)
         self.services: tuple[ServiceType, ...] = tuple(services)
         self.entities: tuple[EntityType, ...] = tuple(discovered_entities)
         self.value_objects: tuple[ValueObjectType, ...] = tuple(discovered_vos)
+
+    def __repr__(self) -> str:
+        return self.name or super().__repr__()

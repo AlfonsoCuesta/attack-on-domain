@@ -165,13 +165,9 @@ def _make_blocked_method(name: str) -> Callable:
 
 def get_wrapped_methods(cls: type) -> dict[str, Callable]:
     wrapped_methods = {
-        name: _make_wrapped_method(name)
-        for name in _WRAPPED_METHODS
-        if _has_dunder(cls, name)
+        name: _make_wrapped_method(name) for name in _WRAPPED_METHODS if _has_dunder(cls, name)
     }
     blocked_methods = {
-        name: _make_blocked_method(name)
-        for name in _MUTATING_METHODS
-        if _has_dunder(cls, name)
+        name: _make_blocked_method(name) for name in _MUTATING_METHODS if _has_dunder(cls, name)
     }
     return {**wrapped_methods, **blocked_methods}

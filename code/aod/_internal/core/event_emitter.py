@@ -7,9 +7,7 @@ from .fields.fields import Field
 
 
 class Event(BaseImmutable):
-    emmited_at: datetime = Field(
-        default_factory=lambda: datetime.now(timezone.utc), init=False
-    )
+    emmited_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc), init=False)
 
 
 class EventEmitter:
@@ -29,9 +27,7 @@ class EventEmitter:
         self._events.clear()
 
 
-_event_collector: contextvars.ContextVar[List[Event]] = contextvars.ContextVar(
-    "_event_collector"
-)
+_event_collector: contextvars.ContextVar[List[Event]] = contextvars.ContextVar("_event_collector")
 
 
 class EventCollector:

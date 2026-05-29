@@ -42,9 +42,7 @@ def check_entity(entity_cls: type) -> None:
         if field_name.startswith("_"):
             continue
         if _references_base(field_type, _get_root_entity_type(entity_cls)):
-            raise InvalidNestedTypeError(
-                entity_cls.__name__, field_name, _type_name(field_type)
-            )
+            raise InvalidNestedTypeError(entity_cls.__name__, field_name, _type_name(field_type))
 
 
 def check_root_entity(entity_cls: type) -> None:
@@ -76,9 +74,7 @@ def check_value_object(vo_cls: type) -> None:
         if field_name.startswith("_"):
             continue
         if _references_base(field_type, Entity):
-            raise InvalidNestedTypeError(
-                vo_cls.__name__, field_name, _type_name(field_type)
-            )
+            raise InvalidNestedTypeError(vo_cls.__name__, field_name, _type_name(field_type))
 
 
 def check_service(service_cls: type) -> None:

@@ -8,6 +8,7 @@ from aod._internal.core.event_emitter import Event
 
 def test_aod_exports_documented_api() -> None:
     assert aod.__all__ == [
+        "App",
         "BoundedContext",
         "DomainEvent",
         "Entity",
@@ -17,6 +18,7 @@ def test_aod_exports_documented_api() -> None:
         "Field",
         "PrivateField",
     ]
+    assert aod.App.__name__ == "App"
     assert aod.DomainEvent is Event
     assert aod.Entity.__name__ == "Entity"
     assert aod.RootEntity.__name__ == "RootEntity"

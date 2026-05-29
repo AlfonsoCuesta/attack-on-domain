@@ -118,9 +118,7 @@ class BaseMutable(BaseValidator, metaclass=MutableBaseMeta):
 
     def __setattr__(self, name: str, value: Any) -> None:
         if not self._is_mutation_allowed:
-            raise MutationForbiddenException(
-                "Cannot mutate this object " + self.__class__.__name__
-            )
+            raise MutationForbiddenException("Cannot mutate this object " + self.__class__.__name__)
         super().__setattr__(name, value)
 
     def __getattribute__(self, name):

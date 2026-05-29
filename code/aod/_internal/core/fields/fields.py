@@ -83,9 +83,7 @@ def PrivateField(default: Any = ..., *, default_factory: None = None) -> Any: ..
 def PrivateField(*, default_factory: Callable[[], Any]) -> Any: ...
 
 
-def PrivateField(
-    default: Any = ..., *, default_factory: Callable[[], Any] | None = None
-) -> Any:
+def PrivateField(default: Any = ..., *, default_factory: Callable[[], Any] | None = None) -> Any:
     if default_factory is not None:
         return PrivateAttr(default_factory=default_factory, init=False)
     field_default = Unset() if default is ... else default
