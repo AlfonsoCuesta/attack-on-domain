@@ -1,10 +1,10 @@
-# BaseMutable & MutableBaseMeta
+# BaseGuarded & GuardedBaseMeta
 
 ## Purpose
 
-`BaseMutable` provides mutable domain objects with controlled mutation semantics. It auto-wraps public methods with a mutation context and protects attributes via `__setattr__`/`__getattribute__` overrides.
+`BaseGuarded` provides mutable domain objects with controlled mutation semantics. It auto-wraps public methods with a mutation context and protects attributes via `__setattr__`/`__getattribute__` overrides.
 
-## MutableBaseMeta (metaclass)
+## GuardedBaseMeta (metaclass)
 
 Extends `PydanticFacadeMeta`. After class creation, it:
 
@@ -23,11 +23,11 @@ A method IS wrapped if all of these are true:
 ### SUPER state propagation
 If a method overrides a parent method that was marked as `SUPER`, the override also gets `SUPER` status.
 
-## BaseMutable
+## BaseGuarded
 
 ### Class Variables
 - `__mutating_context_class__` — defaults to `MutatingContext`
-- `__stop_context_mutating__` — defaults to `True`; when `True`, `MutableBaseMeta` stops wrapping methods at this class in the MRO
+- `__stop_context_mutating__` — defaults to `True`; when `True`, `GuardedBaseMeta` stops wrapping methods at this class in the MRO
 
 ### `__init__(**kwargs)`
 1. Calls `super().__init__(**kwargs)` (which runs `BaseValidator.__init__`)

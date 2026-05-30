@@ -1,6 +1,6 @@
 from typing import Any, ClassVar, Literal
 
-from .base_mutable import BaseMutable, MutatingContext, MutatingState
+from .base_guarded import BaseGuarded, MutatingContext, MutatingState
 
 
 class MutatingContextBlock(MutatingContext):
@@ -17,7 +17,7 @@ class MutatingContextBlock(MutatingContext):
         return MutatingState.BLOCK
 
 
-class BaseImmutable(BaseMutable):
+class BaseSealed(BaseGuarded):
     __stop_context_mutating__: ClassVar[bool] = True
 
     def __init__(self, **kwargs: Any) -> None:

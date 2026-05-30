@@ -2,11 +2,11 @@ import contextvars
 from datetime import datetime, timezone
 from typing import List
 
-from .base_immutable import BaseImmutable
+from .base_sealed import BaseSealed
 from .fields.fields import Field
 
 
-class Event(BaseImmutable):
+class Event(BaseSealed):
     emmited_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc), init=False)
 
 

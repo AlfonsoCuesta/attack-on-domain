@@ -2,7 +2,7 @@
 
 ## Purpose
 
-When `BaseMutable.__getattribute__` detects mutation is not allowed, it wraps the returned value in an immutable proxy. This system creates those proxies.
+When `BaseGuarded.__getattribute__` detects mutation is not allowed, it wraps the returned value in an immutable proxy. This system creates those proxies.
 
 ## Entry Point: `make_immutable(value)`
 

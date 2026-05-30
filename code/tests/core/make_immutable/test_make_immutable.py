@@ -6,14 +6,14 @@ import uuid
 from copy import copy
 
 import pytest
-from aod._internal.core.base_mutable.make_immutable.immutable_custom import (
+from aod._internal.core.base_guarded.make_immutable.immutable_custom import (
     _immutable_cache,
 )
-from aod._internal.core.base_mutable.make_immutable.immutable_dict import ImmutableDict
-from aod._internal.core.base_mutable.make_immutable.immutable_list import ImmutableList
-from aod._internal.core.base_mutable.make_immutable.immutable_set import ImmutableSet
-from aod._internal.core.base_mutable.make_immutable.make_immutable import make_immutable
-from aod._internal.core.base_mutable.make_immutable.wrapped_methods import (
+from aod._internal.core.base_guarded.make_immutable.immutable_dict import ImmutableDict
+from aod._internal.core.base_guarded.make_immutable.immutable_list import ImmutableList
+from aod._internal.core.base_guarded.make_immutable.immutable_set import ImmutableSet
+from aod._internal.core.base_guarded.make_immutable.make_immutable import make_immutable
+from aod._internal.core.base_guarded.make_immutable.wrapped_methods import (
     get_wrapped_methods,
 )
 from aod._internal.core.domain_exception import MutationForbiddenException

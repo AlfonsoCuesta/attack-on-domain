@@ -1,9 +1,9 @@
-from .base_mutable import BaseMutable, MutableBaseMeta, super_context
+from .base_guarded import BaseGuarded, GuardedBaseMeta, super_context
 from .mutating_context import MutatingContext, MutatingState
 
 __all__ = [
-    "BaseMutable",
-    "MutableBaseMeta",
+    "BaseGuarded",
+    "GuardedBaseMeta",
     "super_context",
     "MutatingContext",
     "MutatingState",

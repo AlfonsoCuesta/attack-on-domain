@@ -8,8 +8,8 @@ from aod._internal.domain.value_object import ValueObject
 
 # ---------------------------------------------------------------------------
 # __post_init__ is defined on BaseValidator (for MRO support) but only
-# triggered from BaseMutable.__init__, so it works on Entity, RootEntity,
-# ValueObject, and any BaseMutable subclass.
+# triggered from BaseGuarded.__init__, so it works on Entity, RootEntity,
+# ValueObject, and any BaseGuarded subclass.
 # ---------------------------------------------------------------------------
 
 

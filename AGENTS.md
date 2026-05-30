@@ -18,8 +18,8 @@ code/
 │   └── _internal/                # Private — not semver-stable
 │       ├── core/                 # Framework internals
 │       │   ├── base_validator.py     # PydanticFacadeMeta + BaseValidator
-│       │   ├── base_immutable.py     # BaseImmutable (always-blocked mutation)
-│       │   ├── base_mutable/         # BaseMutable, MutableBaseMeta, MutatingContext, make_immutable subsystem
+│       │   ├── base_sealed.py     # BaseSealed (always-blocked mutation)
+│       │   ├── base_guarded/         # BaseGuarded, GuardedBaseMeta, MutatingContext, make_immutable subsystem
 │       │   ├── event_emitter.py      # Event, EventEmitter, EventCollector
 │       │   ├── model_maker.py        # Dual Pydantic model generation
 │       │   ├── domain_exception.py   # DomainException hierarchy
@@ -60,13 +60,13 @@ Each user class gets two Pydantic models at class creation time:
 `BaseValidator.__init__` checks a `contextvars.ContextVar` (`_use_raw_model`) to decide which model to validate against. `from_existing()` sets this flag before calling `cls(**kwargs)`.
 
 ### Automatic Method Wrapping
-`MutableBaseMeta` (the metaclass) intercepts class creation and wraps all public non-dunder instance methods with a mutation context manager. This is what makes setters and mutating methods work transparently. It skips:
+`GuardedBaseMeta` (the metaclass) intercepts class creation and wraps all public non-dunder instance methods with a mutation context manager. This is what makes setters and mutating methods work transparently. It skips:
 - Dunder methods (`__*__`)
 - Methods already marked with `__mutable__` attribute
 - Methods decorated with `@field_invariance` or `@invariance` (they have `__field_validator_info__`)
 
 ### Immutable Proxies via `make_immutable`
-When an attribute is read outside a mutation context, `BaseMutable.__getattribute__` returns `make_immutable(value)`:
+When an attribute is read outside a mutation context, `BaseGuarded.__getattribute__` returns `make_immutable(value)`:
 - `list` → `ImmutableList` (blocks append, extend, __setitem__, etc.)
 - `dict` → `ImmutableDict` (blocks __setitem__, update, pop, etc.)
 - `set` → `ImmutableSet` (blocks add, remove, discard, etc.)
@@ -77,7 +77,7 @@ When an attribute is read outside a mutation context, `BaseMutable.__getattribut
 
 ### `__post_init__` Hook
 
-Defined on `BaseValidator` (empty) and triggered from `BaseMutable.__init__`. Only runs on normal `__init__`, **not** on `from_existing`. It executes after `__mutating_context__` exists but before `__initialized__ = True`, so:
+Defined on `BaseValidator` (empty) and triggered from `BaseGuarded.__init__`. Only runs on normal `__init__`, **not** on `from_existing`. It executes after `__mutating_context__` exists but before `__initialized__ = True`, so:
 - Public methods can be called (mutation context active)
 - `_event_emitter` is already available (created before `super().__init__()`)
 - Field mutation is allowed during the hook
@@ -96,7 +96,7 @@ class User(RootEntity):
         ...
 ```
 
-Works for `Entity`, `RootEntity`, `ValueObject` (all inherit from `BaseMutable`). Direct `BaseValidator` subclasses define the method but don't trigger it.
+Works for `Entity`, `RootEntity`, `ValueObject` (all inherit from `BaseGuarded`). Direct `BaseValidator` subclasses define the method but don't trigger it.
 
 ### Type Checking System (`type_checking/`)
 Three check functions enforce DDD type constraints at `BoundedContext` construction:
@@ -159,8 +159,8 @@ uv run mypy code/                  # Type check
 ## When Modifying This Code
 
 - If you change the dual-model system, update `model_maker.py` and verify `test_base_validator.py`
-- If you change the mutation system, update `base_mutable.py` and verify `test_base_mutable.py` + `test_make_immutable.py`
-- If you change `__post_init__`, update `base_validator.py` (definition), `base_mutable.py` (trigger), and verify `test_post_init.py`
+- If you change the mutation system, update `base_guarded.py` and verify `test_base_guarded.py` + `test_make_immutable.py`
+- If you change `__post_init__`, update `base_validator.py` (definition), `base_guarded.py` (trigger), and verify `test_post_init.py`
 - If you change domain classes, check `test_event_emitter.py`, `test_entity.py`, `test_value_object.py`
 - If you change type checks, update `type_checking/extractors.py` and/or `type_checking/checks.py` and check `test_extractors.py` + `test_checks.py`
 - If you change bounded context logic, update `bounded_context.py` and check `test_bounded_context.py`

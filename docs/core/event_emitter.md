@@ -4,12 +4,12 @@
 
 Domain Event pattern with context-based event collection across aggregate boundaries.
 
-## Event(BaseImmutable)
+## Event(BaseSealed)
 
 An immutable event with an auto-set timestamp:
 
 ```python
-class Event(BaseImmutable):
+class Event(BaseSealed):
     emmited_at: datetime = Field(
         default_factory=lambda: datetime.now(timezone.utc), init=False
     )

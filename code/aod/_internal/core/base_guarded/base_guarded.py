@@ -30,7 +30,7 @@ def mark_mutable(
 
 def mutate(fn: Callable, *, super_mutate: bool = False) -> Callable:
     @wraps(fn)
-    def wrapper(self: BaseMutable, *args: Any, **kwargs: Any) -> Any:
+    def wrapper(self: BaseGuarded, *args: Any, **kwargs: Any) -> Any:
         with self.__mutate__(super_mutate=super_mutate):
             return fn(self, *args, **kwargs)
 
@@ -42,7 +42,7 @@ def super_context(fn: Callable) -> Callable:
     return mutate(fn, super_mutate=True)
 
 
-class MutableBaseMeta(PydanticFacadeMeta):
+class GuardedBaseMeta(PydanticFacadeMeta):
     def __new__(mcls, name, bases, namespace):
 
         cls = super().__new__(mcls, name, bases, namespace)
@@ -73,7 +73,7 @@ class MutableBaseMeta(PydanticFacadeMeta):
         return cls
 
 
-class BaseMutable(BaseValidator, metaclass=MutableBaseMeta):
+class BaseGuarded(BaseValidator, metaclass=GuardedBaseMeta):
     __mutating_context_class__: ClassVar[Type[MutatingContext]] = MutatingContext
     __stop_context_mutating__: ClassVar[bool] = True
 

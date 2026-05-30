@@ -1,8 +1,8 @@
 from typing import Literal
 
 import pytest
-from aod._internal.core.base_mutable import (
-    BaseMutable,
+from aod._internal.core.base_guarded import (
+    BaseGuarded,
     MutatingContext,
     MutatingState,
     super_context,
@@ -27,7 +27,7 @@ def test_mutating_context_state_transitions() -> None:
     assert ctx.status == MutatingState.BLOCK
 
 
-def test_base_mutable_uses_same_mutating_context_across_inheritance_levels() -> None:
+def test_base_guarded_uses_same_mutating_context_across_inheritance_levels() -> None:
     events = []
 
     class RecordingContext(MutatingContext):
@@ -42,7 +42,7 @@ def test_base_mutable_uses_same_mutating_context_across_inheritance_levels() -> 
             events.append(("exit", state))
             super().exit(state)
 
-    class Inner(BaseMutable):
+    class Inner(BaseGuarded):
         __mutating_context_class__ = RecordingContext
         age: int
 
@@ -72,8 +72,8 @@ def test_base_mutable_uses_same_mutating_context_across_inheritance_levels() -> 
     ]
 
 
-def test_base_mutable_blocks_direct_attribute_mutation() -> None:
-    class User(BaseMutable):
+def test_base_guarded_blocks_direct_attribute_mutation() -> None:
+    class User(BaseGuarded):
         age: int
 
     user = User(age=1)
@@ -82,8 +82,8 @@ def test_base_mutable_blocks_direct_attribute_mutation() -> None:
         user.age = 3
 
 
-def test_base_mutable_allows_mutation_inside_public_method() -> None:
-    class User(BaseMutable):
+def test_base_guarded_allows_mutation_inside_public_method() -> None:
+    class User(BaseGuarded):
         age: int
 
         def set_age(self, value: int) -> None:
@@ -95,8 +95,8 @@ def test_base_mutable_allows_mutation_inside_public_method() -> None:
     assert user.age == 10
 
 
-def test_base_mutable_respects_can_mutate_for_public_methods() -> None:
-    class User(BaseMutable):
+def test_base_guarded_respects_can_mutate_for_public_methods() -> None:
+    class User(BaseGuarded):
         age: int
 
         def _can_mutate(self) -> bool:
@@ -111,8 +111,8 @@ def test_base_mutable_respects_can_mutate_for_public_methods() -> None:
         user.set_age(10)
 
 
-def test_base_mutable_not_allows_super_mutate_in_private_methods() -> None:
-    class User(BaseMutable):
+def test_base_guarded_not_allows_super_mutate_in_private_methods() -> None:
+    class User(BaseGuarded):
         age: int
 
         def _can_mutate(self) -> bool:
@@ -126,8 +126,8 @@ def test_base_mutable_not_allows_super_mutate_in_private_methods() -> None:
         user._force_set_age(20)
 
 
-def test_base_mutable_nested_method_calls_keep_context() -> None:
-    class User(BaseMutable):
+def test_base_guarded_nested_method_calls_keep_context() -> None:
+    class User(BaseGuarded):
         age: int
 
         def set_age(self, value: int) -> None:
@@ -142,8 +142,8 @@ def test_base_mutable_nested_method_calls_keep_context() -> None:
     assert user.age == 7
 
 
-def test_base_mutable_private_method_no_super() -> None:
-    class User(BaseMutable):
+def test_base_guarded_private_method_no_super() -> None:
+    class User(BaseGuarded):
         age: int
 
         def _can_mutate(self) -> bool:
@@ -163,8 +163,8 @@ def test_base_mutable_private_method_no_super() -> None:
         user._set_age(7)
 
 
-def test_base_mutable_works_with_super_context() -> None:
-    class User(BaseMutable):
+def test_base_guarded_works_with_super_context() -> None:
+    class User(BaseGuarded):
         age: int
 
         def _can_mutate(self) -> bool:
@@ -191,7 +191,7 @@ def test_base_mutable_works_with_super_context() -> None:
 
 
 def test_complex_field_list_mutation_blocked_when_cannot_mutate() -> None:
-    class Bag(BaseMutable):
+    class Bag(BaseGuarded):
         items: list = []
 
         def _can_mutate(self) -> bool:
@@ -207,7 +207,7 @@ def test_complex_field_list_mutation_blocked_when_cannot_mutate() -> None:
 
 
 def test_complex_field_list_mutation_allowed_when_can_mutate() -> None:
-    class Bag(BaseMutable):
+    class Bag(BaseGuarded):
         items: list = []
 
         def add(self, item) -> None:
@@ -222,7 +222,7 @@ def test_complex_field_list_mutation_allowed_when_can_mutate() -> None:
 def test_complex_field_list_read_allowed_when_cannot_mutate() -> None:
     """Non-mutating calls on a complex field must not raise even if can_mutate is False."""
 
-    class Bag(BaseMutable):
+    class Bag(BaseGuarded):
         items: list = []
 
         def _can_mutate(self) -> bool:
@@ -237,7 +237,7 @@ def test_complex_field_list_read_allowed_when_cannot_mutate() -> None:
 
 
 def test_complex_field_dict_mutation_blocked_when_cannot_mutate() -> None:
-    class Store(BaseMutable):
+    class Store(BaseGuarded):
         data: dict = {}
 
         def _can_mutate(self) -> bool:
@@ -253,7 +253,7 @@ def test_complex_field_dict_mutation_blocked_when_cannot_mutate() -> None:
 
 
 def test_complex_field_dict_mutation_allowed_when_can_mutate() -> None:
-    class Store(BaseMutable):
+    class Store(BaseGuarded):
         data: dict = {}
 
         def put(self, key, value) -> None:
@@ -266,7 +266,7 @@ def test_complex_field_dict_mutation_allowed_when_can_mutate() -> None:
 
 
 def test_complex_field_set_mutation_blocked_when_cannot_mutate() -> None:
-    class Tags(BaseMutable):
+    class Tags(BaseGuarded):
         values: set = set()
 
         def _can_mutate(self) -> bool:
@@ -284,7 +284,7 @@ def test_complex_field_set_mutation_blocked_when_cannot_mutate() -> None:
 def test_complex_field_mutation_blocked_from_outside_when_cannot_mutate() -> None:
     """Mutation attempted directly from outside the class must also be blocked."""
 
-    class Bag(BaseMutable):
+    class Bag(BaseGuarded):
         items: list = []
 
         def _can_mutate(self) -> bool:
@@ -317,7 +317,7 @@ def test_complex_field_custom_object_mutation_blocked_when_cannot_mutate() -> No
             c.value = self.value
             return c
 
-    class Widget(BaseMutable):
+    class Widget(BaseGuarded):
         counter: Counter
 
         def _can_mutate(self) -> bool:
@@ -350,7 +350,7 @@ def test_complex_field_custom_object_read_allowed_when_cannot_mutate() -> None:
             c.value = self.value
             return c
 
-    class Widget(BaseMutable):
+    class Widget(BaseGuarded):
         counter: Counter
 
         def _can_mutate(self) -> bool:
@@ -365,18 +365,18 @@ def test_complex_field_custom_object_read_allowed_when_cannot_mutate() -> None:
 
 
 # ---------------------------------------------------------------------------
-# Nested BaseMutable objects
+# Nested BaseGuarded objects
 # ---------------------------------------------------------------------------
 
 
-def test_nested_base_mutable_allows_mutation_when_both_can_mutate() -> None:
-    class Child(BaseMutable):
+def test_nested_base_guarded_allows_mutation_when_both_can_mutate() -> None:
+    class Child(BaseGuarded):
         age: int
 
         def set_age(self, value: int) -> None:
             self.age = value
 
-    class Parent(BaseMutable):
+    class Parent(BaseGuarded):
         child: Child
 
         def set_child_age(self, value: int) -> None:
@@ -388,14 +388,14 @@ def test_nested_base_mutable_allows_mutation_when_both_can_mutate() -> None:
     assert parent.child.age == 5
 
 
-def test_nested_base_mutable_blocks_when_parent_cannot_mutate() -> None:
-    class Child(BaseMutable):
+def test_nested_base_guarded_blocks_when_parent_cannot_mutate() -> None:
+    class Child(BaseGuarded):
         age: int
 
         def set_age(self, value: int) -> None:
             self.age = value
 
-    class Parent(BaseMutable):
+    class Parent(BaseGuarded):
         child: Child
 
         def _can_mutate(self) -> bool:
@@ -410,8 +410,8 @@ def test_nested_base_mutable_blocks_when_parent_cannot_mutate() -> None:
         parent.set_child_age(9)
 
 
-def test_nested_base_mutable_blocks_when_only_child_cannot_mutate() -> None:
-    class Child(BaseMutable):
+def test_nested_base_guarded_blocks_when_only_child_cannot_mutate() -> None:
+    class Child(BaseGuarded):
         age: int
 
         def _can_mutate(self) -> bool:
@@ -420,7 +420,7 @@ def test_nested_base_mutable_blocks_when_only_child_cannot_mutate() -> None:
         def set_age(self, value: int) -> None:
             self.age = value
 
-    class Parent(BaseMutable):
+    class Parent(BaseGuarded):
         child: Child
 
         def set_child_age(self, value: int) -> None:
@@ -432,11 +432,11 @@ def test_nested_base_mutable_blocks_when_only_child_cannot_mutate() -> None:
         parent.set_child_age(9)
 
 
-def test_nested_base_mutable_direct_external_mutation_blocked_when_parent_cannot_mutate() -> None:
-    class Child(BaseMutable):
+def test_nested_base_guarded_direct_external_mutation_blocked_when_parent_cannot_mutate() -> None:
+    class Child(BaseGuarded):
         age: int
 
-    class Parent(BaseMutable):
+    class Parent(BaseGuarded):
         child: Child
 
         def _can_mutate(self) -> bool:
@@ -449,7 +449,7 @@ def test_nested_base_mutable_direct_external_mutation_blocked_when_parent_cannot
 
 
 def test_can_mutate_override_inherits_super_mutable_and_does_not_recurse() -> None:
-    class NoMutationClass(BaseMutable):
+    class NoMutationClass(BaseGuarded):
         data: int
         mutate: bool = False
 
@@ -465,13 +465,13 @@ def test_can_mutate_override_inherits_super_mutable_and_does_not_recurse() -> No
 
 
 def test_check_immutable_object_from_immutable_getattr() -> None:
-    class ImmutableListItem(BaseMutable):
+    class ImmutableListItem(BaseGuarded):
         data: int
 
         def _can_mutate(self) -> bool:
             return False
 
-    class ImmutableList(BaseMutable):
+    class ImmutableList(BaseGuarded):
         data_list: list[ImmutableListItem]
 
         def _can_mutate(self) -> bool:
@@ -485,13 +485,13 @@ def test_check_immutable_object_from_immutable_getattr() -> None:
 
 
 def test_check_mutable_object_from_mutable_getattr() -> None:
-    class ImmutableListItem(BaseMutable):
+    class ImmutableListItem(BaseGuarded):
         data: int
 
         def _can_mutate(self) -> bool:
             return False
 
-    class MutableList(BaseMutable):
+    class MutableList(BaseGuarded):
         data_list: list[ImmutableListItem]
 
         def get_data_list(self) -> list[ImmutableListItem]:

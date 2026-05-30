@@ -26,11 +26,11 @@ Never import from `aod._internal` in user code.
 ## Domain Primitives
 
 ### ValueObject
-- **Immutable** — inherits `BaseImmutable`, blocks all mutation (`__setattr__`, `__delattr__`, etc.)
+- **Immutable** — inherits `BaseSealed`, blocks all mutation (`__setattr__`, `__delattr__`, etc.)
 - For identity-less values: money, addresses, quantities
 
 ### Entity
-- **Mutable** — inherits `BaseMutable`, auto-wraps public methods with mutation context
+- **Mutable** — inherits `BaseGuarded`, auto-wraps public methods with mutation context
 - Has identity (typically an `id` field)
 - Mutation blocked outside public methods; reads return immutable proxies
 
@@ -78,7 +78,7 @@ class Money(ValueObject):
 
 ## Mutation System
 
-- `BaseMutable.__setattr__` enforces mutation state:
+- `BaseGuarded.__setattr__` enforces mutation state:
   - `BLOCK` — no mutation (default after `__init__`)
   - `PASS` — mutation allowed (entered automatically by public method wrappers)
   - `SUPER` — bypasses `_can_mutate()` (entered by `@super_context`)
@@ -100,11 +100,11 @@ class OrderPlaced(DomainEvent):
 self._event_emitter.emit(OrderPlaced(order_id="..."))
 ```
 
-Events are immutable (`BaseImmutable`). The `emmited_at` field (note the typo, it's established API, do NOT fix it) is auto-set at construction.
+Events are immutable (`BaseSealed`). The `emmited_at` field (note the typo, it's established API, do NOT fix it) is auto-set at construction.
 
 ### `__post_init__` Hook
 
-Defined on `BaseValidator` (empty), triggered from `BaseMutable.__init__`. Only runs on **normal `__init__`**, never on `from_existing`.
+Defined on `BaseValidator` (empty), triggered from `BaseGuarded.__init__`. Only runs on **normal `__init__`**, never on `from_existing`.
 
 ```python
 class User(RootEntity):
