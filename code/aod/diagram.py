@@ -897,14 +897,14 @@ def _estimate_node_size(node: _Node) -> tuple[int, int]:
         if finfo:
             max_len = max(max_len, len(f"{fname}: {finfo[0]}"))
     for m in node.methods:
-        sig = m["name"]
-        params = m.get("params", [])
+        sig = typing.cast(str, m["name"])
+        params = typing.cast(list[dict[str, str]], m.get("params", []))
         if params:
             parts = [f"{p['name']}: {p['type']}" if p["type"] else p["name"] for p in params]
             sig += f"({', '.join(parts)})"
         else:
             sig += "()"
-        ret = m.get("returns", "")
+        ret = typing.cast(str, m.get("returns", ""))
         if ret:
             sig += f" -> {ret}"
         max_len = max(max_len, len(sig))
@@ -977,8 +977,7 @@ def render_html(*args: BoundedContext | App) -> str:
     if len(args) == 1 and isinstance(args[0], App):
         contexts = list(args[0].contexts)
     else:
-        app_arg = None
-        contexts = list(args)
+        contexts = [typing.cast(BoundedContext, a) for a in args]
     ctx_names = [c.name or f"Context {i}" for i, c in enumerate(contexts)]
     nodes = _build_graph(*contexts)
     data = _serialize(nodes, ctx_names)

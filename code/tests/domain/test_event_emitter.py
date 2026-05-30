@@ -1,5 +1,5 @@
 from aod._internal.core.event_emitter import Event, EventCollector, EventEmitter
-from aod._internal.domain.entity import Entity, RootEntity
+from aod._internal.domain.entity import RootEntity
 from aod._internal.domain.value_object import ValueObject
 
 

@@ -1,7 +1,7 @@
 import inspect
 from contextlib import contextmanager
 from functools import wraps
-from typing import Any, Callable, ClassVar, Generator, Literal, Type
+from typing import Any, Callable, ClassVar, Generator, Literal, Type, cast
 
 from ..base_validator import (
     BaseValidator,
@@ -34,7 +34,10 @@ def mutate(fn: Callable, *, super_mutate: bool = False) -> Callable:
         with self.__mutate__(super_mutate=super_mutate):
             return fn(self, *args, **kwargs)
 
-    mutate_state = MutatingState.SUPER if super_mutate else MutatingState.PASS
+    mutate_state = cast(
+        Literal[MutatingState.PASS, MutatingState.SUPER],
+        MutatingState.SUPER if super_mutate else MutatingState.PASS,
+    )
     return mark_mutable(wrapper, state=mutate_state)
 
 

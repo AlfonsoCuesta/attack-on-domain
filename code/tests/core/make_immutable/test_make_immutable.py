@@ -410,7 +410,7 @@ def test_make_immutable_custom_object_wraps_comparison_dunder() -> None:
 def test_make_immutable_custom_object_blocks_setitem_dunder() -> None:
     class ItemContainer:
         def __init__(self) -> None:
-            self.values = {}
+            self.values: dict = {}
 
         def __setitem__(self, key, value) -> None:
             self.values[key] = value

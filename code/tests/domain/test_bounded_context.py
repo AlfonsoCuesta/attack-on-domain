@@ -5,7 +5,6 @@ from aod._internal.core.domain_exception import (
     InvalidNestedTypeError,
     InvalidRootEntityTypeError,
     InvalidServiceParameterError,
-    InvalidServiceTypeError,
 )
 from aod._internal.domain.bounded_context import BoundedContext
 from aod._internal.domain.entity import Entity, RootEntity

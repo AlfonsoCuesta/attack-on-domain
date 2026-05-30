@@ -4,7 +4,7 @@ Example: two bounded contexts with a shared entity name (Product).
 Run with: uv run python code/examples/diagram.py
 """
 
-from aod import BoundedContext, Entity, RootEntity, Service, ValueObject
+from aod import BoundedContext, Entity, RootEntity, Service
 from aod.diagram import render_html
 
 

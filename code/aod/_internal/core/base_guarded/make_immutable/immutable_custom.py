@@ -49,7 +49,7 @@ def _make_immutable_object(obj, factory) -> object:
 
     immutable_cls = _immutable_cache[cls]
     try:
-        new_obj = object.__new__(immutable_cls)
+        new_obj: object = object.__new__(immutable_cls)
         object.__setattr__(new_obj, "__wrapped_object__", obj)
     except TypeError:
         return obj

@@ -10,7 +10,6 @@ from aod._internal.core.domain_exception import (
     InvalidServiceTypeError,
 )
 from aod._internal.core.type_checking import (
-    check_entity,
     check_root_entity,
     check_service,
     check_value_object,
