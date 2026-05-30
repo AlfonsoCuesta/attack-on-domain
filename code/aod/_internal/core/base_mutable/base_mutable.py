@@ -6,6 +6,7 @@ from typing import Any, Callable, ClassVar, Generator, Literal, Type
 from ..base_validator import (
     BaseValidator,
     PydanticFacadeMeta,
+    _use_raw_model,
 )
 from ..domain_exception import MutationForbiddenException
 from ..invariances.invariances import VALIDATOR_KEY
@@ -79,6 +80,8 @@ class BaseMutable(BaseValidator, metaclass=MutableBaseMeta):
     def __init__(self, **kwargs: Any) -> None:
         super().__init__(**kwargs)
         self.__mutating_context__ = self.__mutating_context_class__()
+        if not _use_raw_model.get():
+            self.__post_init__()
         self.__initialized__ = True
 
     @super_context

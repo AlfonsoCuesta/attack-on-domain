@@ -33,6 +33,9 @@ This means `from_existing` bypasses `@field_invariance`, `@invariance`, and any 
 ### `__set_model_attributes(validated)`
 Copies all fields from `validated.model_dump()` plus `__pydantic_private__` attributes onto `self` using `object.__setattr__`.
 
+### `__post_init__()`
+Empty hook method defined for MRO support. Override in subclasses to run custom logic after field initialization. **Does NOT trigger on `BaseValidator` directly** — only `BaseMutable.__init__` calls it. See `base_mutable.md` for details.
+
 ### `__repr__()`
 Generates repr based on `__validation_model__.model_fields` keys.
 

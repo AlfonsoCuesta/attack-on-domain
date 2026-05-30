@@ -32,7 +32,10 @@ If a method overrides a parent method that was marked as `SUPER`, the override a
 ### `__init__(**kwargs)`
 1. Calls `super().__init__(**kwargs)` (which runs `BaseValidator.__init__`)
 2. Creates a new `MutatingContext` instance as `self.__mutating_context__`
-3. Sets `self.__initialized__ = True`
+3. Calls `self.__post_init__()` **only if** `_use_raw_model` is `False` (i.e., not from `from_existing`)
+4. Sets `self.__initialized__ = True`
+
+Because `__post_init__` runs after `__mutating_context__` exists but before `__initialized__`, public methods can be called and field mutation is allowed during the hook. The `_event_emitter` must be created before `super().__init__()` for it to be available in the hook (Entity and ValueObject already do this).
 
 ### Mutation Control
 - `_can_mutate() -> bool` — override this in subclasses. Default returns `True`. Decorated with `@super_context`.

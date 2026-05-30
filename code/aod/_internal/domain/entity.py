@@ -18,8 +18,8 @@ class Entity(BaseMutable, metaclass=EntityMeta):
     __aggregate_root__: ClassVar[bool] = False
 
     def __init__(self, **kwargs) -> None:
-        super().__init__(**kwargs)
         object.__setattr__(self, "_event_emitter", EventEmitter())
+        super().__init__(**kwargs)
 
     @classmethod
     def is_root(cls) -> bool:

@@ -49,6 +49,9 @@ class BaseValidator(metaclass=PydanticFacadeMeta):
 
         self.__set_model_attributes(validated)
 
+    def __post_init__(self) -> None:
+        pass
+
     def __set_model_attributes(self, validated: BaseModel) -> None:
         for k, v in validated.model_dump().items():
             object.__setattr__(self, k, v)

@@ -75,6 +75,29 @@ When an attribute is read outside a mutation context, `BaseMutable.__getattribut
 ### Event Collection via ContextVar
 `EventEmitter.emit()` always appends to its local list. If a `EventCollector` context manager is active (via ContextVar), it also appends to the collector's list. This enables aggregate-level event collection without explicit child traversal.
 
+### `__post_init__` Hook
+
+Defined on `BaseValidator` (empty) and triggered from `BaseMutable.__init__`. Only runs on normal `__init__`, **not** on `from_existing`. It executes after `__mutating_context__` exists but before `__initialized__ = True`, so:
+- Public methods can be called (mutation context active)
+- `_event_emitter` is already available (created before `super().__init__()`)
+- Field mutation is allowed during the hook
+
+```python
+class User(RootEntity):
+    id: int
+    name: str
+
+    def __post_init__(self):
+        self._event_emitter.emit(UserCreatedEvent(user_id=self.id))
+        self.setup_defaults()
+
+    def setup_defaults(self):
+        # public method — works because __mutating_context__ exists
+        ...
+```
+
+Works for `Entity`, `RootEntity`, `ValueObject` (all inherit from `BaseMutable`). Direct `BaseValidator` subclasses define the method but don't trigger it.
+
 ### Type Checking System (`type_checking/`)
 Three check functions enforce DDD type constraints at `BoundedContext` construction:
 
@@ -119,7 +142,7 @@ Other exceptions (`InvalidNestedTypeError`, `InvalidServiceParameterError`, `Cla
 ## Development Commands
 
 ```bash
-uv run pytest code/tests -q        # Run tests (160 tests)
+uv run pytest code/tests -q        # Run tests (182 tests)
 uv run ruff check code/ && uv run ruff format --check code/  # Lint + format check
 uv run mypy code/                  # Type check
 ```
@@ -137,6 +160,7 @@ uv run mypy code/                  # Type check
 
 - If you change the dual-model system, update `model_maker.py` and verify `test_base_validator.py`
 - If you change the mutation system, update `base_mutable.py` and verify `test_base_mutable.py` + `test_make_immutable.py`
+- If you change `__post_init__`, update `base_validator.py` (definition), `base_mutable.py` (trigger), and verify `test_post_init.py`
 - If you change domain classes, check `test_event_emitter.py`, `test_entity.py`, `test_value_object.py`
 - If you change type checks, update `type_checking/extractors.py` and/or `type_checking/checks.py` and check `test_extractors.py` + `test_checks.py`
 - If you change bounded context logic, update `bounded_context.py` and check `test_bounded_context.py`

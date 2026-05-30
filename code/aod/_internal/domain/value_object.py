@@ -8,5 +8,5 @@ class ValueObject(BaseImmutable):
     """Domain Value Object base (immutable) with domain events."""
 
     def __init__(self, **kwargs) -> None:
-        super().__init__(**kwargs)
         object.__setattr__(self, "_event_emitter", EventEmitter())
+        super().__init__(**kwargs)

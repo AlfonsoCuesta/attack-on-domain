@@ -102,6 +102,20 @@ self._event_emitter.emit(OrderPlaced(order_id="..."))
 
 Events are immutable (`BaseImmutable`). The `emmited_at` field (note the typo, it's established API, do NOT fix it) is auto-set at construction.
 
+### `__post_init__` Hook
+
+Defined on `BaseValidator` (empty), triggered from `BaseMutable.__init__`. Only runs on **normal `__init__`**, never on `from_existing`.
+
+```python
+class User(RootEntity):
+    id: int
+
+    def __post_init__(self):
+        self._event_emitter.emit(UserCreatedEvent(user_id=self.id))
+```
+
+Works for `Entity`, `RootEntity`, and `ValueObject`. Public methods can be called and fields mutated during the hook (runs after `__mutating_context__` exists).
+
 Use `EventCollector` to capture events across objects:
 
 ```python
@@ -148,10 +162,13 @@ Produces an interactive hand-drawn (rough.js) diagram with:
 - Arrows for entity-to-entity field references
 - Drag, pan, zoom
 
+### Tests
+- `code/tests/core/test_post_init.py` — 22 tests covering `__post_init__` for Entity, RootEntity, ValueObject, inheritance, event emission, public method calls, and from_existing suppression.
+
 ## Development Commands
 
 ```bash
-uv run pytest code/tests -q         # Run all tests (160+)
+uv run pytest code/tests -q         # Run all tests (182+)
 uv run ruff check code/ && uv run ruff format --check code/  # Lint + format check
 uv run mypy code/                   # Type check
 ```
