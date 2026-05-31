@@ -9,7 +9,7 @@ class ImmutableSet(set):
     __immutable_class__ = set
 
     def __init__(self, data: set, factory=_identity):
-        set.update(self, data)
+        super().__init__(data)
         self.__factory__ = factory
 
     def _raise(self, *args, **kwargs):

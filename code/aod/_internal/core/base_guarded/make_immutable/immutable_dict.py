@@ -27,7 +27,7 @@ class ImmutableDict(dict):
     def get(self, key, default=None):
         if key not in self:
             return self.__factory__(default)
-        return self[key]
+        return self.__factory__(self[key])
 
     def items(self):
         for key, value in super().items():
