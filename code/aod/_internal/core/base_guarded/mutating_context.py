@@ -19,7 +19,11 @@ class MutatingContext:
         self._deep_states[state] += 1
 
     def exit(self, state: Literal[MutatingState.PASS, MutatingState.SUPER]) -> None:
-        self._deep_states[state] -= 1 if self._deep_states[state] > 0 else 0
+        if self._deep_states[state] == 0:
+            raise RuntimeError(
+                f"Called exit({state!r}) without matching enter"
+            )
+        self._deep_states[state] -= 1
 
     @property
     def status(

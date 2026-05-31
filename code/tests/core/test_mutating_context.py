@@ -1,3 +1,5 @@
+import pytest
+
 from aod._internal.core.base_guarded import MutatingContext, MutatingState
 
 
@@ -56,9 +58,9 @@ def test_mutating_context_status_anidated_pass_states() -> None:
     assert ctx.status == MutatingState.SUPER
 
 
-def test_mutating_context_status_exit_when_state_is_not_active() -> None:
+def test_mutating_context_status_exit_raises_when_state_is_not_active() -> None:
     ctx = MutatingContext()
-    ctx.exit(MutatingState.PASS)
-    assert ctx.status == MutatingState.BLOCK
-    ctx.exit(MutatingState.SUPER)
-    assert ctx.status == MutatingState.BLOCK
+    with pytest.raises(RuntimeError, match="exit.*PASS.*without matching enter"):
+        ctx.exit(MutatingState.PASS)
+    with pytest.raises(RuntimeError, match="exit.*SUPER.*without matching enter"):
+        ctx.exit(MutatingState.SUPER)
