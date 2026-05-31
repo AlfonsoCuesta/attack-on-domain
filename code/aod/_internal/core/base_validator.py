@@ -17,9 +17,9 @@ _use_raw_model: contextvars.ContextVar[bool] = contextvars.ContextVar(
 )
 
 
-class PydanticFacadeMeta(type):
-    def __new__(mcls, name, bases, namespace):
-        cls = super().__new__(mcls, name, bases, namespace)
+class ValidationModelMeta(type):
+    def __new__(mcls, name, bases, namespace, **kwargs: Any):
+        cls = super().__new__(mcls, name, bases, namespace, **kwargs)
 
         validation_model = make_validation_model(cls, name, bases)
         raw_model = make_raw_model(cls, name, bases)
@@ -34,7 +34,7 @@ class PydanticFacadeMeta(type):
 
 
 @dataclass_transform(field_specifiers=(Field,), kw_only_default=True)
-class BaseValidator(metaclass=PydanticFacadeMeta):
+class BaseValidator(metaclass=ValidationModelMeta):
     __validation_model__: ClassVar[Type[BaseModel]]
     __raw_model__: ClassVar[Type[BaseModel]]
     __model_fields__: ClassVar[dict[str, Any]]

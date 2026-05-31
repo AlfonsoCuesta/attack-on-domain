@@ -1,4 +1,4 @@
-from typing import Any, ClassVar, Literal
+from typing import ClassVar, Literal, Type
 
 from .base_guarded import BaseGuarded, MutatingContext, MutatingState
 
@@ -18,11 +18,8 @@ class MutatingContextBlock(MutatingContext):
 
 
 class BaseSealed(BaseGuarded):
+    __mutating_context_class__: ClassVar[Type[MutatingContext]] = MutatingContextBlock
     __stop_context_mutating__: ClassVar[bool] = True
-
-    def __init__(self, **kwargs: Any) -> None:
-        super().__init__(**kwargs)
-        object.__setattr__(self, "__mutating_context_class__", MutatingContextBlock)
 
     def _can_mutate(self) -> bool:
         return False

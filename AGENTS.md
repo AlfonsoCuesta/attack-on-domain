@@ -11,43 +11,66 @@
 ```
 code/
 ├── aod/                          # Public package
-│   ├── __init__.py               # Re-exports: BoundedContext, DomainEvent, Entity, RootEntity, ValueObject, Field, PrivateField
+│   ├── __init__.py               # Re-exports: BoundedContext, DomainEvent, Entity, RootEntity, ValueObject, Service, Field, PrivateField
 │   ├── py.typed                  # PEP 561 marker
 │   ├── exceptions/__init__.py    # Public: DomainException, MutationForbiddenException
 │   ├── validation/__init__.py    # Public: AfterValidator, BeforeValidator, field_invariance, invariance, super_context
+│   ├── diagram.py                # Interactive DDD diagram generator
 │   └── _internal/                # Private — not semver-stable
 │       ├── core/                 # Framework internals
-│       │   ├── base_validator.py     # PydanticFacadeMeta + BaseValidator
-│       │   ├── base_sealed.py     # BaseSealed (always-blocked mutation)
-│       │   ├── base_guarded/         # BaseGuarded, GuardedBaseMeta, MutatingContext, make_immutable subsystem
+│       │   ├── base_validator.py     # ValidationModelMeta + BaseValidator
+│       │   ├── base_sealed.py        # BaseSealed (always-blocked mutation)
+│       │   ├── base_guarded/         # BaseGuarded, MutatingContext, make_immutable subsystem
 │       │   ├── event_emitter.py      # Event, EventEmitter, EventCollector
 │       │   ├── model_maker.py        # Dual Pydantic model generation
 │       │   ├── domain_exception.py   # DomainException hierarchy
-│       │   ├── type_checking/        # DDD type constraints
-│       │   │   ├── __init__.py       # Re-exports: extract_types_from_annotation, check_entity, check_root_entity, check_value_object, check_service
-│       │   │   ├── extractors.py     # extract_types_from_annotation, get_validation_model
-│       │   │   └── checks.py         # check_entity, check_root_entity, check_value_object, check_service
+│       │   ├── type_checking/        # DDD type constraint extractors
+│       │   │   ├── __init__.py       # Re-exports: extract_types_from_annotation, extract_domain_types_from_model
+│       │   │   └── extractors.py     # extract_types_from_annotation, get_validation_model
+│       │   ├── type_handlers/        # DDD type check functions
+│       │   │   ├── __init__.py       # Re-exports: BaseGuardedTypeHandler, ServiceTypeHandler
+│       │   │   ├── base_guarded_handler.py  # check_entity, check_root_entity, check_value_object, discover_types
+│       │   │   └── service_handler.py       # check_service
 │       │   ├── fields/fields.py      # Field(), PrivateField() wrappers
 │       │   └── invariances/invariances.py  # field_invariance, invariance, is_validator
 │       └── domain/               # DDD domain primitives
 │           ├── value_object.py
 │           ├── entity.py
 │           ├── service.py
-│           └── bounded_context.py
+│           ├── app.py
+│           ├── bounded_context.py
+│           ├── describe.py
+│           └── describers/
+│               ├── __init__.py
+│               ├── base_guarded_describer.py
+│               └── service_describer.py
 └── tests/                        # All tests
     ├── test_public_api.py
     ├── core/                     # Core framework tests
+    │   ├── test_base_guarded.py
+    │   ├── test_mutating_context.py
+    │   ├── test_post_init.py
+    │   ├── make_immutable/
     │   └── type_checking/
-    │       ├── test_extractors.py
-    │       └── test_checks.py
     └── domain/                   # Domain class tests
+        ├── test_app.py
         ├── test_bounded_context.py
+        ├── test_describe.py
         ├── test_entity.py
+        ├── test_event_emitter.py
         ├── test_service.py
         └── test_value_object.py
 ```
 
 ## Key Architectural Decisions
+
+### Single Metaclass: `ValidationModelMeta`
+Only one metaclass exists in the framework — `ValidationModelMeta` on `BaseValidator`. It generates the two Pydantic models (`__validation_model__` and `__raw_model__`) at class creation time.
+
+The old `GuardedBaseMeta` and `EntityMeta` metaclasses were eliminated:
+- **Method wrapping** lives in `BaseGuarded.__init_subclass__` which calls `_wrap_public_methods(cls)`
+- **Root entity flag** uses `issubclass(cls, RootEntity)` — no flag variable needed
+- `ValidationModelMeta.__new__` accepts `**kwargs` and forwards them to `type.__new__` for `__init_subclass__` compatibility
 
 ### Dual-Model Validation
 Each user class gets two Pydantic models at class creation time:
@@ -59,8 +82,11 @@ Each user class gets two Pydantic models at class creation time:
 ### ContextVar Model Selection
 `BaseValidator.__init__` checks a `contextvars.ContextVar` (`_use_raw_model`) to decide which model to validate against. `from_existing()` sets this flag before calling `cls(**kwargs)`.
 
-### Automatic Method Wrapping
-`GuardedBaseMeta` (the metaclass) intercepts class creation and wraps all public non-dunder instance methods with a mutation context manager. This is what makes setters and mutating methods work transparently. It skips:
+### EventEmitter via PrivateField
+All domain classes (`Entity`, `ValueObject`, `Service`) declare `_event_emitter` as a `PrivateField(default_factory=EventEmitter)` instead of creating it manually in `__init__`. Pydantic handles the lifecycle automatically.
+
+### Automatic Method Wrapping via `__init_subclass__`
+`BaseGuarded.__init_subclass__` calls `_wrap_public_methods(cls)` when any subclass is created. This wraps all public non-dunder instance methods with a mutation context manager. It skips:
 - Dunder methods (`__*__`)
 - Methods already marked with `__mutable__` attribute
 - Methods decorated with `@field_invariance` or `@invariance` (they have `__field_validator_info__`)
@@ -79,7 +105,7 @@ When an attribute is read outside a mutation context, `BaseGuarded.__getattribut
 
 Defined on `BaseValidator` (empty) and triggered from `BaseGuarded.__init__`. Only runs on normal `__init__`, **not** on `from_existing`. It executes after `__mutating_context__` exists but before `__initialized__ = True`, so:
 - Public methods can be called (mutation context active)
-- `_event_emitter` is already available (created before `super().__init__()`)
+- `_event_emitter` is already available (assigned by Pydantic via PrivateField before `__post_init__` runs)
 - Field mutation is allowed during the hook
 
 ```python
@@ -96,9 +122,9 @@ class User(RootEntity):
         ...
 ```
 
-Works for `Entity`, `RootEntity`, `ValueObject` (all inherit from `BaseGuarded`). Direct `BaseValidator` subclasses define the method but don't trigger it.
+Works for `Entity`, `RootEntity`, `ValueObject`, `Service` (all inherit from `BaseGuarded`). Direct `BaseValidator` subclasses define the method but don't trigger it.
 
-### Type Checking System (`type_checking/`)
+### Type Checking System (`type_handlers/`)
 Three check functions enforce DDD type constraints at `BoundedContext` construction:
 
 #### `check_entity(entity_cls)` / `check_root_entity(entity_cls)`
@@ -126,6 +152,7 @@ class BoundedContext:
     ):
 ```
 - Only accepts `aggregate_roots` (RootEntity subclasses) and `services` (Service subclasses)
+- Checks root entity status via `issubclass(item, RootEntity)` — no `is_root()` classmethod needed
 - Discovers `entities` and `value_objects` recursively via `_discover_types()`:
   - Starts from each root entity, gets `typing.get_type_hints()`
   - For each field type, extracts all types via `extract_types_from_annotation()`
@@ -142,7 +169,7 @@ Other exceptions (`InvalidNestedTypeError`, `InvalidServiceParameterError`, `Cla
 ## Development Commands
 
 ```bash
-uv run pytest code/tests -q        # Run tests (182 tests)
+uv run pytest code/tests -q        # Run tests (199 tests)
 uv run ruff check code/ && uv run ruff format --check code/  # Lint + format check
 uv run mypy code/                  # Type check
 ```
@@ -162,7 +189,7 @@ uv run mypy code/                  # Type check
 - If you change the mutation system, update `base_guarded.py` and verify `test_base_guarded.py` + `test_make_immutable.py`
 - If you change `__post_init__`, update `base_validator.py` (definition), `base_guarded.py` (trigger), and verify `test_post_init.py`
 - If you change domain classes, check `test_event_emitter.py`, `test_entity.py`, `test_value_object.py`
-- If you change type checks, update `type_checking/extractors.py` and/or `type_checking/checks.py` and check `test_extractors.py` + `test_checks.py`
+- If you change type checks, update `type_handlers/extractors.py` and/or `type_handlers/checks` and verify tests
 - If you change bounded context logic, update `bounded_context.py` and check `test_bounded_context.py`
 - Always run all tests before committing
 - The `Event` class has a typo: `emmited_at` instead of `emitted_at`. Do NOT fix it — it's a known established API.

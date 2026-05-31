@@ -5,7 +5,6 @@ from typing import Any, Callable, ClassVar, Generator, Literal, Type, cast
 
 from ..base_validator import (
     BaseValidator,
-    PydanticFacadeMeta,
     _use_raw_model,
 )
 from ..domain_exception import MutationForbiddenException
@@ -17,7 +16,7 @@ MUTABLE_KEY = "__mutable__"
 
 
 def is_dunder(name: str) -> bool:
-    return name.startswith("__")
+    return name.startswith("__") and name.endswith("__")
 
 
 def mark_mutable(
@@ -45,40 +44,40 @@ def super_context(fn: Callable) -> Callable:
     return mutate(fn, super_mutate=True)
 
 
-class GuardedBaseMeta(PydanticFacadeMeta):
-    def __new__(mcls, name, bases, namespace):
+def _wrap_public_methods(cls: type) -> None:
+    super_attrs = {
+        attr_name
+        for base in cls.__mro__
+        for attr_name, attr_value in base.__dict__.items()
+        if getattr(attr_value, MUTABLE_KEY, False) == MutatingState.SUPER
+    }
 
-        cls = super().__new__(mcls, name, bases, namespace)
-        super_attrs = {
-            attr_name
-            for base in cls.__mro__
-            for attr_name, attr_value in base.__dict__.items()
-            if getattr(attr_value, MUTABLE_KEY, False) == MutatingState.SUPER
-        }
+    for base in cls.__mro__:
+        if base.__dict__.get("__stop_context_mutating__", False):
+            break
+        for attr_name, attr_value in base.__dict__.items():
+            if not inspect.isfunction(attr_value):
+                continue
+            if is_dunder(attr_name):
+                continue
+            if inspect.ismethod(attr_value):
+                continue
+            if getattr(attr_value, VALIDATOR_KEY, False):
+                continue
+            if getattr(attr_value, MUTABLE_KEY, False):
+                continue
 
-        for base in cls.__mro__:
-            if base.__dict__.get("__stop_context_mutating__", False):
-                break
-            for attr_name, attr_value in base.__dict__.items():
-                if not inspect.isfunction(attr_value):
-                    continue
-                if is_dunder(attr_name):
-                    continue
-                if inspect.ismethod(attr_value):
-                    continue
-                if getattr(attr_value, VALIDATOR_KEY, False):
-                    continue
-                if getattr(attr_value, MUTABLE_KEY, False):
-                    continue
-
-                super_mutate = attr_name in super_attrs
-                setattr(cls, attr_name, mutate(attr_value, super_mutate=super_mutate))
-        return cls
+            super_mutate = attr_name in super_attrs
+            setattr(cls, attr_name, mutate(attr_value, super_mutate=super_mutate))
 
 
-class BaseGuarded(BaseValidator, metaclass=GuardedBaseMeta):
+class BaseGuarded(BaseValidator):
     __mutating_context_class__: ClassVar[Type[MutatingContext]] = MutatingContext
     __stop_context_mutating__: ClassVar[bool] = True
+
+    def __init_subclass__(cls, **kwargs: Any) -> None:
+        super().__init_subclass__(**kwargs)
+        _wrap_public_methods(cls)
 
     def __init__(self, **kwargs: Any) -> None:
         super().__init__(**kwargs)

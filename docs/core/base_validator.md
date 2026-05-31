@@ -1,10 +1,10 @@
-# BaseValidator & PydanticFacadeMeta
+# BaseValidator & ValidationModelMeta
 
 ## Purpose
 
 `BaseValidator` is the foundation of the validation system. It provides a Pydantic-powered base class that auto-generates two models per class, enabling a dual-mode construction path (validated vs. raw).
 
-## PydanticFacadeMeta (metaclass)
+## ValidationModelMeta (metaclass, única metaclass del framework)
 
 On every class creation, the metaclass:
 
@@ -12,6 +12,8 @@ On every class creation, the metaclass:
 2. Calls `make_raw_model(cls, name, bases)` → generates a Pydantic `BaseModel` subclass with validators stripped, stored as `__raw_model__`
 3. Sets `__model_fields__` from the validation model's `model_fields`
 4. Overrides `cls.__init__.__signature__` to match the validation model's constructor signature
+
+Acepta `**kwargs` y los pasa a `type.__new__` para no interceptar argumentos de clase como `root=True` en `Entity`.
 
 ## BaseValidator
 

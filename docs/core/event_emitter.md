@@ -34,10 +34,13 @@ class EventEmitter:
         self._events.clear()
 ```
 
-Every domain object (`ValueObject`, `Entity`, `Service`) creates an `EventEmitter` in `__init__`:
+Every domain object (`Entity`, `ValueObject`, `Service`) declares `_event_emitter` as a `PrivateField` with a `default_factory`, so Pydantic creates the emitter automatically:
 
 ```python
-object.__setattr__(self, "_event_emitter", EventEmitter())
+from aod import PrivateField
+from aod._internal.core.event_emitter import EventEmitter
+
+_event_emitter: EventEmitter = PrivateField(default_factory=EventEmitter)
 ```
 
 ## EventCollector

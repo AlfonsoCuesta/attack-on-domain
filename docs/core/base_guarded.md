@@ -1,12 +1,14 @@
-# BaseGuarded & GuardedBaseMeta
+# BaseGuarded
 
 ## Purpose
 
-`BaseGuarded` provides mutable domain objects with controlled mutation semantics. It auto-wraps public methods with a mutation context and protects attributes via `__setattr__`/`__getattribute__` overrides.
+`BaseGuarded` provides mutable domain objects with controlled mutation semantics. Public methods are auto-wrapped with a mutation context via `__init_subclass__`. Attributes are protected via `__setattr__`/`__getattribute__` overrides.
 
-## GuardedBaseMeta (metaclass)
+## Method Wrapping via `__init_subclass__`
 
-Extends `PydanticFacadeMeta`. After class creation, it:
+`BaseGuarded.__init_subclass__` calls `_wrap_public_methods(cls)` (module-level function) whenever a subclass is created. This replaces the old `GuardedBaseMeta` metaclass.
+
+### `_wrap_public_methods(cls)`
 
 1. Traverses the MRO in reverse (from most-base to most-derived)
 2. For each class, iterates its `__dict__` and wraps eligible methods with `mutate()`
@@ -15,7 +17,7 @@ Extends `PydanticFacadeMeta`. After class creation, it:
 ### Method eligibility
 A method IS wrapped if all of these are true:
 - It IS a function (`inspect.isfunction`)
-- It is NOT a dunder (`is_dunder()` → name starts with `__`)
+- It is NOT a dunder (name starts and ends with `__`, length > 4)
 - It is NOT a bound method (`inspect.ismethod`)
 - It does NOT have `__field_validator_info__` (not a validator)
 - It does NOT have `__mutable__` (not already explicitly marked)
@@ -27,15 +29,15 @@ If a method overrides a parent method that was marked as `SUPER`, the override a
 
 ### Class Variables
 - `__mutating_context_class__` — defaults to `MutatingContext`
-- `__stop_context_mutating__` — defaults to `True`; when `True`, `GuardedBaseMeta` stops wrapping methods at this class in the MRO
+- `__stop_context_mutating__` — defaults to `True`; when `True`, `__init_subclass__` stops wrapping methods at this class in the MRO
 
 ### `__init__(**kwargs)`
 1. Calls `super().__init__(**kwargs)` (which runs `BaseValidator.__init__`)
 2. Creates a new `MutatingContext` instance as `self.__mutating_context__`
-3. Calls `self.__post_init__()` **only if** `_use_raw_model` is `False` (i.e., not from `from_existing`)
+3. Calls `self.__post_init__()` **only if** `_use_raw_model` is `False` (i.e., not from `reconstruct`)
 4. Sets `self.__initialized__ = True`
 
-Because `__post_init__` runs after `__mutating_context__` exists but before `__initialized__`, public methods can be called and field mutation is allowed during the hook. The `_event_emitter` must be created before `super().__init__()` for it to be available in the hook (Entity and ValueObject already do this).
+Because `__post_init__` runs after `__mutating_context__` exists but before `__initialized__`, public methods can be called and field mutation is allowed during the hook. The `_event_emitter` is available via `PrivateField(default_factory=EventEmitter)` on each domain class, assigned by Pydantic during `super().__init__()`.
 
 ### Mutation Control
 - `_can_mutate() -> bool` — override this in subclasses. Default returns `True`. Decorated with `@super_context`.

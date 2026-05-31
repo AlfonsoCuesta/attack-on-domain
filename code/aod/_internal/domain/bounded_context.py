@@ -40,7 +40,7 @@ class BoundedContext:
                 raise ClassExpectedError(role="aggregate root", got=item)
             if not issubclass(item, Entity):
                 raise InvalidEntityTypeError(item.__name__)
-            if not item.is_root():
+            if not issubclass(item, RootEntity):
                 raise InvalidRootEntityTypeError(item.__name__)
 
         for service in services:

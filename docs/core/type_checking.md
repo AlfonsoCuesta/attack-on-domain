@@ -2,15 +2,19 @@
 
 ## Purpose
 
-Enforces DDD type constraints at `BoundedContext` construction time. Lives in `code/aod/_internal/core/type_checking/`.
+Enforces DDD type constraints at `BoundedContext` construction time. Lives in `code/aod/_internal/core/type_handlers/`.
 
 ## Package Structure
 
 ```
 type_checking/
-├── __init__.py       # Re-exports: extract_types_from_annotation, check_entity, check_root_entity, check_value_object, check_service
-├── extractors.py     # extract_types_from_annotation, get_validation_model
-└── checks.py         # check_entity, check_root_entity, check_value_object, check_service
+├── __init__.py       # Re-exports: extract_types_from_annotation, get_validation_model
+└── extractors.py     # extract_types_from_annotation, get_validation_model, extract_domain_types_from_model
+
+type_handlers/
+├── __init__.py                    # Re-exports: BaseGuardedTypeHandler, ServiceTypeHandler
+├── base_guarded_handler.py        # check_entity, check_root_entity, check_value_object, discover_types
+└── service_handler.py             # check_service
 ```
 
 ## extractors.py
@@ -28,24 +32,30 @@ Recursively extracts all type objects from an annotation, handling:
 
 Returns `cls.__validation_model__`. Only call on `BaseValidator` subclasses.
 
-## checks.py
+## base_guarded_handler.py
 
-### `check_entity(entity_cls: type)`
+### `check_entity(entity_cls: type[Entity])`
 
 Raises `InvalidNestedTypeError` if any field of `entity_cls` references `RootEntity` or a subclass of it.
 
-### `check_root_entity(root_entity_cls: type)`
+### `check_root_entity(root_entity_cls: type[Entity])`
 
 Delegates to `check_entity`. (Same constraint — RootEntities cannot contain RootEntity fields.)
 
-### `check_value_object(vo_cls: type)`
+### `check_value_object(vo_cls: type[ValueObject])`
 
 Raises `InvalidNestedTypeError` if any field references `Entity` (including `RootEntity`).
 
 **Allowed**: primitives, str, ValueObjects
 **Forbidden**: Entity, RootEntity (and subclasses)
 
-### `check_service(service_cls: type)`
+### `discover_types(root_entities) -> (entities, value_objects)`
+
+Recursively traverses field type hints starting from root entities to discover all Entity and ValueObject types referenced in the aggregate.
+
+## service_handler.py
+
+### `check_service(service_cls: type[Service])`
 
 For each public method (non-dunder, non-private) of `service_cls`:
 
@@ -56,16 +66,8 @@ For each public method (non-dunder, non-private) of `service_cls`:
 
 Raises `InvalidServiceParameterError` if any param or return type is a non-root `Entity`.
 
-**Allowed**: custom classes, `RootEntity`, `ValueObject`
-**Forbidden**: non-root `Entity`
-
-### Helper: `_is_entity_param(annotation, entity, root_entity)`
-
-Extracts types from annotation via `extract_types_from_annotation`. Returns `True` if any type is a subclass of `entity` but NOT a subclass of `root_entity`.
-
-### Helper: `_references_base(annotation, *bases)`
-
-Extracts types from annotation. Returns `True` if any type is a subclass of any of the given bases.
+**Allowed in services**: custom classes, `RootEntity`, `ValueObject`
+**Forbidden in services**: non-root `Entity`
 
 ## Exceptions
 

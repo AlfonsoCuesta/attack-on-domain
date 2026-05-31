@@ -27,7 +27,7 @@ class BoundedContext:
 1. Each item in `aggregate_roots` must be:
    - A class (raises `ClassExpectedError` if not)
    - A subclass of `Entity` (raises `InvalidEntityTypeError` if not)
-   - A root entity (`is_root() == True`, raises `InvalidRootEntityTypeError` if not)
+   - A root entity (`issubclass(item, RootEntity)` is True, raises `InvalidRootEntityTypeError` if not)
 
 2. Each item in `services` must be:
    - A class (raises `ClassExpectedError` if not)

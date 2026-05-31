@@ -1,8 +1,9 @@
+from aod._internal.core.base_sealed import BaseSealed
 from aod._internal.core.event_emitter import EventEmitter
+from aod._internal.core.fields.fields import PrivateField
 
 
-class Service:
-    """Domain service base class (stateless operations / coordination)."""
+class Service(BaseSealed):
+    """Domain service base class (stateless, no mutation)."""
 
-    def __init__(self) -> None:
-        object.__setattr__(self, "_event_emitter", EventEmitter())
+    _event_emitter: EventEmitter = PrivateField(default_factory=EventEmitter)

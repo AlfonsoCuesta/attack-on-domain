@@ -35,11 +35,12 @@ Never import from `aod._internal` in user code.
 - Mutation blocked outside public methods; reads return immutable proxies
 
 ### RootEntity
-- `class MyRoot(RootEntity):` — equivalent to `Entity(root=True)`
+- `class MyRoot(RootEntity):` — subclass of `Entity`, detected via `issubclass(cls, RootEntity)`
 - Cannot be nested inside other entities (enforced at `BoundedContext` construction)
 
 ### Service
-- Plain class, not a Pydantic model
+- **Immutable** — inherits `BaseSealed`, stateless service pattern
+- `_event_emitter` via `PrivateField(default_factory=EventEmitter)`, same as Entity/ValueObject
 - Methods must not accept or return non-root `Entity` types (enforced at `BoundedContext` construction)
 
 ## Dual-Model Validation
@@ -80,7 +81,7 @@ class Money(ValueObject):
 
 - `BaseGuarded.__setattr__` enforces mutation state:
   - `BLOCK` — no mutation (default after `__init__`)
-  - `PASS` — mutation allowed (entered automatically by public method wrappers)
+  - `PASS` — mutation allowed (entered automatically by public method wrappers via `_wrap_public_methods`)
   - `SUPER` — bypasses `_can_mutate()` (entered by `@super_context`)
 - `__getattribute__` returns `make_immutable(value)` when mutation is blocked:
   - `list` → `ImmutableList` (blocks append, extend, __setitem__, etc.)
@@ -168,7 +169,7 @@ Produces an interactive hand-drawn (rough.js) diagram with:
 ## Development Commands
 
 ```bash
-uv run pytest code/tests -q         # Run all tests (182+)
+uv run pytest code/tests -q         # Run all tests (199)
 uv run ruff check code/ && uv run ruff format --check code/  # Lint + format check
 uv run mypy code/                   # Type check
 ```

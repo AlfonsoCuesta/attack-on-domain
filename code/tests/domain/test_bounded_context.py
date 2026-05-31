@@ -16,10 +16,10 @@ def test_bounded_context_accepts_only_root_entities() -> None:
     class Order(RootEntity):
         id: int
 
-    class Customer(Entity, root=True):
+    class Customer(RootEntity):
         id: int
 
-    bc = BoundedContext(aggregate_roots=[Order, Customer])  # type: ignore[list-item]
+    bc = BoundedContext(aggregate_roots=[Order, Customer])
 
     assert bc.aggregate_roots == (Order, Customer)
     assert bc.services == ()
