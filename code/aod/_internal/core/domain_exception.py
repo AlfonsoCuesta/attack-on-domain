@@ -59,3 +59,12 @@ class InvalidServiceParameterError(DomainException):
             f"Service '{service_name}' method '{method_name}' parameter "
             f"'{param_name}' has type '{type_name}', which is not allowed"
         )
+
+
+class DuplicateDomainTypeError(DomainException):
+    """Raised when a domain type is registered in more than one BoundedContext."""
+
+    def __init__(self, type_name: str, role: str, first_context: str) -> None:
+        super().__init__(
+            f"{type_name} ({role}) is already registered in bounded context '{first_context}'"
+        )

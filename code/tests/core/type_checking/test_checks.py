@@ -3,12 +3,7 @@ from aod._internal.core.domain_exception import (
     InvalidNestedTypeError,
     InvalidServiceParameterError,
 )
-from aod._internal.core.type_checking.checks import (
-    check_entity,
-    check_root_entity,
-    check_service,
-    check_value_object,
-)
+from aod._internal.core.type_handlers import BaseGuardedTypeHandler, ServiceTypeHandler
 from aod._internal.domain.entity import Entity, RootEntity
 from aod._internal.domain.service import Service
 from aod._internal.domain.value_object import ValueObject
@@ -23,7 +18,7 @@ def test_check_entity_raises_on_root_entity_field() -> None:
         product: Product
 
     with pytest.raises(InvalidNestedTypeError, match="'product'"):
-        check_entity(BadEntity)
+        BaseGuardedTypeHandler.check_entity(BadEntity)
 
 
 def test_check_entity_passes_with_entity_field() -> None:
@@ -34,7 +29,7 @@ def test_check_entity_passes_with_entity_field() -> None:
         id: int
         items: list[LineItem]
 
-    check_entity(Order)  # Should not raise
+    BaseGuardedTypeHandler.check_entity(Order)  # Should not raise
 
 
 def test_check_root_entity_raises_on_root_entity_field() -> None:
@@ -46,7 +41,7 @@ def test_check_root_entity_raises_on_root_entity_field() -> None:
         product: Product
 
     with pytest.raises(InvalidNestedTypeError, match="'product'"):
-        check_root_entity(Order)
+        BaseGuardedTypeHandler.check_root_entity(Order)
 
 
 def test_check_value_object_raises_on_entity_field() -> None:
@@ -57,7 +52,7 @@ def test_check_value_object_raises_on_entity_field() -> None:
         customer: Customer
 
     with pytest.raises(InvalidNestedTypeError, match="'customer'"):
-        check_value_object(BadVO)
+        BaseGuardedTypeHandler.check_value_object(BadVO)
 
 
 def test_check_value_object_raises_on_root_entity_field() -> None:
@@ -68,7 +63,7 @@ def test_check_value_object_raises_on_root_entity_field() -> None:
         product: Product
 
     with pytest.raises(InvalidNestedTypeError, match="'product'"):
-        check_value_object(BadVO)
+        BaseGuardedTypeHandler.check_value_object(BadVO)
 
 
 def test_check_value_object_passes_with_primitives() -> None:
@@ -76,7 +71,7 @@ def test_check_value_object_passes_with_primitives() -> None:
         amount: int
         label: str
 
-    check_value_object(GoodVO)  # Should not raise
+    BaseGuardedTypeHandler.check_value_object(GoodVO)  # Should not raise
 
 
 def test_check_value_object_passes_with_nested_vos() -> None:
@@ -86,7 +81,7 @@ def test_check_value_object_passes_with_nested_vos() -> None:
     class Price(ValueObject):
         total: Money
 
-    check_value_object(Price)  # Should not raise
+    BaseGuardedTypeHandler.check_value_object(Price)  # Should not raise
 
 
 def test_check_service_raises_on_entity_param() -> None:
@@ -98,7 +93,7 @@ def test_check_service_raises_on_entity_param() -> None:
             pass
 
     with pytest.raises(InvalidServiceParameterError, match="'customer'"):
-        check_service(BadService)
+        ServiceTypeHandler.check_service(BadService)
 
 
 def test_check_service_raises_on_entity_return() -> None:
@@ -110,7 +105,7 @@ def test_check_service_raises_on_entity_return() -> None:
             return Customer(id=1)
 
     with pytest.raises(InvalidServiceParameterError, match="return"):
-        check_service(BadService)
+        ServiceTypeHandler.check_service(BadService)
 
 
 def test_check_service_passes_with_root_entity_param() -> None:
@@ -121,7 +116,7 @@ def test_check_service_passes_with_root_entity_param() -> None:
         def process(self, order: Order) -> None:
             pass
 
-    check_service(GoodService)  # Should not raise
+    ServiceTypeHandler.check_service(GoodService)  # Should not raise
 
 
 def test_check_service_passes_with_value_object_param() -> None:
@@ -132,7 +127,7 @@ def test_check_service_passes_with_value_object_param() -> None:
         def get(self, address: Address) -> int:
             return 0
 
-    check_service(GoodService)  # Should not raise
+    ServiceTypeHandler.check_service(GoodService)  # Should not raise
 
 
 def test_check_service_passes_with_custom_class_param() -> None:
@@ -143,4 +138,4 @@ def test_check_service_passes_with_custom_class_param() -> None:
         def apply(self, config: Config) -> float:
             return config.rate
 
-    check_service(GoodService)  # Should not raise
+    ServiceTypeHandler.check_service(GoodService)  # Should not raise

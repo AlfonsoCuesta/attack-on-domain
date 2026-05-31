@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import typing
 from typing import Iterable, Optional, TypeAlias
 
 from aod._internal.core.domain_exception import (
@@ -9,13 +8,10 @@ from aod._internal.core.domain_exception import (
     InvalidRootEntityTypeError,
     InvalidServiceTypeError,
 )
-from aod._internal.core.type_checking import (
-    check_root_entity,
-    check_service,
-    check_value_object,
-    extract_types_from_annotation,
-)
+from aod._internal.core.type_handlers import BaseGuardedTypeHandler, ServiceTypeHandler
+from aod._internal.domain.describers import BaseGuardedDescriber, ServiceDescriber
 
+from .describe import TypeDoc
 from .entity import Entity, RootEntity
 from .service import Service
 from .value_object import ValueObject
@@ -24,46 +20,6 @@ RootEntityType: TypeAlias = type[RootEntity]
 EntityType: TypeAlias = type[Entity]
 ValueObjectType: TypeAlias = type[ValueObject]
 ServiceType: TypeAlias = type[Service]
-
-
-def _discover_types(
-    root_entities: list[type[Entity]],
-) -> tuple[list[type[Entity]], list[type[ValueObject]]]:
-    entities: set[type[Entity]] = set()
-    vos: set[type[ValueObject]] = set()
-    seen: set[type] = set()
-    pending: list[type] = list(root_entities)
-
-    while pending:
-        cls = pending.pop()
-        if cls in seen:
-            continue
-        seen.add(cls)
-
-        try:
-            hints = typing.get_type_hints(cls)
-        except Exception:
-            continue
-
-        for field_name, field_type in hints.items():
-            if field_name.startswith("_"):
-                continue
-            for t in extract_types_from_annotation(field_type):
-                if not isinstance(t, type):
-                    continue
-                if (
-                    issubclass(t, Entity)
-                    and t is not Entity
-                    and t not in root_entities
-                    and t not in entities
-                ):
-                    entities.add(t)
-                    pending.append(t)
-                if issubclass(t, ValueObject) and t is not ValueObject and t not in vos:
-                    vos.add(t)
-                    pending.append(t)
-
-    return list(entities), list(vos)
 
 
 class BoundedContext:
@@ -93,23 +49,42 @@ class BoundedContext:
             if not issubclass(service, Service):
                 raise InvalidServiceTypeError(service.__name__)
 
-        discovered_entities, discovered_vos = _discover_types(list(aggregate_roots))
+        discovered_entities, discovered_vos = BaseGuardedTypeHandler.discover_types(
+            list(aggregate_roots)
+        )
 
         all_entities = list(aggregate_roots) + discovered_entities
         for entity_cls in all_entities:
-            check_root_entity(entity_cls)
+            BaseGuardedTypeHandler.check_root_entity(entity_cls)
 
         for vo_cls in discovered_vos:
-            check_value_object(vo_cls)
+            BaseGuardedTypeHandler.check_value_object(vo_cls)
 
         for service_cls in services:
-            check_service(service_cls)
+            ServiceTypeHandler.check_service(service_cls)
 
         self.name: str | None = name
         self.aggregate_roots: tuple[RootEntityType, ...] = tuple(aggregate_roots)
         self.services: tuple[ServiceType, ...] = tuple(services)
         self.entities: tuple[EntityType, ...] = tuple(discovered_entities)
         self.value_objects: tuple[ValueObjectType, ...] = tuple(discovered_vos)
+
+    def describe(self) -> list[TypeDoc]:
+        result: list[TypeDoc] = []
+
+        for root_cls in self.aggregate_roots:
+            result.append(BaseGuardedDescriber.describe(root_cls, "RootEntity"))
+
+        for ent_cls in self.entities:
+            result.append(BaseGuardedDescriber.describe(ent_cls, "Entity"))
+
+        for vo_cls in self.value_objects:
+            result.append(BaseGuardedDescriber.describe(vo_cls, "ValueObject"))
+
+        for svc_cls in self.services:
+            result.append(ServiceDescriber.describe(svc_cls, "Service"))
+
+        return result
 
     def __repr__(self) -> str:
         return self.name or super().__repr__()
