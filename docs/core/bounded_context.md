@@ -10,8 +10,8 @@ Assembles a Domain-Driven Design bounded context by collecting aggregate roots, 
 class BoundedContext:
     def __init__(
         self,
-        aggregate_roots: Optional[Iterable[RootEntityType]] = None,
-        services: Optional[Iterable[ServiceType]] = None,
+        aggregate_roots: Iterable[RootEntityType] | None = None,
+        services: Iterable[ServiceType] | None = None,
     ):
 ```
 
@@ -19,8 +19,8 @@ class BoundedContext:
 
 | Parameter | Type | Description |
 |-----------|------|-------------|
-| `aggregate_roots` | `Optional[Iterable[type[RootEntity]]]` | Root entity classes in this context |
-| `services` | `Optional[Iterable[type[Service]]]` | Service classes in this context |
+| `aggregate_roots` | `Iterable[type[RootEntity]] \| None` | Root entity classes in this context |
+| `services` | `Iterable[type[Service]] \| None` | Service classes in this context |
 
 ### Validation
 

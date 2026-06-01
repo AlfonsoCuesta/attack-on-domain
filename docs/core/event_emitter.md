@@ -27,7 +27,7 @@ class EventEmitter:
         # 1. appends to self._events (local storage)
         # 2. if EventCollector is active via ContextVar, appends there too
 
-    def poll_events(self) -> List[Event]:
+    def poll_events(self) -> list[Event]:
         return list(self._events)  # returns a copy
 
     def clear_events(self) -> None:
@@ -62,7 +62,7 @@ with EventCollector() as events:
 ### ContextVar
 
 ```python
-_event_collector: ContextVar[List[Event]] = ContextVar("_event_collector")
+_event_collector: ContextVar[list[Event]] = ContextVar("_event_collector")
 ```
 
 Accessed via `_event_collector.get(None)` — returns `None` if no collector is active.

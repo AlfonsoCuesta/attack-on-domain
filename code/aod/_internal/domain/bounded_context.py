@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Iterable, Optional, TypeAlias
+from collections.abc import Iterable
 
 from aod._internal.core.domain_exception import (
     ClassExpectedError,
@@ -15,17 +15,17 @@ from .entity import Entity, RootEntity
 from .service import Service
 from .value_object import ValueObject
 
-RootEntityType: TypeAlias = type[RootEntity]
-EntityType: TypeAlias = type[Entity]
-ValueObjectType: TypeAlias = type[ValueObject]
-ServiceType: TypeAlias = type[Service]
+type RootEntityType = type[RootEntity]
+type EntityType = type[Entity]
+type ValueObjectType = type[ValueObject]
+type ServiceType = type[Service]
 
 
 class BoundedContext:
     def __init__(
         self,
-        aggregate_roots: Optional[Iterable[RootEntityType]] = None,
-        services: Optional[Iterable[ServiceType]] = None,
+        aggregate_roots: Iterable[RootEntityType] | None = None,
+        services: Iterable[ServiceType] | None = None,
         *,
         name: str | None = None,
     ):
@@ -40,8 +40,8 @@ class BoundedContext:
 
     def _validate_parameters(
         self,
-        aggregate_roots: Optional[Iterable[RootEntityType]],
-        services: Optional[Iterable[ServiceType]],
+        aggregate_roots: Iterable[RootEntityType] | None,
+        services: Iterable[ServiceType] | None,
     ) -> tuple[list[RootEntityType], list[ServiceType]]:
         if aggregate_roots is None:
             aggregate_roots = []

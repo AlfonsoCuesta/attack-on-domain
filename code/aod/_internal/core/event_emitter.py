@@ -1,6 +1,5 @@
 import contextvars
 from datetime import datetime, timezone
-from typing import List
 
 from .base_sealed import BaseSealed
 from .fields.fields import Field
@@ -20,21 +19,21 @@ class EventEmitter:
         if collector is not None:
             collector.append(event)
 
-    def poll_events(self) -> List[Event]:
+    def poll_events(self) -> list[Event]:
         return list(self._events)
 
     def clear_events(self) -> None:
         self._events.clear()
 
 
-_event_collector: contextvars.ContextVar[List[Event]] = contextvars.ContextVar("_event_collector")
+_event_collector: contextvars.ContextVar[list[Event]] = contextvars.ContextVar("_event_collector")
 
 
 class EventCollector:
     def __init__(self) -> None:
         self._events: list[Event] = []
 
-    def __enter__(self) -> List[Event]:
+    def __enter__(self) -> list[Event]:
         self._token = _event_collector.set(self._events)
         return self._events
 

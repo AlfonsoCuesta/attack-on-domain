@@ -14,7 +14,7 @@ code/
 │   ├── __init__.py               # Re-exports: BoundedContext, DomainEvent, Entity, RootEntity, ValueObject, Service, Field, PrivateField
 │   ├── py.typed                  # PEP 561 marker
 │   ├── exceptions/__init__.py    # Public: DomainException, MutationForbiddenException
-│   ├── validation/__init__.py    # Public: AfterValidator, BeforeValidator, field_invariance, invariance, super_context
+│   ├── validation/__init__.py    # Public: AfterValidator, BeforeValidator, field_invariance, invariance, inherit_context
 │   ├── diagram.py                # Interactive DDD diagram generator
 │   └── _internal/                # Private — not semver-stable
 │       ├── core/                 # Framework internals
@@ -39,11 +39,7 @@ code/
 │           ├── service.py
 │           ├── app.py
 │           ├── bounded_context.py
-│           ├── describe.py
-│           └── describers/
-│               ├── __init__.py
-│               ├── base_guarded_describer.py
-│               └── service_describer.py
+│           └── describe.py
 └── tests/                        # All tests
     ├── test_public_api.py
     ├── core/                     # Core framework tests
@@ -77,10 +73,10 @@ Each user class gets two Pydantic models at class creation time:
 - **Validation model** (`__validation_model__`): includes all field constraints, `@field_invariance` validators, and `@invariance` model validators
 - **Raw model** (`__raw_model__`): strips all validators from annotations, excludes `@field_invariance` and `@invariance`
 
-`__init__` uses the validation model by default. `from_existing()` (classmethod) uses the raw model, allowing reconstruction without re-validation.
+`__init__` uses the validation model by default. `reconstruct()` (classmethod) uses the raw model, allowing reconstruction without re-validation.
 
 ### ContextVar Model Selection
-`BaseValidator.__init__` checks a `contextvars.ContextVar` (`_use_raw_model`) to decide which model to validate against. `from_existing()` sets this flag before calling `cls(**kwargs)`.
+`BaseValidator.__init__` checks a `contextvars.ContextVar` (`_use_raw_model`) to decide which model to validate against. `reconstruct()` sets this flag before calling `cls(**kwargs)`.
 
 ### EventEmitter via PrivateField
 All domain classes (`Entity`, `ValueObject`, `Service`) declare `_event_emitter` as a `PrivateField(default_factory=EventEmitter)` instead of creating it manually in `__init__`. Pydantic handles the lifecycle automatically.
@@ -103,7 +99,7 @@ When an attribute is read outside a mutation context, `BaseGuarded.__getattribut
 
 ### `__post_init__` Hook
 
-Defined on `BaseValidator` (empty) and triggered from `BaseGuarded.__init__`. Only runs on normal `__init__`, **not** on `from_existing`. It executes after `__mutating_context__` exists but before `__initialized__ = True`, so:
+Defined on `BaseValidator` (empty) and triggered from `BaseGuarded.__init__`. Only runs on normal `__init__`, **not** on `reconstruct`. It executes after `__mutating_context__` exists but before `__initialized__ = True`, so:
 - Public methods can be called (mutation context active)
 - `_event_emitter` is already available (assigned by Pydantic via PrivateField before `__post_init__` runs)
 - Field mutation is allowed during the hook
@@ -147,8 +143,8 @@ Iterates all public methods via `inspect.getmembers`. For each method:
 class BoundedContext:
     def __init__(
         self,
-        aggregate_roots: Optional[Iterable[RootEntityType]] = None,
-        services: Optional[Iterable[ServiceType]] = None,
+        aggregate_roots: Iterable[RootEntityType] | None = None,
+        services: Iterable[ServiceType] | None = None,
     ):
 ```
 - Only accepts `aggregate_roots` (RootEntity subclasses) and `services` (Service subclasses)

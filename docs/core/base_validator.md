@@ -24,13 +24,13 @@ Checks the `_use_raw_model` ContextVar:
 
 After validation, calls `__set_model_attributes(validated)` to copy fields and private attributes onto `self` using `object.__setattr__`.
 
-### `from_existing(**kwargs) -> Self`
+### `reconstruct(**kwargs) -> Self`
 A classmethod that:
 1. Sets `_use_raw_model` ContextVar to `True`
 2. Calls `cls(**kwargs)` — goes through `__init__` but with the raw model
 3. Resets the ContextVar
 
-This means `from_existing` bypasses `@field_invariance`, `@invariance`, and any `Annotated` constraints/validators.
+This means `reconstruct` bypasses `@field_invariance`, `@invariance`, and any `Annotated` constraints/validators.
 
 ### `__set_model_attributes(validated)`
 Copies all fields from `validated.model_dump()` plus `__pydantic_private__` attributes onto `self` using `object.__setattr__`.
