@@ -74,6 +74,7 @@ def _wrap_public_methods(cls: type) -> None:
 class BaseGuarded(BaseValidator):
     __mutating_context_class__: ClassVar[Type[MutatingContext]] = MutatingContext
     __skip_method_wrapping__: ClassVar[bool] = True
+
     def __init_subclass__(cls, **kwargs: Any) -> None:
         super().__init_subclass__(**kwargs)
         _wrap_public_methods(cls)
