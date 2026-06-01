@@ -5,8 +5,12 @@ import typing
 import webbrowser
 from tempfile import NamedTemporaryFile
 
-from aod import App, BoundedContext, Entity, RootEntity, Service, ValueObject
+from aod._internal.domain.app import App
+from aod._internal.domain.bounded_context import BoundedContext
 from aod._internal.domain.describe import MethodDoc, extract_fields, extract_methods
+from aod._internal.domain.entity import Entity, RootEntity
+from aod._internal.domain.service import Service
+from aod._internal.domain.value_object import ValueObject
 
 TMPL = """<!DOCTYPE html>
 <html>

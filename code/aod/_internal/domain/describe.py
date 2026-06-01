@@ -8,6 +8,16 @@ from aod._internal.core.fields import is_public_field
 from aod._internal.core.type_checking.extractors import extract_types_from_annotation
 from aod._internal.core.type_utils import type_name
 
+__all__ = [
+    "FieldDoc",
+    "MethodDoc",
+    "ParamDoc",
+    "TypeDoc",
+    "describe",
+    "extract_fields",
+    "extract_methods",
+]
+
 
 @dataclass
 class ParamDoc:
