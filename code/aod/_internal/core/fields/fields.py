@@ -88,3 +88,7 @@ def PrivateField(default: Any = ..., *, default_factory: Callable[[], Any] | Non
         return PrivateAttr(default_factory=default_factory, init=False)
     field_default = Unset() if default is ... else default
     return PrivateAttr(default=field_default, init=False)
+
+
+def is_public_field(name: str) -> bool:
+    return not name.startswith("_")

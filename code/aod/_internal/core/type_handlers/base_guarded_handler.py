@@ -3,6 +3,7 @@ from __future__ import annotations
 from aod._internal.core.domain_exception import (
     InvalidNestedTypeError,
 )
+from aod._internal.core.fields import is_public_field
 from aod._internal.core.type_checking.extractors import extract_types_from_annotation
 from aod._internal.core.type_utils import type_name
 from aod._internal.domain.entity import Entity, RootEntity
@@ -20,7 +21,7 @@ class BaseGuardedTypeHandler:
     @staticmethod
     def check_entity(entity_cls: type[Entity]) -> None:
         for field_name, field_info in entity_cls.__model_fields__.items():
-            if field_name.startswith("_"):
+            if not is_public_field(field_name):
                 continue
             field_type = field_info.annotation
             if field_type is None:
@@ -35,7 +36,7 @@ class BaseGuardedTypeHandler:
     @staticmethod
     def check_value_object(vo_cls: type[ValueObject]) -> None:
         for field_name, field_info in vo_cls.__model_fields__.items():
-            if field_name.startswith("_"):
+            if not is_public_field(field_name):
                 continue
             field_type = field_info.annotation
             if field_type is None:
@@ -63,7 +64,7 @@ class BaseGuardedTypeHandler:
                 continue
 
             for field_name, field_info in fields.items():
-                if field_name.startswith("_"):
+                if not is_public_field(field_name):
                     continue
                 field_type = field_info.annotation
                 if field_type is None:

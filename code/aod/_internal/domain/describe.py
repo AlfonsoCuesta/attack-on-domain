@@ -1,11 +1,18 @@
 from __future__ import annotations
 
 import inspect
+from collections.abc import Callable
 from dataclasses import dataclass, field
 
+from aod._internal.core.fields import is_public_field
 from aod._internal.core.type_checking.extractors import extract_types_from_annotation
-
 from aod._internal.core.type_utils import type_name
+
+
+@dataclass
+class ParamDoc:
+    name: str
+    type_name: str
 
 
 @dataclass
@@ -13,6 +20,8 @@ class MethodDoc:
     name: str
     signature: str
     doc: str
+    params: list[ParamDoc] = field(default_factory=list)
+    returns: str = ""
 
 
 @dataclass
@@ -31,14 +40,30 @@ class TypeDoc:
     methods: list[MethodDoc] = field(default_factory=list)
 
 
-def _extract_fields(cls: type) -> list[FieldDoc]:
+def _extract_params_and_return(val: Callable[..., object]) -> tuple[list[ParamDoc], str]:
+    sig = inspect.signature(val)
+    params: list[ParamDoc] = []
+    for pname, p in sig.parameters.items():
+        if pname in ("self", "cls"):
+            continue
+        ptype = type_name(p.annotation) if p.annotation is not inspect.Parameter.empty else ""
+        params.append(ParamDoc(name=pname, type_name=ptype))
+    returns = (
+        type_name(sig.return_annotation)
+        if sig.return_annotation is not inspect.Signature.empty
+        else ""
+    )
+    return params, returns
+
+
+def extract_fields(cls: type) -> list[FieldDoc]:
     fields = getattr(cls, "__model_fields__", None)
     if fields is None:
         return []
 
     result = []
     for name, field_info in fields.items():
-        if name.startswith("_"):
+        if not is_public_field(name):
             continue
         annotation = field_info.annotation
         if annotation is None:
@@ -48,19 +73,35 @@ def _extract_fields(cls: type) -> list[FieldDoc]:
     return result
 
 
-def _extract_methods(cls: type) -> list[MethodDoc]:
+def extract_methods(cls: type) -> list[MethodDoc]:
     result = []
     for name in sorted(cls.__dict__):
-        if name.startswith("_"):
+        if not is_public_field(name):
             continue
         val = cls.__dict__[name]
         if not callable(val):
             continue
+        # fmt: off
         try:
-            sig = inspect.signature(val)
-            sig_str = str(sig)
-        except Exception:
+            sig_str = str(inspect.signature(val))
+            params, returns = _extract_params_and_return(val)
+        except (ValueError, TypeError):
             sig_str = "(...)"
+            params = []
+            returns = ""
+        # fmt: on
         doc = inspect.getdoc(val) or ""
-        result.append(MethodDoc(name=name, signature=sig_str, doc=doc))
+        result.append(
+            MethodDoc(name=name, signature=sig_str, doc=doc, params=params, returns=returns)
+        )
     return result
+
+
+def describe(cls: type, stereotype: str) -> TypeDoc:
+    return TypeDoc(
+        name=cls.__name__,
+        stereotype=stereotype,
+        doc=inspect.getdoc(cls) or "",
+        fields=extract_fields(cls),
+        methods=extract_methods(cls),
+    )

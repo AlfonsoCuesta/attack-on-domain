@@ -1,14 +1,11 @@
 from ...domain_exception import MutationForbiddenException
-
-
-def _identity(value):
-    return value
+from ._helpers import identity
 
 
 class ImmutableSet(set):
     __immutable_class__ = set
 
-    def __init__(self, data: set, factory=_identity):
+    def __init__(self, data: set, factory=identity):
         super().__init__(data)
         self.__factory__ = factory
 

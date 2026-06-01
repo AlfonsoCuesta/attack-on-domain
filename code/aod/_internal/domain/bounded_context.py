@@ -9,9 +9,8 @@ from aod._internal.core.domain_exception import (
     InvalidServiceTypeError,
 )
 from aod._internal.core.type_handlers import BaseGuardedTypeHandler, ServiceTypeHandler
-from aod._internal.domain.describers import BaseGuardedDescriber, ServiceDescriber
 
-from .describe import TypeDoc
+from .describe import TypeDoc, describe
 from .entity import Entity, RootEntity
 from .service import Service
 from .value_object import ValueObject
@@ -88,16 +87,16 @@ class BoundedContext:
         result: list[TypeDoc] = []
 
         for root_cls in self.aggregate_roots:
-            result.append(BaseGuardedDescriber.describe(root_cls, "RootEntity"))
+            result.append(describe(root_cls, "RootEntity"))
 
         for ent_cls in self.entities:
-            result.append(BaseGuardedDescriber.describe(ent_cls, "Entity"))
+            result.append(describe(ent_cls, "Entity"))
 
         for vo_cls in self.value_objects:
-            result.append(BaseGuardedDescriber.describe(vo_cls, "ValueObject"))
+            result.append(describe(vo_cls, "ValueObject"))
 
         for svc_cls in self.services:
-            result.append(ServiceDescriber.describe(svc_cls, "Service"))
+            result.append(describe(svc_cls, "Service"))
 
         return result
 

@@ -4,6 +4,7 @@ import inspect
 import typing
 
 from aod._internal.core.domain_exception import InvalidServiceParameterError
+from aod._internal.core.fields import is_public_field
 from aod._internal.core.type_checking.extractors import extract_types_from_annotation
 from aod._internal.core.type_utils import type_name
 from aod._internal.domain.entity import Entity, RootEntity
@@ -35,7 +36,7 @@ class ServiceTypeHandler:
     @staticmethod
     def check_service(service_cls: type[Service]) -> None:
         for method_name, method in inspect.getmembers(service_cls, inspect.isfunction):
-            if method_name.startswith("_"):
+            if not is_public_field(method_name):
                 continue
             # fmt: off
             try:

@@ -1,15 +1,12 @@
 from __future__ import annotations
 
-import inspect
 import json
 import typing
 import webbrowser
 from tempfile import NamedTemporaryFile
 
 from aod import App, BoundedContext, Entity, RootEntity, Service, ValueObject
-from aod._internal.core.type_checking.extractors import extract_types_from_annotation
-from aod._internal.core.type_utils import type_name
-from aod._internal.domain.describe import _extract_fields
+from aod._internal.domain.describe import MethodDoc, extract_fields, extract_methods
 
 TMPL = """<!DOCTYPE html>
 <html>
@@ -737,50 +734,6 @@ setStatus('Ready — drag nodes, scroll to zoom, Ctrl+drag to pan');
 )
 
 
-def _extract_field_info(cls: type) -> dict[str, tuple[str, list[type]]]:
-    try:
-        hints = typing.get_type_hints(cls)
-    except Exception:
-        return {}
-    result: dict[str, tuple[str, list[type]]] = {}
-    for field_name, field_type in hints.items():
-        if field_name.startswith("_"):
-            continue
-        types = [t for t in extract_types_from_annotation(field_type) if isinstance(t, type)]
-        result[field_name] = (type_name(field_type), types)
-    return result
-
-
-def _extract_public_methods(cls: type) -> list[dict[str, object]]:
-    methods: list[dict[str, object]] = []
-    for name in cls.__dict__:
-        if name.startswith("_"):
-            continue
-        val = cls.__dict__[name]
-        if not callable(val):
-            continue
-        params: list[dict[str, str]] = []
-        try:
-            sig = inspect.signature(val)
-            for pname, p in sig.parameters.items():
-                if pname == "self" or pname == "cls":
-                    continue
-                ptype = (
-                    type_name(p.annotation) if p.annotation is not inspect.Parameter.empty else ""
-                )
-                params.append({"name": pname, "type": ptype})
-            ret = (
-                type_name(sig.return_annotation)
-                if sig.return_annotation is not inspect.Signature.empty
-                else ""
-            )
-        except Exception:
-            params = []
-            ret = ""
-        methods.append({"name": name, "params": params, "returns": ret})
-    return methods
-
-
 # ---------------------------------------------------------------------------
 # Graph model — unified across bounded contexts
 # ---------------------------------------------------------------------------
@@ -793,7 +746,7 @@ class _Node:
         self.context_idx = context_idx
         self.cls = cls
         self.fields: dict[str, tuple[str, list[str]]] = {}
-        self.methods: list[dict[str, object]] = _extract_public_methods(cls)
+        self.methods: list[MethodDoc] = extract_methods(cls)
         self.outgoing: list[tuple[str, str]] = []
 
     def stereo(self) -> str:
@@ -811,7 +764,7 @@ class _Node:
         return self.stereo() == "RootEntity"
 
     def all_field_names(self) -> set[str]:
-        return {fd.name for fd in _extract_fields(self.cls)}
+        return {fd.name for fd in extract_fields(self.cls)}
 
 
 def _build_graph(*contexts: BoundedContext) -> dict[str, _Node]:
@@ -838,7 +791,7 @@ def _build_graph(*contexts: BoundedContext) -> dict[str, _Node]:
         for cls in all_types:
             key = local_map[cls.__name__]
             node = nodes[key]
-            for fd in _extract_fields(cls):
+            for fd in extract_fields(cls):
                 ref_keys: list[str] = []
                 for t in fd.types:
                     if hasattr(t, "__name__") and t.__name__ in local_map:
@@ -886,21 +839,27 @@ def _estimate_node_size(node: _Node) -> tuple[int, int]:
         if finfo:
             max_len = max(max_len, len(f"{fname}: {finfo[0]}"))
     for m in node.methods:
-        sig = typing.cast(str, m["name"])
-        params = typing.cast(list[dict[str, str]], m.get("params", []))
-        if params:
-            parts = [f"{p['name']}: {p['type']}" if p["type"] else p["name"] for p in params]
+        sig = m.name
+        if m.params:
+            parts = [f"{p.name}: {p.type_name}" if p.type_name else p.name for p in m.params]
             sig += f"({', '.join(parts)})"
         else:
             sig += "()"
-        ret = typing.cast(str, m.get("returns", ""))
-        if ret:
-            sig += f" -> {ret}"
+        if m.returns:
+            sig += f" -> {m.returns}"
         max_len = max(max_len, len(sig))
     width = max(180, min(380, max_len * 7.5 + 60))
     extra = len(node.methods) * 21 if node.methods else 0
     height = 68 + num * 21 + extra
     return int(width), int(height)
+
+
+def _method_to_dict(m: MethodDoc) -> dict[str, object]:
+    return {
+        "name": m.name,
+        "params": [{"name": p.name, "type": p.type_name} for p in m.params],
+        "returns": m.returns,
+    }
 
 
 def _serialize(nodes: dict[str, _Node], context_names: list[str] | None = None) -> dict:
@@ -931,7 +890,7 @@ def _serialize(nodes: dict[str, _Node], context_names: list[str] | None = None) 
                 "context": node.context_idx,
                 "is_shared": False,
                 "fields": fields,
-                "methods": node.methods,
+                "methods": [_method_to_dict(m) for m in node.methods],
                 "width": w,
                 "height": h,
             }

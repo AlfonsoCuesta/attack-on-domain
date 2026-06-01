@@ -3,10 +3,6 @@ from typing import Any, Callable
 from ...domain_exception import MutationForbiddenException
 
 
-def _identity(value):
-    return value
-
-
 class ImmutableList(list):
     __immutable_class__ = list
 
