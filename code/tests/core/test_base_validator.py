@@ -46,12 +46,12 @@ def test_base_validator_field_invariance_runs() -> None:
     assert user.age == 15
 
 
-def test_base_validator_from_existing_skips_field_validators() -> None:
+def test_base_validator_reconstruct_skips_field_validators() -> None:
     class User(BaseValidator):
         age: Annotated[int, AfterValidator(lambda value: value + 10)]
 
     validated = User(age=5)
-    raw = User.from_existing(age=5)
+    raw = User.reconstruct(age=5)
 
     assert validated.age == 15
     assert raw.age == 5
@@ -158,8 +158,8 @@ def test_invariance_runs_on_normal_construction() -> None:
     assert user.label == "user:5"
 
 
-def test_invariance_does_not_run_on_from_existing() -> None:
-    """invariance must be skipped when reconstructing via from_existing."""
+def test_invariance_does_not_run_on_reconstruct() -> None:
+    """invariance must be skipped when reconstructing via reconstruct."""
 
     class User(BaseValidator):
         age: int
@@ -169,7 +169,7 @@ def test_invariance_does_not_run_on_from_existing() -> None:
         def set_label(self) -> None:
             self.label = f"user:{self.age}"
 
-    user = User.from_existing(age=7, label="")
+    user = User.reconstruct(age=7, label="")
 
     assert user.label == ""
 
@@ -187,8 +187,8 @@ def test_invariance_can_raise_validation_error() -> None:
         User(age=16)
 
 
-def test_invariance_does_not_raise_on_from_existing() -> None:
-    """Since invariance is not in the raw model, from_existing bypasses it."""
+def test_invariance_does_not_raise_on_reconstruct() -> None:
+    """Since invariance is not in the raw model, reconstruct bypasses it."""
 
     class User(BaseValidator):
         age: int
@@ -198,6 +198,6 @@ def test_invariance_does_not_raise_on_from_existing() -> None:
             if self.age < 18:
                 raise ValueError("Must be 18 or older")
 
-    user = User.from_existing(age=16)
+    user = User.reconstruct(age=16)
 
     assert user.age == 16

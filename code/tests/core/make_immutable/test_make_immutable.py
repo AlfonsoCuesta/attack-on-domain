@@ -157,7 +157,7 @@ def test_make_immutable_custom_object_copies_public_state() -> None:
     immutable = make_immutable(user)
 
     assert immutable is not user
-    assert isinstance(immutable, User)
+    assert type(immutable).__name__ == "ImmutableUser"
     assert immutable.name == "Alf"
     assert immutable.age == 30
 
@@ -197,7 +197,7 @@ def test_make_immutable_custom_object_wraps_nested_custom_objects_on_read() -> N
     immutable = make_immutable(User())
 
     address = immutable.address
-    assert isinstance(address, Address)
+    assert type(address).__name__ == "ImmutableAddress"
 
     with pytest.raises(
         MutationForbiddenException,
@@ -345,8 +345,7 @@ def test_immutable_list_getters_return_immutable_values() -> None:
     assert isinstance(first, ImmutableList)
     assert isinstance(sliced, ImmutableList)
     assert isinstance(iterated[1], ImmutableDict)
-    assert isinstance(next(iter(iterated[2])), Address)
-    assert next(iter(iterated[2])).__class__.__name__ == "ImmutableAddress"
+    assert type(next(iter(iterated[2]))).__name__ == "ImmutableAddress"
 
     with pytest.raises(MutationForbiddenException, match="Cannot modify an immutable list"):
         first.append(2)
@@ -375,7 +374,7 @@ def test_immutable_set_getters_return_immutable_values() -> None:
 
     item = next(iter(immutable))
 
-    assert isinstance(item, Address)
+    assert type(item).__name__ == "ImmutableAddress"
 
     with pytest.raises(
         MutationForbiddenException,

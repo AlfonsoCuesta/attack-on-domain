@@ -1,8 +1,11 @@
 from __future__ import annotations
 
 import inspect
-import typing
 from dataclasses import dataclass, field
+
+from aod._internal.core.type_checking.extractors import extract_types_from_annotation
+
+from aod._internal.core.type_utils import type_name
 
 
 @dataclass
@@ -16,6 +19,7 @@ class MethodDoc:
 class FieldDoc:
     name: str
     type_name: str
+    types: list[type] = field(default_factory=list)
 
 
 @dataclass
@@ -25,17 +29,6 @@ class TypeDoc:
     doc: str
     fields: list[FieldDoc] = field(default_factory=list)
     methods: list[MethodDoc] = field(default_factory=list)
-
-
-def _type_name(tp: type) -> str:
-    origin = typing.get_origin(tp)
-    args = typing.get_args(tp)
-    if origin is not None:
-        if args:
-            args_str = ", ".join(_type_name(a) for a in args)
-            return f"{_type_name(origin)}[{args_str}]"
-        return _type_name(origin)
-    return getattr(tp, "__name__", str(tp))
 
 
 def _extract_fields(cls: type) -> list[FieldDoc]:
@@ -50,7 +43,8 @@ def _extract_fields(cls: type) -> list[FieldDoc]:
         annotation = field_info.annotation
         if annotation is None:
             continue
-        result.append(FieldDoc(name=name, type_name=_type_name(annotation)))
+        types = [t for t in extract_types_from_annotation(annotation) if isinstance(t, type)]
+        result.append(FieldDoc(name=name, type_name=type_name(annotation), types=types))
     return result
 
 

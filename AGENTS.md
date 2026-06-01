@@ -192,7 +192,7 @@ uv run mypy code/                  # Type check
 - If you change type checks, update `type_handlers/extractors.py` and/or `type_handlers/checks` and verify tests
 - If you change bounded context logic, update `bounded_context.py` and check `test_bounded_context.py`
 - Always run all tests before committing
-- The `Event` class has a typo: `emmited_at` instead of `emitted_at`. Do NOT fix it — it's a known established API.
+- `Event.emitted_at` is the timestamp field.
 
 ## Dependencies
 

@@ -1,14 +1,35 @@
-from typing import Any, Type
+import types
+from typing import Type
 
 from .wrapped_methods import get_wrapped_methods
 
 _immutable_cache: dict[type, type] = {}
 
 
+def _copy_state(src: object, dst: object) -> None:
+    if hasattr(src, "__dict__"):
+        src_dict = object.__getattribute__(src, "__dict__")
+        dst_dict = object.__getattribute__(dst, "__dict__")
+        dst_dict.update(src_dict)
+
+    for klass in type(src).__mro__:
+        for slot in getattr(klass, "__slots__", ()):
+            try:
+                object.__setattr__(dst, slot, object.__getattribute__(src, slot))
+            except AttributeError:
+                pass
+
+
 def _make_immutable_class(cls: Type, factory) -> type:
-    def _getattribute(self, name):
-        value = super(immutable_cls, self).__getattribute__(name)
-        if name.startswith("__"):
+    model_fields = getattr(cls, "__model_fields__", None)
+
+    def __getattribute__(self, name):
+        if name.startswith("__") and name.endswith("__"):
+            return object.__getattribute__(self, name)
+        value = object.__getattribute__(self, name)
+        if isinstance(value, types.MethodType):
+            return value
+        if model_fields is not None and name not in model_fields:
             return value
         return factory(value)
 
@@ -18,28 +39,12 @@ def _make_immutable_class(cls: Type, factory) -> type:
         {
             "__immutable_factory__": factory,
             "__immutable_class__": cls,
-            "__getattribute__": _getattribute,
             "__wrapped_object__": None,
+            "__getattribute__": __getattribute__,
             **get_wrapped_methods(cls),
         },
     )
     return immutable_cls
-
-
-def _copy_state(src: Any, dst: Any) -> None:
-    if hasattr(src, "__dict__"):
-        src_dict = object.__getattribute__(src, "__dict__")
-        dst_dict = object.__getattribute__(dst, "__dict__")
-        dst_dict.update(src_dict)
-
-    for klass in type(src).__mro__:
-        for slot in getattr(klass, "__slots__", ()):
-            if slot == "__dict__":
-                continue
-            try:
-                object.__setattr__(dst, slot, getattr(src, slot))
-            except AttributeError:
-                pass
 
 
 def _make_immutable_object(obj, factory) -> object:
@@ -50,8 +55,9 @@ def _make_immutable_object(obj, factory) -> object:
     immutable_cls = _immutable_cache[cls]
     try:
         new_obj: object = object.__new__(immutable_cls)
-        object.__setattr__(new_obj, "__wrapped_object__", obj)
     except TypeError:
         return obj
+
     _copy_state(obj, new_obj)
+    object.__setattr__(new_obj, "__wrapped_object__", obj)
     return new_obj

@@ -1,9 +1,9 @@
-from .base_guarded import BaseGuarded, super_context
+from .base_guarded import BaseGuarded, inherit_context
 from .mutating_context import MutatingContext, MutatingState
 
 __all__ = [
     "BaseGuarded",
-    "super_context",
+    "inherit_context",
     "MutatingContext",
     "MutatingState",
 ]

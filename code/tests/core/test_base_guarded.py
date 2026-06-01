@@ -5,7 +5,7 @@ from aod._internal.core.base_guarded import (
     BaseGuarded,
     MutatingContext,
     MutatingState,
-    super_context,
+    inherit_context,
 )
 from aod._internal.core.domain_exception import MutationForbiddenException
 
@@ -17,10 +17,10 @@ def test_mutating_context_state_transitions() -> None:
     ctx.enter(MutatingState.PASS)
     assert ctx.status == MutatingState.PASS
 
-    ctx.enter(MutatingState.SUPER)
-    assert ctx.status == MutatingState.SUPER
+    ctx.enter(MutatingState.INHERIT)
+    assert ctx.status == MutatingState.INHERIT
 
-    ctx.exit(MutatingState.SUPER)
+    ctx.exit(MutatingState.INHERIT)
     assert ctx.status == MutatingState.PASS
 
     ctx.exit(MutatingState.PASS)
@@ -34,11 +34,11 @@ def test_base_guarded_uses_same_mutating_context_across_inheritance_levels() -> 
         def __init__(self) -> None:
             super().__init__()
 
-        def enter(self, state: Literal[MutatingState.PASS, MutatingState.SUPER]) -> None:
+        def enter(self, state: Literal[MutatingState.PASS, MutatingState.INHERIT]) -> None:
             events.append(("enter", state))
             super().enter(state)
 
-        def exit(self, state: Literal[MutatingState.PASS, MutatingState.SUPER]) -> None:
+        def exit(self, state: Literal[MutatingState.PASS, MutatingState.INHERIT]) -> None:
             events.append(("exit", state))
             super().exit(state)
 
@@ -60,14 +60,14 @@ def test_base_guarded_uses_same_mutating_context_across_inheritance_levels() -> 
         # outer_set calling
         ("enter", MutatingState.PASS),  # outer_set
         ("enter", MutatingState.PASS),  # inner_set
-        ("enter", MutatingState.SUPER),  # _can_mutate
-        ("exit", MutatingState.SUPER),  # _can_mutate
+        ("enter", MutatingState.INHERIT),  # _can_mutate
+        ("exit", MutatingState.INHERIT),  # _can_mutate
         ("exit", MutatingState.PASS),  # inner_set
         ("exit", MutatingState.PASS),  # outer_set
         # inner_set calling
         ("enter", MutatingState.PASS),  # inner_set
-        ("enter", MutatingState.SUPER),  # _can_mutate
-        ("exit", MutatingState.SUPER),  # _can_mutate
+        ("enter", MutatingState.INHERIT),  # _can_mutate
+        ("exit", MutatingState.INHERIT),  # _can_mutate
         ("exit", MutatingState.PASS),  # inner_set
     ]
 
@@ -111,7 +111,7 @@ def test_base_guarded_respects_can_mutate_for_public_methods() -> None:
         user.set_age(10)
 
 
-def test_base_guarded_not_allows_super_mutate_in_private_methods() -> None:
+def test_base_guarded_not_allows_inherit_mutate_in_private_methods() -> None:
     class User(BaseGuarded):
         age: int
 
@@ -163,7 +163,7 @@ def test_base_guarded_private_method_no_super() -> None:
         user._set_age(7)
 
 
-def test_base_guarded_works_with_super_context() -> None:
+def test_base_guarded_works_with_inherit_context() -> None:
     class User(BaseGuarded):
         age: int
 
@@ -173,7 +173,7 @@ def test_base_guarded_works_with_super_context() -> None:
         def set_age(self, value: int) -> None:
             self.age = value
 
-        @super_context
+        @inherit_context
         def super_set_age(self, value: int) -> None:
             self.age = value
 

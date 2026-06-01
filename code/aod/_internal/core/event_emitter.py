@@ -7,7 +7,7 @@ from .fields.fields import Field
 
 
 class Event(BaseSealed):
-    emmited_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc), init=False)
+    emitted_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc), init=False)
 
 
 class EventEmitter:

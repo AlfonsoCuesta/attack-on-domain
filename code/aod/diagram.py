@@ -8,6 +8,8 @@ from tempfile import NamedTemporaryFile
 
 from aod import App, BoundedContext, Entity, RootEntity, Service, ValueObject
 from aod._internal.core.type_checking.extractors import extract_types_from_annotation
+from aod._internal.domain.describe import _extract_fields
+from aod._internal.core.type_utils import type_name
 
 TMPL = """<!DOCTYPE html>
 <html>
@@ -735,19 +737,6 @@ setStatus('Ready — drag nodes, scroll to zoom, Ctrl+drag to pan');
 )
 
 
-def _type_name(annotation: object) -> str:
-    origin = typing.get_origin(annotation)
-    if origin is not None:
-        args = typing.get_args(annotation)
-        filtered = [a for a in args if a is not type(None)]
-        items = ", ".join(_type_name(a) for a in filtered)
-        origin_name = getattr(origin, "__name__", str(origin))
-        return f"{origin_name}[{items}]"
-    if isinstance(annotation, type):
-        return annotation.__name__
-    return str(annotation)
-
-
 def _extract_field_info(cls: type) -> dict[str, tuple[str, list[type]]]:
     try:
         hints = typing.get_type_hints(cls)
@@ -758,7 +747,7 @@ def _extract_field_info(cls: type) -> dict[str, tuple[str, list[type]]]:
         if field_name.startswith("_"):
             continue
         types = [t for t in extract_types_from_annotation(field_type) if isinstance(t, type)]
-        result[field_name] = (_type_name(field_type), types)
+        result[field_name] = (type_name(field_type), types)
     return result
 
 
@@ -777,11 +766,11 @@ def _extract_public_methods(cls: type) -> list[dict[str, object]]:
                 if pname == "self" or pname == "cls":
                     continue
                 ptype = (
-                    _type_name(p.annotation) if p.annotation is not inspect.Parameter.empty else ""
+                    type_name(p.annotation) if p.annotation is not inspect.Parameter.empty else ""
                 )
                 params.append({"name": pname, "type": ptype})
             ret = (
-                _type_name(sig.return_annotation)
+                type_name(sig.return_annotation)
                 if sig.return_annotation is not inspect.Signature.empty
                 else ""
             )
@@ -822,7 +811,7 @@ class _Node:
         return self.stereo() == "RootEntity"
 
     def all_field_names(self) -> set[str]:
-        return set(_extract_field_info(self.cls).keys())
+        return {fd.name for fd in _extract_fields(self.cls)}
 
 
 def _build_graph(*contexts: BoundedContext) -> dict[str, _Node]:
@@ -849,14 +838,14 @@ def _build_graph(*contexts: BoundedContext) -> dict[str, _Node]:
         for cls in all_types:
             key = local_map[cls.__name__]
             node = nodes[key]
-            for fname, (tname, types) in _extract_field_info(cls).items():
+            for fd in _extract_fields(cls):
                 ref_keys: list[str] = []
-                for t in types:
+                for t in fd.types:
                     if hasattr(t, "__name__") and t.__name__ in local_map:
                         ref_keys.append(local_map[t.__name__])
-                node.fields[fname] = (tname, ref_keys)
+                node.fields[fd.name] = (fd.type_name, ref_keys)
                 for ref_key in ref_keys:
-                    node.outgoing.append((fname, ref_key))
+                    node.outgoing.append((fd.name, ref_key))
 
     return nodes
 

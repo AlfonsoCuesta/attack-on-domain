@@ -101,7 +101,7 @@ class OrderPlaced(DomainEvent):
 self._event_emitter.emit(OrderPlaced(order_id="..."))
 ```
 
-Events are immutable (`BaseSealed`). The `emmited_at` field (note the typo, it's established API, do NOT fix it) is auto-set at construction.
+Events are immutable (`BaseSealed`). The `emitted_at` field is auto-set at construction.
 
 ### `__post_init__` Hook
 

@@ -30,6 +30,20 @@ class BoundedContext:
         *,
         name: str | None = None,
     ):
+        aggregate_roots, services = self._validate_parameters(aggregate_roots, services)
+        discovered_entities, discovered_vos = self._discover_and_check(aggregate_roots, services)
+
+        self.name: str | None = name
+        self.aggregate_roots: tuple[RootEntityType, ...] = tuple(aggregate_roots)
+        self.services: tuple[ServiceType, ...] = tuple(services)
+        self.entities: tuple[EntityType, ...] = tuple(discovered_entities)
+        self.value_objects: tuple[ValueObjectType, ...] = tuple(discovered_vos)
+
+    def _validate_parameters(
+        self,
+        aggregate_roots: Optional[Iterable[RootEntityType]],
+        services: Optional[Iterable[ServiceType]],
+    ) -> tuple[list[RootEntityType], list[ServiceType]]:
         if aggregate_roots is None:
             aggregate_roots = []
         if services is None:
@@ -49,9 +63,14 @@ class BoundedContext:
             if not issubclass(service, Service):
                 raise InvalidServiceTypeError(service.__name__)
 
-        discovered_entities, discovered_vos = BaseGuardedTypeHandler.discover_types(
-            list(aggregate_roots)
-        )
+        return list(aggregate_roots), list(services)
+
+    def _discover_and_check(
+        self,
+        aggregate_roots: list[RootEntityType],
+        services: list[ServiceType],
+    ) -> tuple[list[EntityType], list[ValueObjectType]]:
+        discovered_entities, discovered_vos = BaseGuardedTypeHandler.discover_types(aggregate_roots)
 
         all_entities = list(aggregate_roots) + discovered_entities
         for entity_cls in all_entities:
@@ -63,11 +82,7 @@ class BoundedContext:
         for service_cls in services:
             ServiceTypeHandler.check_service(service_cls)
 
-        self.name: str | None = name
-        self.aggregate_roots: tuple[RootEntityType, ...] = tuple(aggregate_roots)
-        self.services: tuple[ServiceType, ...] = tuple(services)
-        self.entities: tuple[EntityType, ...] = tuple(discovered_entities)
-        self.value_objects: tuple[ValueObjectType, ...] = tuple(discovered_vos)
+        return discovered_entities, discovered_vos
 
     def describe(self) -> list[TypeDoc]:
         result: list[TypeDoc] = []

@@ -36,7 +36,7 @@ def test_entity_post_init_runs_on_normal_construction() -> None:
     assert called == [True]
 
 
-def test_entity_post_init_does_not_run_on_from_existing() -> None:
+def test_entity_post_init_does_not_run_on_reconstruct() -> None:
     called: list[bool] = []
 
     class User(Entity):
@@ -45,7 +45,7 @@ def test_entity_post_init_does_not_run_on_from_existing() -> None:
         def __post_init__(self) -> None:
             called.append(True)
 
-    User.from_existing(id=1)
+    User.reconstruct(id=1)
 
     assert called == []
 
@@ -68,7 +68,7 @@ def test_entity_post_init_can_emit_events() -> None:
     assert events[0].user_id == 42
 
 
-def test_entity_post_init_does_not_emit_on_from_existing() -> None:
+def test_entity_post_init_does_not_emit_on_reconstruct() -> None:
     class UserCreated(Event):
         user_id: int
 
@@ -78,7 +78,7 @@ def test_entity_post_init_does_not_emit_on_from_existing() -> None:
         def __post_init__(self) -> None:
             self._event_emitter.emit(UserCreated(user_id=self.id))
 
-    user = User.from_existing(id=42)
+    user = User.reconstruct(id=42)
 
     assert user._event_emitter.poll_events() == []
 
@@ -131,7 +131,7 @@ def test_entity_post_init_can_set_fields() -> None:
     assert user.label == "user:7"
 
 
-def test_entity_post_init_not_called_on_from_existing_with_custom_init() -> None:
+def test_entity_post_init_not_called_on_reconstruct_with_custom_init() -> None:
     post_init_ran: list[bool] = []
 
     class User(Entity):
@@ -141,7 +141,7 @@ def test_entity_post_init_not_called_on_from_existing_with_custom_init() -> None
             post_init_ran.append(True)
 
     User(id=1)
-    User.from_existing(id=2)
+    User.reconstruct(id=2)
 
     assert post_init_ran == [True]
 
@@ -202,7 +202,7 @@ def test_value_object_post_init_runs_on_normal_construction() -> None:
     assert called == [True]
 
 
-def test_value_object_post_init_does_not_run_on_from_existing() -> None:
+def test_value_object_post_init_does_not_run_on_reconstruct() -> None:
     called: list[bool] = []
 
     class Money(ValueObject):
@@ -211,7 +211,7 @@ def test_value_object_post_init_does_not_run_on_from_existing() -> None:
         def __post_init__(self) -> None:
             called.append(True)
 
-    Money.from_existing(amount=100)
+    Money.reconstruct(amount=100)
 
     assert called == []
 
@@ -234,7 +234,7 @@ def test_value_object_post_init_can_emit_events() -> None:
     assert events[0].amount == 50
 
 
-def test_value_object_post_init_does_not_emit_on_from_existing() -> None:
+def test_value_object_post_init_does_not_emit_on_reconstruct() -> None:
     class MoneyCreated(Event):
         amount: int
 
@@ -244,7 +244,7 @@ def test_value_object_post_init_does_not_emit_on_from_existing() -> None:
         def __post_init__(self) -> None:
             self._event_emitter.emit(MoneyCreated(amount=self.amount))
 
-    money = Money.from_existing(amount=50)
+    money = Money.reconstruct(amount=50)
 
     assert money._event_emitter.poll_events() == []
 
@@ -335,7 +335,7 @@ def test_post_init_inherits_from_entity_parent() -> None:
     assert called == ["base"]
 
 
-def test_post_init_not_called_on_from_existing_with_inheritance() -> None:
+def test_post_init_not_called_on_reconstruct_with_inheritance() -> None:
     called: list[str] = []
 
     class BaseEntity(Entity):
@@ -351,7 +351,7 @@ def test_post_init_not_called_on_from_existing_with_inheritance() -> None:
             super().__post_init__()
             called.append("child")
 
-    ChildEntity.from_existing(x=1, y=2)
+    ChildEntity.reconstruct(x=1, y=2)
 
     assert called == []
 

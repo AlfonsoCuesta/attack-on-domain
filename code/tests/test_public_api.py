@@ -39,5 +39,5 @@ def test_aod_validation_documented_api() -> None:
         "BeforeValidator",
         "field_invariance",
         "invariance",
-        "super_context",
+        "inherit_context",
     ]

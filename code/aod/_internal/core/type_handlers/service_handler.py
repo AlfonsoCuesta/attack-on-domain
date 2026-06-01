@@ -5,7 +5,7 @@ import typing
 
 from aod._internal.core.domain_exception import InvalidServiceParameterError
 from aod._internal.core.type_checking.extractors import extract_types_from_annotation
-from aod._internal.core.type_handlers.base_guarded_handler import _type_name
+from aod._internal.core.type_utils import type_name
 from aod._internal.domain.entity import Entity, RootEntity
 from aod._internal.domain.service import Service
 
@@ -53,7 +53,7 @@ class ServiceTypeHandler:
                         service_cls.__name__,
                         method_name,
                         param_name,
-                        _type_name(resolved),
+                        type_name(resolved),
                     )
 
             if sig.return_annotation is not inspect.Parameter.empty:
@@ -63,5 +63,5 @@ class ServiceTypeHandler:
                         service_cls.__name__,
                         method_name,
                         "return",
-                        _type_name(resolved),
+                        type_name(resolved),
                     )

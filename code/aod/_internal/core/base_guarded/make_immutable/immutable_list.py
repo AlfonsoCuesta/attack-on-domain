@@ -10,16 +10,16 @@ def _identity(value):
 class ImmutableList(list):
     __immutable_class__ = list
 
-    def __init__(self, object: Any, factory: Callable):
-        super().__init__(object)
+    def __init__(self, items: Any, factory: Callable):
+        super().__init__(items)
         self.__factory__ = factory
 
-    def _raise(self, *args, **kwargs):
+    def _block_mutation(self, *args, **kwargs):
         raise MutationForbiddenException("Cannot modify an immutable list")
 
-    append = extend = insert = remove = _raise
-    pop = clear = sort = reverse = _raise
-    __setitem__ = __delitem__ = __iadd__ = __imul__ = _raise
+    append = extend = insert = remove = _block_mutation
+    pop = clear = sort = reverse = _block_mutation
+    __setitem__ = __delitem__ = __iadd__ = __imul__ = _block_mutation
 
     def __getitem__(self, key):
         item = super().__getitem__(key)

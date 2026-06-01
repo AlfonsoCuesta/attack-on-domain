@@ -1,27 +1,12 @@
 from __future__ import annotations
 
-import typing
-
 from aod._internal.core.domain_exception import (
     InvalidNestedTypeError,
 )
 from aod._internal.core.type_checking.extractors import extract_types_from_annotation
+from aod._internal.core.type_utils import type_name
 from aod._internal.domain.entity import Entity, RootEntity
 from aod._internal.domain.value_object import ValueObject
-
-
-def _type_name(annotation: object) -> str:
-    origin = typing.get_origin(annotation)
-    if origin is not None:
-        args = typing.get_args(annotation)
-        filtered = [a for a in args if a is not type(None)]
-        if origin is typing.Union and len(filtered) == 1:
-            return _type_name(filtered[0])
-        items = ", ".join(_type_name(a) for a in filtered)
-        return f"{_type_name(origin)}[{items}]"
-    if isinstance(annotation, type):
-        return annotation.__name__
-    return str(annotation)
 
 
 def _references_base(annotation: object, *bases: type) -> bool:
@@ -41,9 +26,7 @@ class BaseGuardedTypeHandler:
             if field_type is None:
                 continue
             if _references_base(field_type, RootEntity):
-                raise InvalidNestedTypeError(
-                    entity_cls.__name__, field_name, _type_name(field_type)
-                )
+                raise InvalidNestedTypeError(entity_cls.__name__, field_name, type_name(field_type))
 
     @staticmethod
     def check_root_entity(entity_cls: type[Entity]) -> None:
@@ -58,7 +41,7 @@ class BaseGuardedTypeHandler:
             if field_type is None:
                 continue
             if _references_base(field_type, Entity):
-                raise InvalidNestedTypeError(vo_cls.__name__, field_name, _type_name(field_type))
+                raise InvalidNestedTypeError(vo_cls.__name__, field_name, type_name(field_type))
 
     @staticmethod
     def discover_types(

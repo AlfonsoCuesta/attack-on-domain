@@ -10,11 +10,11 @@ class ImmutableDict(dict):
         super().__init__(object)
         self.__factory__ = factory
 
-    def _raise(self, *args, **kwargs):
+    def _block_mutation(self, *args, **kwargs):
         raise MutationForbiddenException("Cannot modify an immutable dict")
 
-    __setitem__ = __delitem__ = update = _raise
-    pop = popitem = clear = setdefault = _raise
+    __setitem__ = __delitem__ = update = _block_mutation
+    pop = popitem = clear = setdefault = _block_mutation
 
     def __getitem__(self, key):
         item = super().__getitem__(key)

@@ -21,27 +21,27 @@ def is_dunder(name: str) -> bool:
 
 def mark_mutable(
     fn: Callable,
-    state: Literal[MutatingState.PASS, MutatingState.SUPER] = MutatingState.PASS,
+    state: Literal[MutatingState.PASS, MutatingState.INHERIT] = MutatingState.PASS,
 ) -> Callable:
     setattr(fn, MUTABLE_KEY, state)
     return fn
 
 
-def mutate(fn: Callable, *, super_mutate: bool = False) -> Callable:
+def mutate(fn: Callable, *, inherit_mutate: bool = False) -> Callable:
     @wraps(fn)
     def wrapper(self: BaseGuarded, *args: Any, **kwargs: Any) -> Any:
-        with self.__mutate__(super_mutate=super_mutate):
+        with self.__mutate__(inherit_mutate=inherit_mutate):
             return fn(self, *args, **kwargs)
 
     mutate_state = cast(
-        Literal[MutatingState.PASS, MutatingState.SUPER],
-        MutatingState.SUPER if super_mutate else MutatingState.PASS,
+        Literal[MutatingState.PASS, MutatingState.INHERIT],
+        MutatingState.INHERIT if inherit_mutate else MutatingState.PASS,
     )
     return mark_mutable(wrapper, state=mutate_state)
 
 
-def super_context(fn: Callable) -> Callable:
-    return mutate(fn, super_mutate=True)
+def inherit_context(fn: Callable) -> Callable:
+    return mutate(fn, inherit_mutate=True)
 
 
 def _wrap_public_methods(cls: type) -> None:
@@ -49,11 +49,11 @@ def _wrap_public_methods(cls: type) -> None:
         attr_name
         for base in cls.__mro__
         for attr_name, attr_value in base.__dict__.items()
-        if getattr(attr_value, MUTABLE_KEY, False) == MutatingState.SUPER
+        if getattr(attr_value, MUTABLE_KEY, False) == MutatingState.INHERIT
     }
 
     for base in cls.__mro__:
-        if base.__dict__.get("__stop_context_mutating__", False):
+        if base.__dict__.get("__skip_method_wrapping__", False):
             break
         for attr_name, attr_value in base.__dict__.items():
             if not inspect.isfunction(attr_value):
@@ -67,14 +67,13 @@ def _wrap_public_methods(cls: type) -> None:
             if getattr(attr_value, MUTABLE_KEY, False):
                 continue
 
-            super_mutate = attr_name in super_attrs
-            setattr(cls, attr_name, mutate(attr_value, super_mutate=super_mutate))
+            inherit_mutate = attr_name in super_attrs
+            setattr(cls, attr_name, mutate(attr_value, inherit_mutate=inherit_mutate))
 
 
 class BaseGuarded(BaseValidator):
     __mutating_context_class__: ClassVar[Type[MutatingContext]] = MutatingContext
-    __stop_context_mutating__: ClassVar[bool] = True
-
+    __skip_method_wrapping__: ClassVar[bool] = True
     def __init_subclass__(cls, **kwargs: Any) -> None:
         super().__init_subclass__(**kwargs)
         _wrap_public_methods(cls)
@@ -86,14 +85,14 @@ class BaseGuarded(BaseValidator):
             self.__post_init__()
         self.__initialized__ = True
 
-    @super_context
+    @inherit_context
     def _can_mutate(self) -> bool:
         return True
 
     @property
     def _mutation_status(self) -> MutatingState:
         if not self._is_initialized:
-            return MutatingState.SUPER
+            return MutatingState.INHERIT
         return self.__mutating_context__.status
 
     @property
@@ -103,10 +102,10 @@ class BaseGuarded(BaseValidator):
         return object.__getattribute__(self, "__initialized__")
 
     @contextmanager
-    def __mutate__(self, super_mutate: bool = False) -> Generator[None, None, None]:
+    def __mutate__(self, inherit_mutate: bool = False) -> Generator[None, None, None]:
         mutating_context = self.__mutating_context__
-        mutation: Literal[MutatingState.PASS, MutatingState.SUPER] = (
-            MutatingState.SUPER if super_mutate else MutatingState.PASS
+        mutation: Literal[MutatingState.PASS, MutatingState.INHERIT] = (
+            MutatingState.INHERIT if inherit_mutate else MutatingState.PASS
         )
         mutating_context.enter(mutation)
         yield
@@ -117,7 +116,7 @@ class BaseGuarded(BaseValidator):
         mutating_status = self._mutation_status
         if mutating_status == MutatingState.BLOCK:
             return False
-        if mutating_status == MutatingState.SUPER:
+        if mutating_status == MutatingState.INHERIT:
             return True
         return self._can_mutate()
 
@@ -135,8 +134,7 @@ class BaseGuarded(BaseValidator):
         if inspect.isfunction(value):
             return value
 
-        if self._mutation_status == MutatingState.SUPER:
-            return value
-        if self._mutation_status == MutatingState.PASS and self._can_mutate():
+        status = self._mutation_status
+        if status == MutatingState.INHERIT or (status == MutatingState.PASS and self._can_mutate()):
             return value
         return make_immutable(value)

@@ -1,4 +1,4 @@
-from aod._internal.core.base_guarded import super_context
+from aod._internal.core.base_guarded import inherit_context
 from aod._internal.core.invariances import (
     AfterValidator,
     BeforeValidator,
@@ -11,5 +11,5 @@ __all__ = [
     "BeforeValidator",
     "field_invariance",
     "invariance",
-    "super_context",
+    "inherit_context",
 ]

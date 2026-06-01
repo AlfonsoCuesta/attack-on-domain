@@ -67,7 +67,7 @@ class BaseValidator(metaclass=ValidationModelMeta):
         return f"{self.__class__.__name__}({args})"
 
     @classmethod
-    def from_existing(cls, **kwargs) -> Self:
+    def reconstruct(cls, **kwargs) -> Self:
         token = _use_raw_model.set(True)
         try:
             return cls(**kwargs)

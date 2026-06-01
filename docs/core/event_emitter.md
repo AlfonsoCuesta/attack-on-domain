@@ -10,12 +10,12 @@ An immutable event with an auto-set timestamp:
 
 ```python
 class Event(BaseSealed):
-    emmited_at: datetime = Field(
+    emitted_at: datetime = Field(
         default_factory=lambda: datetime.now(timezone.utc), init=False
     )
 ```
 
-Note: `emmited_at` is a known typo (should be `emitted_at`). Do NOT fix — it's established API.
+Note: `emitted_at` is auto-set at construction.
 
 ## EventEmitter
 
