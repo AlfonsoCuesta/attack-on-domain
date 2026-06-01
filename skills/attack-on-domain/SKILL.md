@@ -20,6 +20,7 @@ Source code is under `code/` (mapped as package root in `pyproject.toml`).
 | `from aod.validation import AfterValidator, BeforeValidator` | Pydantic validators |
 | `from aod.exceptions import DomainException, MutationForbiddenException` | Public exceptions |
 | `from aod.diagram import render_html, show` | Interactive diagram |
+| `from aod import EventCollector` | Cross-aggregate event capture |
 
 Never import from `aod._internal` in user code.
 
@@ -117,15 +118,24 @@ class User(RootEntity):
 
 Works for `Entity`, `RootEntity`, and `ValueObject`. Public methods can be called and fields mutated during the hook (runs after `__mutating_context__` exists).
 
-Use `EventCollector` to capture events across objects:
+### EventCollector
+
+Capture events across aggregate boundaries (for testing or for
+flushing to an outbox at the end of a use case):
 
 ```python
-from aod._internal.core.event_emitter import EventCollector
+from aod import EventCollector
 
 with EventCollector() as events:
-    order.place(...)
-    # events now contains all DomainEvents emitted
+    order.place(item)
+    order.ship()
+# events contains OrderPlaced and OrderShipped
 ```
+
+`__enter__` returns the list of captured events (not the collector
+itself). State is held in a `ContextVar`, so it's per-task isolated
+but doesn't support nested collectors. See `docs/core/event_emitter.md`
+for details.
 
 ## BoundedContext
 

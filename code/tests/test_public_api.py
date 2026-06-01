@@ -11,6 +11,7 @@ def test_aod_exports_documented_api() -> None:
         "App",
         "BoundedContext",
         "DomainEvent",
+        "EventCollector",
         "Entity",
         "RootEntity",
         "Service",
@@ -27,6 +28,7 @@ def test_aod_exports_documented_api() -> None:
     assert aod.BoundedContext.__name__ == "BoundedContext"
     assert aod.Field.__name__ == "Field"
     assert aod.PrivateField.__name__ == "PrivateField"
+    assert aod.EventCollector.__name__ == "EventCollector"
 
 
 def test_aod_exceptions_documented_api() -> None:
