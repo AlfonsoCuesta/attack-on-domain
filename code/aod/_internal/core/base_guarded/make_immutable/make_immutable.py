@@ -11,9 +11,11 @@ from .immutable_set import ImmutableSet
 _PRIMITIVE_TYPES = (
     int,
     float,
+    complex,
     str,
     bool,
     bytes,
+    range,
     type(None),
     datetime.date,
     datetime.time,
@@ -32,7 +34,7 @@ def make_immutable(value):
         return value
     if isinstance(value, _CALLABLE_TYPES):
         return value
-    if isinstance(value, ImmutableList | ImmutableDict | ImmutableSet | frozenset):
+    if isinstance(value, ImmutableList | ImmutableDict | ImmutableSet):
         return value
     if getattr(value, "__immutable_class__", None):
         return value
@@ -42,4 +44,6 @@ def make_immutable(value):
         return ImmutableDict(value, make_immutable)
     if isinstance(value, set):
         return ImmutableSet(value, make_immutable)
+    if isinstance(value, tuple):
+        return tuple(make_immutable(item) for item in value)
     return _make_immutable_object(value, make_immutable)

@@ -37,7 +37,7 @@ def _make_immutable_class(cls: Type, factory) -> type:
         f"Immutable{cls.__name__}",
         (cls,),
         {
-            "__immutable_factory__": factory,
+            "__immutable_factory__": staticmethod(factory),
             "__immutable_class__": cls,
             "__wrapped_object__": None,
             "__getattribute__": __getattribute__,
@@ -54,9 +54,12 @@ def _make_immutable_object(obj, factory) -> object:
 
     immutable_cls = _immutable_cache[cls]
     try:
-        new_obj: object = object.__new__(immutable_cls)
+        new_obj: object = immutable_cls.__new__(immutable_cls, obj)
     except TypeError:
-        return obj
+        try:
+            new_obj = object.__new__(immutable_cls)
+        except TypeError:
+            return obj
 
     _copy_state(obj, new_obj)
     object.__setattr__(new_obj, "__wrapped_object__", obj)

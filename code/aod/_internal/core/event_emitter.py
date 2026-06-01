@@ -6,6 +6,8 @@ from .fields.fields import Field
 
 
 class Event(BaseSealed):
+    """Immutable domain event. ``emitted_at`` is auto-set on construction."""
+
     emitted_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc), init=False)
 
 
@@ -30,6 +32,10 @@ _event_collector: contextvars.ContextVar[list[Event]] = contextvars.ContextVar("
 
 
 class EventCollector:
+    """Captures all events emitted via ``EventEmitter.emit`` while
+    active, in addition to the emitter's own storage.
+    """
+
     def __init__(self) -> None:
         self._events: list[Event] = []
 

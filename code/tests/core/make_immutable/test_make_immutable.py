@@ -52,10 +52,69 @@ def test_make_immutable_returns_builtin_function_unchanged() -> None:
     assert make_immutable(len) is len
 
 
-def test_make_immutable_returns_frozenset_unchanged() -> None:
+def test_make_immutable_wraps_frozenset_elements() -> None:
     values = frozenset({1, 2, 3})
 
+    result = make_immutable(values)
+
+    assert frozenset(result) == values
+    assert all(item in result for item in values)
+
+
+def test_make_immutable_blocks_mutation_through_frozenset_of_custom_objects() -> None:
+    class Item:
+        def __init__(self) -> None:
+            self.value = 0
+
+        def __hash__(self) -> int:
+            return 1
+
+        def __eq__(self, other: object) -> bool:
+            return self is other
+
+    item = Item()
+    values = frozenset({item})
+
+    result = make_immutable(values)
+
+    items = list(result)
+    with pytest.raises(MutationForbiddenException, match="Cannot modify an immutable object Item"):
+        items[0].value = 999
+
+
+def test_make_immutable_wraps_tuple_elements() -> None:
+    values = (1, 2, 3)
+
+    result = make_immutable(values)
+
+    assert result == (1, 2, 3)
+    assert all(result[i] is values[i] for i in range(3))
+
+
+def test_make_immutable_blocks_mutation_through_tuple_of_dicts() -> None:
+    d1: dict[str, int] = {}
+    d2: dict[str, int] = {}
+    values = (d1, d2)
+
+    result = make_immutable(values)
+
+    with pytest.raises(MutationForbiddenException, match="Cannot modify an immutable dict"):
+        result[0]["modificando"] = 4
+
+
+def test_make_immutable_returns_complex_unchanged() -> None:
+    values = 1 + 2j
+
     assert make_immutable(values) is values
+
+
+def test_make_immutable_returns_range_unchanged() -> None:
+    values = range(10)
+
+    result = make_immutable(values)
+
+    assert result is values
+    assert list(result) == list(values)
 
 
 def test_make_immutable_returns_immutable_list_unchanged() -> None:
