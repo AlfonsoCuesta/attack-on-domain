@@ -47,7 +47,7 @@ exclude = ["tests*", "tests"]
 [dependency-groups]
 dev = [
     "ruff>=0.15.0",
-    "mypy>=1.20.2",
+    "ty",
     "pre-commit>=4.4.0",
     "pytest>=9.0.2",
 ]
@@ -63,8 +63,5 @@ target-version = "py314"
 [tool.ruff.format]
 quote-style = "double"
 
-[tool.mypy]
-python_version = "3.14"
-mypy_path = ["code"]
-files = ["code"]
-explicit_package_bases = true
+[tool.ty.environment]
+root = ["./code"]

@@ -171,7 +171,7 @@ Other exceptions (`InvalidNestedTypeError`, `InvalidServiceParameterError`, `Cla
 ```bash
 uv run pytest code/tests -q        # Run tests (199 tests)
 uv run ruff check code/ && uv run ruff format --check code/  # Lint + format check
-uv run mypy code/                  # Type check
+ty check                          # Type check
 ```
 
 ## Coding Conventions
@@ -197,5 +197,5 @@ uv run mypy code/                  # Type check
 ## Dependencies
 
 - **Runtime**: `pydantic>=2.12.4`, `typing-inspect>=0.9.0`
-- **Dev**: `ruff`, `mypy`, `pre-commit`, `pytest`
+- **Dev**: `ruff`, `ty`, `pre-commit`, `pytest`
 - **Build**: `setuptools`, `wheel`

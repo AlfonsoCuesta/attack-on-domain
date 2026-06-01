@@ -171,7 +171,7 @@ Produces an interactive hand-drawn (rough.js) diagram with:
 ```bash
 uv run pytest code/tests -q         # Run all tests (199)
 uv run ruff check code/ && uv run ruff format --check code/  # Lint + format check
-uv run mypy code/                   # Type check
+ty check                           # Type check
 ```
 
 ## Conventions

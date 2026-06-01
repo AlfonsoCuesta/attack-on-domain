@@ -37,10 +37,12 @@ class ServiceTypeHandler:
         for method_name, method in inspect.getmembers(service_cls, inspect.isfunction):
             if method_name.startswith("_"):
                 continue
+            # fmt: off
             try:
                 sig = inspect.signature(method)
-            except ValueError, TypeError:
+            except (ValueError, TypeError):
                 continue
+            # fmt: on
 
             for param_name, param in sig.parameters.items():
                 if param_name in ("self", "cls"):
