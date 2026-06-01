@@ -17,9 +17,8 @@ _SKIP_DUNDERS = frozenset(
     }
 )
 
-
-def _is_mutating_dunder(name: str) -> bool:
-    return name in {
+_MUTATING_DUNDERS = frozenset(
+    {
         "__setattr__",
         "__setitem__",
         "__delattr__",
@@ -39,10 +38,10 @@ def _is_mutating_dunder(name: str) -> bool:
         "__aenter__",
         "__aexit__",
     }
+)
 
-
-def _is_readonly_dunder(name: str) -> bool:
-    return name in {
+_READONLY_DUNDERS = frozenset(
+    {
         "__eq__",
         "__ne__",
         "__lt__",
@@ -105,10 +104,10 @@ def _is_readonly_dunder(name: str) -> bool:
         "__ror__",
         "__rmatmul__",
     }
+)
 
-
-def _should_wrap_result(name: str) -> bool:
-    return name in {
+_WRAP_RESULT_DUNDERS = frozenset(
+    {
         "__getitem__",
         "__missing__",
         "__abs__",
@@ -147,6 +146,19 @@ def _should_wrap_result(name: str) -> bool:
         "__ror__",
         "__rmatmul__",
     }
+)
+
+
+def _is_mutating_dunder(name: str) -> bool:
+    return name in _MUTATING_DUNDERS
+
+
+def _is_readonly_dunder(name: str) -> bool:
+    return name in _READONLY_DUNDERS
+
+
+def _should_wrap_result(name: str) -> bool:
+    return name in _WRAP_RESULT_DUNDERS
 
 
 def _unwrap(value: Any) -> Any:

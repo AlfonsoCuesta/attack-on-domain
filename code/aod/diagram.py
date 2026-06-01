@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import typing
 import webbrowser
+from collections import deque
 from tempfile import NamedTemporaryFile
 
 from aod._internal.domain.app import App
@@ -814,10 +815,10 @@ def _compute_aggregate_groups(nodes: dict[str, _Node]) -> dict[str, list[str]]:
 
     for root in roots:
         children: list[str] = []
-        queue = [root.name]
+        queue = deque([root.name])
         visited = {root.name}
         while queue:
-            current = queue.pop(0)
+            current = queue.popleft()
             node = nodes[current]
             for _, target in node.outgoing:
                 if target in nodes and target not in visited:

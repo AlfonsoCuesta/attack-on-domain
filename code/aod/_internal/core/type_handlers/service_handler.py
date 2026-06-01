@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import inspect
 import typing
+from functools import lru_cache
 
 from aod._internal.core.domain_exception import InvalidServiceParameterError
 from aod._internal.core.fields import is_public_field
@@ -11,12 +12,17 @@ from aod._internal.domain.entity import Entity, RootEntity
 from aod._internal.domain.service import Service
 
 
+@lru_cache(maxsize=None)
+def _resolved_hints(cls: type) -> dict[str, object]:
+    try:
+        return typing.get_type_hints(cls)
+    except Exception:
+        return {}
+
+
 def _resolve_annotation(annotation: object, cls: type) -> object:
     if isinstance(annotation, str):
-        try:
-            return typing.get_type_hints(cls).get("_dummy", annotation)
-        except Exception:
-            return None
+        return _resolved_hints(cls).get(annotation, annotation)
     return annotation
 
 
