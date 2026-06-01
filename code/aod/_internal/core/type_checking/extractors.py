@@ -1,5 +1,6 @@
 from typing import Annotated, get_args, get_origin
 
+from aod._internal.core.base_validator import BaseValidator
 from pydantic import BaseModel
 
 
@@ -24,8 +25,8 @@ def extract_types_from_annotation(annotation: object) -> list[type]:
     return []
 
 
-def get_validation_model(cls: type) -> type[BaseModel]:
-    return cls.__validation_model__  # type: ignore[attr-defined]
+def get_validation_model(cls: type[BaseValidator]) -> type[BaseModel]:
+    return cls.__validation_model__
 
 
 def extract_domain_types_from_model(model: type[BaseModel], *domain_bases: type) -> list[type]:

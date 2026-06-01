@@ -32,7 +32,7 @@ def test_bounded_context_rejects_non_entity_class() -> None:
         pass
 
     with pytest.raises(InvalidEntityTypeError, match="is not an Entity"):
-        BoundedContext(aggregate_roots=[NotEntity])  # type: ignore[list-item]
+        BoundedContext(aggregate_roots=[NotEntity])  # type: ignore
 
 
 def test_bounded_context_rejects_non_root_entity() -> None:
@@ -40,7 +40,7 @@ def test_bounded_context_rejects_non_root_entity() -> None:
         id: int
 
     with pytest.raises(InvalidRootEntityTypeError, match="is not a root Entity"):
-        BoundedContext(aggregate_roots=[NotRoot])  # type: ignore[list-item]
+        BoundedContext(aggregate_roots=[NotRoot])  # type: ignore
 
 
 def test_bounded_context_rejects_entity_instance() -> None:
@@ -50,7 +50,7 @@ def test_bounded_context_rejects_entity_instance() -> None:
     order = Order(id=1)
 
     with pytest.raises(ClassExpectedError, match="aggregate root"):
-        BoundedContext(aggregate_roots=[order])  # type: ignore[list-item]
+        BoundedContext(aggregate_roots=[order])  # type: ignore
 
 
 def test_bounded_context_accepts_services_too() -> None:

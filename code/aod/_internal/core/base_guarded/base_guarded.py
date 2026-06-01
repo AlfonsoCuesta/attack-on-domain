@@ -1,7 +1,7 @@
 import inspect
 from contextlib import contextmanager
 from functools import wraps
-from typing import Any, Callable, ClassVar, Generator, Literal, Type, cast
+from typing import Any, Callable, ClassVar, Generator, Literal, Type
 
 from ..base_validator import (
     BaseValidator,
@@ -33,10 +33,8 @@ def mutate(fn: Callable, *, inherit_mutate: bool = False) -> Callable:
         with self.__mutate__(inherit_mutate=inherit_mutate):
             return fn(self, *args, **kwargs)
 
-    mutate_state = cast(
-        Literal[MutatingState.PASS, MutatingState.INHERIT],
-        MutatingState.INHERIT if inherit_mutate else MutatingState.PASS,
-    )
+    mutate_state = MutatingState.INHERIT if inherit_mutate else MutatingState.PASS
+
     return mark_mutable(wrapper, state=mutate_state)
 
 

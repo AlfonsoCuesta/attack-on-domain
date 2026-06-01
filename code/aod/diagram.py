@@ -8,8 +8,8 @@ from tempfile import NamedTemporaryFile
 
 from aod import App, BoundedContext, Entity, RootEntity, Service, ValueObject
 from aod._internal.core.type_checking.extractors import extract_types_from_annotation
-from aod._internal.domain.describe import _extract_fields
 from aod._internal.core.type_utils import type_name
+from aod._internal.domain.describe import _extract_fields
 
 TMPL = """<!DOCTYPE html>
 <html>
@@ -818,7 +818,7 @@ def _build_graph(*contexts: BoundedContext) -> dict[str, _Node]:
     nodes: dict[str, _Node] = {}
 
     for ctx_idx, ctx in enumerate(contexts):
-        all_types: list[type] = (
+        all_types: list = (
             list(ctx.aggregate_roots)
             + list(ctx.entities)
             + list(ctx.value_objects)
