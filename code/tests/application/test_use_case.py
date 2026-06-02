@@ -3,10 +3,9 @@ from __future__ import annotations
 from abc import abstractmethod
 
 import pytest
-
 from aod._internal.application.use_case import UseCase
-from aod._internal.core.event_emitter import Event, EventCollector
 from aod._internal.core.domain_exception import MutationForbiddenException
+from aod._internal.core.event_emitter import Event, EventCollector
 from aod._internal.core.fields.fields import PrivateField
 from aod._internal.domain import RootEntity, ValueObject
 
@@ -370,7 +369,7 @@ def test_private_field_on_use_case() -> None:
 
 def test_event_collector_already_active_does_not_interfere() -> None:
     uc = CreateUser(user_id=1, name="Alice")
-    with EventCollector() as outer:
+    with EventCollector():
         uc.run()
     assert len(uc.events) == 1
 

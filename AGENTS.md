@@ -43,8 +43,9 @@ code/
 │           ├── app.py
 │           ├── bounded_context.py
 │           └── describe.py
-│       └── application/              # Application layer (use cases)
-│           └── use_case.py           # UseCase base class with auto EventCollector wrapping
+│       └── application/              # Application layer
+│           ├── use_case.py           # UseCase base class with auto EventCollector wrapping
+│           └── repository.py         # RepositoryCQRS, Command, Query, RepositoryHandler, Repository
 └── tests/                            # All tests
     ├── test_public_api.py
     ├── core/                         # Core framework tests
@@ -61,8 +62,10 @@ code/
     │   ├── test_event_emitter.py
     │   ├── test_service.py
     │   └── test_value_object.py
-    └── application/                  # Application layer tests
-        └── test_use_case.py
+        ├── application/                  # Application layer tests
+        │   ├── test_use_case.py
+        │   └── test_repository.py
+        └── ...
 ```
 
 ## Class Hierarchy
@@ -208,6 +211,18 @@ Public modules re-export from `_internal`; they contain no logic of their own. T
 
 Events emitted directly by the UseCase (via a `self._event_emitter` if one is added) or by any entity touched during `run` are all captured and stored on the UseCase, replacing any events from previous runs.
 
+### Repository Layer
+
+`aod._internal.application.repository` provides a CQRS-inspired repository abstraction:
+
+- **`Command[TEntity, TResult]`** — immutable data class for write operations (extends `BaseSealed`)
+- **`Query[TEntity, TResult]`** — immutable data class for read operations (extends `BaseSealed`)
+- **`RepositoryHandler[T]`** — abstract base; single `handle(cmd: T) -> Any` method; generic parameter `T` must be a `Command` or `Query` subclass
+- **`Repository[TEntity]`** — marker interface over a `RootEntity`
+- **`RepositoryCQRS[TEntity]`** — receives `command_handlers` and `query_handlers` in `__init__`; dispatches via `command()` / `query()`; raises `DomainException` for unregistered types or duplicates
+
+Handler type resolution uses `__orig_bases__` introspection on `RepositoryHandler[T]` — the `T` in the generic base is extracted, not derived from method parameter names.
+
 ## Development Commands
 
 ```bash
@@ -232,6 +247,7 @@ uv run pytest code/tests -q
 - If you change domain classes, check `test_event_emitter.py`, `test_entity.py`, `test_value_object.py`
 - If you change type checks, update `type_handlers/extractors.py` and/or `type_handlers/checks` and verify tests
 - If you change bounded context logic, update `bounded_context.py` and check `test_bounded_context.py`
+- If you change the repository layer, update `repository.py` and verify `test_repository.py`
 - Always run all tests before committing
 - `Event.emitted_at` is the timestamp field.
 

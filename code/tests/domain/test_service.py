@@ -1,9 +1,6 @@
 from __future__ import annotations
 
-from abc import abstractmethod
-
 import pytest
-
 from aod._internal.core.domain_exception import MutationForbiddenException
 from aod._internal.core.event_emitter import Event, EventCollector, EventEmitter
 from aod._internal.domain.service import Service
