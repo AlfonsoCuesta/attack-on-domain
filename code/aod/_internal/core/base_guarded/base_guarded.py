@@ -3,10 +3,7 @@ from contextlib import contextmanager
 from functools import wraps
 from typing import Any, Callable, ClassVar, Generator, Literal, Type
 
-from ..base_validator import (
-    BaseValidator,
-    _use_raw_model,
-)
+from ..base_validator import BaseValidator
 from ..domain_exception import MutationForbiddenException
 from ..invariances.invariances import VALIDATOR_KEY
 from .make_immutable import make_immutable
@@ -78,11 +75,12 @@ class BaseGuarded(BaseValidator):
         _wrap_public_methods(cls)
 
     def __init__(self, **kwargs: Any) -> None:
-        super().__init__(**kwargs)
-        self.__mutating_context__ = self.__mutating_context_class__()
-        if not _use_raw_model.get():
-            self.__post_init__()
-        self.__initialized__ = True
+        object.__setattr__(self, "__mutating_context__", self.__mutating_context_class__())
+        self.__mutating_context__.enter(MutatingState.INHERIT)
+        try:
+            super().__init__(**kwargs)
+        finally:
+            self.__mutating_context__.exit(MutatingState.INHERIT)
 
     @inherit_context
     def _can_mutate(self) -> bool:
@@ -90,15 +88,7 @@ class BaseGuarded(BaseValidator):
 
     @property
     def _mutation_status(self) -> MutatingState:
-        if not self._is_initialized:
-            return MutatingState.INHERIT
         return self.__mutating_context__.status
-
-    @property
-    def _is_initialized(self) -> bool:
-        if not hasattr(self, "__initialized__"):
-            return False
-        return object.__getattribute__(self, "__initialized__")
 
     @contextmanager
     def __mutate__(self, inherit_mutate: bool = False) -> Generator[None, None, None]:

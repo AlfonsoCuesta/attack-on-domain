@@ -1,7 +1,7 @@
 import contextvars
 import inspect
 from abc import ABCMeta
-from typing import Any, ClassVar, Self, Type, dataclass_transform
+from typing import Any, ClassVar, Type, dataclass_transform
 
 from pydantic import BaseModel
 
@@ -49,6 +49,8 @@ class BaseValidator(metaclass=ValidationModelMeta):
         validated = model(**kwargs)
 
         self.__set_model_attributes(validated)
+        if not _use_raw_model.get():
+            self.__post_init__()
 
     def __post_init__(self) -> None:
         pass
@@ -66,11 +68,3 @@ class BaseValidator(metaclass=ValidationModelMeta):
         fields = self.__validation_model__.model_fields.keys()
         args = ", ".join(f"{k}={getattr(self, k)!r}" for k in fields)
         return f"{self.__class__.__name__}({args})"
-
-    @classmethod
-    def reconstruct(cls, **kwargs) -> Self:
-        token = _use_raw_model.set(True)
-        try:
-            return cls(**kwargs)
-        finally:
-            _use_raw_model.reset(token)

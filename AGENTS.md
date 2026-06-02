@@ -21,6 +21,7 @@ code/
 │   └── _internal/                    # Private — not semver-stable
 │       ├── core/                     # Framework internals
 │       │   ├── base_validator.py     # ValidationModelMeta + BaseValidator
+│       │   ├── reconstructable.py    # ReconstructMixin (reconstruct classmethod)
 │       │   ├── base_sealed.py        # BaseSealed (always-blocked mutation)
 │       │   ├── base_guarded/         # BaseGuarded, MutatingContext, make_immutable subsystem
 │       │   ├── event_emitter.py      # Event, EventEmitter, EventCollector
@@ -64,6 +65,21 @@ code/
         └── test_use_case.py
 ```
 
+## Class Hierarchy
+
+```
+BaseValidator (metaclass: ValidationModelMeta → ABCMeta)
+├── UseCase                         (application use case, no reconstruct)
+└── BaseGuarded                     (mutation-guarded)
+    ├── Entity(ReconstructMixin, BaseGuarded)     → has reconstruct ✓
+    │   └── RootEntity                            → inherits reconstruct ✓
+    └── BaseSealed                  (always immutable)
+        ├── ValueObject(ReconstructMixin, BaseSealed) → has reconstruct ✓
+        └── Service                               → no reconstruct ✓
+```
+
+`ReconstructMixin` is only mixed into `Entity` and `ValueObject`. `Service` and `UseCase` never see `reconstruct()`.
+
 ## Key Architectural Decisions
 
 ### Single Metaclass: `ValidationModelMeta`
@@ -79,10 +95,10 @@ Each user class gets two Pydantic models at class creation time:
 - **Validation model** (`__validation_model__`): includes all field constraints, `@field_invariance` validators, and `@invariance` model validators
 - **Raw model** (`__raw_model__`): strips all validators from annotations, excludes `@field_invariance` and `@invariance`
 
-`__init__` uses the validation model by default. `reconstruct()` (classmethod) uses the raw model, allowing reconstruction without re-validation.
+`__init__` uses the validation model by default. `reconstruct()` (classmethod, only on `ReconstructMixin`) uses the raw model, allowing reconstruction without re-validation.
 
 ### ContextVar Model Selection
-`BaseValidator.__init__` checks a `contextvars.ContextVar` (`_use_raw_model`) to decide which model to validate against. `reconstruct()` sets this flag before calling `cls(**kwargs)`.
+`BaseValidator.__init__` checks a `contextvars.ContextVar` (`_use_raw_model`) to decide which model to validate against. `ReconstructMixin.reconstruct()` sets this flag before calling `cls(**kwargs)`.
 
 ### EventEmitter via PrivateField
 All domain classes (`Entity`, `ValueObject`, `Service`) declare `_event_emitter` as a `PrivateField(default_factory=EventEmitter)` instead of creating it manually in `__init__`. Pydantic handles the lifecycle automatically.
@@ -105,9 +121,9 @@ When an attribute is read outside a mutation context, `BaseGuarded.__getattribut
 
 ### `__post_init__` Hook
 
-Defined on `BaseValidator` (empty) and triggered from `BaseGuarded.__init__`. Only runs on normal `__init__`, **not** on `reconstruct`. It executes after `__mutating_context__` exists but before `__initialized__ = True`, so:
-- Public methods can be called (mutation context active)
-- `_event_emitter` is already available (assigned by Pydantic via PrivateField before `__post_init__` runs)
+Defined on `BaseValidator` (empty) and called from `BaseValidator.__init__`. Only runs on normal `__init__`, **not** on `reconstruct`. It executes during constructor, after fields are set via `__set_model_attributes`. For `BaseGuarded` subclasses, `__mutating_context__` already exists (created before `super().__init__()`), so:
+- Public methods can be called (mutation context in INHERIT state during init)
+- `_event_emitter` is already available (assigned by Pydantic via PrivateField before `__post_init__` runs via `__set_model_attributes`)
 - Field mutation is allowed during the hook
 
 ```python
@@ -124,7 +140,7 @@ class User(RootEntity):
         ...
 ```
 
-Works for `Entity`, `RootEntity`, `ValueObject`, `Service` (all inherit from `BaseGuarded`). Direct `BaseValidator` subclasses define the method but don't trigger it.
+Works for `Entity`, `RootEntity`, `ValueObject`, `Service` (all inherit from `BaseGuarded`). Also works for `UseCase` and any `BaseValidator` subclass.
 
 ### Type Checking System (`type_handlers/`)
 Three check functions enforce DDD type constraints at `BoundedContext` construction:
@@ -179,15 +195,16 @@ Public modules re-export from `_internal`; they contain no logic of their own. T
 
 ### `UseCase` Base Class
 
-`aod._internal.application.use_case.UseCase` is the base for application-layer use cases. It extends `BaseValidator` and provides a single abstract public method `run()` that subclasses must implement.
+`aod._internal.application.use_case.UseCase` is the base for application-layer use cases. It extends `BaseGuarded` (no `ReconstructMixin`) and provides a single abstract public method `run()` that subclasses must implement.
 
 - `run()` has no parameters — all dependencies are passed via `__init__` (declared as Pydantic fields on the subclass)
 - The class has **no public methods** other than `run`; subclasses may add private helpers
 - `__init_subclass__` automatically wraps any subclass's `run` to:
   1. Open an `EventCollector` context
   2. Invoke the original `run` body
-  3. Replace `self._events` with the list of captured events
-- Subclasses access the events collected during the last `run` via `self._events` (a `PrivateField`) or `self._poll_events()` (returns a copy)
+  3. Replace `self.events` with the list of captured events
+- Subclasses access the events collected during the last `run` via `self.events` (public `Field(default_factory=list, init=False)`)
+- Setting `self.events` during `run()` uses `object.__setattr__` internally since the assignment happens outside the mutation context, but users should not mutate `events` from outside (it's guarded by `BaseGuarded.__setattr__` and wrapped in `ImmutableList` via `make_immutable`)
 
 Events emitted directly by the UseCase (via a `self._event_emitter` if one is added) or by any entity touched during `run` are all captured and stored on the UseCase, replacing any events from previous runs.
 
@@ -210,7 +227,8 @@ uv run pytest code/tests -q
 
 - If you change the dual-model system, update `model_maker.py` and verify `test_base_validator.py`
 - If you change the mutation system, update `base_guarded.py` and verify `test_base_guarded.py` + `test_make_immutable.py`
-- If you change `__post_init__`, update `base_validator.py` (definition), `base_guarded.py` (trigger), and verify `test_post_init.py`
+- If you change `__post_init__`, update `base_validator.py` (definition and trigger), and verify `test_post_init.py`
+- If you change `reconstruct()`, update `reconstructable.py` and verify `test_post_init.py` + `test_base_validator.py`
 - If you change domain classes, check `test_event_emitter.py`, `test_entity.py`, `test_value_object.py`
 - If you change type checks, update `type_handlers/extractors.py` and/or `type_handlers/checks` and verify tests
 - If you change bounded context logic, update `bounded_context.py` and check `test_bounded_context.py`

@@ -3,6 +3,7 @@ from typing import Annotated, Any, Callable, cast
 
 import pytest
 from aod._internal.core.base_validator import BaseValidator
+from aod._internal.core.reconstructable import ReconstructMixin
 from aod._internal.core.fields import Field, PrivateField
 from aod._internal.core.invariances import (
     AfterValidator,
@@ -47,7 +48,7 @@ def test_base_validator_field_invariance_runs() -> None:
 
 
 def test_base_validator_reconstruct_skips_field_validators() -> None:
-    class User(BaseValidator):
+    class User(ReconstructMixin, BaseValidator):
         age: Annotated[int, AfterValidator(lambda value: value + 10)]
 
     validated = User(age=5)
@@ -161,7 +162,7 @@ def test_invariance_runs_on_normal_construction() -> None:
 def test_invariance_does_not_run_on_reconstruct() -> None:
     """invariance must be skipped when reconstructing via reconstruct."""
 
-    class User(BaseValidator):
+    class User(ReconstructMixin, BaseValidator):
         age: int
         label: str = ""
 
@@ -190,7 +191,7 @@ def test_invariance_can_raise_validation_error() -> None:
 def test_invariance_does_not_raise_on_reconstruct() -> None:
     """Since invariance is not in the raw model, reconstruct bypasses it."""
 
-    class User(BaseValidator):
+    class User(ReconstructMixin, BaseValidator):
         age: int
 
         @invariance

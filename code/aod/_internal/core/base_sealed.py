@@ -11,6 +11,5 @@ class BaseSealed(BaseGuarded):
 
     @property
     def _mutation_status(self) -> MutatingState:
-        if not self._is_initialized:
-            return MutatingState.INHERIT
-        return MutatingState.BLOCK
+        status = self.__mutating_context__.status
+        return status if status == MutatingState.INHERIT else MutatingState.BLOCK

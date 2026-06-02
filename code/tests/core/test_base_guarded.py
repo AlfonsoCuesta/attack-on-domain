@@ -57,6 +57,9 @@ def test_base_guarded_uses_same_mutating_context_across_inheritance_levels() -> 
     obj.outer_set(2)
     obj.inner_set(3)
     assert events == [
+        # __init__
+        ("enter", MutatingState.INHERIT),
+        ("exit", MutatingState.INHERIT),
         # outer_set calling
         ("enter", MutatingState.PASS),  # outer_set
         ("enter", MutatingState.PASS),  # inner_set

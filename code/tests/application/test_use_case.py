@@ -157,9 +157,13 @@ def test_run_is_wrapped_automatically() -> None:
     assert uc.called is True
 
 
-def test_events_field_is_direct_list_access() -> None:
+def test_events_is_immutable_from_outside() -> None:
+    from aod._internal.core.domain_exception import MutationForbiddenException
+
     uc = CreateUser(user_id=1, name="Alice")
     uc.run()
-    events = uc.events
-    events.append(UserCreated(user_id=2, name="Bob"))
-    assert len(uc.events) == 2
+    assert len(uc.events) == 1
+    with pytest.raises(MutationForbiddenException):
+        uc.events.append(UserCreated(user_id=2, name="Bob"))
+    with pytest.raises(MutationForbiddenException):
+        uc.events = []
