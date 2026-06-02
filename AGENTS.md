@@ -10,14 +10,16 @@
 
 ```
 code/
-├── aod/                          # Public package
-│   ├── __init__.py               # Re-exports: BoundedContext, DomainEvent, Entity, RootEntity, ValueObject, Service, Field, PrivateField
-│   ├── py.typed                  # PEP 561 marker
-│   ├── exceptions/__init__.py    # Public: DomainException, MutationForbiddenException
-│   ├── validation/__init__.py    # Public: AfterValidator, BeforeValidator, field_invariance, invariance, inherit_context
-│   ├── diagram.py                # Interactive DDD diagram generator
-│   └── _internal/                # Private — not semver-stable
-│       ├── core/                 # Framework internals
+├── aod/                              # Package root
+│   ├── __init__.py                   # Empty package marker
+│   ├── py.typed                      # PEP 561 marker
+│   ├── domain/                       # Public domain layer (re-exports from _internal)
+│   │   ├── __init__.py               # Re-exports: App, BoundedContext, DomainEvent, EventCollector, Entity, RootEntity, Service, ValueObject, Field, PrivateField
+│   │   └── validation/               # Public: AfterValidator, BeforeValidator, field_invariance, invariance, inherit_context
+│   ├── exceptions/__init__.py        # Public: DomainException, MutationForbiddenException
+│   ├── diagram.py                    # Interactive DDD diagram generator
+│   └── _internal/                    # Private — not semver-stable
+│       ├── core/                     # Framework internals
 │       │   ├── base_validator.py     # ValidationModelMeta + BaseValidator
 │       │   ├── base_sealed.py        # BaseSealed (always-blocked mutation)
 │       │   ├── base_guarded/         # BaseGuarded, MutatingContext, make_immutable subsystem
@@ -33,22 +35,22 @@ code/
 │       │   │   └── service_handler.py       # check_service
 │       │   ├── fields/fields.py      # Field(), PrivateField() wrappers
 │       │   └── invariances/invariances.py  # field_invariance, invariance, is_validator
-│       └── domain/               # DDD domain primitives
+│       └── domain/                   # DDD domain primitives (implementation)
 │           ├── value_object.py
 │           ├── entity.py
 │           ├── service.py
 │           ├── app.py
 │           ├── bounded_context.py
 │           └── describe.py
-└── tests/                        # All tests
+└── tests/                            # All tests
     ├── test_public_api.py
-    ├── core/                     # Core framework tests
+    ├── core/                         # Core framework tests
     │   ├── test_base_guarded.py
     │   ├── test_mutating_context.py
     │   ├── test_post_init.py
     │   ├── make_immutable/
     │   └── type_checking/
-    └── domain/                   # Domain class tests
+    └── domain/                       # Domain class tests
         ├── test_app.py
         ├── test_bounded_context.py
         ├── test_describe.py
@@ -162,10 +164,19 @@ Only two exported exceptions:
 
 Other exceptions (`InvalidNestedTypeError`, `InvalidServiceParameterError`, `ClassExpectedError`, etc.) remain in `_internal` and are not part of the public API.
 
+### Public/Private Layer Separation
+
+The package splits into two layers:
+
+- **`aod.domain`, `aod.domain.validation`, `aod.exceptions`** — public API. These are thin re-export shims that surface symbols from `_internal`. User code and downstream tools must import from here.
+- **`aod._internal.core`, `aod._internal.domain`** — private implementation. This is where everything is built and where new code goes. Not part of the supported public API and not semver-stable.
+
+Public modules re-export from `_internal`; they contain no logic of their own. The reverse direction is never used — `_internal` never imports from `aod.domain` to avoid circular dependencies.
+
 ## Development Commands
 
 ```bash
-uv run pytest code/tests -q        # Run tests (199 tests)
+uv run pytest code/tests -q        # Run tests (204 tests)
 uv run ruff check code/ && uv run ruff format --check code/  # Lint + format check
 ty check                          # Type check
 ```
@@ -177,7 +188,7 @@ ty check                          # Type check
 3. **No comments** in source code — code should be self-documenting
 4. **No emojis** unless explicitly requested by the user
 5. Tests mirror source structure under `code/tests/`
-6. Never import from `_internal` in user-facing code — only through `aod`, `aod.validation`, `aod.exceptions`
+6. Never import from `_internal` in user-facing code — only through `aod.domain`, `aod.domain.validation`, `aod.exceptions`
 
 ## When Modifying This Code
 
@@ -195,3 +206,7 @@ ty check                          # Type check
 - **Runtime**: `pydantic>=2.12.4`, `typing-inspect>=0.9.0`
 - **Dev**: `ruff`, `ty`, `pre-commit`, `pytest`
 - **Build**: `setuptools`, `wheel`
+
+## At the end of a task
+
+Update docs, AGENTS.md and the SKILLS.md

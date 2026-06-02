@@ -4,8 +4,8 @@ Example: two bounded contexts with a shared entity name (Product).
 Run with: uv run python code/examples/diagram.py
 """
 
-from aod import BoundedContext, Entity, RootEntity, Service
 from aod.diagram import render_html
+from aod.domain import BoundedContext, Entity, RootEntity, Service
 
 
 def sales_context() -> BoundedContext:
@@ -64,7 +64,7 @@ def inventory_context() -> BoundedContext:
 
 
 if __name__ == "__main__":
-    from aod import App
+    from aod.domain import App
 
     sales = sales_context()
     inventory = inventory_context()

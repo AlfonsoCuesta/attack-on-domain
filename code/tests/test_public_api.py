@@ -1,13 +1,13 @@
-"""Smoke tests for the supported public import surface (`aod` package)."""
+"""Smoke tests for the supported public import surface."""
 
-import aod
+import aod.domain
+import aod.domain.validation
 import aod.exceptions
-import aod.validation
 from aod._internal.core.event_emitter import Event
 
 
-def test_aod_exports_documented_api() -> None:
-    assert aod.__all__ == [
+def test_aod_domain_exports_documented_api() -> None:
+    assert aod.domain.__all__ == [
         "App",
         "BoundedContext",
         "DomainEvent",
@@ -19,24 +19,24 @@ def test_aod_exports_documented_api() -> None:
         "Field",
         "PrivateField",
     ]
-    assert aod.App.__name__ == "App"
-    assert aod.DomainEvent is Event
-    assert aod.Entity.__name__ == "Entity"
-    assert aod.RootEntity.__name__ == "RootEntity"
-    assert aod.Service.__name__ == "Service"
-    assert aod.ValueObject.__name__ == "ValueObject"
-    assert aod.BoundedContext.__name__ == "BoundedContext"
-    assert aod.Field.__name__ == "Field"
-    assert aod.PrivateField.__name__ == "PrivateField"
-    assert aod.EventCollector.__name__ == "EventCollector"
+    assert aod.domain.App.__name__ == "App"
+    assert aod.domain.DomainEvent is Event
+    assert aod.domain.Entity.__name__ == "Entity"
+    assert aod.domain.RootEntity.__name__ == "RootEntity"
+    assert aod.domain.Service.__name__ == "Service"
+    assert aod.domain.ValueObject.__name__ == "ValueObject"
+    assert aod.domain.BoundedContext.__name__ == "BoundedContext"
+    assert aod.domain.Field.__name__ == "Field"
+    assert aod.domain.PrivateField.__name__ == "PrivateField"
+    assert aod.domain.EventCollector.__name__ == "EventCollector"
 
 
 def test_aod_exceptions_documented_api() -> None:
     assert aod.exceptions.__all__ == ["DomainException", "MutationForbiddenException"]
 
 
-def test_aod_validation_documented_api() -> None:
-    assert aod.validation.__all__ == [
+def test_aod_domain_validation_documented_api() -> None:
+    assert aod.domain.validation.__all__ == [
         "AfterValidator",
         "BeforeValidator",
         "field_invariance",

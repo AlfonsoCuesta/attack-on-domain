@@ -13,14 +13,14 @@ Source code is under `code/` (mapped as package root in `pyproject.toml`).
 
 | Import | What |
 |--------|------|
-| `from aod import BoundedContext, Entity, RootEntity, ValueObject, Service` | Domain primitives |
-| `from aod import Field, PrivateField` | Field wrappers |
-| `from aod import DomainEvent` | Event base class |
-| `from aod.validation import field_invariance, invariance, super_context` | Validation decorators |
-| `from aod.validation import AfterValidator, BeforeValidator` | Pydantic validators |
+| `from aod.domain import BoundedContext, Entity, RootEntity, ValueObject, Service` | Domain primitives |
+| `from aod.domain import Field, PrivateField` | Field wrappers |
+| `from aod.domain import DomainEvent` | Event base class |
+| `from aod.domain.validation import field_invariance, invariance, inherit_context` | Validation decorators |
+| `from aod.domain.validation import AfterValidator, BeforeValidator` | Pydantic validators |
 | `from aod.exceptions import DomainException, MutationForbiddenException` | Public exceptions |
 | `from aod.diagram import render_html, show` | Interactive diagram |
-| `from aod import EventCollector` | Cross-aggregate event capture |
+| `from aod.domain import EventCollector` | Cross-aggregate event capture |
 
 Never import from `aod._internal` in user code.
 
@@ -55,7 +55,7 @@ Each user class gets **two** Pydantic models at class creation:
 ## Validation Decorators
 
 ```python
-from aod.validation import field_invariance, invariance
+from aod.domain.validation import field_invariance, invariance
 
 class Money(ValueObject):
     amount: float
@@ -93,7 +93,7 @@ class Money(ValueObject):
 ## Event System
 
 ```python
-from aod import DomainEvent
+from aod.domain import DomainEvent
 
 class OrderPlaced(DomainEvent):
     order_id: str
@@ -124,7 +124,7 @@ Capture events across aggregate boundaries (for testing or for
 flushing to an outbox at the end of a use case):
 
 ```python
-from aod import EventCollector
+from aod.domain import EventCollector
 
 with EventCollector() as events:
     order.place(item)
@@ -140,7 +140,7 @@ for details.
 ## BoundedContext
 
 ```python
-from aod import BoundedContext
+from aod.domain import BoundedContext
 
 sales = BoundedContext(aggregate_roots=[Product, Customer, Order])
 inventory = BoundedContext(
@@ -179,7 +179,7 @@ Produces an interactive hand-drawn (rough.js) diagram with:
 ## Development Commands
 
 ```bash
-uv run pytest code/tests -q         # Run all tests (199)
+uv run pytest code/tests -q         # Run all tests (204)
 uv run ruff check code/ && uv run ruff format --check code/  # Lint + format check
 ty check                           # Type check
 ```

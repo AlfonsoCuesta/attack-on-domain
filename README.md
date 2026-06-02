@@ -22,16 +22,16 @@ uv pip install attack-on-domain
 
 ## Usage
 
-Import only from the top-level package:
+Import only from the public API:
 
 ```python
-from aod import (
+from aod.domain import (
     BoundedContext,
     DomainEvent,
-    DomainException,
     Entity,
     ValueObject,
 )
+from aod.exceptions import DomainException
 ```
 
 Requires **Python 3.14+**.

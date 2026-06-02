@@ -37,16 +37,16 @@ class EventEmitter:
 Every domain object (`Entity`, `ValueObject`, `Service`) declares `_event_emitter` as a `PrivateField` with a `default_factory`, so Pydantic creates the emitter automatically:
 
 ```python
-from aod import PrivateField
 from aod._internal.core.event_emitter import EventEmitter
+from aod.domain import PrivateField
 
 _event_emitter: EventEmitter = PrivateField(default_factory=EventEmitter)
 ```
 
-`EventEmitter` itself is not exported from `aod` — it's an internal
+`EventEmitter` itself is not part of the public API — it's an internal
 implementation detail accessed via the `_event_emitter: EventEmitter`
 `PrivateField` on domain objects. Users import `EventCollector` from
-`aod` for inter-aggregate event capture.
+`aod.domain` for inter-aggregate event capture.
 
 ## EventCollector
 
@@ -55,7 +55,7 @@ across aggregate boundaries. Designed for testing or for flushing
 domain events to an outbox at the end of a use case.
 
 ```python
-from aod import EventCollector
+from aod.domain import EventCollector
 
 with EventCollector() as events:
     order.place(item)
