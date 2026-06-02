@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from abc import abstractmethod
-from typing import Generic, TypeVar, cast, get_args, get_origin
+from typing import Generic, TypeVar, get_args, get_origin, overload
 
 from aod._internal.core.base_sealed import BaseSealed
 from aod._internal.core.domain_exception import DomainException
@@ -43,16 +43,16 @@ class RepositoryCQRS(BaseSealed, Generic[TEntity]):
     def __post_init__(self) -> None:
         for h in self.command_handlers:
             self._check_handler(h, CommandHandler, Command)
-            cmd_type = cast(type[Command], _extract_handler_type(h))
-            if cmd_type is not None and cmd_type in self._commands:
+            cmd_type = _extract_handler_type(h)
+            if cmd_type in self._commands:
                 msg = f"Duplicate command handler for {cmd_type.__name__}"
                 raise DomainException(msg)
             self._commands[cmd_type] = h
 
         for h in self.query_handlers:
             self._check_handler(h, QueryHandler, Query)
-            q_type = cast(type[Query], _extract_handler_type(h))
-            if q_type is not None and q_type in self._queries:
+            q_type = _extract_handler_type(h)
+            if q_type in self._queries:
                 msg = f"Duplicate query handler for {q_type.__name__}"
                 raise DomainException(msg)
             self._queries[q_type] = h
@@ -67,7 +67,7 @@ class RepositoryCQRS(BaseSealed, Generic[TEntity]):
             msg = f"Handler {type(h).__name__} does not handle a {handler_type.__name__}"
             raise DomainException(msg)
         q_type = _extract_handler_type(h)
-        if q_type is not None and not issubclass(q_type, subclass):
+        if not issubclass(q_type, subclass):
             msg = f"Handler {type(h).__name__} does not handle a {subclass.__name__}"
             raise DomainException(msg)
 
@@ -84,6 +84,14 @@ class RepositoryCQRS(BaseSealed, Generic[TEntity]):
             msg = f"No query handler registered for {type(query).__name__}"
             raise DomainException(msg)
         return handler.handle(query)
+
+
+@overload
+def _extract_handler_type(handler: CommandHandler) -> type[Command]: ...
+
+
+@overload
+def _extract_handler_type(handler: QueryHandler) -> type[Query]: ...
 
 
 def _extract_handler_type(handler: CommandHandler | QueryHandler) -> type[Command | Query]:
