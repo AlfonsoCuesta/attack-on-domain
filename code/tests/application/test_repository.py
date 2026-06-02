@@ -337,7 +337,7 @@ class TestRepositoryCQRS:
             pass
 
         with pytest.raises(ValidationError):
-            UserRepo(command_handlers=[GetUserHandler()])
+            UserRepo(command_handlers=[GetUserHandler()])  # type: ignore
 
     def test_command_handler_in_query_list_raises(self) -> None:
         from pydantic import ValidationError
@@ -346,7 +346,7 @@ class TestRepositoryCQRS:
             pass
 
         with pytest.raises(ValidationError):
-            UserRepo(query_handlers=[CreateUserHandler()])
+            UserRepo(query_handlers=[CreateUserHandler()])  # type: ignore
 
     def test_unbound_handler_raises(self) -> None:
         from aod._internal.application.repository import _extract_handler_type
