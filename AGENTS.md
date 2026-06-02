@@ -42,6 +42,8 @@ code/
 │           ├── app.py
 │           ├── bounded_context.py
 │           └── describe.py
+│       └── application/              # Application layer (use cases)
+│           └── use_case.py           # UseCase base class with auto EventCollector wrapping
 └── tests/                            # All tests
     ├── test_public_api.py
     ├── core/                         # Core framework tests
@@ -50,20 +52,22 @@ code/
     │   ├── test_post_init.py
     │   ├── make_immutable/
     │   └── type_checking/
-    └── domain/                       # Domain class tests
-        ├── test_app.py
-        ├── test_bounded_context.py
-        ├── test_describe.py
-        ├── test_entity.py
-        ├── test_event_emitter.py
-        ├── test_service.py
-        └── test_value_object.py
+    ├── domain/                       # Domain class tests
+    │   ├── test_app.py
+    │   ├── test_bounded_context.py
+    │   ├── test_describe.py
+    │   ├── test_entity.py
+    │   ├── test_event_emitter.py
+    │   ├── test_service.py
+    │   └── test_value_object.py
+    └── application/                  # Application layer tests
+        └── test_use_case.py
 ```
 
 ## Key Architectural Decisions
 
 ### Single Metaclass: `ValidationModelMeta`
-Only one metaclass exists in the framework — `ValidationModelMeta` on `BaseValidator`. It generates the two Pydantic models (`__validation_model__` and `__raw_model__`) at class creation time.
+Only one metaclass exists in the framework — `ValidationModelMeta` on `BaseValidator`. It generates the two Pydantic models (`__validation_model__` and `__raw_model__`) at class creation time. It inherits from `ABCMeta` so that `@abstractmethod` is enforced for classes like `UseCase`.
 
 The old `GuardedBaseMeta` and `EntityMeta` metaclasses were eliminated:
 - **Method wrapping** lives in `BaseGuarded.__init_subclass__` which calls `_wrap_public_methods(cls)`
@@ -169,16 +173,28 @@ Other exceptions (`InvalidNestedTypeError`, `InvalidServiceParameterError`, `Cla
 The package splits into two layers:
 
 - **`aod.domain`, `aod.domain.validation`, `aod.exceptions`** — public API. These are thin re-export shims that surface symbols from `_internal`. User code and downstream tools must import from here.
-- **`aod._internal.core`, `aod._internal.domain`** — private implementation. This is where everything is built and where new code goes. Not part of the supported public API and not semver-stable.
+- **`aod._internal.core`, `aod._internal.domain`, `aod._internal.application`** — private implementation. This is where everything is built and where new code goes. Not part of the supported public API and not semver-stable.
 
 Public modules re-export from `_internal`; they contain no logic of their own. The reverse direction is never used — `_internal` never imports from `aod.domain` to avoid circular dependencies.
+
+### `UseCase` Base Class
+
+`aod._internal.application.use_case.UseCase` is the base for application-layer use cases. It extends `BaseValidator` and provides a single abstract public method `run()` that subclasses must implement.
+
+- `run()` has no parameters — all dependencies are passed via `__init__` (declared as Pydantic fields on the subclass)
+- The class has **no public methods** other than `run`; subclasses may add private helpers
+- `__init_subclass__` automatically wraps any subclass's `run` to:
+  1. Open an `EventCollector` context
+  2. Invoke the original `run` body
+  3. Replace `self._events` with the list of captured events
+- Subclasses access the events collected during the last `run` via `self._events` (a `PrivateField`) or `self._poll_events()` (returns a copy)
+
+Events emitted directly by the UseCase (via a `self._event_emitter` if one is added) or by any entity touched during `run` are all captured and stored on the UseCase, replacing any events from previous runs.
 
 ## Development Commands
 
 ```bash
-uv run pytest code/tests -q        # Run tests (204 tests)
-uv run ruff check code/ && uv run ruff format --check code/  # Lint + format check
-ty check                          # Type check
+uv run pytest code/tests -q
 ```
 
 ## Coding Conventions

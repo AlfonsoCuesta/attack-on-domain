@@ -1,0 +1,35 @@
+from __future__ import annotations
+
+from abc import abstractmethod
+from functools import wraps
+from typing import Any, Callable
+
+from aod._internal.core.base_validator import BaseValidator
+from aod._internal.core.event_emitter import Event, EventCollector
+from aod._internal.core.fields.fields import Field
+
+_USE_CASE_WRAPPED_KEY = "__aod_use_case_wrapped__"
+
+
+def _wrap_run_with_collector(fn: Callable[..., None]) -> Callable[..., None]:
+    @wraps(fn)
+    def wrapper(self: UseCase, *args: Any, **kwargs: Any) -> None:
+        with EventCollector() as events:
+            fn(self, *args, **kwargs)
+        self.events = list(events)
+
+    setattr(wrapper, _USE_CASE_WRAPPED_KEY, True)
+    return wrapper
+
+
+class UseCase(BaseValidator):
+    events: list[Event] = Field(default_factory=list, init=False)
+
+    def __init_subclass__(cls, **kwargs: Any) -> None:
+        super().__init_subclass__(**kwargs)
+        original_run: Callable[..., None] | None = cls.__dict__.get("run")
+        if original_run is not None and not getattr(original_run, _USE_CASE_WRAPPED_KEY, False):
+            setattr(cls, "run", _wrap_run_with_collector(original_run))
+
+    @abstractmethod
+    def run(self) -> None: ...

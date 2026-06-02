@@ -1,5 +1,6 @@
 import contextvars
 import inspect
+from abc import ABCMeta
 from typing import Any, ClassVar, Self, Type, dataclass_transform
 
 from pydantic import BaseModel
@@ -17,7 +18,7 @@ _use_raw_model: contextvars.ContextVar[bool] = contextvars.ContextVar(
 )
 
 
-class ValidationModelMeta(type):
+class ValidationModelMeta(ABCMeta):
     def __new__(mcls, name, bases, namespace, **kwargs: Any):
         cls = super().__new__(mcls, name, bases, namespace, **kwargs)
 

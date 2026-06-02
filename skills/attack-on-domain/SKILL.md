@@ -179,7 +179,7 @@ Produces an interactive hand-drawn (rough.js) diagram with:
 ## Development Commands
 
 ```bash
-uv run pytest code/tests -q         # Run all tests (204)
+uv run pytest code/tests -q
 uv run ruff check code/ && uv run ruff format --check code/  # Lint + format check
 ty check                           # Type check
 ```
