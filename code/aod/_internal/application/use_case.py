@@ -16,8 +16,10 @@ def _wrap_run_with_collector(fn: Callable[..., None]) -> Callable[..., None]:
     @wraps(fn)
     def wrapper(self: UseCase, *args: Any, **kwargs: Any) -> None:
         with EventCollector() as events:
-            fn(self, *args, **kwargs)
-        self.events = list(events)
+            try:
+                fn(self, *args, **kwargs)
+            finally:
+                self.events = list(events)
 
     setattr(wrapper, _USE_CASE_WRAPPED_KEY, True)
     return wrapper

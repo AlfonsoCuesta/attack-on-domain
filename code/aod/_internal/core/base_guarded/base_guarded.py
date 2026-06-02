@@ -114,6 +114,11 @@ class BaseGuarded(BaseValidator):
             raise MutationForbiddenException("Cannot mutate this object " + self.__class__.__name__)
         super().__setattr__(name, value)
 
+    def __delattr__(self, name: str) -> None:
+        if not self._is_mutation_allowed:
+            raise MutationForbiddenException("Cannot mutate this object " + self.__class__.__name__)
+        super().__delattr__(name)
+
     def __getattribute__(self, name):
         value = object.__getattribute__(self, name)
         if is_dunder(name):

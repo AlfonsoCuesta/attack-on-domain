@@ -21,6 +21,7 @@ Source code is under `code/` (mapped as package root in `pyproject.toml`).
 | `from aod.exceptions import DomainException, MutationForbiddenException` | Public exceptions |
 | `from aod.diagram import render_html, show` | Interactive diagram |
 | `from aod.domain import EventCollector` | Cross-aggregate event capture |
+| `from aod._internal.application.use_case import UseCase` (internal) | UseCase base class |
 
 Never import from `aod._internal` in user code.
 
@@ -43,6 +44,17 @@ Never import from `aod._internal` in user code.
 - **Immutable** — inherits `BaseSealed`, stateless service pattern
 - `_event_emitter` via `PrivateField(default_factory=EventEmitter)`, same as Entity/ValueObject
 - Methods must not accept or return non-root `Entity` types (enforced at `BoundedContext` construction)
+- Public methods do **not** allow mutation (BaseSealed blocks PASS context)
+
+### UseCase (internal)
+- `UseCase` is the base for application-layer use cases, available at `aod._internal.application.use_case.UseCase`
+- Extends `BaseSealed` — immutable from outside
+- Declares `events: list[Event] = Field(default_factory=list, init=False)` for collected events
+- `run()` is abstract, decorated with `@inherit_context` so mutation is allowed inside (INHERIT bypasses seal)
+- `__init_subclass__` auto-wraps `run()` with an `EventCollector` and captures events into `self.events`
+- `uc.events` returns `ImmutableList` from outside (mutation blocked, iteration/indexing works)
+- `__skip_method_wrapping__` is `True` on UseCase, so `_wrap_public_methods` stops at UseCase (the abstract `run` is never wrapped by the public-method system; the event-collector wrapping handles it)
+- Works with inheritance chains (UseCase → Abstract → Concrete)
 
 ## Dual-Model Validation
 
@@ -50,7 +62,7 @@ Each user class gets **two** Pydantic models at class creation:
 - `__validation_model__` — includes all field constraints, `@field_invariance` validators, `@invariance` model validators
 - `__raw_model__` — strips all validators
 
-`__init__` uses the validation model. `from_existing()` uses the raw model (bypasses re-validation).
+`__init__` uses the validation model. `ReconstructMixin.reconstruct()` uses the raw model (bypasses re-validation). Only classes that mix in `ReconstructMixin` (`Entity`, `ValueObject`, `RootEntity`) have `reconstruct()` — `Service` and `UseCase` do not.
 
 ## Validation Decorators
 
@@ -80,15 +92,18 @@ class Money(ValueObject):
 
 ## Mutation System
 
-- `BaseGuarded.__setattr__` enforces mutation state:
+- `BaseGuarded.__setattr__` and `__delattr__` enforce mutation state:
   - `BLOCK` — no mutation (default after `__init__`)
   - `PASS` — mutation allowed (entered automatically by public method wrappers via `_wrap_public_methods`)
-  - `SUPER` — bypasses `_can_mutate()` (entered by `@super_context`)
+  - `INHERIT` — bypasses `_can_mutate()` and `_mutation_status` (entered by `@inherit_context` or during `__init__`)
 - `__getattribute__` returns `make_immutable(value)` when mutation is blocked:
   - `list` → `ImmutableList` (blocks append, extend, __setitem__, etc.)
   - `dict` → `ImmutableDict`
   - `set` → `ImmutableSet`
   - Custom objects → dynamically created `Immutable{ClassName}` subclass
+- `BaseSealed._mutation_status` returns `INHERIT` during init, `BLOCK` otherwise (even for PASS) — truly sealed
+- `@inherit_context` on a method causes `_wrap_public_methods` to wrap it with `INHERIT` context (via `super_attrs` lookup)
+- During `__init__`, `BaseGuarded` enters `INHERIT` context, allowing temporary mutation for `__post_init__`
 
 ## Event System
 
@@ -106,7 +121,7 @@ Events are immutable (`BaseSealed`). The `emitted_at` field is auto-set at const
 
 ### `__post_init__` Hook
 
-Defined on `BaseValidator` (empty), triggered from `BaseGuarded.__init__`. Only runs on **normal `__init__`**, never on `from_existing`.
+Defined on `BaseValidator` (empty), called from `BaseValidator.__init__`. Only runs on **normal `__init__`**, never on `reconstruct` (check via `_use_raw_model` ContextVar).
 
 ```python
 class User(RootEntity):
@@ -116,7 +131,7 @@ class User(RootEntity):
         self._event_emitter.emit(UserCreatedEvent(user_id=self.id))
 ```
 
-Works for `Entity`, `RootEntity`, and `ValueObject`. Public methods can be called and fields mutated during the hook (runs after `__mutating_context__` exists).
+Works for `Entity`, `RootEntity`, `ValueObject`, `Service`, and `UseCase`. For `BaseGuarded` subclasses, `__mutating_context__` exists before `super().__init__()` (created in `BaseGuarded.__init__`), so public methods and field mutation work during the hook (INHERIT context active).
 
 ### EventCollector
 
@@ -134,8 +149,9 @@ with EventCollector() as events:
 
 `__enter__` returns the list of captured events (not the collector
 itself). State is held in a `ContextVar`, so it's per-task isolated
-but doesn't support nested collectors. See `docs/core/event_emitter.md`
-for details.
+but doesn't support nested collectors. When a UseCase calls `run()`,
+it opens its own `EventCollector` which replaces any outer one during
+execution. See `docs/core/event_emitter.md` for details.
 
 ## BoundedContext
 
@@ -174,7 +190,9 @@ Produces an interactive hand-drawn (rough.js) diagram with:
 - Drag, pan, zoom
 
 ### Tests
-- `code/tests/core/test_post_init.py` — 22 tests covering `__post_init__` for Entity, RootEntity, ValueObject, inheritance, event emission, public method calls, and from_existing suppression.
+- `code/tests/core/test_post_init.py` — 22 tests covering `__post_init__` for Entity, RootEntity, ValueObject, inheritance, event emission, public method calls, and reconstruct suppression.
+- `code/tests/application/test_use_case.py` — 42 tests covering UseCase instantiation, event collection, immutability, exceptions, inheritance, `__post_init__`, `__repr__`, multiple runs, and edge cases.
+- `code/tests/domain/test_service.py` — 17 tests covering Service instantiation, event emission, immutability, `__post_init__`, inheritance, private methods, collection, and event isolation.
 
 ## Development Commands
 

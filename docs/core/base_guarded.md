@@ -32,20 +32,23 @@ If a method overrides a parent method that was marked as `INHERIT`, the override
 - `__skip_method_wrapping__` — defaults to `True`; when `True`, `__init_subclass__` stops wrapping methods at this class in the MRO
 
 ### `__init__(**kwargs)`
-1. Calls `super().__init__(**kwargs)` (which runs `BaseValidator.__init__`)
-2. Creates a new `MutatingContext` instance as `self.__mutating_context__`
-3. Calls `self.__post_init__()` **only if** `_use_raw_model` is `False` (i.e., not from `reconstruct`)
-4. Sets `self.__initialized__ = True`
+1. Creates `__mutating_context__` via `object.__setattr__` (bypasses the guard) from `__mutating_context_class__`
+2. Enters `INHERIT` context (allows mutation during `__post_init__`)
+3. Calls `super().__init__(**kwargs)` (which runs `BaseValidator.__init__` → sets fields → calls `__post_init__()`)
+4. Exits `INHERIT` context
 
-Because `__post_init__` runs after `__mutating_context__` exists but before `__initialized__`, public methods can be called and field mutation is allowed during the hook. The `_event_emitter` is available via `PrivateField(default_factory=EventEmitter)` on each domain class, assigned by Pydantic during `super().__init__()`.
+Because `__mutating_context__` is created before `super().__init__()`, the mutation context is available during `__post_init__`. The `_event_emitter` is set by Pydantic in `__set_model_attributes` before `__post_init__` runs.
 
 ### Mutation Control
 - `_can_mutate() -> bool` — override this in subclasses. Default returns `True`. Decorated with `@inherit_context`.
-- `_mutation_status` property — returns `INHERIT` if `not _is_initialized`, delegates to `__mutating_context__.status` otherwise
+- `_mutation_status` property — returns `self.__mutating_context__.status` (the context is the single source of truth)
 - `__mutate__(inherit_mutate=False)` — context manager that enters/exits the mutating context with the appropriate state
 - `_is_mutation_allowed` property — `BLOCK` → `False`, `INHERIT` → `True`, `PASS` → delegates to `_can_mutate()`
 
 ### `__setattr__(name, value)`
+Raises `MutationForbiddenException` if `_is_mutation_allowed` is `False`.
+
+### `__delattr__(name)`
 Raises `MutationForbiddenException` if `_is_mutation_allowed` is `False`.
 
 ### `__getattribute__(name)`

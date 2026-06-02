@@ -24,26 +24,33 @@ Checks the `_use_raw_model` ContextVar:
 
 After validation, calls `__set_model_attributes(validated)` to copy fields and private attributes onto `self` using `object.__setattr__`.
 
-### `reconstruct(**kwargs) -> Self`
-A classmethod that:
-1. Sets `_use_raw_model` ContextVar to `True`
-2. Calls `cls(**kwargs)` — goes through `__init__` but with the raw model
-3. Resets the ContextVar
-
-This means `reconstruct` bypasses `@field_invariance`, `@invariance`, and any `Annotated` constraints/validators.
-
 ### `__set_model_attributes(validated)`
 Copies all fields from `validated.model_dump()` plus `__pydantic_private__` attributes onto `self` using `object.__setattr__`.
 
 ### `__post_init__()`
-Empty hook method defined for MRO support. Override in subclasses to run custom logic after field initialization. **Does NOT trigger on `BaseValidator` directly** — only `BaseGuarded.__init__` calls it. See `base_guarded.md` for details.
+Empty hook method. Called from `BaseValidator.__init__` after `__set_model_attributes`. Only runs on normal `__init__` (not during `reconstruct` — guarded by `_use_raw_model` check). Override in subclasses to run custom logic after field initialization.
 
 ### `__repr__()`
 Generates repr based on `__validation_model__.model_fields` keys.
 
+## ReconstructMixin
+
+`ReconstructMixin` (in `reconstructable.py`) provides the `reconstruct(**kwargs) -> Self` classmethod:
+
+1. Sets `_use_raw_model` ContextVar to `True`
+2. Calls `cls(**kwargs)` — goes through `__init__` but with the raw model
+3. Resets the ContextVar
+
+This bypasses `@field_invariance`, `@invariance`, and any `Annotated` constraints/validators.
+Only classes that mix in `ReconstructMixin` have `reconstruct()`:
+- `Entity(ReconstructMixin, BaseGuarded)` — has reconstruct
+- `ValueObject(ReconstructMixin, BaseSealed)` — has reconstruct
+- `Service(BaseSealed)` — does NOT have reconstruct
+- `UseCase(BaseSealed)` — does NOT have reconstruct
+
 ## Internal State
 
-- `_use_raw_model: ContextVar[bool]` — module-level, controls model selection in `__init__`
+- `_use_raw_model: ContextVar[bool]` — module-level (in `base_validator.py`), controls model selection in `__init__`. Used by both `BaseValidator.__init__` and `ReconstructMixin.reconstruct()`.
 - `VALIDATION_MODEL_KEY = "__validation_model__"` — attribute name for the validation model
 - `RAW_MODEL_KEY = "__raw_model__"` — attribute name for the raw model
 
