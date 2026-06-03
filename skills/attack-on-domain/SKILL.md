@@ -58,7 +58,7 @@ Source code is under `code/` (mapped as package root in `pyproject.toml`).
 
 ### Repository Layer
 
-CQRS-inspired repository abstraction at `from aod.application import ...`:
+CQRS-inspired repository abstraction at `from aod.application import Command, Query, Projection` and `from aod.infrastructure import Repository, CommandHandler, QueryHandler, ProjectionHandler`:
 
 - **`Command[TEntity, TResult]`** / **`Query[TEntity, TResult]`** — immutable value objects for writes/reads; validate `TEntity` is a `RootEntity` subclass
 - **`Projection[TResult]`** — immutable data class for read models (extends `BaseSealed`, no entity restriction)
@@ -66,8 +66,8 @@ CQRS-inspired repository abstraction at `from aod.application import ...`:
 - **`Repository[TEntity]`** — receives `command_handlers`, `query_handlers`, and `projection_handlers` in `__init__`; dispatches via `command()` / `query()` / `projection()`
 
 ```python
-from aod.application import Command, Projection, Repository
-from aod.infrastructure import CommandHandler, ProjectionHandler
+from aod.application import Command, Projection
+from aod.infrastructure import CommandHandler, ProjectionHandler, Repository
 
 class CreateUser(Command[User, User]):
     name: str
@@ -91,7 +91,7 @@ repo.command(CreateUser(name="Alice"))
 repo.projection(UserCount())
 ```
 
-Handler type resolution uses `__orig_bases__` introspection (`get_generic_arg_from_mro` in `type_handlers/generic_utils.py`).
+Handler type resolution uses `extract_handler_type()` (public in `aod._internal.infrastructure.checks`) via `get_generic_arg_from_mro` in `type_handlers/generic_utils.py` — works in any scope, avoids `NameError` with locally-defined handlers. `handlers.py` imports `Command`/`Query`/`Projection` directly from contracts with no circular deps.
 
 ## Dual-Model Validation
 
@@ -230,7 +230,7 @@ Produces an interactive hand-drawn (rough.js) diagram with:
 - `code/tests/core/test_post_init.py` — 22 tests covering `__post_init__` for Entity, RootEntity, ValueObject, inheritance, event emission, public method calls, and reconstruct suppression.
 - `code/tests/application/test_use_case.py` — 42 tests covering UseCase instantiation, event collection, immutability, exceptions, inheritance, `__post_init__`, `__repr__`, multiple runs, and edge cases.
 - `code/tests/domain/test_service.py` — 17 tests covering Service instantiation, event emission, immutability, `__post_init__`, inheritance, private methods, collection, and event isolation.
-- `code/tests/application/test_repository.py` — 45 tests covering Command/Query validation, handler type checking, dispatch, duplicates, and edge cases.
+- `code/tests/infrastructure/test_repository.py` — 47 tests covering Command/Query validation, handler type checking, dispatch, duplicates, and edge cases.
 
 ## Development Commands
 

@@ -49,8 +49,8 @@ code/
 │       │   └── use_case.py           # UseCase base class with auto EventCollector wrapping
 │       └── infrastructure/           # Infrastructure layer
 │           ├── __init__.py
-│           ├── handlers.py           # CommandHandler, QueryHandler, _extract_handler_type
-│           ├── checks.py             # validate_handler_type, validate_handler_entity, handler_type_entity
+│           ├── handlers.py           # CommandHandler, QueryHandler, ProjectionHandler
+│           ├── checks.py             # validate_handler_type, validate_handler_entity, handler_type_entity, extract_handler_type
 │           └── repository.py         # Repository with dispatch
 └── tests/                            # All tests
     ├── test_public_api.py
@@ -198,8 +198,8 @@ Other exceptions (`InvalidNestedTypeError`, `InvalidServiceParameterError`, `Cla
 
 The package splits into two layers:
 
-- **`aod.domain`, `aod.domain.validation`, `aod.exceptions`** — public API. These are thin re-export shims that surface symbols from `_internal`. User code and downstream tools must import from here.
-- **`aod._internal.core`, `aod._internal.domain`, `aod._internal.application`** — private implementation. This is where everything is built and where new code goes. Not part of the supported public API and not semver-stable.
+- **`aod.domain`, `aod.domain.validation`, `aod.exceptions`, `aod.application`, `aod.infrastructure`** — public API. These are thin re-export shims that surface symbols from `_internal`. User code and downstream tools must import from here.
+- **`aod._internal.core`, `aod._internal.domain`, `aod._internal.application`, `aod._internal.infrastructure`** — private implementation. This is where everything is built and where new code goes. Not part of the supported public API and not semver-stable.
 
 Public modules re-export from `_internal`; they contain no logic of their own. The reverse direction is never used — `_internal` never imports from `aod.domain` to avoid circular dependencies.
 
@@ -227,7 +227,15 @@ Events emitted directly by the UseCase (via a `self._event_emitter` if one is ad
 - **`CommandHandler[C]`** / **`QueryHandler[Q]`** / **`ProjectionHandler[P]`** — abstract bases with `handle()` method; validate generic param at class creation
 - **`Repository[TEntity]`** — receives `command_handlers`, `query_handlers`, and `projection_handlers` in `__init__`; dispatches via `command()` / `query()` / `projection()` via `_add_handler`/`_check_handler`; raises `DomainException` for unregistered types or duplicates
 
-Handler type resolution uses `__orig_bases__` introspection on the concrete handler class (`get_generic_arg_from_mro` in `generic_utils.py`) — works in any scope, avoids `NameError` with locally-defined handlers. Handlers live in `aod._internal.infrastructure.handlers`, imported by `repository.py` via a lazy import in `__init_subclass__` to avoid circular deps. Reusable helpers: `get_generic_arg_from_orig_bases`, `get_generic_arg_from_mro`, `validate_generic_arg_is_subclass`.
+Handler type resolution uses `extract_handler_type()` (public in `checks.py`) via `get_generic_arg_from_mro` in `generic_utils.py` — works in any scope, avoids `NameError` with locally-defined handlers. Handlers live in `aod._internal.infrastructure.handlers`, imported by `repository.py` via a lazy import in `__init_subclass__` to avoid circular deps. Reusable helpers: `get_generic_arg_from_orig_bases`, `get_generic_arg_from_mro`, `validate_generic_arg_is_subclass`.
+
+Validation functions in `checks.py`:
+- **`extract_handler_type(handler)`** — returns `type[Command]`, `type[Query]`, or `type[Projection]` via overloads; raises `DomainException` if unresolvable
+- **`validate_handler_type(handler, expected_type)`** — raises `DomainException` if handler is not the expected class
+- **`validate_handler_entity(handler, handler_type, repo_entity)`** — checks that `CommandHandler`/`QueryHandler` entity matches `Repository[TEntity]`'s entity
+- **`handler_type_entity(handler_type)`** — extracts the entity param from a `Command`/`Query` type
+
+Zero `# type: ignore` in `checks.py`, `repository.py`, and `handlers.py`.
 
 ## Development Commands
 
@@ -242,7 +250,7 @@ uv run pytest code/tests -q
 3. **No comments** in source code — code should be self-documenting
 4. **No emojis** unless explicitly requested by the user
 5. Tests mirror source structure under `code/tests/`
-6. Never import from `_internal` in user-facing code — only through `aod.domain`, `aod.domain.validation`, `aod.exceptions`
+6. Never import from `_internal` in user-facing code — only through `aod.domain`, `aod.domain.validation`, `aod.exceptions`, `aod.application`, `aod.infrastructure`
 
 ## When Modifying This Code
 
@@ -254,6 +262,7 @@ uv run pytest code/tests -q
 - If you change type checks, update `type_handlers/extractors.py` and/or `type_handlers/checks` and verify tests
 - If you change bounded context logic, update `bounded_context.py` and check `test_bounded_context.py`
 - If you change the repository layer, update `repository.py` and/or `handlers.py` and verify `test_repository.py`
+- If you change validation functions, update `checks.py` and verify `test_repository.py`
 - Always run all tests before committing
 - `Event.emitted_at` is the timestamp field.
 
