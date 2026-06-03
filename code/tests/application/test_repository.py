@@ -1,8 +1,8 @@
 from __future__ import annotations
 
 import pytest
-from aod.application import Command, Query, Repository, RepositoryCQRS
-from aod.infrastructure import CommandHandler, QueryHandler
+from aod.application import Command, Projection, Query, Repository
+from aod.infrastructure import CommandHandler, ProjectionHandler, QueryHandler
 from aod._internal.core.base_sealed import BaseSealed
 from aod._internal.core.domain_exception import DomainException, MutationForbiddenException
 from aod._internal.domain.entity import RootEntity
@@ -218,16 +218,37 @@ class TestQueryHandler:
                     return query
 
 
-class TestRepositoryCQRS:
+class TestProjectionHandler:
+    def test_is_not_abstract(self) -> None:
+        class UserCount(Projection[int]):
+            pass
+
+        class UserCountHandler(ProjectionHandler[UserCount]):
+            def handle(self, projection: UserCount) -> int:
+                return 42
+
+        h = UserCountHandler()
+        result = h.handle(UserCount())
+        assert result == 42
+
+    def test_invalid_generic_raises(self) -> None:
+        with pytest.raises(DomainException, match="Generic parameter for"):
+
+            class _(ProjectionHandler[str]):  # type: ignore
+                def handle(self, projection: str) -> str:
+                    return projection
+
+
+class TestRepository:
     def test_empty_init(self) -> None:
-        class EmptyRepo(RepositoryCQRS[User]):
+        class EmptyRepo(Repository[User]):
             pass
 
         repo = EmptyRepo()
         assert repo is not None
 
     def test_dispatches_command(self) -> None:
-        class UserRepo(RepositoryCQRS[User]):
+        class UserRepo(Repository[User]):
             pass
 
         repo = UserRepo(command_handlers=[CreateUserHandler()])
@@ -236,7 +257,7 @@ class TestRepositoryCQRS:
         assert result.name == "Alice"
 
     def test_dispatches_query(self) -> None:
-        class UserRepo(RepositoryCQRS[User]):
+        class UserRepo(Repository[User]):
             pass
 
         repo = UserRepo(query_handlers=[GetUserHandler()])
@@ -244,7 +265,7 @@ class TestRepositoryCQRS:
         assert isinstance(result, User | None)
 
     def test_unknown_command_raises(self) -> None:
-        class UserRepo(RepositoryCQRS[User]):
+        class UserRepo(Repository[User]):
             pass
 
         repo = UserRepo()
@@ -253,7 +274,7 @@ class TestRepositoryCQRS:
             repo.command(cmd)
 
     def test_unknown_query_raises(self) -> None:
-        class UserRepo(RepositoryCQRS[User]):
+        class UserRepo(Repository[User]):
             pass
 
         repo = UserRepo()
@@ -261,21 +282,21 @@ class TestRepositoryCQRS:
             repo.query(GetUser(user_id=1))
 
     def test_duplicate_command_handler_raises(self) -> None:
-        class UserRepo(RepositoryCQRS[User]):
+        class UserRepo(Repository[User]):
             pass
 
         with pytest.raises(DomainException, match="Duplicate handler for CreateUser"):
             UserRepo(command_handlers=[CreateUserHandler(), CreateUserHandler()])
 
     def test_duplicate_query_handler_raises(self) -> None:
-        class UserRepo(RepositoryCQRS[User]):
+        class UserRepo(Repository[User]):
             pass
 
         with pytest.raises(DomainException, match="Duplicate handler for GetUser"):
             UserRepo(query_handlers=[GetUserHandler(), GetUserHandler()])
 
     def test_multiple_handlers(self) -> None:
-        class UserRepo(RepositoryCQRS[User]):
+        class UserRepo(Repository[User]):
             pass
 
         repo = UserRepo(
@@ -297,8 +318,34 @@ class TestRepositoryCQRS:
         result = repo.command(DeleteUser(user_id=5))
         assert result is None
 
+    def test_dispatches_projection(self) -> None:
+        class UserCount(Projection[int]):
+            pass
+
+        class UserCountHandler(ProjectionHandler[UserCount]):
+            def handle(self, projection: UserCount) -> int:
+                return 42
+
+        class UserRepo(Repository[User]):
+            pass
+
+        repo = UserRepo(projection_handlers=[UserCountHandler()])
+        result = repo.projection(UserCount())
+        assert result == 42
+
+    def test_unknown_projection_raises(self) -> None:
+        class UserCount(Projection[int]):
+            pass
+
+        class UserRepo(Repository[User]):
+            pass
+
+        repo = UserRepo()
+        with pytest.raises(DomainException, match="No projection handler registered for UserCount"):
+            repo.projection(UserCount())
+
     def test_many_commands_do_not_share_state(self) -> None:
-        class UserRepo(RepositoryCQRS[User]):
+        class UserRepo(Repository[User]):
             pass
 
         repo = UserRepo(command_handlers=[CreateUserHandler()])
@@ -310,15 +357,15 @@ class TestRepositoryCQRS:
         assert user2.name == "B"
 
     def test_repository_marker(self) -> None:
-        class UserRepo(RepositoryCQRS[User]):
+        class UserRepo(Repository[User]):
             pass
 
         repo = UserRepo()
-        assert isinstance(repo, RepositoryCQRS)
+        assert isinstance(repo, Repository)
         assert isinstance(repo, BaseSealed)
 
     def test_with_handler_inheritance(self) -> None:
-        class UserRepo(RepositoryCQRS[User]):
+        class UserRepo(Repository[User]):
             pass
 
         repo = UserRepo(command_handlers=[BaseCommandHandler()])
@@ -326,7 +373,7 @@ class TestRepositoryCQRS:
         assert user.id == 99
 
     def test_commands_and_queries_independent(self) -> None:
-        class UserRepo(RepositoryCQRS[User]):
+        class UserRepo(Repository[User]):
             pass
 
         repo = UserRepo(
@@ -342,7 +389,7 @@ class TestRepositoryCQRS:
         assert count == 42
 
     def test_no_queried_type_leak(self) -> None:
-        class OrderRepo(RepositoryCQRS[Order]):
+        class OrderRepo(Repository[Order]):
             pass
 
         repo = OrderRepo(command_handlers=[CreateOrderHandler()])
@@ -353,7 +400,7 @@ class TestRepositoryCQRS:
     def test_query_handler_in_command_list_raises(self) -> None:
         from pydantic import ValidationError
 
-        class UserRepo(RepositoryCQRS[User]):
+        class UserRepo(Repository[User]):
             pass
 
         with pytest.raises(ValidationError):
@@ -362,14 +409,14 @@ class TestRepositoryCQRS:
     def test_command_handler_in_query_list_raises(self) -> None:
         from pydantic import ValidationError
 
-        class UserRepo(RepositoryCQRS[User]):
+        class UserRepo(Repository[User]):
             pass
 
         with pytest.raises(ValidationError):
             UserRepo(query_handlers=[CreateUserHandler()])  # type: ignore
 
     def test_unbound_handler_raises(self) -> None:
-        from aod._internal.application.repository import _extract_handler_type
+        from aod._internal.infrastructure.handlers import _extract_handler_type
 
         class BadHandler(CommandHandler):
             def handle(self, cmd):
@@ -383,7 +430,7 @@ class TestRepositoryCQRS:
             def handle(self, cmd: CreateOrder) -> Order:
                 return Order(id=1, total=cmd.total)
 
-        class UserRepo(RepositoryCQRS[User]):
+        class UserRepo(Repository[User]):
             pass
 
         repo = UserRepo(command_handlers=[OrderHandler()])
@@ -392,19 +439,4 @@ class TestRepositoryCQRS:
             repo.command(cmd)
 
 
-class TestRepository:
-    def test_marker(self) -> None:
-        class UserRepo(Repository[User]):
-            def find_by_id(self, uid: int) -> User | None:
-                return None
 
-        repo = UserRepo()
-        assert isinstance(repo, Repository)
-        assert repo.find_by_id(1) is None
-
-    def test_without_methods(self) -> None:
-        class UserRepo(Repository[User]):
-            pass
-
-        repo = UserRepo()
-        assert isinstance(repo, Repository)

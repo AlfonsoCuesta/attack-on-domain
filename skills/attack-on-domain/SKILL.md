@@ -22,8 +22,8 @@ Source code is under `code/` (mapped as package root in `pyproject.toml`).
 | `from aod.diagram import render_html, show` | Interactive diagram |
 | `from aod.domain import EventCollector` | Cross-aggregate event capture |
 | `from aod.application import UseCase` | UseCase base class |
-| `from aod.application import Command, Query, Repository, RepositoryCQRS` | Application layer |
-| `from aod.infrastructure import CommandHandler, QueryHandler` | Infrastructure layer |
+| `from aod.application import Command, Query, Projection, Repository` | Application layer |
+| `from aod.infrastructure import CommandHandler, QueryHandler, ProjectionHandler` | Infrastructure layer |
 
 ## Domain Primitives
 
@@ -61,13 +61,13 @@ Source code is under `code/` (mapped as package root in `pyproject.toml`).
 CQRS-inspired repository abstraction at `from aod.application import ...`:
 
 - **`Command[TEntity, TResult]`** / **`Query[TEntity, TResult]`** — immutable value objects for writes/reads; validate `TEntity` is a `RootEntity` subclass
-- **`CommandHandler[C]`** / **`QueryHandler[Q]`** — abstract bases with `handle(cmd)`; `C=TypeVar("C", bound=Command)`, `Q=TypeVar("Q", bound=Query)`; validate generic param is a proper `Command`/`Query` subclass
-- **`Repository[TEntity]`** — marker interface
-- **`RepositoryCQRS[TEntity]`** — receives `command_handlers: list[CommandHandler]` and `query_handlers: list[QueryHandler]`; dispatches via `command()` / `query()`
+- **`Projection[TResult]`** — immutable data class for read models (extends `BaseSealed`, no entity restriction)
+- **`CommandHandler[C]`** / **`QueryHandler[Q]`** / **`ProjectionHandler[P]`** — abstract bases with `handle()` method; validate generic param at class creation
+- **`Repository[TEntity]`** — receives `command_handlers`, `query_handlers`, and `projection_handlers` in `__init__`; dispatches via `command()` / `query()` / `projection()`
 
 ```python
-from aod.application import Command, RepositoryCQRS
-from aod.infrastructure import CommandHandler
+from aod.application import Command, Projection, Repository
+from aod.infrastructure import CommandHandler, ProjectionHandler
 
 class CreateUser(Command[User, User]):
     name: str
@@ -76,8 +76,19 @@ class CreateUserHandler(CommandHandler[CreateUser]):
     def handle(self, cmd: CreateUser) -> User:
         ...
 
-repo = RepositoryCQRS[User](command_handlers=[CreateUserHandler()])
+class UserCount(Projection[int]):
+    pass
+
+class UserCountHandler(ProjectionHandler[UserCount]):
+    def handle(self, projection: UserCount) -> int:
+        return 42
+
+repo = Repository[User](
+    command_handlers=[CreateUserHandler()],
+    projection_handlers=[UserCountHandler()],
+)
 repo.command(CreateUser(name="Alice"))
+repo.projection(UserCount())
 ```
 
 Handler type resolution uses `__orig_bases__` introspection (`get_generic_arg_from_mro` in `type_handlers/generic_utils.py`).

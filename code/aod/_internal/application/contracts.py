@@ -18,3 +18,6 @@ class Query(BaseSealed, Generic[TEntity, TResult]):
     def __init_subclass__(cls, **kwargs):
         super().__init_subclass__(**kwargs)
         validate_generic_arg_is_subclass(cls, Query, RootEntity, arg_name="TEntity")
+
+
+class Projection(BaseSealed, Generic[TResult]): ...

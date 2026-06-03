@@ -46,7 +46,7 @@ code/
 │           └── describe.py
 │       ├── application/              # Application layer
 │       │   ├── use_case.py           # UseCase base class with auto EventCollector wrapping
-│       │   ├── contracts.py          # Command, Query base classes
+│       │   ├── contracts.py          # Command, Query, Projection base classes
 │       │   └── repository.py         # RepositoryCQRS, Repository
 │       └── infrastructure/           # Infrastructure layer
 │           ├── __init__.py
@@ -221,9 +221,9 @@ Events emitted directly by the UseCase (via a `self._event_emitter` if one is ad
 `aod.application` provides the application-level contracts; `aod.infrastructure` provides the handler bases:
 
 - **`Command[TEntity, TResult]`** / **`Query[TEntity, TResult]`** — immutable data classes for writes/reads (extend `BaseSealed`, validate `TEntity` is `RootEntity` subclass at class creation)
-- **`CommandHandler[C]`** / **`QueryHandler[Q]`** — abstract bases with `handle(cmd)` method; `C=TypeVar("C", bound=Command)`, `Q=TypeVar("Q", bound=Query)`; validate generic param at class creation
-- **`Repository[TEntity]`** — marker interface over a `RootEntity`
-- **`RepositoryCQRS[TEntity]`** — receives `command_handlers: list[CommandHandler]` and `query_handlers: list[QueryHandler]` in `__init__`; dispatches via `command()` / `query()` via `_add_handler`/`_check_handler`; raises `DomainException` for unregistered types or duplicates
+- **`Projection[TResult]`** — immutable data class for read models (extends `BaseSealed`, no entity restriction)
+- **`CommandHandler[C]`** / **`QueryHandler[Q]`** / **`ProjectionHandler[P]`** — abstract bases with `handle()` method; validate generic param at class creation
+- **`Repository[TEntity]`** — receives `command_handlers`, `query_handlers`, and `projection_handlers` in `__init__`; dispatches via `command()` / `query()` / `projection()` via `_add_handler`/`_check_handler`; raises `DomainException` for unregistered types or duplicates
 
 Handler type resolution uses `__orig_bases__` introspection on the concrete handler class (`get_generic_arg_from_mro` in `generic_utils.py`) — works in any scope, avoids `NameError` with locally-defined handlers. Handlers live in `aod._internal.infrastructure.handlers`, imported by `repository.py` via a lazy import in `__init_subclass__` to avoid circular deps. Reusable helpers: `get_generic_arg_from_orig_bases`, `get_generic_arg_from_mro`, `validate_generic_arg_is_subclass`.
 
