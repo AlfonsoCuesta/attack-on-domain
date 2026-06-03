@@ -6,8 +6,8 @@ from typing import Any, Callable, ClassVar
 
 from aod._internal.core.base_guarded import inherit_context
 from aod._internal.core.base_sealed import BaseSealed
-from aod._internal.core.event_emitter import Event, EventCollector
-from aod._internal.core.fields.fields import Field
+from aod._internal.core.event_emitter import Event, EventCollector, EventEmitter
+from aod._internal.core.fields.fields import Field, PrivateField
 
 _USE_CASE_WRAPPED_KEY = "__aod_use_case_wrapped__"
 
@@ -27,6 +27,7 @@ def _wrap_run_with_collector(fn: Callable[..., None]) -> Callable[..., None]:
 
 class UseCase(BaseSealed):
     __skip_method_wrapping__: ClassVar[bool] = True
+    _event_emitter: EventEmitter = PrivateField(default_factory=EventEmitter)
     events: list[Event] = Field(default_factory=list, init=False)
 
     def __init_subclass__(cls, **kwargs: Any) -> None:

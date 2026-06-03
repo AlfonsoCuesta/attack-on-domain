@@ -418,3 +418,14 @@ def test_many_runs() -> None:
     for _ in range(10):
         uc.run()
     assert len(uc.events) == 1
+
+
+def test_use_case_can_emit_events_directly() -> None:
+    class EmittingUseCase(UseCase):
+        def run(self) -> None:
+            self._event_emitter.emit(UserCreated(user_id=1, name="from_uc"))
+
+    uc = EmittingUseCase()
+    uc.run()
+    assert len(uc.events) == 1
+    assert uc.events[0].name == "from_uc"

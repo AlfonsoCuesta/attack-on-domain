@@ -22,6 +22,7 @@ Source code is under `code/` (mapped as package root in `pyproject.toml`).
 | `from aod.diagram import render_html, show` | Interactive diagram |
 | `from aod.domain import EventCollector` | Cross-aggregate event capture |
 | `from aod.application import UseCase` | UseCase base class |
+| `from aod.application import Port` | Abstract port/gateway base class |
 | `from aod.application import Command, Query, Projection` | Application contracts |
 | `from aod.infrastructure import Repository, CommandHandler, QueryHandler, ProjectionHandler` | Infrastructure |
 
@@ -49,12 +50,35 @@ Source code is under `code/` (mapped as package root in `pyproject.toml`).
 ### UseCase
 - `UseCase` is the base for application-layer use cases, available at `from aod.application import UseCase`
 - Extends `BaseSealed` — immutable from outside
+- Declares `_event_emitter` as `PrivateField(default_factory=EventEmitter)` for direct event emission
 - Declares `events: list[Event] = Field(default_factory=list, init=False)` for collected events
 - `run()` is abstract, decorated with `@inherit_context` so mutation is allowed inside (INHERIT bypasses seal)
 - `__init_subclass__` auto-wraps `run()` with an `EventCollector` and captures events into `self.events`
+- Events emitted via `self._event_emitter.emit(...)` inside `run()` are automatically collected in `self.events`
 - `uc.events` returns `ImmutableList` from outside (mutation blocked, iteration/indexing works)
 - `__skip_method_wrapping__` is `True` on UseCase, so `_wrap_public_methods` stops at UseCase (the abstract `run` is never wrapped by the public-method system; the event-collector wrapping handles it)
 - Works with inheritance chains (UseCase → Abstract → Concrete)
+
+### Port
+- `Port` is the base for defining dependency interfaces (ports/gateways), available at `from aod.application import Port`
+- Extends `BaseGuarded` — mutable from inside public methods
+- Supports `@abstractmethod` (these are skipped by `_wrap_public_methods`, so concrete subclasses must provide implementations)
+- Subclasses declare fields and abstract methods; infrastructure provides concrete implementations
+- Concrete public methods are auto-wrapped with mutation context (PASS state)
+
+```python
+from aod.application import Port, UseCase
+
+class EmailGateway(Port):
+    @abstractmethod
+    def send(self, to: str, subject: str, body: str) -> None: ...
+
+class SendEmailUseCase(UseCase):
+    email: EmailGateway
+
+    def run(self) -> None:
+        self.email.send("user@example.com", "Hello", "World")
+```
 
 ### Repository Layer
 
@@ -231,6 +255,7 @@ Produces an interactive hand-drawn (rough.js) diagram with:
 - `code/tests/application/test_use_case.py` — 42 tests covering UseCase instantiation, event collection, immutability, exceptions, inheritance, `__post_init__`, `__repr__`, multiple runs, and edge cases.
 - `code/tests/domain/test_service.py` — 17 tests covering Service instantiation, event emission, immutability, `__post_init__`, inheritance, private methods, collection, and event isolation.
 - `code/tests/infrastructure/test_repository.py` — 47 tests covering Command/Query validation, handler type checking, dispatch, duplicates, and edge cases.
+- `code/tests/application/test_port.py` — 7 tests covering Port instantiation, abstract enforcement, method wrapping, mutation blocking, and use with UseCase.
 
 ## Development Commands
 

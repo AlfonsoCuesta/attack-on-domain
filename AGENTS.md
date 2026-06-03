@@ -46,6 +46,7 @@ code/
 │           └── describe.py
 │       ├── application/              # Application layer
 │       │   ├── contracts.py          # Command, Query, Projection base classes
+│       │   ├── port.py               # Port base class (abstract, mutable-from-inside)
 │       │   └── use_case.py           # UseCase base class with auto EventCollector wrapping
 │       └── infrastructure/           # Infrastructure layer
 │           ├── __init__.py
@@ -205,10 +206,11 @@ Public modules re-export from `_internal`; they contain no logic of their own. T
 
 ### `UseCase` Base Class
 
-`UseCase` (public via `aod.application`) is the base for application-layer use cases. It extends `BaseGuarded` (no `ReconstructMixin`) and provides a single abstract public method `run()` that subclasses must implement.
+`UseCase` (public via `aod.application`) is the base for application-layer use cases. It extends `BaseSealed` (no `ReconstructMixin`) and provides a single abstract public method `run()` that subclasses must implement.
 
 - `run()` has no parameters — all dependencies are passed via `__init__` (declared as Pydantic fields on the subclass)
 - The class has **no public methods** other than `run`; subclasses may add private helpers
+- `_event_emitter` is a `PrivateField(default_factory=EventEmitter)`, ready for direct event emission
 - `__init_subclass__` automatically wraps any subclass's `run` to:
   1. Open an `EventCollector` context
   2. Invoke the original `run` body
@@ -216,7 +218,15 @@ Public modules re-export from `_internal`; they contain no logic of their own. T
 - Subclasses access the events collected during the last `run` via `self.events` (public `Field(default_factory=list, init=False)`)
 - Setting `self.events` during `run()` uses `object.__setattr__` internally since the assignment happens outside the mutation context, but users should not mutate `events` from outside (it's guarded by `BaseGuarded.__setattr__` and wrapped in `ImmutableList` via `make_immutable`)
 
-Events emitted directly by the UseCase (via a `self._event_emitter` if one is added) or by any entity touched during `run` are all captured and stored on the UseCase, replacing any events from previous runs.
+Events emitted directly by the UseCase via `self._event_emitter.emit(...)` or by any entity touched during `run` are all captured and stored on the UseCase, replacing any events from previous runs.
+
+### `Port` Base Class
+
+`Port` (public via `aod.application`) is an abstract base class for defining dependency interfaces (ports/gateways) in the application layer. It extends `BaseGuarded`, so:
+- Concrete subclasses' public methods are auto-wrapped with mutation context (can mutate fields)
+- Mutations are blocked from outside
+- Supports `@abstractmethod` (skipped by `_wrap_public_methods`)
+- Subclasses declare fields and abstract methods that infrastructure will implement
 
 ### Repository Layer
 
@@ -255,7 +265,7 @@ uv run pytest code/tests -q
 ## When Modifying This Code
 
 - If you change the dual-model system, update `model_maker.py` and verify `test_base_validator.py`
-- If you change the mutation system, update `base_guarded.py` and verify `test_base_guarded.py` + `test_make_immutable.py`
+- If you change the mutation system, update `base_guarded.py` (including `_wrap_public_methods`) and verify `test_base_guarded.py` + `test_make_immutable.py`
 - If you change `__post_init__`, update `base_validator.py` (definition and trigger), and verify `test_post_init.py`
 - If you change `reconstruct()`, update `reconstructable.py` and verify `test_post_init.py` + `test_base_validator.py`
 - If you change domain classes, check `test_event_emitter.py`, `test_entity.py`, `test_value_object.py`
@@ -263,6 +273,7 @@ uv run pytest code/tests -q
 - If you change bounded context logic, update `bounded_context.py` and check `test_bounded_context.py`
 - If you change the repository layer, update `repository.py` and/or `handlers.py` and verify `test_repository.py`
 - If you change validation functions, update `checks.py` and verify `test_repository.py`
+- If you change the application layer, update `port.py` and/or `use_case.py` and verify `test_port.py` / `test_use_case.py`
 - Always run all tests before committing
 - `Event.emitted_at` is the timestamp field.
 

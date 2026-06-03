@@ -61,6 +61,8 @@ def _wrap_public_methods(cls: type) -> None:
                 continue
             if getattr(attr_value, MUTABLE_KEY, False):
                 continue
+            if getattr(attr_value, "__isabstractmethod__", False):
+                continue
 
             inherit_mutate = attr_name in super_attrs
             setattr(cls, attr_name, mutate(attr_value, inherit_mutate=inherit_mutate))
