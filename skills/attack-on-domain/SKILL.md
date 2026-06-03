@@ -21,9 +21,9 @@ Source code is under `code/` (mapped as package root in `pyproject.toml`).
 | `from aod.exceptions import DomainException, MutationForbiddenException` | Public exceptions |
 | `from aod.diagram import render_html, show` | Interactive diagram |
 | `from aod.domain import EventCollector` | Cross-aggregate event capture |
-| `from aod._internal.application.use_case import UseCase` (internal) | UseCase base class |
-
-Never import from `aod._internal` in user code.
+| `from aod.application import UseCase` | UseCase base class |
+| `from aod.application import Command, Query, Repository, RepositoryCQRS` | Application layer |
+| `from aod.infrastructure import CommandHandler, QueryHandler` | Infrastructure layer |
 
 ## Domain Primitives
 
@@ -46,8 +46,8 @@ Never import from `aod._internal` in user code.
 - Methods must not accept or return non-root `Entity` types (enforced at `BoundedContext` construction)
 - Public methods do **not** allow mutation (BaseSealed blocks PASS context)
 
-### UseCase (internal)
-- `UseCase` is the base for application-layer use cases, available at `aod._internal.application.use_case.UseCase`
+### UseCase
+- `UseCase` is the base for application-layer use cases, available at `from aod.application import UseCase`
 - Extends `BaseSealed` — immutable from outside
 - Declares `events: list[Event] = Field(default_factory=list, init=False)` for collected events
 - `run()` is abstract, decorated with `@inherit_context` so mutation is allowed inside (INHERIT bypasses seal)
@@ -55,6 +55,32 @@ Never import from `aod._internal` in user code.
 - `uc.events` returns `ImmutableList` from outside (mutation blocked, iteration/indexing works)
 - `__skip_method_wrapping__` is `True` on UseCase, so `_wrap_public_methods` stops at UseCase (the abstract `run` is never wrapped by the public-method system; the event-collector wrapping handles it)
 - Works with inheritance chains (UseCase → Abstract → Concrete)
+
+### Repository Layer
+
+CQRS-inspired repository abstraction at `from aod.application import ...`:
+
+- **`Command[TEntity, TResult]`** / **`Query[TEntity, TResult]`** — immutable value objects for writes/reads; validate `TEntity` is a `RootEntity` subclass
+- **`CommandHandler[C]`** / **`QueryHandler[Q]`** — abstract bases with `handle(cmd)`; `C=TypeVar("C", bound=Command)`, `Q=TypeVar("Q", bound=Query)`; validate generic param is a proper `Command`/`Query` subclass
+- **`Repository[TEntity]`** — marker interface
+- **`RepositoryCQRS[TEntity]`** — receives `command_handlers: list[CommandHandler]` and `query_handlers: list[QueryHandler]`; dispatches via `command()` / `query()`
+
+```python
+from aod.application import Command, RepositoryCQRS
+from aod.infrastructure import CommandHandler
+
+class CreateUser(Command[User, User]):
+    name: str
+
+class CreateUserHandler(CommandHandler[CreateUser]):
+    def handle(self, cmd: CreateUser) -> User:
+        ...
+
+repo = RepositoryCQRS[User](command_handlers=[CreateUserHandler()])
+repo.command(CreateUser(name="Alice"))
+```
+
+Handler type resolution uses `__orig_bases__` introspection (`get_generic_arg_from_mro` in `type_handlers/generic_utils.py`).
 
 ## Dual-Model Validation
 
@@ -193,6 +219,7 @@ Produces an interactive hand-drawn (rough.js) diagram with:
 - `code/tests/core/test_post_init.py` — 22 tests covering `__post_init__` for Entity, RootEntity, ValueObject, inheritance, event emission, public method calls, and reconstruct suppression.
 - `code/tests/application/test_use_case.py` — 42 tests covering UseCase instantiation, event collection, immutability, exceptions, inheritance, `__post_init__`, `__repr__`, multiple runs, and edge cases.
 - `code/tests/domain/test_service.py` — 17 tests covering Service instantiation, event emission, immutability, `__post_init__`, inheritance, private methods, collection, and event isolation.
+- `code/tests/application/test_repository.py` — 45 tests covering Command/Query validation, handler type checking, dispatch, duplicates, and edge cases.
 
 ## Development Commands
 

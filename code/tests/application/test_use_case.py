@@ -3,7 +3,7 @@ from __future__ import annotations
 from abc import abstractmethod
 
 import pytest
-from aod._internal.application.use_case import UseCase
+from aod.application import UseCase
 from aod._internal.core.domain_exception import MutationForbiddenException
 from aod._internal.core.event_emitter import Event, EventCollector
 from aod._internal.core.fields.fields import PrivateField

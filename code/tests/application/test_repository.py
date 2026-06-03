@@ -1,14 +1,8 @@
 from __future__ import annotations
 
 import pytest
-from aod._internal.application.repository import (
-    Command,
-    CommandHandler,
-    Query,
-    QueryHandler,
-    Repository,
-    RepositoryCQRS,
-)
+from aod.application import Command, Query, Repository, RepositoryCQRS
+from aod.infrastructure import CommandHandler, QueryHandler
 from aod._internal.core.base_sealed import BaseSealed
 from aod._internal.core.domain_exception import DomainException, MutationForbiddenException
 from aod._internal.domain.entity import RootEntity
@@ -116,7 +110,8 @@ class TestCommand:
 
     def test_invalid_entity_raises(self) -> None:
         with pytest.raises(DomainException, match="TEntity for"):
-            class _(Command[str, int]):  # type: ignore
+
+            class _(Command[str, int]):
                 pass
 
 
@@ -142,7 +137,8 @@ class TestQuery:
 
     def test_invalid_entity_raises(self) -> None:
         with pytest.raises(DomainException, match="TEntity for"):
-            class _(Query[str, int]):  # type: ignore
+
+            class _(Query[str, int]):
                 pass
 
 
@@ -180,6 +176,7 @@ class TestCommandHandler:
 
     def test_invalid_generic_raises(self) -> None:
         with pytest.raises(DomainException, match="Generic parameter for"):
+
             class _(CommandHandler[str]):  # type: ignore
                 def handle(self, cmd: str) -> str:
                     return cmd
@@ -215,6 +212,7 @@ class TestQueryHandler:
 
     def test_invalid_generic_raises(self) -> None:
         with pytest.raises(DomainException, match="Generic parameter for"):
+
             class _(QueryHandler[int]):  # type: ignore
                 def handle(self, query: int) -> int:
                     return query

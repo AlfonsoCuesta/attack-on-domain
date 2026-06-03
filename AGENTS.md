@@ -44,9 +44,13 @@ code/
 │           ├── app.py
 │           ├── bounded_context.py
 │           └── describe.py
-│       └── application/              # Application layer
-│           ├── use_case.py           # UseCase base class with auto EventCollector wrapping
-│           └── repository.py         # RepositoryCQRS, Command, Query, RepositoryHandler, Repository
+│       ├── application/              # Application layer
+│       │   ├── use_case.py           # UseCase base class with auto EventCollector wrapping
+│       │   ├── contracts.py          # Command, Query base classes
+│       │   └── repository.py         # RepositoryCQRS, Repository
+│       └── infrastructure/           # Infrastructure layer
+│           ├── __init__.py
+│           └── handlers.py           # CommandHandler, QueryHandler, _extract_handler_type
 └── tests/                            # All tests
     ├── test_public_api.py
     ├── core/                         # Core framework tests
@@ -63,10 +67,10 @@ code/
     │   ├── test_event_emitter.py
     │   ├── test_service.py
     │   └── test_value_object.py
-        ├── application/                  # Application layer tests
-        │   ├── test_use_case.py
-        │   └── test_repository.py
-        └── ...
+    ├── application/                  # Application layer tests
+    │   ├── test_use_case.py
+    │   └── test_repository.py
+    └── ...
 ```
 
 ## Class Hierarchy
@@ -199,7 +203,7 @@ Public modules re-export from `_internal`; they contain no logic of their own. T
 
 ### `UseCase` Base Class
 
-`aod._internal.application.use_case.UseCase` is the base for application-layer use cases. It extends `BaseGuarded` (no `ReconstructMixin`) and provides a single abstract public method `run()` that subclasses must implement.
+`UseCase` (public via `aod.application`) is the base for application-layer use cases. It extends `BaseGuarded` (no `ReconstructMixin`) and provides a single abstract public method `run()` that subclasses must implement.
 
 - `run()` has no parameters — all dependencies are passed via `__init__` (declared as Pydantic fields on the subclass)
 - The class has **no public methods** other than `run`; subclasses may add private helpers
@@ -214,15 +218,14 @@ Events emitted directly by the UseCase (via a `self._event_emitter` if one is ad
 
 ### Repository Layer
 
-`aod._internal.application.repository` provides a CQRS-inspired repository abstraction:
+`aod.application` provides the application-level contracts; `aod.infrastructure` provides the handler bases:
 
-- **`Command[TEntity, TResult]`** — immutable data class for write operations (extends `BaseSealed`)
-- **`Query[TEntity, TResult]`** — immutable data class for read operations (extends `BaseSealed`)
-- **`RepositoryHandler[T]`** — abstract base; single `handle(cmd: T) -> Any` method; generic parameter `T` must be a `Command` or `Query` subclass
+- **`Command[TEntity, TResult]`** / **`Query[TEntity, TResult]`** — immutable data classes for writes/reads (extend `BaseSealed`, validate `TEntity` is `RootEntity` subclass at class creation)
+- **`CommandHandler[C]`** / **`QueryHandler[Q]`** — abstract bases with `handle(cmd)` method; `C=TypeVar("C", bound=Command)`, `Q=TypeVar("Q", bound=Query)`; validate generic param at class creation
 - **`Repository[TEntity]`** — marker interface over a `RootEntity`
-- **`RepositoryCQRS[TEntity]`** — receives `command_handlers` and `query_handlers` in `__init__`; dispatches via `command()` / `query()`; raises `DomainException` for unregistered types or duplicates
+- **`RepositoryCQRS[TEntity]`** — receives `command_handlers: list[CommandHandler]` and `query_handlers: list[QueryHandler]` in `__init__`; dispatches via `command()` / `query()` via `_add_handler`/`_check_handler`; raises `DomainException` for unregistered types or duplicates
 
-Handler type resolution uses `__orig_bases__` introspection on `RepositoryHandler[T]` — the `T` in the generic base is extracted, not derived from method parameter names.
+Handler type resolution uses `__orig_bases__` introspection on the concrete handler class (`get_generic_arg_from_mro` in `generic_utils.py`) — works in any scope, avoids `NameError` with locally-defined handlers. Handlers live in `aod._internal.infrastructure.handlers`, imported by `repository.py` via a lazy import in `__init_subclass__` to avoid circular deps. Reusable helpers: `get_generic_arg_from_orig_bases`, `get_generic_arg_from_mro`, `validate_generic_arg_is_subclass`.
 
 ## Development Commands
 
@@ -248,7 +251,7 @@ uv run pytest code/tests -q
 - If you change domain classes, check `test_event_emitter.py`, `test_entity.py`, `test_value_object.py`
 - If you change type checks, update `type_handlers/extractors.py` and/or `type_handlers/checks` and verify tests
 - If you change bounded context logic, update `bounded_context.py` and check `test_bounded_context.py`
-- If you change the repository layer, update `repository.py` and verify `test_repository.py`
+- If you change the repository layer, update `repository.py` and/or `handlers.py` and verify `test_repository.py`
 - Always run all tests before committing
 - `Event.emitted_at` is the timestamp field.
 
