@@ -33,6 +33,7 @@ code/
 │       │   ├── type_handlers/        # DDD type check functions
 │       │   │   ├── __init__.py       # Re-exports: BaseGuardedTypeHandler, ServiceTypeHandler
 │       │   │   ├── base_guarded_handler.py  # check_entity, check_root_entity, check_value_object, discover_types
+│       │   │   ├── generic_utils.py         # get_generic_arg_from_orig_bases, get_generic_arg_from_mro, validate_generic_arg_is_subclass
 │       │   │   └── service_handler.py       # check_service
 │       │   ├── fields/fields.py      # Field(), PrivateField() wrappers
 │       │   └── invariances/invariances.py  # field_invariance, invariance, is_validator

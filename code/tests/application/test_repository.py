@@ -114,6 +114,11 @@ class TestCommand:
         cmd = DeleteUser(user_id=5)
         assert cmd.user_id == 5
 
+    def test_invalid_entity_raises(self) -> None:
+        with pytest.raises(DomainException, match="TEntity for"):
+            class _(Command[str, int]):  # type: ignore
+                pass
+
 
 class TestQuery:
     def test_can_be_instantiated(self) -> None:
@@ -134,6 +139,11 @@ class TestQuery:
     def test_no_fields_still_works(self) -> None:
         q = CountUsers()
         assert isinstance(q, Query)
+
+    def test_invalid_entity_raises(self) -> None:
+        with pytest.raises(DomainException, match="TEntity for"):
+            class _(Query[str, int]):  # type: ignore
+                pass
 
 
 class TestCommandHandler:
@@ -168,6 +178,12 @@ class TestCommandHandler:
         result = h.handle(cmd)
         assert result.id == 99
 
+    def test_invalid_generic_raises(self) -> None:
+        with pytest.raises(DomainException, match="Generic parameter for"):
+            class _(CommandHandler[str]):  # type: ignore
+                def handle(self, cmd: str) -> str:
+                    return cmd
+
 
 class TestQueryHandler:
     def test_is_abstract(self) -> None:
@@ -196,6 +212,12 @@ class TestQueryHandler:
         h = CountUsersHandler()
         result = h.handle(CountUsers())
         assert result == 42
+
+    def test_invalid_generic_raises(self) -> None:
+        with pytest.raises(DomainException, match="Generic parameter for"):
+            class _(QueryHandler[int]):  # type: ignore
+                def handle(self, query: int) -> int:
+                    return query
 
 
 class TestRepositoryCQRS:
@@ -244,14 +266,14 @@ class TestRepositoryCQRS:
         class UserRepo(RepositoryCQRS[User]):
             pass
 
-        with pytest.raises(DomainException, match="Duplicate command handler for CreateUser"):
+        with pytest.raises(DomainException, match="Duplicate handler for CreateUser"):
             UserRepo(command_handlers=[CreateUserHandler(), CreateUserHandler()])
 
     def test_duplicate_query_handler_raises(self) -> None:
         class UserRepo(RepositoryCQRS[User]):
             pass
 
-        with pytest.raises(DomainException, match="Duplicate query handler for GetUser"):
+        with pytest.raises(DomainException, match="Duplicate handler for GetUser"):
             UserRepo(query_handlers=[GetUserHandler(), GetUserHandler()])
 
     def test_multiple_handlers(self) -> None:

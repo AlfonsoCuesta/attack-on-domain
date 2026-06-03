@@ -1,20 +1,31 @@
 from __future__ import annotations
 
 from abc import abstractmethod
-from typing import Generic, TypeVar, get_args, get_origin, overload
+from typing import Generic, TypeVar, overload
 
 from aod._internal.core.base_sealed import BaseSealed
 from aod._internal.core.domain_exception import DomainException
 from aod._internal.core.fields.fields import Field, PrivateField
+from aod._internal.core.type_handlers.generic_utils import (
+    get_generic_arg_from_mro,
+    validate_generic_arg_is_subclass,
+)
+from aod._internal.domain.entity import RootEntity
 
 TEntity = TypeVar("TEntity")
 TResult = TypeVar("TResult")
 
 
-class Command(BaseSealed, Generic[TEntity, TResult]): ...
+class Command(BaseSealed, Generic[TEntity, TResult]):
+    def __init_subclass__(cls, **kwargs):
+        super().__init_subclass__(**kwargs)
+        validate_generic_arg_is_subclass(cls, Command, RootEntity, arg_name="TEntity")
 
 
-class Query(BaseSealed, Generic[TEntity, TResult]): ...
+class Query(BaseSealed, Generic[TEntity, TResult]):
+    def __init_subclass__(cls, **kwargs):
+        super().__init_subclass__(**kwargs)
+        validate_generic_arg_is_subclass(cls, Query, RootEntity, arg_name="TEntity")
 
 
 C = TypeVar("C", bound=Command)
@@ -22,11 +33,19 @@ Q = TypeVar("Q", bound=Query)
 
 
 class CommandHandler(BaseSealed, Generic[C]):
+    def __init_subclass__(cls, **kwargs):
+        super().__init_subclass__(**kwargs)
+        validate_generic_arg_is_subclass(cls, CommandHandler, Command)
+
     @abstractmethod
     def handle(self, cmd: C) -> TResult: ...
 
 
 class QueryHandler(BaseSealed, Generic[Q]):
+    def __init_subclass__(cls, **kwargs):
+        super().__init_subclass__(**kwargs)
+        validate_generic_arg_is_subclass(cls, QueryHandler, Query)
+
     @abstractmethod
     def handle(self, query: Q) -> TResult: ...
 
@@ -42,33 +61,29 @@ class RepositoryCQRS(BaseSealed, Generic[TEntity]):
 
     def __post_init__(self) -> None:
         for h in self.command_handlers:
-            self._check_handler(h, CommandHandler, Command)
-            cmd_type = _extract_handler_type(h)
-            if cmd_type in self._commands:
-                msg = f"Duplicate command handler for {cmd_type.__name__}"
-                raise DomainException(msg)
-            self._commands[cmd_type] = h
+            self._add_handler(h, CommandHandler, self._commands)
 
         for h in self.query_handlers:
-            self._check_handler(h, QueryHandler, Query)
-            q_type = _extract_handler_type(h)
-            if q_type in self._queries:
-                msg = f"Duplicate query handler for {q_type.__name__}"
-                raise DomainException(msg)
-            self._queries[q_type] = h
+            self._add_handler(h, QueryHandler, self._queries)
 
-    def _check_handler(
+    def _add_handler(
         self,
         h: CommandHandler | QueryHandler,
         handler_type: type[CommandHandler | QueryHandler],
-        subclass: type[Query | Command],
+        handlers: dict,
+    ) -> None:
+        self._check_handler(h, handler_type)
+        q_type = _extract_handler_type(h)
+        if q_type in handlers:
+            msg = f"Duplicate handler for {q_type.__name__}"
+            raise DomainException(msg)
+        handlers[q_type] = h
+
+    def _check_handler(
+        self, h: CommandHandler | QueryHandler, handler_type: type[CommandHandler | QueryHandler]
     ) -> None:
         if not issubclass(type(h), handler_type):
             msg = f"Handler {type(h).__name__} does not handle a {handler_type.__name__}"
-            raise DomainException(msg)
-        q_type = _extract_handler_type(h)
-        if not issubclass(q_type, subclass):
-            msg = f"Handler {type(h).__name__} does not handle a {subclass.__name__}"
             raise DomainException(msg)
 
     def command(self, cmd: Command[TEntity, TResult]) -> TResult:
@@ -95,12 +110,8 @@ def _extract_handler_type(handler: QueryHandler) -> type[Query]: ...
 
 
 def _extract_handler_type(handler: CommandHandler | QueryHandler) -> type[Command | Query]:
-    for base in type(handler).__mro__:
-        for orig_base in getattr(base, "__orig_bases__", []):
-            origin = get_origin(orig_base)
-            if origin is CommandHandler or origin is QueryHandler:
-                t = get_args(orig_base)[0]
-                if isinstance(t, type) and issubclass(t, (Command, Query)):
-                    return t
+    t = get_generic_arg_from_mro(type(handler), (CommandHandler, QueryHandler))
+    if isinstance(t, type) and issubclass(t, (Command, Query)):
+        return t
     msg = f"Cannot determine Command/Query type for {type(handler).__name__}"
     raise DomainException(msg)
