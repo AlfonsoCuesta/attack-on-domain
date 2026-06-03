@@ -1,8 +1,8 @@
 from __future__ import annotations
 
 import pytest
-from aod.application import Command, Projection, Query, Repository
-from aod.infrastructure import CommandHandler, ProjectionHandler, QueryHandler
+from aod.application import Command, Projection, Query
+from aod.infrastructure import CommandHandler, ProjectionHandler, QueryHandler, Repository
 from aod._internal.core.base_sealed import BaseSealed
 from aod._internal.core.domain_exception import DomainException, MutationForbiddenException
 from aod._internal.domain.entity import RootEntity
@@ -433,10 +433,8 @@ class TestRepository:
         class UserRepo(Repository[User]):
             pass
 
-        repo = UserRepo(command_handlers=[OrderHandler()])
-        cmd = CreateUser(name="X", email="x@y.com")
-        with pytest.raises(DomainException, match="No command handler registered for CreateUser"):
-            repo.command(cmd)
+        with pytest.raises(DomainException, match="handles entity Order, but repository is for entity User"):
+            UserRepo(command_handlers=[OrderHandler()])
 
 
 

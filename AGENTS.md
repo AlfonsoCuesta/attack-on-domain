@@ -45,12 +45,12 @@ code/
 │           ├── bounded_context.py
 │           └── describe.py
 │       ├── application/              # Application layer
-│       │   ├── use_case.py           # UseCase base class with auto EventCollector wrapping
 │       │   ├── contracts.py          # Command, Query, Projection base classes
-│       │   └── repository.py         # RepositoryCQRS, Repository
+│       │   └── use_case.py           # UseCase base class with auto EventCollector wrapping
 │       └── infrastructure/           # Infrastructure layer
 │           ├── __init__.py
-│           └── handlers.py           # CommandHandler, QueryHandler, _extract_handler_type
+│           ├── handlers.py           # CommandHandler, QueryHandler, _extract_handler_type
+│           └── repository.py         # Repository with dispatch
 └── tests/                            # All tests
     ├── test_public_api.py
     ├── core/                         # Core framework tests
@@ -68,7 +68,8 @@ code/
     │   ├── test_service.py
     │   └── test_value_object.py
     ├── application/                  # Application layer tests
-    │   ├── test_use_case.py
+    │   └── test_use_case.py
+    ├── infrastructure/               # Infrastructure layer tests
     │   └── test_repository.py
     └── ...
 ```
@@ -218,7 +219,7 @@ Events emitted directly by the UseCase (via a `self._event_emitter` if one is ad
 
 ### Repository Layer
 
-`aod.application` provides the application-level contracts; `aod.infrastructure` provides the handler bases:
+`aod.application` provides the application-level contracts; `aod.infrastructure` provides the handler bases and repository:
 
 - **`Command[TEntity, TResult]`** / **`Query[TEntity, TResult]`** — immutable data classes for writes/reads (extend `BaseSealed`, validate `TEntity` is `RootEntity` subclass at class creation)
 - **`Projection[TResult]`** — immutable data class for read models (extends `BaseSealed`, no entity restriction)

@@ -6,6 +6,7 @@ from aod._internal.application.contracts import Command, Projection, Query
 from aod._internal.core.base_sealed import BaseSealed
 from aod._internal.core.domain_exception import DomainException
 from aod._internal.core.fields.fields import Field, PrivateField
+from aod._internal.core.type_handlers.generic_utils import get_generic_arg_from_orig_bases
 from aod._internal.infrastructure.handlers import (
     CommandHandler,
     ProjectionHandler,
@@ -43,10 +44,32 @@ class Repository(BaseSealed, Generic[TEntity]):
     ) -> None:
         self._check_handler(h, handler_type)
         q_type = _extract_handler_type(h)
+
+        if handler_type is not ProjectionHandler:
+            assert isinstance(h, (CommandHandler, QueryHandler))
+            self._validate_handler_entity(h, q_type)  # type: ignore
+
         if q_type in handlers:
             msg = f"Duplicate handler for {q_type.__name__}"
             raise DomainException(msg)
         handlers[q_type] = h
+
+    def _validate_handler_entity(
+        self,
+        h: CommandHandler | QueryHandler,
+        cmd_or_query_type: type[Command | Query],
+    ) -> None:
+        handler_entity = get_generic_arg_from_orig_bases(cmd_or_query_type, Command)
+        if handler_entity is None:
+            handler_entity = get_generic_arg_from_orig_bases(cmd_or_query_type, Query)
+        repo_entity = get_generic_arg_from_orig_bases(type(self), Repository)
+        if (
+            isinstance(handler_entity, type)
+            and isinstance(repo_entity, type)
+            and handler_entity is not repo_entity
+        ):
+            msg = f"Handler {type(h).__name__} handles entity {handler_entity.__name__}, but repository is for entity {repo_entity.__name__}"
+            raise DomainException(msg)
 
     def _check_handler(
         self,

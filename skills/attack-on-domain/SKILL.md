@@ -22,8 +22,8 @@ Source code is under `code/` (mapped as package root in `pyproject.toml`).
 | `from aod.diagram import render_html, show` | Interactive diagram |
 | `from aod.domain import EventCollector` | Cross-aggregate event capture |
 | `from aod.application import UseCase` | UseCase base class |
-| `from aod.application import Command, Query, Projection, Repository` | Application layer |
-| `from aod.infrastructure import CommandHandler, QueryHandler, ProjectionHandler` | Infrastructure layer |
+| `from aod.application import Command, Query, Projection` | Application contracts |
+| `from aod.infrastructure import Repository, CommandHandler, QueryHandler, ProjectionHandler` | Infrastructure |
 
 ## Domain Primitives
 
