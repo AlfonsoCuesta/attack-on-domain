@@ -50,6 +50,7 @@ code/
 │       └── infrastructure/           # Infrastructure layer
 │           ├── __init__.py
 │           ├── handlers.py           # CommandHandler, QueryHandler, _extract_handler_type
+│           ├── checks.py             # validate_handler_type, validate_handler_entity, handler_type_entity
 │           └── repository.py         # Repository with dispatch
 └── tests/                            # All tests
     ├── test_public_api.py

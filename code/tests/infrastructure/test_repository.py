@@ -416,14 +416,14 @@ class TestRepository:
             UserRepo(query_handlers=[CreateUserHandler()])  # type: ignore
 
     def test_unbound_handler_raises(self) -> None:
-        from aod._internal.infrastructure.handlers import _extract_handler_type
-
         class BadHandler(CommandHandler):
             def handle(self, cmd):
                 return None
 
+        from aod._internal.infrastructure.checks import extract_handler_type
+
         with pytest.raises(DomainException):
-            _extract_handler_type(BadHandler())
+            extract_handler_type(BadHandler())
 
     def test_handler_for_wrong_entity_type(self) -> None:
         class OrderHandler(CommandHandler[CreateOrder]):

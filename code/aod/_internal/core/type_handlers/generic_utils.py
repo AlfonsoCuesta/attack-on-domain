@@ -5,7 +5,7 @@ from typing import get_args, get_origin
 from aod._internal.core.domain_exception import DomainException
 
 
-def get_generic_arg_from_orig_bases(cls: type, target_origin: type) -> object | None:
+def get_generic_arg_from_orig_bases(cls: type, target_origin: type) -> type | None:
     for base in getattr(cls, "__orig_bases__", ()):
         origin = get_origin(base)
         if origin is target_origin:
@@ -15,7 +15,7 @@ def get_generic_arg_from_orig_bases(cls: type, target_origin: type) -> object | 
     return None
 
 
-def get_generic_arg_from_mro(cls: type, target_origins: tuple[type, ...]) -> object | None:
+def get_generic_arg_from_mro(cls: type, target_origins: tuple[type, ...]) -> type | None:
     for base in cls.__mro__:
         for orig_base in getattr(base, "__orig_bases__", []):
             origin = get_origin(orig_base)
