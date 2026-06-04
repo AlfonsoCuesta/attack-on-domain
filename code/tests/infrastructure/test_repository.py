@@ -1,8 +1,8 @@
 from __future__ import annotations
 
 import pytest
-from aod.application import Command, Projection, Query
-from aod.infrastructure import CommandHandler, ProjectionHandler, QueryHandler, Repository
+from aod.application import Command, Query
+from aod.infrastructure import CommandHandler, QueryHandler, Repository
 from aod._internal.core.base_sealed import BaseSealed
 from aod._internal.core.domain_exception import DomainException, MutationForbiddenException
 from aod._internal.domain.entity import RootEntity
@@ -218,27 +218,6 @@ class TestQueryHandler:
                     return query
 
 
-class TestProjectionHandler:
-    def test_is_not_abstract(self) -> None:
-        class UserCount(Projection[int]):
-            pass
-
-        class UserCountHandler(ProjectionHandler[UserCount]):
-            def handle(self, projection: UserCount) -> int:
-                return 42
-
-        h = UserCountHandler()
-        result = h.handle(UserCount())
-        assert result == 42
-
-    def test_invalid_generic_raises(self) -> None:
-        with pytest.raises(DomainException, match="Generic parameter for"):
-
-            class _(ProjectionHandler[str]):  # type: ignore
-                def handle(self, projection: str) -> str:
-                    return projection
-
-
 class TestRepository:
     def test_empty_init(self) -> None:
         class EmptyRepo(Repository[User]):
@@ -317,32 +296,6 @@ class TestRepository:
 
         result = repo.command(DeleteUser(user_id=5))
         assert result is None
-
-    def test_dispatches_projection(self) -> None:
-        class UserCount(Projection[int]):
-            pass
-
-        class UserCountHandler(ProjectionHandler[UserCount]):
-            def handle(self, projection: UserCount) -> int:
-                return 42
-
-        class UserRepo(Repository[User]):
-            pass
-
-        repo = UserRepo(projection_handlers=[UserCountHandler()])
-        result = repo.projection(UserCount())
-        assert result == 42
-
-    def test_unknown_projection_raises(self) -> None:
-        class UserCount(Projection[int]):
-            pass
-
-        class UserRepo(Repository[User]):
-            pass
-
-        repo = UserRepo()
-        with pytest.raises(DomainException, match="No projection handler registered for UserCount"):
-            repo.projection(UserCount())
 
     def test_many_commands_do_not_share_state(self) -> None:
         class UserRepo(Repository[User]):

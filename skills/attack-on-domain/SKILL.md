@@ -23,8 +23,9 @@ Source code is under `code/` (mapped as package root in `pyproject.toml`).
 | `from aod.domain import EventCollector` | Cross-aggregate event capture |
 | `from aod.application import UseCase` | UseCase base class |
 | `from aod.application import Port` | Abstract port/gateway base class |
-| `from aod.application import Command, Query, Projection` | Application contracts |
-| `from aod.infrastructure import Repository, CommandHandler, QueryHandler, ProjectionHandler` | Infrastructure |
+| `from aod.application import Logger, EventBus, UnitOfWork` | Built-in port types |
+| `from aod.application import Command, Query` | Application contracts |
+| `from aod.infrastructure import Repository, CommandHandler, QueryHandler` | Infrastructure |
 
 ## Domain Primitives
 
@@ -52,6 +53,10 @@ Source code is under `code/` (mapped as package root in `pyproject.toml`).
 - Extends `BaseSealed` — immutable from outside
 - Declares `_event_emitter` as `PrivateField(default_factory=EventEmitter)` for direct event emission
 - Declares `events: list[Event] = Field(default_factory=list, init=False)` for collected events
+- Auto-wired fields with Null Object defaults (no `is not None` checks):
+  - `uow: UnitOfWork` — commits on success, rolls back on failure; defaults to `_NullUnitOfWork` (no-op)
+  - `logger: Logger` — auto-logs completion (with event count) and failure; defaults to `_NullLogger` (no-op)
+  - `event_bus: EventBus` — auto-publishes collected events after successful commit; defaults to `_NullEventBus` (no-op)
 - `run()` is abstract, decorated with `@inherit_context` so mutation is allowed inside (INHERIT bypasses seal)
 - `__init_subclass__` auto-wraps `run()` with an `EventCollector` and captures events into `self.events`
 - Events emitted via `self._event_emitter.emit(...)` inside `run()` are automatically collected in `self.events`
@@ -65,6 +70,11 @@ Source code is under `code/` (mapped as package root in `pyproject.toml`).
 - Supports `@abstractmethod` (these are skipped by `_wrap_public_methods`, so concrete subclasses must provide implementations)
 - Subclasses declare fields and abstract methods; infrastructure provides concrete implementations
 - Concrete public methods are auto-wrapped with mutation context (PASS state)
+
+Built-in port types (all `aod.application`):
+- **`Logger`** — `debug(msg, **context)`, `info(msg, **context)`, `warning(msg, **context)`, `error(msg, **context)`
+- **`EventBus`** — `publish(*events)` for publishing domain events to external handlers
+- **`UnitOfWork`** — `commit()`, `rollback()`, `flush()` for transactional boundaries
 
 ```python
 from aod.application import Port, UseCase
@@ -82,16 +92,15 @@ class SendEmailUseCase(UseCase):
 
 ### Repository Layer
 
-CQRS-inspired repository abstraction at `from aod.application import Command, Query, Projection` and `from aod.infrastructure import Repository, CommandHandler, QueryHandler, ProjectionHandler`:
+CQRS-inspired repository abstraction at `from aod.application import Command, Query` and `from aod.infrastructure import Repository, CommandHandler, QueryHandler`:
 
 - **`Command[TEntity, TResult]`** / **`Query[TEntity, TResult]`** — immutable value objects for writes/reads; validate `TEntity` is a `RootEntity` subclass
-- **`Projection[TResult]`** — immutable data class for read models (extends `BaseSealed`, no entity restriction)
-- **`CommandHandler[C]`** / **`QueryHandler[Q]`** / **`ProjectionHandler[P]`** — abstract bases with `handle()` method; validate generic param at class creation
-- **`Repository[TEntity]`** — receives `command_handlers`, `query_handlers`, and `projection_handlers` in `__init__`; dispatches via `command()` / `query()` / `projection()`
+- **`CommandHandler[C]`** / **`QueryHandler[Q]`** — abstract bases with `handle()` method; validate generic param at class creation
+- **`Repository[TEntity]`** — receives `command_handlers` and `query_handlers` in `__init__`; dispatches via `command()` / `query()`
 
 ```python
-from aod.application import Command, Projection
-from aod.infrastructure import CommandHandler, ProjectionHandler, Repository
+from aod.application import Command
+from aod.infrastructure import CommandHandler, Repository
 
 class CreateUser(Command[User, User]):
     name: str
@@ -100,22 +109,13 @@ class CreateUserHandler(CommandHandler[CreateUser]):
     def handle(self, cmd: CreateUser) -> User:
         ...
 
-class UserCount(Projection[int]):
-    pass
-
-class UserCountHandler(ProjectionHandler[UserCount]):
-    def handle(self, projection: UserCount) -> int:
-        return 42
-
 repo = Repository[User](
     command_handlers=[CreateUserHandler()],
-    projection_handlers=[UserCountHandler()],
 )
 repo.command(CreateUser(name="Alice"))
-repo.projection(UserCount())
 ```
 
-Handler type resolution uses `extract_handler_type()` (public in `aod._internal.infrastructure.checks`) via `get_generic_arg_from_mro` in `type_handlers/generic_utils.py` — works in any scope, avoids `NameError` with locally-defined handlers. `handlers.py` imports `Command`/`Query`/`Projection` directly from contracts with no circular deps.
+Handler type resolution uses `extract_handler_type()` (public in `aod._internal.infrastructure.checks`) via `get_generic_arg_from_mro` in `type_handlers/generic_utils.py` — works in any scope, avoids `NameError` with locally-defined handlers. `handlers.py` imports `Command`/`Query` directly from contracts with no circular deps.
 
 ## Dual-Model Validation
 
@@ -252,10 +252,10 @@ Produces an interactive hand-drawn (rough.js) diagram with:
 
 ### Tests
 - `code/tests/core/test_post_init.py` — 22 tests covering `__post_init__` for Entity, RootEntity, ValueObject, inheritance, event emission, public method calls, and reconstruct suppression.
-- `code/tests/application/test_use_case.py` — 42 tests covering UseCase instantiation, event collection, immutability, exceptions, inheritance, `__post_init__`, `__repr__`, multiple runs, and edge cases.
+- `code/tests/application/test_use_case.py` — 45 tests covering UseCase instantiation, event collection, immutability, exceptions, inheritance, `__post_init__`, `__repr__`, multiple runs, UoW auto-commit/rollback, logger auto-log, and edge cases.
 - `code/tests/domain/test_service.py` — 17 tests covering Service instantiation, event emission, immutability, `__post_init__`, inheritance, private methods, collection, and event isolation.
-- `code/tests/infrastructure/test_repository.py` — 47 tests covering Command/Query validation, handler type checking, dispatch, duplicates, and edge cases.
-- `code/tests/application/test_port.py` — 7 tests covering Port instantiation, abstract enforcement, method wrapping, mutation blocking, and use with UseCase.
+- `code/tests/infrastructure/test_repository.py` — 43 tests covering Command/Query validation, handler type checking, dispatch, duplicates, and edge cases.
+- `code/tests/application/test_port.py` — 16 tests covering Port instantiation, abstract enforcement, method wrapping, mutation blocking, and built-in port types (Logger, EventBus, UnitOfWork).
 
 ## Development Commands
 

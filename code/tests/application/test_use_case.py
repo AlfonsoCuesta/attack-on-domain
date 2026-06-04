@@ -3,11 +3,12 @@ from __future__ import annotations
 from abc import abstractmethod
 
 import pytest
-from aod.application import UseCase
+from aod.application import Logger, UseCase
 from aod._internal.core.domain_exception import MutationForbiddenException
 from aod._internal.core.event_emitter import Event, EventCollector
 from aod._internal.core.fields.fields import PrivateField
 from aod._internal.domain import RootEntity, ValueObject
+from tests.doubles import SpyEventBus, SpyLogger, SpyUnitOfWork
 
 
 class UserCreated(Event):
@@ -429,3 +430,98 @@ def test_use_case_can_emit_events_directly() -> None:
     uc.run()
     assert len(uc.events) == 1
     assert uc.events[0].name == "from_uc"
+
+
+def test_uow_auto_commit_on_success() -> None:
+    class Create(UseCase):
+        def run(self) -> None:
+            pass
+
+    uow = SpyUnitOfWork()
+    uc = Create(uow=uow)
+    uc.run()
+    assert uow.committed
+    assert not uow.rolled_back
+
+
+def test_uow_auto_rollback_on_failure() -> None:
+    class Fail(UseCase):
+        def run(self) -> None:
+            raise ValueError("oops")
+
+    uow = SpyUnitOfWork()
+    uc = Fail(uow=uow)
+    with pytest.raises(ValueError):
+        uc.run()
+    assert uow.rolled_back
+    assert not uow.committed
+
+
+def test_logger_auto_logs_completion() -> None:
+    class Simple(UseCase):
+        def run(self) -> None:
+            pass
+
+    logger = SpyLogger()
+    uc = Simple(logger=logger)
+    uc.run()
+    completions = [e for e in logger.entries if "completed" in str(e.msg)]
+    assert len(completions) == 1
+
+
+def test_logger_auto_logs_events_count() -> None:
+    class Emit(UseCase):
+        def run(self) -> None:
+            self._event_emitter.emit(UserCreated(user_id=1, name="test"))
+
+    logger = SpyLogger()
+    uc = Emit(logger=logger)
+    uc.run()
+    completions = [e for e in logger.entries if "completed" in str(e.msg)]
+    assert len(completions) == 1
+    assert completions[0].context.get("events") == 1
+
+
+def test_logger_auto_logs_failure() -> None:
+    class Fail(UseCase):
+        def run(self) -> None:
+            raise ValueError("oops")
+
+    logger = SpyLogger()
+    uc = Fail(logger=logger)
+    with pytest.raises(ValueError):
+        uc.run()
+    errors = [e for e in logger.entries if e.level == "error"]
+    assert len(errors) >= 1
+    assert "failed" in str(errors[0].msg)
+
+
+def test_event_bus_auto_publishes_on_success() -> None:
+    class Emit(UseCase):
+        def run(self) -> None:
+            self._event_emitter.emit(UserCreated(user_id=1, name="test"))
+
+    bus = SpyEventBus()
+    uc = Emit(event_bus=bus)
+    uc.run()
+    assert len(bus.published) == 1
+
+
+def test_commit_failure_rolls_back_and_logs() -> None:
+    class FailingUoW(SpyUnitOfWork):
+        def commit(self) -> None:
+            raise RuntimeError("commit failed")
+
+    class Simple(UseCase):
+        def run(self) -> None:
+            pass
+
+    uow = FailingUoW()
+    logger = SpyLogger()
+    uc = Simple(uow=uow, logger=logger)
+    with pytest.raises(RuntimeError):
+        uc.run()
+    assert uow.rolled_back
+    assert not uow.committed
+    errors = [e for e in logger.entries if e.level == "error"]
+    assert any("commit failed" in str(e.msg) for e in errors)

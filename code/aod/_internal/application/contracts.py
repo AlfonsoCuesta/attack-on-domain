@@ -20,4 +20,4 @@ class Query(BaseSealed, Generic[TEntity, TResult]):
         validate_generic_arg_is_subclass(cls, Query, RootEntity, arg_name="TEntity")
 
 
-class Projection(BaseSealed, Generic[TResult]): ...
+

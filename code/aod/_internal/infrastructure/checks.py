@@ -1,6 +1,6 @@
 from typing import overload
 
-from aod._internal.application.contracts import Command, Projection, Query
+from aod._internal.application.contracts import Command, Query
 from aod._internal.core.domain_exception import DomainException
 from aod._internal.core.type_handlers.generic_utils import (
     get_generic_arg_from_mro,
@@ -8,7 +8,6 @@ from aod._internal.core.type_handlers.generic_utils import (
 )
 from aod._internal.infrastructure.handlers import (
     CommandHandler,
-    ProjectionHandler,
     QueryHandler,
 )
 
@@ -21,8 +20,8 @@ def handler_type_entity(handler_type: type[Command] | type[Query]) -> type | Non
 
 
 def validate_handler_type(
-    h: CommandHandler | QueryHandler | ProjectionHandler,
-    handler_type: type[CommandHandler] | type[QueryHandler] | type[ProjectionHandler],
+    h: CommandHandler | QueryHandler,
+    handler_type: type[CommandHandler] | type[QueryHandler],
 ) -> None:
     if not issubclass(type(h), handler_type):
         msg = f"Handler {type(h).__name__} does not handle a {handler_type.__name__}"
@@ -48,15 +47,11 @@ def extract_handler_type(handler: CommandHandler) -> type[Command]: ...
 def extract_handler_type(handler: QueryHandler) -> type[Query]: ...
 
 
-@overload
-def extract_handler_type(handler: ProjectionHandler) -> type[Projection]: ...
-
-
 def extract_handler_type(
-    handler: CommandHandler | QueryHandler | ProjectionHandler,
-) -> type[Command | Query | Projection]:
-    t = get_generic_arg_from_mro(type(handler), (CommandHandler, QueryHandler, ProjectionHandler))
-    if isinstance(t, type) and issubclass(t, (Command, Query, Projection)):
+    handler: CommandHandler | QueryHandler,
+) -> type[Command | Query]:
+    t = get_generic_arg_from_mro(type(handler), (CommandHandler, QueryHandler))
+    if isinstance(t, type) and issubclass(t, (Command, Query)):
         return t
     msg = f"Cannot determine handler type for {type(handler).__name__}"
     raise DomainException(msg)

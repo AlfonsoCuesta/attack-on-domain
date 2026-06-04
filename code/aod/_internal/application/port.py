@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from aod._internal.core.base_guarded.base_guarded import BaseGuarded
 
 

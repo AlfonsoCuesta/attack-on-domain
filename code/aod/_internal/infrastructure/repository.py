@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Generic, TypeVar, cast
 
-from aod._internal.application.contracts import Command, Projection, Query
+from aod._internal.application.contracts import Command, Query
 from aod._internal.core.base_sealed import BaseSealed
 from aod._internal.core.domain_exception import DomainException
 from aod._internal.core.fields.fields import Field, PrivateField
@@ -14,7 +14,6 @@ from aod._internal.infrastructure.checks import (
 )
 from aod._internal.infrastructure.handlers import (
     CommandHandler,
-    ProjectionHandler,
     QueryHandler,
 )
 
@@ -25,10 +24,8 @@ TResult = TypeVar("TResult")
 class Repository(BaseSealed, Generic[TEntity]):
     command_handlers: list[CommandHandler] = Field(default_factory=list)
     query_handlers: list[QueryHandler] = Field(default_factory=list)
-    projection_handlers: list[ProjectionHandler] = Field(default_factory=list)
     _commands: dict[type[Command], CommandHandler] = PrivateField(default_factory=dict)
     _queries: dict[type[Query], QueryHandler] = PrivateField(default_factory=dict)
-    _projections: dict[type[Projection], ProjectionHandler] = PrivateField(default_factory=dict)
 
     def __post_init__(self) -> None:
         for h in self.command_handlers:
@@ -36,9 +33,6 @@ class Repository(BaseSealed, Generic[TEntity]):
 
         for h in self.query_handlers:
             self._add_handler(h, QueryHandler, self._queries)
-
-        for h in self.projection_handlers:
-            self._add_projection_handler(h, self._projections)
 
     def _add_handler(
         self,
@@ -52,19 +46,10 @@ class Repository(BaseSealed, Generic[TEntity]):
         validate_handler_entity(h, q_type, repo_entity)
         self._store(h, q_type, handlers)
 
-    def _add_projection_handler(
-        self,
-        h: ProjectionHandler,
-        handlers: dict,
-    ) -> None:
-        validate_handler_type(h, ProjectionHandler)
-        q_type = extract_handler_type(h)
-        self._store(h, q_type, handlers)
-
     def _store(
         self,
-        h: CommandHandler | QueryHandler | ProjectionHandler,
-        q_type: type[Command] | type[Query] | type[Projection],
+        h: CommandHandler | QueryHandler,
+        q_type: type[Command] | type[Query],
         handlers: dict,
     ) -> None:
         if q_type in handlers:
@@ -85,10 +70,3 @@ class Repository(BaseSealed, Generic[TEntity]):
             msg = f"No query handler registered for {type(query).__name__}"
             raise DomainException(msg)
         return cast(TResult, handler.handle(query))
-
-    def projection(self, projection: Projection[TResult]) -> TResult:
-        handler = self._projections.get(type(projection))
-        if handler is None:
-            msg = f"No projection handler registered for {type(projection).__name__}"
-            raise DomainException(msg)
-        return cast(TResult, handler.handle(projection))

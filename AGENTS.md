@@ -45,12 +45,15 @@ code/
 │           ├── bounded_context.py
 │           └── describe.py
 │       ├── application/              # Application layer
-│       │   ├── contracts.py          # Command, Query, Projection base classes
+│       │   ├── contracts.py          # Command, Query base classes
 │       │   ├── port.py               # Port base class (abstract, mutable-from-inside)
+│       │   ├── logger.py             # Logger port
+│       │   ├── event_bus.py          # EventBus port
+│       │   ├── unit_of_work.py       # UnitOfWork port (bus + logger fields)
 │       │   └── use_case.py           # UseCase base class with auto EventCollector wrapping
 │       └── infrastructure/           # Infrastructure layer
 │           ├── __init__.py
-│           ├── handlers.py           # CommandHandler, QueryHandler, ProjectionHandler
+│           ├── handlers.py           # CommandHandler, QueryHandler
 │           ├── checks.py             # validate_handler_type, validate_handler_entity, handler_type_entity, extract_handler_type
 │           └── repository.py         # Repository with dispatch
 └── tests/                            # All tests
@@ -211,6 +214,11 @@ Public modules re-export from `_internal`; they contain no logic of their own. T
 - `run()` has no parameters — all dependencies are passed via `__init__` (declared as Pydantic fields on the subclass)
 - The class has **no public methods** other than `run`; subclasses may add private helpers
 - `_event_emitter` is a `PrivateField(default_factory=EventEmitter)`, ready for direct event emission
+- Auto-wired fields with Null Object defaults (no `is not None` checks):
+  - `uow: UnitOfWork` — commits on success, rolls back on failure; defaults to `_NullUnitOfWork` (no-op)
+  - `logger: Logger` — auto-logs completion (with event count) and failure; defaults to `_NullLogger` (no-op)
+  - `event_bus: EventBus` — auto-publishes collected events after successful commit; defaults to `_NullEventBus` (no-op)
+
 - `__init_subclass__` automatically wraps any subclass's `run` to:
   1. Open an `EventCollector` context
   2. Invoke the original `run` body
@@ -228,19 +236,23 @@ Events emitted directly by the UseCase via `self._event_emitter.emit(...)` or by
 - Supports `@abstractmethod` (skipped by `_wrap_public_methods`)
 - Subclasses declare fields and abstract methods that infrastructure will implement
 
+Built-in port types (all `aod.application`):
+- **`Logger`** — `debug(msg, **context)`, `info(msg, **context)`, `warning(msg, **context)`, `error(msg, **context)`
+- **`EventBus`** — `publish(*events)` for publishing domain events to external handlers
+- **`UnitOfWork`** — `commit()`, `rollback()`, `flush()` for transactional boundaries
+
 ### Repository Layer
 
 `aod.application` provides the application-level contracts; `aod.infrastructure` provides the handler bases and repository:
 
 - **`Command[TEntity, TResult]`** / **`Query[TEntity, TResult]`** — immutable data classes for writes/reads (extend `BaseSealed`, validate `TEntity` is `RootEntity` subclass at class creation)
-- **`Projection[TResult]`** — immutable data class for read models (extends `BaseSealed`, no entity restriction)
-- **`CommandHandler[C]`** / **`QueryHandler[Q]`** / **`ProjectionHandler[P]`** — abstract bases with `handle()` method; validate generic param at class creation
-- **`Repository[TEntity]`** — receives `command_handlers`, `query_handlers`, and `projection_handlers` in `__init__`; dispatches via `command()` / `query()` / `projection()` via `_add_handler`/`_check_handler`; raises `DomainException` for unregistered types or duplicates
+- **`CommandHandler[C]`** / **`QueryHandler[Q]`** — abstract bases with `handle()` method; validate generic param at class creation
+- **`Repository[TEntity]`** — receives `command_handlers` and `query_handlers` in `__init__`; dispatches via `command()` / `query()` via `_add_handler`/`_check_handler`; raises `DomainException` for unregistered types or duplicates
 
 Handler type resolution uses `extract_handler_type()` (public in `checks.py`) via `get_generic_arg_from_mro` in `generic_utils.py` — works in any scope, avoids `NameError` with locally-defined handlers. Handlers live in `aod._internal.infrastructure.handlers`, imported by `repository.py` via a lazy import in `__init_subclass__` to avoid circular deps. Reusable helpers: `get_generic_arg_from_orig_bases`, `get_generic_arg_from_mro`, `validate_generic_arg_is_subclass`.
 
 Validation functions in `checks.py`:
-- **`extract_handler_type(handler)`** — returns `type[Command]`, `type[Query]`, or `type[Projection]` via overloads; raises `DomainException` if unresolvable
+- **`extract_handler_type(handler)`** — returns `type[Command]` or `type[Query]` via overloads; raises `DomainException` if unresolvable
 - **`validate_handler_type(handler, expected_type)`** — raises `DomainException` if handler is not the expected class
 - **`validate_handler_entity(handler, handler_type, repo_entity)`** — checks that `CommandHandler`/`QueryHandler` entity matches `Repository[TEntity]`'s entity
 - **`handler_type_entity(handler_type)`** — extracts the entity param from a `Command`/`Query` type
@@ -282,6 +294,10 @@ uv run pytest code/tests -q
 - **Runtime**: `pydantic>=2.12.4`, `typing-inspect>=0.9.0`
 - **Dev**: `ruff`, `ty`, `pre-commit`, `pytest`
 - **Build**: `setuptools`, `wheel`
+
+## Test Count
+
+329 tests
 
 ## At the end of a task
 

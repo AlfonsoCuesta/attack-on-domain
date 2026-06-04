@@ -3,8 +3,10 @@ from __future__ import annotations
 from abc import abstractmethod
 
 import pytest
-from aod.application import Port, UseCase
+from aod.application import EventBus, Logger, Port, UnitOfWork, UseCase
 from aod._internal.core.domain_exception import MutationForbiddenException
+from aod._internal.core.event_emitter import Event
+from tests.doubles import LogEntry, SpyEventBus, SpyLogger, SpyUnitOfWork
 
 
 class RestClientExample(Port):
@@ -76,3 +78,52 @@ def test_port_as_use_case_field() -> None:
     uc = ApiUseCase(client=RealRestClient())
     uc.run()
     assert uc.results == ["response for /status", "created /data"]
+
+
+def test_logger_abstract() -> None:
+    with pytest.raises(TypeError):
+        Logger()  # type: ignore[abstract]
+
+
+def test_logger_concrete() -> None:
+    log = SpyLogger()
+    log.info("hello", user_id=42)
+    assert len(log.entries) == 1
+    assert log.entries[0].msg == "hello"
+    assert log.entries[0].context == {"user_id": 42}
+
+
+def test_event_bus_abstract() -> None:
+    with pytest.raises(TypeError):
+        EventBus()  # type: ignore[abstract]
+
+
+def test_event_bus_publish() -> None:
+    bus = SpyEventBus()
+    e1 = Event()
+    e2 = Event()
+    bus.publish(e1, e2)
+    assert len(bus.published) == 2
+
+
+def test_unit_of_work_abstract() -> None:
+    with pytest.raises(TypeError):
+        UnitOfWork()  # type: ignore[abstract]
+
+
+def test_unit_of_work_commit() -> None:
+    uow = SpyUnitOfWork()
+    uow.commit()
+    assert uow.committed
+
+
+def test_unit_of_work_rollback() -> None:
+    uow = SpyUnitOfWork()
+    uow.rollback()
+    assert uow.rolled_back
+
+
+def test_unit_of_work_flush() -> None:
+    uow = SpyUnitOfWork()
+    uow.flush()
+    assert uow.flushed
