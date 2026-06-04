@@ -1,21 +1,10 @@
-from typing import get_args, get_origin, get_type_hints
+from typing import get_args, get_type_hints
 
 from aod._internal.core.domain_exception import DomainException
 from aod._internal.core.type_checking.extractors import extract_types_from_annotation
 from aod._internal.core.type_handlers.generic_utils import get_generic_arg_from_orig_bases
+from aod._internal.core.type_utils import type_name
 from aod._internal.domain.entity import Entity, RootEntity
-
-
-def format_type(t: object) -> str:
-    origin = get_origin(t)
-    if origin is not None:
-        args = get_args(t)
-        args_str = ", ".join(format_type(a) for a in args)
-        origin_name = getattr(origin, "__name__", str(origin))
-        return f"{origin_name}[{args_str}]"
-    if isinstance(t, type):
-        return t.__name__
-    return str(t)
 
 
 def validate_fields_no_entity(cls: type) -> None:
@@ -50,7 +39,7 @@ def validate_result_contains_root_entity(cls: type, query_type: type) -> None:
     if not any(isinstance(t, type) and issubclass(t, RootEntity) for t in all_types):
         msg = (
             f"Result type for {cls.__name__} must include a RootEntity, "
-            f"got {format_type(result_type)}"
+            f"got {type_name(result_type)}"
         )
         raise DomainException(msg)
 

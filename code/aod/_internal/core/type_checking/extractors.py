@@ -1,8 +1,5 @@
 from typing import Annotated, get_args, get_origin
 
-from aod._internal.core.base_validator import BaseValidator
-from pydantic import BaseModel
-
 
 def extract_types_from_annotation(annotation: object) -> list[type]:
     if isinstance(annotation, str):
@@ -23,18 +20,3 @@ def extract_types_from_annotation(annotation: object) -> list[type]:
         return [annotation]
 
     return []
-
-
-def get_validation_model(cls: type[BaseValidator]) -> type[BaseModel]:
-    return cls.__validation_model__
-
-
-def extract_domain_types_from_model(model: type[BaseModel], *domain_bases: type) -> list[type]:
-    found: list[type] = []
-    for field_info in model.model_fields.values():
-        if field_info.annotation is None:
-            continue
-        for t in extract_types_from_annotation(field_info.annotation):
-            if isinstance(t, type) and any(issubclass(t, base) for base in domain_bases):
-                found.append(t)
-    return found

@@ -1,9 +1,6 @@
 from typing import Optional
 
-from aod._internal.core.type_checking.extractors import (
-    extract_types_from_annotation,
-    get_validation_model,
-)
+from aod._internal.core.type_checking.extractors import extract_types_from_annotation
 
 
 def test_extract_types_from_plain_class() -> None:
@@ -51,17 +48,3 @@ def test_extract_types_from_primitive() -> None:
 
 def test_extract_types_from_none_type() -> None:
     assert extract_types_from_annotation(type(None)) == [type(None)]
-
-
-def test_get_validation_model_on_base_validator() -> None:
-    from aod._internal.core.base_validator import BaseValidator
-
-    class User(BaseValidator):
-        name: str
-        age: int
-
-    model = get_validation_model(User)
-
-    assert model.__name__ == "UserValidationModel"
-    assert "name" in model.model_fields
-    assert "age" in model.model_fields

@@ -28,8 +28,8 @@ code/
 │       │   ├── model_maker.py        # Dual Pydantic model generation
 │       │   ├── domain_exception.py   # DomainException hierarchy
 │       │   ├── type_checking/        # DDD type constraint extractors
-│       │   │   ├── __init__.py       # Re-exports: extract_types_from_annotation, extract_domain_types_from_model
-│       │   │   └── extractors.py     # extract_types_from_annotation, get_validation_model
+│       │   │   ├── __init__.py       # Re-exports: extract_types_from_annotation
+│       │   │   └── extractors.py     # extract_types_from_annotation
 │       │   ├── type_handlers/        # DDD type check functions
 │       │   │   ├── __init__.py       # Re-exports: BaseGuardedTypeHandler, ServiceTypeHandler
 │       │   │   ├── base_guarded_handler.py  # check_entity, check_root_entity, check_value_object, discover_types
@@ -39,7 +39,7 @@ code/
 │       │   └── invariances/invariances.py  # field_invariance, invariance, is_validator
 │       ├── type_checks/             # Contract & handler validation
 │       │   ├── __init__.py
-│       │   ├── contract_checks.py   # validate_fields_no_entity, validate_result_contains_root_entity, extract_root_entity, format_type
+│       │   ├── contract_checks.py   # validate_fields_no_entity, validate_result_contains_root_entity, extract_root_entity
 │       │   └── handler_checks.py    # extract_handler_type, validate_handler_type, validate_handler_entity, handler_type_entity
 │       └── domain/                   # DDD domain primitives (implementation)
 │           ├── value_object.py
