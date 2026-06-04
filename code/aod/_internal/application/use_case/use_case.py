@@ -32,43 +32,6 @@ class _NullUnitOfWork(UnitOfWork):
     def flush(self) -> None: ...
 
 
-def _wrap_run_with_collector(fn: Callable[..., None]) -> Callable[..., None]:
-    @wraps(fn)
-    def wrapper(self: UseCase, *args: Any, **kwargs: Any) -> None:
-        exception: BaseException | None = None
-
-        with EventCollector() as events:
-            try:
-                fn(self, *args, **kwargs)
-            except BaseException as e:
-                exception = e
-
-            self.events = list(events)
-
-        self.logger.info(f"{type(self).__name__} events", events=len(self.events))
-
-        if exception is not None:
-            self.uow.rollback()
-            self.logger.error(f"{type(self).__name__} failed with exception: {exception}")
-            raise exception
-
-        try:
-            self.uow.commit()
-        except BaseException:
-            self.uow.rollback()
-            self.logger.error(f"{type(self).__name__} commit failed")
-            raise
-
-        self.event_bus.publish(*self.events)
-        self.logger.info(
-            f"{type(self).__name__} completed",
-            events=len(self.events),
-        )
-
-    setattr(wrapper, _USE_CASE_WRAPPED_KEY, True)
-    return wrapper
-
-
 class UseCase(BaseSealed):
     __skip_method_wrapping__: ClassVar[bool] = True
     _event_emitter: EventEmitter = PrivateField(default_factory=EventEmitter)
@@ -80,8 +43,46 @@ class UseCase(BaseSealed):
     def __init_subclass__(cls, **kwargs: Any) -> None:
         original_run: Callable[..., None] | None = cls.__dict__.get("run")
         if original_run is not None and not getattr(original_run, _USE_CASE_WRAPPED_KEY, False):
-            setattr(cls, "run", _wrap_run_with_collector(original_run))
+            wrapped = cls._wrap_run_with_collector(original_run)
+            setattr(cls, "run", wrapped)
+            setattr(wrapped, _USE_CASE_WRAPPED_KEY, True)
         super().__init_subclass__(**kwargs)
+
+    @staticmethod
+    def _wrap_run_with_collector(fn: Callable[..., None]) -> Callable[..., None]:
+        @wraps(fn)
+        def wrapper(self: UseCase, *args: Any, **kwargs: Any) -> None:
+            exception: BaseException | None = None
+
+            with EventCollector() as events:
+                try:
+                    fn(self, *args, **kwargs)
+                except BaseException as e:
+                    exception = e
+
+                self.events = list(events)
+
+            self.logger.info(f"{type(self).__name__} events", events=len(self.events))
+
+            if exception is not None:
+                self.uow.rollback()
+                self.logger.error(f"{type(self).__name__} failed with exception: {exception}")
+                raise exception
+
+            try:
+                self.uow.commit()
+            except BaseException:
+                self.uow.rollback()
+                self.logger.error(f"{type(self).__name__} commit failed")
+                raise
+
+            self.event_bus.publish(*self.events)
+            self.logger.info(
+                f"{type(self).__name__} completed",
+                events=len(self.events),
+            )
+
+        return wrapper
 
     @abstractmethod
     @inherit_context

@@ -12,7 +12,7 @@ Q = TypeVar("Q", bound="Query")
 
 
 class CommandHandler(BaseSealed, Generic[C]):
-    def __init_subclass__(cls, **kwargs):
+    def __init_subclass__(cls, **kwargs: object) -> None:
         super().__init_subclass__(**kwargs)
         validate_generic_arg_is_subclass(cls, CommandHandler, Command)
 
@@ -21,7 +21,7 @@ class CommandHandler(BaseSealed, Generic[C]):
 
 
 class QueryHandler(BaseSealed, Generic[Q]):
-    def __init_subclass__(cls, **kwargs):
+    def __init_subclass__(cls, **kwargs: object) -> None:
         super().__init_subclass__(**kwargs)
         validate_generic_arg_is_subclass(cls, QueryHandler, Query)
 

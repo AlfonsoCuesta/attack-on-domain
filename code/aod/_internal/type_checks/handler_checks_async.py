@@ -9,7 +9,7 @@ from aod._internal.core.type_handlers.generic_utils import (
     get_generic_arg_from_mro,
     get_generic_arg_from_orig_bases,
 )
-from aod._internal.infrastructure.handlers import CommandHandler, QueryHandler
+from aod._internal.infrastructure.handlers.async_ import CommandHandler, QueryHandler
 
 
 def handler_type_entity(handler_type: type[Command] | type[Query]) -> type | None:

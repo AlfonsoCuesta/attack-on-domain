@@ -51,11 +51,13 @@ dev = [
     "pre-commit>=4.4.0",
     "pytest>=9.0.2",
     "pytest-cov>=7.1.0",
+    "pytest-asyncio>=0.26.0",
 ]
 
 [tool.pytest.ini_options]
 pythonpath = ["code"]
 testpaths = ["code/tests"]
+asyncio_mode = "auto"
 
 [tool.ruff]
 line-length = 100

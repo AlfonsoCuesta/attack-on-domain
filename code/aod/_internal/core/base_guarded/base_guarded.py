@@ -1,7 +1,6 @@
 import inspect
-from contextlib import contextmanager
 from functools import wraps
-from typing import Any, Callable, ClassVar, Generator, Literal, Type
+from typing import Any, Callable, ClassVar, Literal, Type
 
 from ..base_validator import BaseValidator
 from ..domain_exception import MutationForbiddenException
@@ -25,14 +24,34 @@ def mark_mutable(
 
 
 def mutate(fn: Callable, *, inherit_mutate: bool = False) -> Callable:
+    mutation = MutatingState.INHERIT if inherit_mutate else MutatingState.PASS
+
+    wrap = _build_async_wrapper if inspect.iscoroutinefunction(fn) else _build_sync_wrapper
+    return mark_mutable(wrap(fn, mutation), state=mutation)
+
+
+def _build_sync_wrapper(fn: Callable, mutation: MutatingState) -> Callable:
     @wraps(fn)
     def wrapper(self: BaseGuarded, *args: Any, **kwargs: Any) -> Any:
-        with self.__mutate__(inherit_mutate=inherit_mutate):
+        self.__mutating_context__.enter(mutation)
+        try:
             return fn(self, *args, **kwargs)
+        finally:
+            self.__mutating_context__.exit(mutation)
 
-    mutate_state = MutatingState.INHERIT if inherit_mutate else MutatingState.PASS
+    return wrapper
 
-    return mark_mutable(wrapper, state=mutate_state)
+
+def _build_async_wrapper(fn: Callable, mutation: MutatingState) -> Callable:
+    @wraps(fn)
+    async def wrapper(self: BaseGuarded, *args: Any, **kwargs: Any) -> Any:
+        self.__mutating_context__.enter(mutation)
+        try:
+            return await fn(self, *args, **kwargs)
+        finally:
+            self.__mutating_context__.exit(mutation)
+
+    return wrapper
 
 
 def inherit_context(fn: Callable) -> Callable:
@@ -91,16 +110,6 @@ class BaseGuarded(BaseValidator):
     @property
     def _mutation_status(self) -> MutatingState:
         return self.__mutating_context__.status
-
-    @contextmanager
-    def __mutate__(self, inherit_mutate: bool = False) -> Generator[None, None, None]:
-        mutating_context = self.__mutating_context__
-        mutation: Literal[MutatingState.PASS, MutatingState.INHERIT] = (
-            MutatingState.INHERIT if inherit_mutate else MutatingState.PASS
-        )
-        mutating_context.enter(mutation)
-        yield
-        mutating_context.exit(mutation)
 
     @property
     def _is_mutation_allowed(self) -> bool:

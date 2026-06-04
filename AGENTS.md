@@ -40,7 +40,8 @@ code/
 │       ├── type_checks/             # Contract & handler validation
 │       │   ├── __init__.py
 │       │   ├── contract_checks.py   # validate_fields_no_entity, validate_result_contains_root_entity, extract_root_entity
-│       │   └── handler_checks.py    # extract_handler_type, validate_handler_type, validate_handler_entity, handler_type_entity
+│       │   ├── handler_checks.py    # extract_handler_type, validate_handler_type, validate_handler_entity, handler_type_entity
+│       │   └── handler_checks_async.py  # Async mirror (same function signatures)
 │       └── domain/                   # DDD domain primitives (implementation)
 │           ├── value_object.py
 │           ├── entity.py
@@ -48,17 +49,30 @@ code/
 │           ├── app.py
 │           ├── bounded_context.py
 │           └── describe.py
-│       ├── application/              # Application layer
-│       │   ├── repository.py          # Command, Query, Repository (Protocol)
+│       ├── application/              # Application layer (packages)
 │       │   ├── port.py               # Port base class (abstract, mutable-from-inside)
-│       │   ├── logger.py             # Logger port
-│       │   ├── event_bus.py          # EventBus port
-│       │   ├── unit_of_work.py       # UnitOfWork port (bus + logger fields)
-│       │   └── use_case.py           # UseCase base class with auto EventCollector wrapping
-│       └── infrastructure/           # Infrastructure layer
-│           ├── __init__.py
-│           ├── handlers.py           # CommandHandler, QueryHandler
-│           └── repository.py         # Repository with dispatch
+│       │   ├── repository/           # Command, Query, Repository (Protocol) — sync + async
+│       │   │   ├── __init__.py       # Command, Query, Repository (sync Protocol)
+│       │   │   └── async_.py         # Repository (async Protocol)
+│       │   ├── event_bus/            # EventBus port — sync + async
+│       │   │   ├── __init__.py
+│       │   │   └── async_.py
+│       │   ├── logger/               # Logger port — sync + async
+│       │   │   ├── __init__.py
+│       │   │   └── async_.py
+│       │   ├── unit_of_work/         # UnitOfWork port — sync + async
+│       │   │   ├── __init__.py
+│       │   │   └── async_.py
+│       │   └── use_case/             # UseCase base — sync + async
+│       │       ├── __init__.py
+│       │       └── async_.py
+│       ├── infrastructure/           # Infrastructure layer (packages)
+│       │   ├── handlers/             # CommandHandler, QueryHandler — sync + async
+│       │   │   ├── __init__.py
+│       │   │   └── async_.py
+│       │   └── repository/           # Repository with dispatch — sync + async
+│       │       ├── __init__.py
+│       │       └── async_.py
 └── tests/                            # All tests
     ├── test_public_api.py
     ├── core/                         # Core framework tests
@@ -76,9 +90,15 @@ code/
     │   ├── test_service.py
     │   └── test_value_object.py
     ├── application/                  # Application layer tests
-    │   └── test_use_case.py
+    │   ├── test_use_case.py
+    │   ├── test_port.py
+    │   ├── test_async_port.py
+    │   └── test_async_use_case.py
     ├── infrastructure/               # Infrastructure layer tests
-    │   └── test_repository.py
+    │   ├── test_repository.py
+    │   ├── test_handlers.py
+    │   ├── test_async_handlers.py
+    │   └── test_async_repository.py
     └── ...
 ```
 
@@ -285,6 +305,8 @@ uv run pytest code/tests -q
 4. **No emojis** unless explicitly requested by the user
 5. Tests mirror source structure under `code/tests/`
 6. Never import from `_internal` in user-facing code — only through `aod.domain`, `aod.domain.validation`, `aod.exceptions`, `aod.application`, `aod.infrastructure`
+7. Every `__init__.py` and `async_.py` must define `__all__` to suppress `F401` ("imported but unused") warnings
+8. Sync/async duality: every port, handler, use case, and repository has sync (`__init__.py`) and async (`async_.py`) versions with the same class name. Async versions inherit from sync counterparts where possible (e.g., `async_.CommandHandler` inherits from `handlers.CommandHandler`)
 
 ## When Modifying This Code
 
@@ -298,6 +320,8 @@ uv run pytest code/tests -q
 - If you change the repository layer, update `repository.py` and/or `handlers.py` and verify `test_repository.py`
 - If you change validation functions, update `type_checks/` and verify `test_repository.py`
 - If you change the application layer, update `port.py` and/or `use_case.py` and verify `test_port.py` / `test_use_case.py`
+- If you change async counterparts (in `async_.py` files), update both sync and async test files
+- Always add `__all__` to every `__init__.py` and `async_.py` to avoid `F401` lint warnings
 - Always run all tests before committing
 - `Event.emitted_at` is the timestamp field.
 
@@ -309,7 +333,7 @@ uv run pytest code/tests -q
 
 ## Test Count
 
-342 tests
+398 tests
 
 ## At the end of a task
 

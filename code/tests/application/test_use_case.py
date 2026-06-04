@@ -3,11 +3,11 @@ from __future__ import annotations
 from abc import abstractmethod
 
 import pytest
-from aod.application import Logger, UseCase
 from aod._internal.core.domain_exception import MutationForbiddenException
 from aod._internal.core.event_emitter import Event, EventCollector
 from aod._internal.core.fields.fields import PrivateField
 from aod._internal.domain import RootEntity, ValueObject
+from aod.application import UseCase
 from tests.doubles import SpyEventBus, SpyLogger, SpyUnitOfWork
 
 

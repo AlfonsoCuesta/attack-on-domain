@@ -1,10 +1,11 @@
 from __future__ import annotations
 
 from abc import abstractmethod
-from typing import TypeVar, cast
+from typing import Any, TypeVar, cast
 
 from aod._internal.application.port import Port
-from aod._internal.application.repository import Command, Query, Repository
+from aod._internal.application.repository import Command, Query
+from aod._internal.application.repository.async_ import Repository
 from aod._internal.core.domain_exception import DomainException
 from aod._internal.core.fields.fields import Field, PrivateField
 from aod._internal.core.type_handlers.generic_utils import get_generic_arg_from_orig_bases
@@ -16,8 +17,8 @@ TResult = TypeVar("TResult")
 
 
 class UnitOfWork(Port):
-    repositories: list[Repository] = Field(default_factory=list)
-    _repo_map: dict[type[RootEntity], Repository] = PrivateField(default_factory=dict)
+    repositories: list[Repository[Any, Any]] = Field(default_factory=list)
+    _repo_map: dict[type[RootEntity], Repository[Any, Any]] = PrivateField(default_factory=dict)
 
     def __post_init__(self) -> None:
         for repo in self.repositories:
@@ -25,7 +26,7 @@ class UnitOfWork(Port):
             if entity is not None and issubclass(entity, RootEntity):
                 self._repo_map[entity] = repo
 
-    def command(self, cmd: Command[TEntity, TResult]) -> TResult:
+    async def command(self, cmd: Command[TEntity, TResult]) -> TResult:
         entity = get_generic_arg_from_orig_bases(type(cmd), Command)
         if not isinstance(entity, type) or not issubclass(entity, RootEntity):
             msg = f"Cannot determine entity for command {type(cmd).__name__}"
@@ -36,9 +37,9 @@ class UnitOfWork(Port):
             msg = f"No repository registered for entity {entity.__name__}"
             raise DomainException(msg)
 
-        return cast(TResult, repo.command(cmd))
+        return cast(TResult, await repo.command(cmd))
 
-    def query(self, query: Query[TEntity, TResult]) -> TResult:
+    async def query(self, query: Query[TEntity, TResult]) -> TResult:
         entity = get_generic_arg_from_orig_bases(type(query), Query)
         if not isinstance(entity, type) or not issubclass(entity, RootEntity):
             msg = f"Cannot determine entity for query {type(query).__name__}"
@@ -49,13 +50,13 @@ class UnitOfWork(Port):
             msg = f"No repository registered for entity {entity.__name__}"
             raise DomainException(msg)
 
-        return cast(TResult, repo.query(query))
+        return cast(TResult, await repo.query(query))
 
     @abstractmethod
-    def commit(self) -> None: ...
+    async def commit(self) -> None: ...
 
     @abstractmethod
-    def rollback(self) -> None: ...
+    async def rollback(self) -> None: ...
 
     @abstractmethod
-    def flush(self) -> None: ...
+    async def flush(self) -> None: ...

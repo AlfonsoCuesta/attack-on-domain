@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from typing import Generic, Protocol, TypeVar, runtime_checkable
 
 from aod._internal.core.base_sealed import BaseSealed
@@ -13,14 +15,14 @@ TResult = TypeVar("TResult")
 
 
 class Command(BaseSealed, Generic[TEntity, TResult]):
-    def __init_subclass__(cls, **kwargs):
+    def __init_subclass__(cls, **kwargs: object) -> None:
         super().__init_subclass__(**kwargs)
         validate_generic_arg_is_subclass(cls, Command, RootEntity, arg_name="TEntity")
         validate_fields_no_entity(cls)
 
 
 class Query(BaseSealed, Generic[TEntity, TResult]):
-    def __init_subclass__(cls, **kwargs):
+    def __init_subclass__(cls, **kwargs: object) -> None:
         super().__init_subclass__(**kwargs)
         validate_generic_arg_is_subclass(cls, Query, RootEntity, arg_name="TEntity")
         validate_fields_no_entity(cls)
@@ -30,5 +32,4 @@ class Query(BaseSealed, Generic[TEntity, TResult]):
 @runtime_checkable
 class Repository(Protocol, Generic[TEntity, TResult]):
     def command(self, cmd: Command[TEntity, TResult]) -> TResult: ...
-
     def query(self, query: Query[TEntity, TResult]) -> TResult: ...
