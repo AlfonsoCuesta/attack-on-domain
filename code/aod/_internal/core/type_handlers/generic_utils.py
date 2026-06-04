@@ -5,13 +5,13 @@ from typing import get_args, get_origin
 from aod._internal.core.domain_exception import DomainException
 
 
-def get_generic_arg_from_orig_bases(cls: type, target_origin: type) -> type | None:
+def get_generic_arg_from_orig_bases(cls: type, target_origin: type, index: int = 0) -> type | None:
     for base in getattr(cls, "__orig_bases__", ()):
         origin = get_origin(base)
         if origin is target_origin:
             args = get_args(base)
-            if args:
-                return args[0]
+            if len(args) > index:
+                return args[index]
     return None
 
 

@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from typing import Any
+
 from aod.application import EventBus, Logger, UnitOfWork
 from aod._internal.core.event_emitter import Event
 
@@ -47,7 +49,7 @@ class SpyEventBus(EventBus):
 
 
 class SpyUnitOfWork(UnitOfWork):
-    def __init__(self, **data: object) -> None:
+    def __init__(self, **data: Any) -> None:
         object.__setattr__(self, "_committed", False)
         object.__setattr__(self, "_rolled_back", False)
         object.__setattr__(self, "_flushed", False)

@@ -1,11 +1,13 @@
 from __future__ import annotations
 
 from abc import abstractmethod
+from typing import Generic, TypeVar
 
 import pytest
-from aod.application import EventBus, Logger, Port, UnitOfWork, UseCase
-from aod._internal.core.domain_exception import MutationForbiddenException
+from aod.application import Command, EventBus, Logger, Port, Query, UnitOfWork, UseCase
+from aod._internal.core.domain_exception import DomainException, MutationForbiddenException
 from aod._internal.core.event_emitter import Event
+from aod._internal.domain.entity import RootEntity
 from tests.doubles import LogEntry, SpyEventBus, SpyLogger, SpyUnitOfWork
 
 
@@ -127,3 +129,78 @@ def test_unit_of_work_flush() -> None:
     uow = SpyUnitOfWork()
     uow.flush()
     assert uow.flushed
+
+
+class User(RootEntity):
+    id: int
+    name: str
+
+
+T = TypeVar("T")
+
+
+class CreateUser(Command[User, User]):
+    name: str
+
+
+class GetUser(Query[User, User | None]):
+    user_id: int
+
+
+class SpyRepo(Generic[T]):
+    def __init__(self) -> None:
+        self.commands: list[Command] = []
+        self.queries: list[Query] = []
+
+    def command(self, cmd: Command) -> object:
+        self.commands.append(cmd)
+        if isinstance(cmd, CreateUser):
+            return User(id=1, name=cmd.name)
+        return None
+
+    def query(self, query: Query) -> object:
+        self.queries.append(query)
+        if isinstance(query, GetUser) and query.user_id == 1:
+            return User(id=1, name="Alice")
+        return None
+
+
+class SpyUserRepo(SpyRepo[User]):
+    pass
+
+
+def test_unit_of_work_dispatch_command() -> None:
+    repo = SpyUserRepo()
+    uow = SpyUnitOfWork(repositories=[repo])
+    result = uow.command(CreateUser(name="Bob"))
+    assert isinstance(result, User)
+    assert result.name == "Bob"
+    assert len(repo.commands) == 1
+
+
+def test_unit_of_work_dispatch_query() -> None:
+    repo = SpyUserRepo()
+    uow = SpyUnitOfWork(repositories=[repo])
+    result = uow.query(GetUser(user_id=1))
+    assert isinstance(result, User)
+    assert result.name == "Alice"
+    assert len(repo.queries) == 1
+
+
+def test_unit_of_work_unknown_entity_raises() -> None:
+    class OtherEntity(RootEntity):
+        id: int
+
+    class OtherCommand(Command[OtherEntity, None]):
+        pass
+
+    repo = SpyUserRepo()
+    uow = SpyUnitOfWork(repositories=[repo])
+    with pytest.raises(DomainException, match="No repository registered for entity OtherEntity"):
+        uow.command(OtherCommand())
+
+
+def test_unit_of_work_empty_repositories_raises() -> None:
+    uow = SpyUnitOfWork()
+    with pytest.raises(DomainException, match="No repository registered for entity User"):
+        uow.command(CreateUser(name="X"))

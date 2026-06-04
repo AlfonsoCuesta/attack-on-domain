@@ -37,6 +37,10 @@ code/
 │       │   │   └── service_handler.py       # check_service
 │       │   ├── fields/fields.py      # Field(), PrivateField() wrappers
 │       │   └── invariances/invariances.py  # field_invariance, invariance, is_validator
+│       ├── type_checks/             # Contract & handler validation
+│       │   ├── __init__.py
+│       │   ├── contract_checks.py   # validate_fields_no_entity, validate_result_contains_root_entity, extract_root_entity, format_type
+│       │   └── handler_checks.py    # extract_handler_type, validate_handler_type, validate_handler_entity, handler_type_entity
 │       └── domain/                   # DDD domain primitives (implementation)
 │           ├── value_object.py
 │           ├── entity.py
@@ -45,7 +49,7 @@ code/
 │           ├── bounded_context.py
 │           └── describe.py
 │       ├── application/              # Application layer
-│       │   ├── contracts.py          # Command, Query base classes
+│       │   ├── repository.py          # Command, Query, Repository (Protocol)
 │       │   ├── port.py               # Port base class (abstract, mutable-from-inside)
 │       │   ├── logger.py             # Logger port
 │       │   ├── event_bus.py          # EventBus port
@@ -54,7 +58,6 @@ code/
 │       └── infrastructure/           # Infrastructure layer
 │           ├── __init__.py
 │           ├── handlers.py           # CommandHandler, QueryHandler
-│           ├── checks.py             # validate_handler_type, validate_handler_entity, handler_type_entity, extract_handler_type
 │           └── repository.py         # Repository with dispatch
 └── tests/                            # All tests
     ├── test_public_api.py
@@ -245,19 +248,28 @@ Built-in port types (all `aod.application`):
 
 `aod.application` provides the application-level contracts; `aod.infrastructure` provides the handler bases and repository:
 
-- **`Command[TEntity, TResult]`** / **`Query[TEntity, TResult]`** — immutable data classes for writes/reads (extend `BaseSealed`, validate `TEntity` is `RootEntity` subclass at class creation)
+- **`Repository`** (Protocol in `aod.application`) — structural interface with `command()` and `query()`, no inheritance needed
+- **`Command[TEntity, TResult]`** / **`Query[TEntity, TResult]`** — immutable data classes for writes/reads (extend `BaseSealed`, validate `TEntity` is `RootEntity` subclass at class creation). Field types are checked at `__init_subclass__` — any field referencing a non-root `Entity` (even nested in generics like `list[Entity]`) raises `DomainException`. `Query` additionally requires its `TResult` type argument to contain at least one `RootEntity` (e.g. `Query[User, User]`, `Query[User, list[User]]`, `Query[User, tuple[int, User | None]]` are all valid).
 - **`CommandHandler[C]`** / **`QueryHandler[Q]`** — abstract bases with `handle()` method; validate generic param at class creation
-- **`Repository[TEntity]`** — receives `command_handlers` and `query_handlers` in `__init__`; dispatches via `command()` / `query()` via `_add_handler`/`_check_handler`; raises `DomainException` for unregistered types or duplicates
+- **`Repository[TEntity]`** — receives `command_handlers` and `query_handlers` in `__init__`; dispatches via `command()` / `query()`; raises `DomainException` for unregistered types or duplicates
+- **`UnitOfWork`** — receives `repositories: list[Repository]`, auto-builds entity-to-repo dict in `__post_init__`; provides `command()`/`query()` dispatch methods
 
-Handler type resolution uses `extract_handler_type()` (public in `checks.py`) via `get_generic_arg_from_mro` in `generic_utils.py` — works in any scope, avoids `NameError` with locally-defined handlers. Handlers live in `aod._internal.infrastructure.handlers`, imported by `repository.py` via a lazy import in `__init_subclass__` to avoid circular deps. Reusable helpers: `get_generic_arg_from_orig_bases`, `get_generic_arg_from_mro`, `validate_generic_arg_is_subclass`.
+Handler type resolution uses `extract_handler_type()` (in `type_checks/handler_checks.py`) via `get_generic_arg_from_mro` in `generic_utils.py` — works in any scope, avoids `NameError` with locally-defined handlers. Handlers live in `aod._internal.infrastructure.handlers`, imported by `repository.py` from the same module. Reusable helpers: `get_generic_arg_from_orig_bases`, `get_generic_arg_from_mro`, `validate_generic_arg_is_subclass`.
 
-Validation functions in `checks.py`:
+Handler type resolution uses `extract_handler_type()` (in `type_checks/handler_checks.py`) via `get_generic_arg_from_mro` in `generic_utils.py` — works in any scope, avoids `NameError` with locally-defined handlers. Handlers live in `aod._internal.infrastructure.handlers`, imported by `repository.py` from the same module. Reusable helpers: `get_generic_arg_from_orig_bases`, `get_generic_arg_from_mro`, `validate_generic_arg_is_subclass`.
+
+Validation functions in `type_checks/handler_checks.py`:
 - **`extract_handler_type(handler)`** — returns `type[Command]` or `type[Query]` via overloads; raises `DomainException` if unresolvable
 - **`validate_handler_type(handler, expected_type)`** — raises `DomainException` if handler is not the expected class
 - **`validate_handler_entity(handler, handler_type, repo_entity)`** — checks that `CommandHandler`/`QueryHandler` entity matches `Repository[TEntity]`'s entity
 - **`handler_type_entity(handler_type)`** — extracts the entity param from a `Command`/`Query` type
 
-Zero `# type: ignore` in `checks.py`, `repository.py`, and `handlers.py`.
+Contract validation in `type_checks/contract_checks.py`:
+- **`validate_fields_no_entity(cls)`** — ensures no `Command`/`Query` field references a non-root `Entity`
+- **`validate_result_contains_root_entity(cls, query_type)`** — ensures `Query`'s `TResult` includes a `RootEntity`
+- **`extract_root_entity(repo)`** — extracts the `RootEntity` type from a Repository's generic bases
+
+Zero `# type: ignore` in `type_checks/`, `repository.py`, and `handlers.py`.
 
 ## Development Commands
 
@@ -284,7 +296,7 @@ uv run pytest code/tests -q
 - If you change type checks, update `type_handlers/extractors.py` and/or `type_handlers/checks` and verify tests
 - If you change bounded context logic, update `bounded_context.py` and check `test_bounded_context.py`
 - If you change the repository layer, update `repository.py` and/or `handlers.py` and verify `test_repository.py`
-- If you change validation functions, update `checks.py` and verify `test_repository.py`
+- If you change validation functions, update `type_checks/` and verify `test_repository.py`
 - If you change the application layer, update `port.py` and/or `use_case.py` and verify `test_port.py` / `test_use_case.py`
 - Always run all tests before committing
 - `Event.emitted_at` is the timestamp field.
@@ -297,7 +309,7 @@ uv run pytest code/tests -q
 
 ## Test Count
 
-329 tests
+342 tests
 
 ## At the end of a task
 

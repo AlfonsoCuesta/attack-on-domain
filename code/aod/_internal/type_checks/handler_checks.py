@@ -1,15 +1,14 @@
+from __future__ import annotations
+
 from typing import overload
 
-from aod._internal.application.contracts import Command, Query
+from aod._internal.application.repository import Command, Query
 from aod._internal.core.domain_exception import DomainException
 from aod._internal.core.type_handlers.generic_utils import (
     get_generic_arg_from_mro,
     get_generic_arg_from_orig_bases,
 )
-from aod._internal.infrastructure.handlers import (
-    CommandHandler,
-    QueryHandler,
-)
+from aod._internal.infrastructure.handlers import CommandHandler, QueryHandler
 
 
 def handler_type_entity(handler_type: type[Command] | type[Query]) -> type | None:

@@ -1,11 +1,11 @@
 from __future__ import annotations
 
 import pytest
-from aod.application import Command, Query
-from aod.infrastructure import CommandHandler, QueryHandler, Repository
 from aod._internal.core.base_sealed import BaseSealed
 from aod._internal.core.domain_exception import DomainException, MutationForbiddenException
-from aod._internal.domain.entity import RootEntity
+from aod._internal.domain.entity import Entity, RootEntity
+from aod.application import Command, Query
+from aod.infrastructure import CommandHandler, QueryHandler, Repository
 
 
 class User(RootEntity):
@@ -32,7 +32,7 @@ class DeleteUser(Command[User, None]):
     user_id: int
 
 
-class CountUsers(Query[User, int]):
+class CountUsers(Query[User, tuple[int, User]]):
     pass
 
 
@@ -57,8 +57,8 @@ class DeleteUserHandler(CommandHandler[DeleteUser]):
 
 
 class CountUsersHandler(QueryHandler[CountUsers]):
-    def handle(self, query: CountUsers) -> int:
-        return 42
+    def handle(self, query: CountUsers) -> tuple[int, User]:
+        return (42, User(id=1, name="dummy", email="d@d.com"))
 
 
 class CreateOrderHandler(CommandHandler[CreateOrder]):
@@ -114,6 +114,26 @@ class TestCommand:
             class _(Command[str, int]):
                 pass
 
+    def test_non_root_entity_field_raises(self) -> None:
+        with pytest.raises(DomainException, match="non-root Entity"):
+
+            class _(Command[User, User]):
+                items: list[Entity]
+
+    def test_nested_entity_field_raises(self) -> None:
+        with pytest.raises(DomainException, match="non-root Entity"):
+
+            class _(Command[User, User]):
+                items: list[tuple[int, Entity | None]]
+
+    def test_root_entity_field_allowed(self) -> None:
+        class _(Command[User, User]):
+            user: User
+
+    def test_nested_root_entity_allowed(self) -> None:
+        class _(Command[User, User]):
+            items: list[tuple[int, User]]
+
 
 class TestQuery:
     def test_can_be_instantiated(self) -> None:
@@ -140,6 +160,30 @@ class TestQuery:
 
             class _(Query[str, int]):
                 pass
+
+    def test_non_root_entity_field_raises(self) -> None:
+        with pytest.raises(DomainException, match="non-root Entity"):
+
+            class _(Query[User, User]):
+                items: tuple[Entity, ...]
+
+    def test_root_entity_field_allowed(self) -> None:
+        class _(Query[User, User]):
+            user: User
+
+    def test_result_must_include_root_entity(self) -> None:
+        with pytest.raises(DomainException, match="must include a RootEntity"):
+
+            class _(Query[User, int]):
+                pass
+
+    def test_result_with_nested_root_entity_allowed(self) -> None:
+        class _(Query[User, tuple[int, User | None]]):
+            pass
+
+    def test_command_not_affected_by_result_check(self) -> None:
+        class _(Command[User, int]):
+            pass
 
 
 class TestCommandHandler:
@@ -208,7 +252,9 @@ class TestQueryHandler:
     def test_page_count(self) -> None:
         h = CountUsersHandler()
         result = h.handle(CountUsers())
-        assert result == 42
+        count, user = result
+        assert count == 42
+        assert user.id == 1
 
     def test_invalid_generic_raises(self) -> None:
         with pytest.raises(DomainException, match="Generic parameter for"):
@@ -292,7 +338,8 @@ class TestRepository:
         assert found.name == "Alice"
 
         count = repo.query(CountUsers())
-        assert count == 42
+        assert count[0] == 42
+        assert count[1].id == 1
 
         result = repo.command(DeleteUser(user_id=5))
         assert result is None
@@ -339,7 +386,8 @@ class TestRepository:
         assert user.name == "X"
 
         count = repo.query(CountUsers())
-        assert count == 42
+        assert count[0] == 42
+        assert count[1].id == 1
 
     def test_no_queried_type_leak(self) -> None:
         class OrderRepo(Repository[Order]):
@@ -373,7 +421,7 @@ class TestRepository:
             def handle(self, cmd):
                 return None
 
-        from aod._internal.infrastructure.checks import extract_handler_type
+        from aod._internal.type_checks.handler_checks import extract_handler_type
 
         with pytest.raises(DomainException):
             extract_handler_type(BadHandler())
@@ -386,8 +434,7 @@ class TestRepository:
         class UserRepo(Repository[User]):
             pass
 
-        with pytest.raises(DomainException, match="handles entity Order, but repository is for entity User"):
+        with pytest.raises(
+            DomainException, match="handles entity Order, but repository is for entity User"
+        ):
             UserRepo(command_handlers=[OrderHandler()])
-
-
-

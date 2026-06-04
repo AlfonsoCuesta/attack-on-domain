@@ -2,19 +2,16 @@ from __future__ import annotations
 
 from typing import Generic, TypeVar, cast
 
-from aod._internal.application.contracts import Command, Query
+from aod._internal.application.repository import Command, Query
 from aod._internal.core.base_sealed import BaseSealed
 from aod._internal.core.domain_exception import DomainException
 from aod._internal.core.fields.fields import Field, PrivateField
 from aod._internal.core.type_handlers.generic_utils import get_generic_arg_from_orig_bases
-from aod._internal.infrastructure.checks import (
+from aod._internal.infrastructure.handlers import CommandHandler, QueryHandler
+from aod._internal.type_checks.handler_checks import (
     extract_handler_type,
     validate_handler_entity,
     validate_handler_type,
-)
-from aod._internal.infrastructure.handlers import (
-    CommandHandler,
-    QueryHandler,
 )
 
 TEntity = TypeVar("TEntity")
