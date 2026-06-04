@@ -2,36 +2,19 @@ from __future__ import annotations
 
 import pytest
 from aod._internal.core.domain_exception import MutationForbiddenException
-from aod._internal.core.event_emitter import Event
-from aod._internal.domain import RootEntity, ValueObject
 from aod.application.use_case.async_ import UseCase as AsyncUseCase
-from tests.application.test_async_port import AsyncSpyUnitOfWork
-from tests.doubles import SpyEventBus, SpyLogger
-
-
-class UserCreated(Event):
-    user_id: int
-    name: str
-
-
-class UserRenamed(Event):
-    user_id: int
-    new_name: str
-
-
-class Address(ValueObject):
-    street: str
-    city: str
-
-
-class User(RootEntity):
-    id: int
-    name: str
-    address: Address | None = None
-
-    def rename(self, new_name: str) -> None:
-        self.name = new_name
-        self._event_emitter.emit(UserRenamed(user_id=self.id, new_name=new_name))
+from tests.application._use_case_scenarios import (
+    SCENARIOS,
+    Scenario,
+    Address,
+    User,
+    UserCreated,
+    UserRenamed,
+    _RUN_BODIES,
+    run_uc,
+)
+from tests.application.test_async_port import AsyncSpyEventBus, AsyncSpyLogger, AsyncSpyUnitOfWork
+from tests.doubles import SpyEventBus, SpyLogger, SpyUnitOfWork
 
 
 class CreateUser(AsyncUseCase):
@@ -58,6 +41,21 @@ async def test_subclass_without_run_is_abstract() -> None:
 
 async def test_subclass_with_run_can_be_instantiated() -> None:
     CreateUser(user_id=1, name="Alice")
+
+
+@pytest.mark.parametrize("scenario", SCENARIOS, ids=lambda s: s.name)
+async def test_scenario(scenario: Scenario) -> None:
+    body = _RUN_BODIES[scenario.name]
+    ns = {"__annotations__": scenario.annotations.copy(), "run": lambda self: body(self)}
+    ns.update(scenario.defaults)
+    cls = type(scenario.name, (AsyncUseCase,), ns)
+    uc = cls(**scenario.kwargs)
+    if scenario.expected_exception is not None:
+        with pytest.raises(scenario.expected_exception):
+            await run_uc(uc)
+    else:
+        await run_uc(uc)
+    assert len(uc.events) == scenario.expected_events
 
 
 async def test_events_is_empty_before_run() -> None:
@@ -310,3 +308,77 @@ async def test_post_init_runs_on_use_case() -> None:
 
     WithPostInit(user_id=1)
     assert called == [True]
+
+
+async def test_mixed_all_sync_ports_on_success() -> None:
+    class Simple(AsyncUseCase):
+        async def run(self) -> None:
+            pass
+
+    uow = SpyUnitOfWork()
+    logger = SpyLogger()
+    bus = SpyEventBus()
+    uc = Simple(uow=uow, logger=logger, event_bus=bus)
+    await uc.run()
+    assert uow.committed
+    assert not uow.rolled_back
+    completions = [e for e in logger.entries if "completed" in str(e.msg)]
+    assert len(completions) == 1
+
+
+async def test_mixed_all_sync_ports_on_failure() -> None:
+    class Fail(AsyncUseCase):
+        async def run(self) -> None:
+            raise ValueError("oops")
+
+    uow = SpyUnitOfWork()
+    logger = SpyLogger()
+    uc = Fail(uow=uow, logger=logger)
+    with pytest.raises(ValueError):
+        await uc.run()
+    assert uow.rolled_back
+    assert not uow.committed
+    errors = [e for e in logger.entries if e.level == "error"]
+    assert any("failed" in str(e.msg) for e in errors)
+
+
+async def test_mixed_sync_uow_async_event_bus() -> None:
+    class Emit(AsyncUseCase):
+        async def run(self) -> None:
+            self._event_emitter.emit(UserCreated(user_id=1, name="test"))
+
+    uow = SpyUnitOfWork()
+    bus = AsyncSpyEventBus()
+    uc = Emit(uow=uow, event_bus=bus)
+    await uc.run()
+    assert uow.committed
+    assert len(bus.published) == 1
+
+
+async def test_mixed_async_uow_sync_logger() -> None:
+    class Simple(AsyncUseCase):
+        async def run(self) -> None:
+            pass
+
+    uow = AsyncSpyUnitOfWork()
+    logger = SpyLogger()
+    uc = Simple(uow=uow, logger=logger)
+    await uc.run()
+    assert uow.committed
+    assert not uow.rolled_back
+    completions = [e for e in logger.entries if "completed" in str(e.msg)]
+    assert len(completions) == 1
+
+
+async def test_mixed_sync_event_bus_async_logger() -> None:
+    class Emit(AsyncUseCase):
+        async def run(self) -> None:
+            self._event_emitter.emit(UserCreated(user_id=1, name="test"))
+
+    bus = SpyEventBus()
+    logger = AsyncSpyLogger()
+    uc = Emit(event_bus=bus, logger=logger)
+    await uc.run()
+    assert len(bus.published) == 1
+    completions = [e for e in logger.entries if "completed" in str(e.msg)]
+    assert len(completions) == 1

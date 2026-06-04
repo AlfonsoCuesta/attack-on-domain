@@ -4,36 +4,19 @@ from abc import abstractmethod
 
 import pytest
 from aod._internal.core.domain_exception import MutationForbiddenException
-from aod._internal.core.event_emitter import Event, EventCollector
+from aod._internal.core.event_emitter import EventCollector
 from aod._internal.core.fields.fields import PrivateField
-from aod._internal.domain import RootEntity, ValueObject
 from aod.application import UseCase
+from tests.application._use_case_scenarios import (
+    SCENARIOS,
+    Scenario,
+    Address,
+    User,
+    UserCreated,
+    UserRenamed,
+    _RUN_BODIES,
+)
 from tests.doubles import SpyEventBus, SpyLogger, SpyUnitOfWork
-
-
-class UserCreated(Event):
-    user_id: int
-    name: str
-
-
-class UserRenamed(Event):
-    user_id: int
-    new_name: str
-
-
-class Address(ValueObject):
-    street: str
-    city: str
-
-
-class User(RootEntity):
-    id: int
-    name: str
-    address: Address | None = None
-
-    def rename(self, new_name: str) -> None:
-        self.name = new_name
-        self._event_emitter.emit(UserRenamed(user_id=self.id, new_name=new_name))
 
 
 class CreateUser(UseCase):
@@ -60,6 +43,21 @@ def test_subclass_without_run_is_abstract() -> None:
 
 def test_subclass_with_run_can_be_instantiated() -> None:
     CreateUser(user_id=1, name="Alice")
+
+
+@pytest.mark.parametrize("scenario", SCENARIOS, ids=lambda s: s.name)
+def test_scenario(scenario: Scenario) -> None:
+    body = _RUN_BODIES[scenario.name]
+    ns = {"__annotations__": scenario.annotations.copy(), "run": lambda self: body(self)}
+    ns.update(scenario.defaults)
+    cls = type(scenario.name, (UseCase,), ns)
+    uc = cls(**scenario.kwargs)
+    if scenario.expected_exception is not None:
+        with pytest.raises(scenario.expected_exception):
+            uc.run()
+    else:
+        uc.run()
+    assert len(uc.events) == scenario.expected_events
 
 
 def test_events_is_empty_before_run() -> None:
