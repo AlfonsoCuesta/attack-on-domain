@@ -4,6 +4,7 @@ __all__ = [
     "get_generic_arg_from_orig_bases",
     "ServiceTypeHandler",
     "validate_generic_arg_is_subclass",
+    "validate_handler_subclass",
 ]
 
 
@@ -17,7 +18,7 @@ def __getattr__(name: str) -> object:
             import aod._internal.core.type_handlers.service_handler as _m
 
             return getattr(_m, name)
-        if name in ("get_generic_arg_from_mro", "get_generic_arg_from_orig_bases", "validate_generic_arg_is_subclass"):
+        if name in ("get_generic_arg_from_mro", "get_generic_arg_from_orig_bases", "validate_generic_arg_is_subclass", "validate_handler_subclass"):
             import aod._internal.core.type_handlers.generic_utils as _m
 
             return getattr(_m, name)

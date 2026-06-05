@@ -51,6 +51,9 @@ code/
 │           └── describe.py
 │       ├── application/              # Application layer (packages)
 │       │   ├── port.py               # Port base class (abstract, mutable-from-inside)
+│       │   ├── projection/           # Projection data class (no RootEntity constraints)
+│       │   │   ├── __init__.py       # Projection
+│       │   │   └── projection.py     # Projection(BaseSealed, Generic[T])
 │       │   ├── repository/           # Command, Query, Repository (Protocol) — sync + async
 │       │   │   ├── __init__.py       # Command, Query, Repository (sync Protocol)
 │       │   │   └── async_.py         # Repository (async Protocol)
@@ -70,6 +73,10 @@ code/
 │       │   ├── handlers/             # CommandHandler, QueryHandler — sync + async
 │       │   │   ├── __init__.py
 │       │   │   └── async_.py
+│       │   ├── projection/           # ProjectionHandler — sync + async
+│       │   │   ├── __init__.py
+│       │   │   ├── projection.py     # ProjectionHandler (sync)
+│       │   │   └── async_.py         # ProjectionHandler (async)
 │       │   └── repository/           # Repository with dispatch — sync + async
 │       │       ├── __init__.py
 │       │       └── async_.py
@@ -90,11 +97,14 @@ code/
     │   ├── test_service.py
     │   └── test_value_object.py
     ├── application/                  # Application layer tests
+    │   ├── test_projection.py        # Projection data class (no entity constraints)
     │   ├── test_use_case.py
     │   ├── test_port.py
     │   ├── test_async_port.py
     │   └── test_async_use_case.py
     ├── infrastructure/               # Infrastructure layer tests
+    │   ├── test_projection_handler.py
+    │   ├── test_async_projection_handler.py
     │   ├── test_repository.py
     │   ├── test_handlers.py
     │   ├── test_async_handlers.py
@@ -289,6 +299,14 @@ Contract validation in `type_checks/contract_checks.py`:
 - **`validate_result_contains_root_entity(cls, query_type)`** — ensures `Query`'s `TResult` includes a `RootEntity`
 - **`extract_root_entity(repo)`** — extracts the `RootEntity` type from a Repository's generic bases
 
+### Projection / ProjectionHandler
+
+Conceptually similar to `Command`/`Query` but **without RootEntity restrictions**:
+
+- **`Projection[T]`** (`aod.application`) — `BaseSealed, Generic[T]` data class. No `__init_subclass__` validation — fields can reference any type (Entity, RootEntity, ValueObject, primitives, etc.). No constraint on `T`.
+- **`ProjectionHandler[P]`** (`aod.infrastructure`) — abstract base with `handle()` method. Validates generic param `P` is a `Projection` subclass at class creation. Sync and async versions available.
+- Unlike `CommandHandler`/`QueryHandler`, `ProjectionHandler` is **not** registered in a `Repository`. It lives in `aod.infrastructure.projection` and is consumed independently.
+
 Zero `# type: ignore` in `type_checks/`, `repository.py`, and `handlers.py`.
 
 ## Development Commands
@@ -317,6 +335,7 @@ uv run pytest code/tests -q
 - If you change domain classes, check `test_event_emitter.py`, `test_entity.py`, `test_value_object.py`
 - If you change type checks, update `type_handlers/extractors.py` and/or `type_handlers/checks` and verify tests
 - If you change bounded context logic, update `bounded_context.py` and check `test_bounded_context.py`
+- If you change the projection layer, update `projection/` (both application and infrastructure) and verify `test_projection.py` / `test_projection_handler.py` / `test_async_projection_handler.py`
 - If you change the repository layer, update `repository.py` and/or `handlers.py` and verify `test_repository.py`
 - If you change validation functions, update `type_checks/` and verify `test_repository.py`
 - If you change the application layer, update `port.py` and/or `use_case.py` and verify `test_port.py` / `test_use_case.py`
@@ -333,7 +352,7 @@ uv run pytest code/tests -q
 
 ## Test Count
 
-398 tests
+447 tests
 
 ## At the end of a task
 

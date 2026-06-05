@@ -37,3 +37,19 @@ def validate_generic_arg_is_subclass(
     if isinstance(t, type) and not issubclass(t, expected_base):
         msg = f"{arg_name} for {cls.__name__} must be a {expected_base.__name__} subclass, got {t.__name__}"
         raise DomainException(msg)
+
+
+def validate_handler_subclass(
+    cls: type,
+    handler_class: type,
+    expected_base: type,
+    *,
+    arg_name: str = "Generic parameter",
+) -> None:
+    for orig_base in getattr(cls, "__orig_bases__", ()):
+        origin = get_origin(orig_base)
+        if origin is not None and isinstance(origin, type) and issubclass(origin, handler_class):
+            validate_generic_arg_is_subclass(
+                cls, origin, expected_base, arg_name=arg_name,
+            )
+            break
