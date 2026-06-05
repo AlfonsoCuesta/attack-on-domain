@@ -50,10 +50,13 @@ class AsyncSpyEventBus(AsyncEventBus):
 
 class AsyncSpyUnitOfWork(AsyncUnitOfWork):
     def __init__(self, **data: Any) -> None:
+        dirty = data.pop("dirty", False)
         object.__setattr__(self, "_committed", False)
         object.__setattr__(self, "_rolled_back", False)
         object.__setattr__(self, "_flushed", False)
         super().__init__(**data)
+        if dirty:
+            object.__setattr__(self, "is_dirty", True)
 
     @property
     def committed(self) -> bool:

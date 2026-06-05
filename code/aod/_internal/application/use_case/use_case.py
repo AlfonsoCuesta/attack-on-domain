@@ -62,19 +62,21 @@ class UseCase(BaseSealed):
 
                 self.events = list(events)
 
-            self.logger.info(f"{type(self).__name__} events", events=len(self.events))
+            self.logger.info(f"{type(self).__name__} events", events=self.events)
 
             if exception is not None:
-                self.uow.rollback()
+                if self.uow.is_dirty:
+                    self.uow.rollback()
                 self.logger.error(f"{type(self).__name__} failed with exception: {exception}")
                 raise exception
 
-            try:
-                self.uow.commit()
-            except BaseException:
-                self.uow.rollback()
-                self.logger.error(f"{type(self).__name__} commit failed")
-                raise
+            if self.uow.is_dirty:
+                try:
+                    self.uow.commit()
+                except BaseException:
+                    self.uow.rollback()
+                    self.logger.error(f"{type(self).__name__} commit failed")
+                    raise
 
             self.event_bus.publish(*self.events)
             self.logger.info(

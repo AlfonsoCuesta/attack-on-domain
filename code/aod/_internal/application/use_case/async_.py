@@ -47,23 +47,23 @@ class UseCase(SyncUseCase):
 
                 self.events = list(events)
 
-            await awaiter(
-                self.logger.info(f"{type(self).__name__} events", events=len(self.events))
-            )
+            await awaiter(self.logger.info(f"{type(self).__name__} events", events=self.events))
 
             if exception is not None:
-                await awaiter(self.uow.rollback())
+                if self.uow.is_dirty:
+                    await awaiter(self.uow.rollback())
                 await awaiter(
                     self.logger.error(f"{type(self).__name__} failed with exception: {exception}")
                 )
                 raise exception
 
-            try:
-                await awaiter(self.uow.commit())
-            except BaseException:
-                await awaiter(self.uow.rollback())
-                await awaiter(self.logger.error(f"{type(self).__name__} commit failed"))
-                raise
+            if self.uow.is_dirty:
+                try:
+                    await awaiter(self.uow.commit())
+                except BaseException:
+                    await awaiter(self.uow.rollback())
+                    await awaiter(self.logger.error(f"{type(self).__name__} commit failed"))
+                    raise
 
             await awaiter(self.event_bus.publish(*self.events))
             await awaiter(

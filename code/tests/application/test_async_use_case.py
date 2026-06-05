@@ -222,10 +222,22 @@ async def test_uow_auto_commit_on_success() -> None:
         async def run(self) -> None:
             pass
 
-    uow = AsyncSpyUnitOfWork()
+    uow = AsyncSpyUnitOfWork(dirty=True)
     uc = Create(uow=uow)
     await uc.run()
     assert uow.committed
+    assert not uow.rolled_back
+
+
+async def test_uow_skips_commit_when_not_dirty() -> None:
+    class NoOp(AsyncUseCase):
+        async def run(self) -> None:
+            pass
+
+    uow = AsyncSpyUnitOfWork()
+    uc = NoOp(uow=uow)
+    await uc.run()
+    assert not uow.committed
     assert not uow.rolled_back
 
 
@@ -234,7 +246,7 @@ async def test_uow_auto_rollback_on_failure() -> None:
         async def run(self) -> None:
             raise ValueError("oops")
 
-    uow = AsyncSpyUnitOfWork()
+    uow = AsyncSpyUnitOfWork(dirty=True)
     uc = Fail(uow=uow)
     with pytest.raises(ValueError):
         await uc.run()
@@ -274,7 +286,7 @@ async def test_commit_failure_rolls_back_and_logs() -> None:
         async def run(self) -> None:
             pass
 
-    uow = FailingUoW()
+    uow = FailingUoW(dirty=True)
     logger = SpyLogger()
     uc = Simple(uow=uow, logger=logger)
     with pytest.raises(RuntimeError):
@@ -315,7 +327,7 @@ async def test_mixed_all_sync_ports_on_success() -> None:
         async def run(self) -> None:
             pass
 
-    uow = SpyUnitOfWork()
+    uow = SpyUnitOfWork(dirty=True)
     logger = SpyLogger()
     bus = SpyEventBus()
     uc = Simple(uow=uow, logger=logger, event_bus=bus)
@@ -331,7 +343,7 @@ async def test_mixed_all_sync_ports_on_failure() -> None:
         async def run(self) -> None:
             raise ValueError("oops")
 
-    uow = SpyUnitOfWork()
+    uow = SpyUnitOfWork(dirty=True)
     logger = SpyLogger()
     uc = Fail(uow=uow, logger=logger)
     with pytest.raises(ValueError):
@@ -347,7 +359,7 @@ async def test_mixed_sync_uow_async_event_bus() -> None:
         async def run(self) -> None:
             self._event_emitter.emit(UserCreated(user_id=1, name="test"))
 
-    uow = SpyUnitOfWork()
+    uow = SpyUnitOfWork(dirty=True)
     bus = AsyncSpyEventBus()
     uc = Emit(uow=uow, event_bus=bus)
     await uc.run()
@@ -360,7 +372,7 @@ async def test_mixed_async_uow_sync_logger() -> None:
         async def run(self) -> None:
             pass
 
-    uow = AsyncSpyUnitOfWork()
+    uow = AsyncSpyUnitOfWork(dirty=True)
     logger = SpyLogger()
     uc = Simple(uow=uow, logger=logger)
     await uc.run()
