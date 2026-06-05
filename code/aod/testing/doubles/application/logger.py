@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-from typing import Any
-
 from aod.application import Logger
 from aod._internal.core.fields.fields import PrivateField
 

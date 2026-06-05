@@ -1,3 +1,20 @@
+from __future__ import annotations
+
+from typing import TYPE_CHECKING
+
+# Runtime: lazy imports via __getattr__ to avoid circular dependencies
+# Type checker: explicit imports in TYPE_CHECKING for static resolution
+
+if TYPE_CHECKING:
+    from .base_guarded_handler import BaseGuardedTypeHandler
+    from .service_handler import ServiceTypeHandler
+    from .generic_utils import (
+        get_generic_arg_from_mro,
+        get_generic_arg_from_orig_bases,
+        validate_generic_arg_is_subclass,
+        validate_handler_subclass,
+    )
+
 __all__ = [
     "BaseGuardedTypeHandler",
     "get_generic_arg_from_mro",
@@ -18,7 +35,12 @@ def __getattr__(name: str) -> object:
             import aod._internal.core.type_handlers.service_handler as _m
 
             return getattr(_m, name)
-        if name in ("get_generic_arg_from_mro", "get_generic_arg_from_orig_bases", "validate_generic_arg_is_subclass", "validate_handler_subclass"):
+        if name in (
+            "get_generic_arg_from_mro",
+            "get_generic_arg_from_orig_bases",
+            "validate_generic_arg_is_subclass",
+            "validate_handler_subclass",
+        ):
             import aod._internal.core.type_handlers.generic_utils as _m
 
             return getattr(_m, name)

@@ -350,7 +350,7 @@ All spy classes use `PrivateField` instead of `object.__setattr__` to stay consi
 - **`SpyEventBus`** — captures published `Event` objects; `.published` returns a snapshot copy
 - **`SpyUnitOfWork`** — tracks `committed`, `rolled_back`, `flushed` booleans; has `set_dirty()` to mark `is_dirty`
 
-Import from `aod.testing.doubles` (sync) or from individual modules. No need for a separate `tests/doubles.py`.
+Import from `aod.testing.doubles` (sync) or from individual modules.
 
 ## Development Commands
 

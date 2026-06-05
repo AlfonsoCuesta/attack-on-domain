@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from typing import Any, cast
+
 import pytest
 from aod._internal.core.domain_exception import DomainException
 from aod.application import Projection
@@ -64,4 +66,4 @@ class TestProjectionHandler:
     async def test_handler_is_immutable(self) -> None:
         h = GetOrdersHandler()
         with pytest.raises(DomainException):
-            h.handle = lambda p: []
+            h.handle = cast(Any, lambda p: [])
