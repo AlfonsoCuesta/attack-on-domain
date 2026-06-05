@@ -1,11 +1,12 @@
 import contextvars
 import inspect
 from abc import ABCMeta
-from typing import Any, ClassVar, Type, dataclass_transform
+from typing import Any, Callable, ClassVar, Type, dataclass_transform
 
 from pydantic import BaseModel
 
 from .fields import Field
+from .invariances import is_validator
 from .model_maker import (
     RAW_MODEL_KEY,
     VALIDATION_MODEL_KEY,
@@ -16,6 +17,8 @@ from .model_maker import (
 _use_raw_model: contextvars.ContextVar[bool] = contextvars.ContextVar(
     "_use_raw_model", default=False
 )
+
+VALIDATION_REGISTRY_KEY = "__validator_registry__"
 
 
 class ValidationModelMeta(ABCMeta):
@@ -31,6 +34,22 @@ class ValidationModelMeta(ABCMeta):
 
         setattr(cls.__init__, "__signature__", inspect.signature(validation_model))
 
+        # Build validator registry from this class's namespace
+        registry: dict[str, Callable[..., Any]] = {}
+        for k, v in namespace.items():
+            if info := is_validator(v):
+                validator_name = info.name or k
+                registry[validator_name] = v
+
+        # Merge with parent registries (child overrides parent)
+        for base in bases:
+            parent_registry = getattr(base, VALIDATION_REGISTRY_KEY, {})
+            for rk, rv in parent_registry.items():
+                if rk not in registry:
+                    registry[rk] = rv
+
+        setattr(cls, VALIDATION_REGISTRY_KEY, registry)
+
         return cls
 
 
@@ -39,6 +58,7 @@ class BaseValidator(metaclass=ValidationModelMeta):
     __validation_model__: ClassVar[Type[BaseModel]]
     __raw_model__: ClassVar[Type[BaseModel]]
     __model_fields__: ClassVar[dict[str, Any]]
+    __validator_registry__: ClassVar[dict[str, Callable[..., Any]]]
 
     def __init__(self, **kwargs: Any) -> None:
         if _use_raw_model.get():

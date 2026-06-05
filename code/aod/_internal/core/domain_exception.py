@@ -68,3 +68,15 @@ class DuplicateDomainTypeError(DomainException):
         super().__init__(
             f"{type_name} ({role}) is already registered in bounded context '{first_context}'"
         )
+
+
+class InvarianceException(DomainException, ValueError):
+    """Raised when a field or model invariance is violated.
+
+    Inherits from ValueError so Pydantic catches and wraps it
+    in ValidationError during normal construction flow.
+    """
+
+    def __init__(self, name: str, message: str = "") -> None:
+        self.name = name
+        super().__init__(message or f"Invariance '{name}' violated")
