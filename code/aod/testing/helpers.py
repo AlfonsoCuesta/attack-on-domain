@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from collections.abc import Sequence
 from typing import Any, TypeVar
 
 from aod._internal.core.base_validator import _use_raw_model
@@ -30,7 +31,7 @@ def events_of(obj: BaseGuarded) -> list[Event]:
     return list(obj._event_emitter.poll_events())
 
 
-def assert_event_emitted(events: list[Event], event_type: type[Event], **attrs: Any) -> Event:
+def assert_event_emitted(events: Sequence[Event], event_type: type[Event], **attrs: Any) -> Event:
     for e in events:
         if isinstance(e, event_type) and all(getattr(e, k) == v for k, v in attrs.items()):
             return e
@@ -38,7 +39,7 @@ def assert_event_emitted(events: list[Event], event_type: type[Event], **attrs: 
     raise AssertionError(msg)
 
 
-def assert_no_events(events: list[Event]) -> None:
+def assert_no_events(events: Sequence[Event]) -> None:
     if events:
         raise AssertionError(f"Expected no events, got {len(events)}")
 
@@ -52,20 +53,11 @@ def check_invariant(cls: type, name: str, **data: Any) -> None:
         raise ValueError(msg)
 
     info = is_validator(validator_fn)
-    if info is None and isinstance(validator_fn, classmethod):
-        info = is_validator(validator_fn.__func__)
-
     obj = build(cls, **data)
 
     if info and info.args:
         field = info.args[0]
         value = getattr(obj, field)
-        if isinstance(validator_fn, classmethod):
-            validator_fn.__func__(cls, value)
-        else:
-            validator_fn(cls, value)
+        validator_fn.__func__(cls, value)
     else:
-        if isinstance(validator_fn, classmethod):
-            validator_fn.__func__(obj)
-        else:
-            validator_fn(obj)
+        validator_fn(obj)
