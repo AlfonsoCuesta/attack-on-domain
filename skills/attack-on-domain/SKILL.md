@@ -1,6 +1,6 @@
 ---
 name: attack-on-domain
-description: "Use ONLY when the user is building a Domain-Driven Design system with this library. Covers entities, value objects, bounded contexts, domain events, the dual-model Pydantic validation system, and the interactive DDD diagram generator."
+description: "Use ONLY when the user is building a Domain-Driven Design system with this library. Covers entities, value objects, bounded contexts, domain events, the dual-model Pydantic validation system."
 ---
 
 # attack-on-domain — Domain-Driven Design Library
@@ -19,7 +19,7 @@ Source code is under `code/` (mapped as package root in `pyproject.toml`).
 | `from aod.domain.validation import field_invariance, invariance, inherit_context` | Validation decorators |
 | `from aod.domain.validation import AfterValidator, BeforeValidator` | Pydantic validators |
 | `from aod.exceptions import DomainException, MutationForbiddenException` | Public exceptions |
-| `from aod.diagram import render_html, show` | Interactive diagram |
+
 | `from aod.domain import EventCollector` | Cross-aggregate event capture |
 | `from aod.application import UseCase` | UseCase base class |
 | `from aod.application import Port` | Abstract port/gateway base class |
@@ -230,26 +230,6 @@ Constructor only accepts `aggregate_roots` (RootEntity subclasses) and `services
 - `check_root_entity` — forbids RootEntity references in fields
 - `check_value_object` — forbids Entity references in ValueObject fields
 - `check_service` — forbids non-root Entity in service method params/returns
-
-## Interactive Diagram
-
-```python
-from aod.diagram import render_html, show
-
-# Generate HTML string:
-html = render_html(sales, inventory)
-
-# Open in browser:
-show(sales, inventory)
-```
-
-Produces an interactive hand-drawn (rough.js) diagram with:
-- Node cards for each type, color-coded by stereotype
-- Aggregate root containers (rough.js rectangles)
-- Bounded context containers grouping all types per context
-- Arrows for entity-to-entity field references
-- Drag, pan, zoom
-
 ### Tests
 - `code/tests/core/test_post_init.py` — 22 tests covering `__post_init__` for Entity, RootEntity, ValueObject, inheritance, event emission, public method calls, and reconstruct suppression.
 - `code/tests/application/test_use_case.py` — 45 tests covering UseCase instantiation, event collection, immutability, exceptions, inheritance, `__post_init__`, `__repr__`, multiple runs, UoW auto-commit/rollback, logger auto-log, and edge cases.

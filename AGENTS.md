@@ -17,7 +17,6 @@ code/
 │   │   ├── __init__.py               # Re-exports: App, BoundedContext, DomainEvent, EventCollector, Entity, RootEntity, Service, ValueObject, Field, PrivateField
 │   │   └── validation/               # Public: AfterValidator, BeforeValidator, field_invariance, invariance, inherit_context
 │   ├── exceptions/__init__.py        # Public: DomainException, MutationForbiddenException
-│   ├── diagram.py                    # Interactive DDD diagram generator
 │   └── _internal/                    # Private — not semver-stable
 │       ├── core/                     # Framework internals
 │       │   ├── async_utils.py        # should_await (sync/async bridge)
@@ -398,7 +397,7 @@ uv run pytest code/tests -q
 
 ## Test Count
 
-453 tests
+497 tests
 
 ## At the end of a task
 
