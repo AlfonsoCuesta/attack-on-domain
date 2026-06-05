@@ -2,7 +2,6 @@ from __future__ import annotations
 
 from abc import abstractmethod
 from functools import wraps
-from inspect import iscoroutine
 from typing import Any, Callable, ClassVar
 
 from aod._internal.application.event_bus import EventBus
@@ -11,18 +10,13 @@ from aod._internal.application.logger import Logger
 from aod._internal.application.logger.async_ import Logger as AsyncLogger
 from aod._internal.application.unit_of_work import UnitOfWork
 from aod._internal.application.unit_of_work.async_ import UnitOfWork as AsyncUnitOfWork
+from aod._internal.core.async_utils import should_await as awaiter
 from aod._internal.core.base_guarded import inherit_context
 from aod._internal.core.event_emitter import Event, EventCollector, EventEmitter
 from aod._internal.core.fields.fields import Field, PrivateField
 
 from .use_case import UseCase as SyncUseCase
 from .use_case import _NullEventBus, _NullLogger, _NullUnitOfWork
-
-
-async def awaiter(value: Any) -> Any:
-    if iscoroutine(value):
-        return await value
-    return value
 
 
 class UseCase(SyncUseCase):

@@ -20,6 +20,7 @@ code/
 │   ├── diagram.py                    # Interactive DDD diagram generator
 │   └── _internal/                    # Private — not semver-stable
 │       ├── core/                     # Framework internals
+│       │   ├── async_utils.py        # should_await (sync/async bridge)
 │       │   ├── base_validator.py     # ValidationModelMeta + BaseValidator
 │       │   ├── reconstructable.py    # ReconstructMixin (reconstruct classmethod)
 │       │   ├── base_sealed.py        # BaseSealed (always-blocked mutation)
@@ -51,9 +52,11 @@ code/
 │           └── describe.py
 │       ├── application/              # Application layer (packages)
 │       │   ├── port.py               # Port base class (abstract, mutable-from-inside)
-│       │   ├── projection/           # Projection data class (no RootEntity constraints)
-│       │   │   ├── __init__.py       # Projection
-│       │   │   └── projection.py     # Projection(BaseSealed, Generic[T])
+│       │   ├── projection/           # Projection data class + ProjectionStore Protocol
+│       │   │   ├── __init__.py       # Projection, ProjectionStore
+│       │   │   ├── projection.py     # Projection(BaseSealed, Generic[T])
+│       │   │   ├── projection_store.py  # ProjectionStore (Protocol)
+│       │   │   └── async_.py         # ProjectionStore (async Protocol)
 │       │   ├── repository/           # Command, Query, Repository (Protocol) — sync + async
 │       │   │   ├── __init__.py       # Command, Query, Repository (sync Protocol)
 │       │   │   └── async_.py         # Repository (async Protocol)
@@ -65,7 +68,8 @@ code/
 │       │   │   └── async_.py
 │       │   ├── unit_of_work/         # UnitOfWork port — sync + async
 │       │   │   ├── __init__.py
-│       │   │   └── async_.py
+│       │   │   ├── unit_of_work.py   # _UnitOfWorkBase (shared logic), UnitOfWork (sync)
+│       │   │   └── async_.py         # UnitOfWork (async, accepts sync/async repos + stores)
 │       │   └── use_case/             # UseCase base — sync + async
 │       │       ├── __init__.py
 │       │       └── async_.py
@@ -73,10 +77,11 @@ code/
 │       │   ├── handlers/             # CommandHandler, QueryHandler — sync + async
 │       │   │   ├── __init__.py
 │       │   │   └── async_.py
-│       │   ├── projection/           # ProjectionHandler — sync + async
+│       │   ├── projection/           # ProjectionHandler + ProjectionStore — sync + async
 │       │   │   ├── __init__.py
-│       │   │   ├── projection.py     # ProjectionHandler (sync)
-│       │   │   └── async_.py         # ProjectionHandler (async)
+│       │   │   ├── projection_handler.py  # ProjectionHandler (sync)
+│       │   │   ├── projection_store.py    # ProjectionStore (concrete, sync)
+│       │   │   └── async_.py         # ProjectionHandler + ProjectionStore (async)
 │       │   └── repository/           # Repository with dispatch — sync + async
 │       │       ├── __init__.py
 │       │       └── async_.py
@@ -248,7 +253,7 @@ Public modules re-export from `_internal`; they contain no logic of their own. T
 - The class has **no public methods** other than `run`; subclasses may add private helpers
 - `_event_emitter` is a `PrivateField(default_factory=EventEmitter)`, ready for direct event emission
 - Auto-wired fields with Null Object defaults (no `is not None` checks):
-  - `uow: UnitOfWork` — commits on success, rolls back on failure; defaults to `_NullUnitOfWork` (no-op)
+  - `uow: UnitOfWork` — auto-commits on success (only if `is_dirty`), auto-rollbacks on failure; defaults to `_NullUnitOfWork` (no-op)
   - `logger: Logger` — auto-logs completion (with event count) and failure; defaults to `_NullLogger` (no-op)
   - `event_bus: EventBus` — auto-publishes collected events after successful commit; defaults to `_NullEventBus` (no-op)
 
@@ -282,7 +287,7 @@ Built-in port types (all `aod.application`):
 - **`Command[TEntity, TResult]`** / **`Query[TEntity, TResult]`** — immutable data classes for writes/reads (extend `BaseSealed`, validate `TEntity` is `RootEntity` subclass at class creation). Field types are checked at `__init_subclass__` — any field referencing a non-root `Entity` (even nested in generics like `list[Entity]`) raises `DomainException`. `Query` additionally requires its `TResult` type argument to contain at least one `RootEntity` (e.g. `Query[User, User]`, `Query[User, list[User]]`, `Query[User, tuple[int, User | None]]` are all valid).
 - **`CommandHandler[C]`** / **`QueryHandler[Q]`** — abstract bases with `handle()` method; validate generic param at class creation
 - **`Repository[TEntity]`** — receives `command_handlers` and `query_handlers` in `__init__`; dispatches via `command()` / `query()`; raises `DomainException` for unregistered types or duplicates
-- **`UnitOfWork`** — receives `repositories: list[Repository]`, auto-builds entity-to-repo dict in `__post_init__`; provides `command()`/`query()` dispatch methods
+- **`UnitOfWork`** — receives `repositories: list[Repository]`, auto-builds entity-to-repo dict in `__post_init__`; provides `command()`/`query()` dispatch methods. Has `is_dirty` flag (set True after command). Also accepts `projection_store` and provides `projection()` method.
 
 Handler type resolution uses `extract_handler_type()` (in `type_checks/handler_checks.py`) via `get_generic_arg_from_mro` in `generic_utils.py` — works in any scope, avoids `NameError` with locally-defined handlers. Handlers live in `aod._internal.infrastructure.handlers`, imported by `repository.py` from the same module. Reusable helpers: `get_generic_arg_from_orig_bases`, `get_generic_arg_from_mro`, `validate_generic_arg_is_subclass`.
 
@@ -299,13 +304,24 @@ Contract validation in `type_checks/contract_checks.py`:
 - **`validate_result_contains_root_entity(cls, query_type)`** — ensures `Query`'s `TResult` includes a `RootEntity`
 - **`extract_root_entity(repo)`** — extracts the `RootEntity` type from a Repository's generic bases
 
-### Projection / ProjectionHandler
+### Projection / ProjectionStore
 
 Conceptually similar to `Command`/`Query` but **without RootEntity restrictions**:
 
 - **`Projection[T]`** (`aod.application`) — `BaseSealed, Generic[T]` data class. No `__init_subclass__` validation — fields can reference any type (Entity, RootEntity, ValueObject, primitives, etc.). No constraint on `T`.
+- **`ProjectionStore`** (`aod.application`) — `Protocol` with a single method `projection(p: Projection[T]) -> T`. Sync and async versions available.
 - **`ProjectionHandler[P]`** (`aod.infrastructure`) — abstract base with `handle()` method. Validates generic param `P` is a `Projection` subclass at class creation. Sync and async versions available.
-- Unlike `CommandHandler`/`QueryHandler`, `ProjectionHandler` is **not** registered in a `Repository`. It lives in `aod.infrastructure.projection` and is consumed independently.
+- **`ProjectionStore`** (`aod.infrastructure`) — concrete dispatcher: receives `handlers: list[ProjectionHandler]`, validates duplicates in `__post_init__`, dispatches via `projection()`.
+
+Unlike `CommandHandler`/`QueryHandler`, `ProjectionHandler` is **not** registered in a `Repository`. It lives in `aod.infrastructure.projection` and is consumed independently via `ProjectionStore`.
+
+### `should_await` Helper
+
+`aod._internal.core.async_utils.should_await(value)` — bridges sync and async calls:
+- If `value` is a coroutine, awaits and returns the result
+- Otherwise returns the value as-is
+
+Used by async `UnitOfWork.command/query/projection` and async `UseCase` wrapper (imported as `awaiter`). This allows async UoW to accept both sync and async repositories/stores without knowing which at call time.
 
 Zero `# type: ignore` in `type_checks/`, `repository.py`, and `handlers.py`.
 
@@ -335,11 +351,14 @@ uv run pytest code/tests -q
 - If you change domain classes, check `test_event_emitter.py`, `test_entity.py`, `test_value_object.py`
 - If you change type checks, update `type_handlers/extractors.py` and/or `type_handlers/checks` and verify tests
 - If you change bounded context logic, update `bounded_context.py` and check `test_bounded_context.py`
-- If you change the projection layer, update `projection/` (both application and infrastructure) and verify `test_projection.py` / `test_projection_handler.py` / `test_async_projection_handler.py`
+- If you change the projection layer, update `projection_handler.py` / `projection_store.py` (both application and infrastructure) and verify `test_projection.py` / `test_projection_handler.py` / `test_async_projection_handler.py`
+- If you change `ProjectionStore`, update `projection/projection_store.py` and `projection/async_.py` in both application and infrastructure; verify projection handler tests
 - If you change the repository layer, update `repository.py` and/or `handlers.py` and verify `test_repository.py`
 - If you change validation functions, update `type_checks/` and verify `test_repository.py`
 - If you change the application layer, update `port.py` and/or `use_case.py` and verify `test_port.py` / `test_use_case.py`
+- If you change the UnitOfWork, update `unit_of_work.py` (sync + async) and verify `test_port.py` / `test_async_port.py` (includes `is_dirty` tests)
 - If you change async counterparts (in `async_.py` files), update both sync and async test files
+- If you change `should_await` in `async_utils.py`, verify `test_use_case.py` / `test_async_use_case.py` (used as `awaiter`) and `test_async_port.py`
 - Always add `__all__` to every `__init__.py` and `async_.py` to avoid `F401` lint warnings
 - Always run all tests before committing
 - `Event.emitted_at` is the timestamp field.
@@ -352,7 +371,7 @@ uv run pytest code/tests -q
 
 ## Test Count
 
-447 tests
+453 tests
 
 ## At the end of a task
 

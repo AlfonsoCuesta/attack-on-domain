@@ -4,6 +4,8 @@ from abc import abstractmethod
 from typing import Any, TypeVar, cast
 
 from aod._internal.application.port import Port
+from aod._internal.application.projection.projection import Projection
+from aod._internal.application.projection.projection_store import ProjectionStore
 from aod._internal.application.repository import Command, Query, Repository
 from aod._internal.core.domain_exception import DomainException
 from aod._internal.core.fields.fields import Field, PrivateField
@@ -13,10 +15,18 @@ from aod._internal.type_checks.contract_checks import extract_root_entity
 
 TEntity = TypeVar("TEntity")
 TResult = TypeVar("TResult")
+T = TypeVar("T")
+
+
+class _NullProjectionStore:
+    def projection(self, p: Projection[T]) -> T:
+        msg = "No ProjectionStore configured"
+        raise DomainException(msg)
 
 
 class _UnitOfWorkBase(Port):
     repositories: list[Repository[Any, Any]] = Field(default_factory=list)
+    projection_store: ProjectionStore = Field(default_factory=_NullProjectionStore)
     is_dirty: bool = Field(default=False, init=False)
     _repo_map: dict[type[RootEntity], Repository[Any, Any]] = PrivateField(default_factory=dict)
 
@@ -38,6 +48,9 @@ class _UnitOfWorkBase(Port):
             msg = f"No repository registered for entity {entity.__name__}"
             raise DomainException(msg)
         return repo
+
+    def projection(self, p: Projection[T]) -> T:
+        return self.projection_store.projection(p)
 
 
 class UnitOfWork(_UnitOfWorkBase):
