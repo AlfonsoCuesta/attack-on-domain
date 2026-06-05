@@ -16,7 +16,7 @@ from tests.application._use_case_scenarios import (
     UserRenamed,
     _RUN_BODIES,
 )
-from tests.doubles import SpyEventBus, SpyLogger, SpyUnitOfWork
+from aod.testing.doubles import SpyEventBus, SpyLogger, SpyUnitOfWork
 
 
 class CreateUser(UseCase):
@@ -435,7 +435,8 @@ def test_uow_auto_commit_on_success() -> None:
         def run(self) -> None:
             pass
 
-    uow = SpyUnitOfWork(dirty=True)
+    uow = SpyUnitOfWork()
+    uow.set_dirty()
     uc = Create(uow=uow)
     uc.run()
     assert uow.committed
@@ -459,7 +460,8 @@ def test_uow_auto_rollback_on_failure() -> None:
         def run(self) -> None:
             raise ValueError("oops")
 
-    uow = SpyUnitOfWork(dirty=True)
+    uow = SpyUnitOfWork()
+    uow.set_dirty()
     uc = Fail(uow=uow)
     with pytest.raises(ValueError):
         uc.run()
@@ -526,7 +528,8 @@ def test_commit_failure_rolls_back_and_logs() -> None:
         def run(self) -> None:
             pass
 
-    uow = FailingUoW(dirty=True)
+    uow = FailingUoW()
+    uow.set_dirty()
     logger = SpyLogger()
     uc = Simple(uow=uow, logger=logger)
     with pytest.raises(RuntimeError):

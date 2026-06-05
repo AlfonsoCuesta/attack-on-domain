@@ -325,6 +325,33 @@ Used by async `UnitOfWork.command/query/projection` and async `UseCase` wrapper 
 
 Zero `# type: ignore` in `type_checks/`, `repository.py`, and `handlers.py`.
 
+### Test Doubles (`aod.testing.doubles`)
+
+Spy classes for testing application-layer ports, organized by layer under `aod/testing/doubles/`:
+
+```
+aod/testing/
+├── __init__.py
+└── doubles/
+    ├── __init__.py                     # Re-exports all (sync + async)
+    ├── application/
+    │   ├── __init__.py                 # Re-exports from modules
+    │   ├── logger.py                   # LogEntry, SpyLogger
+    │   ├── event_bus.py                # SpyEventBus
+    │   ├── unit_of_work.py             # SpyUnitOfWork
+    │   └── async_.py                   # AsyncSpyLogger, AsyncSpyEventBus, AsyncSpyUnitOfWork
+    └── infrastructure/
+        └── __init__.py                 # Placeholder for future doubles
+```
+
+All spy classes use `PrivateField` instead of `object.__setattr__` to stay consistent with the framework's mutation-guarding system. Public methods are auto-wrapped by `_wrap_public_methods`, so in-place mutations (`.append()`, `.extend()`) inside them work transparently.
+
+- **`SpyLogger`** — captures `LogEntry` objects; `.entries` returns a snapshot copy
+- **`SpyEventBus`** — captures published `Event` objects; `.published` returns a snapshot copy
+- **`SpyUnitOfWork`** — tracks `committed`, `rolled_back`, `flushed` booleans; has `set_dirty()` to mark `is_dirty`
+
+Import from `aod.testing.doubles` (sync) or from individual modules. No need for a separate `tests/doubles.py`.
+
 ## Development Commands
 
 ```bash

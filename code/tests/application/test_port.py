@@ -8,7 +8,7 @@ from aod._internal.core.domain_exception import DomainException, MutationForbidd
 from aod._internal.core.event_emitter import Event
 from aod._internal.domain.entity import RootEntity
 from aod.application import Command, EventBus, Logger, Port, Query, UnitOfWork, UseCase
-from tests.doubles import SpyEventBus, SpyLogger, SpyUnitOfWork
+from aod.testing.doubles import SpyEventBus, SpyLogger, SpyUnitOfWork
 
 
 class RestClientExample(Port):

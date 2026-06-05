@@ -13,8 +13,14 @@ from tests.application._use_case_scenarios import (
     _RUN_BODIES,
     run_uc,
 )
-from tests.application.test_async_port import AsyncSpyEventBus, AsyncSpyLogger, AsyncSpyUnitOfWork
-from tests.doubles import SpyEventBus, SpyLogger, SpyUnitOfWork
+from aod.testing.doubles import (
+    AsyncSpyEventBus,
+    AsyncSpyLogger,
+    AsyncSpyUnitOfWork,
+    SpyEventBus,
+    SpyLogger,
+    SpyUnitOfWork,
+)
 
 
 class CreateUser(AsyncUseCase):
@@ -222,7 +228,8 @@ async def test_uow_auto_commit_on_success() -> None:
         async def run(self) -> None:
             pass
 
-    uow = AsyncSpyUnitOfWork(dirty=True)
+    uow = AsyncSpyUnitOfWork()
+    uow.set_dirty()
     uc = Create(uow=uow)
     await uc.run()
     assert uow.committed
@@ -246,7 +253,8 @@ async def test_uow_auto_rollback_on_failure() -> None:
         async def run(self) -> None:
             raise ValueError("oops")
 
-    uow = AsyncSpyUnitOfWork(dirty=True)
+    uow = AsyncSpyUnitOfWork()
+    uow.set_dirty()
     uc = Fail(uow=uow)
     with pytest.raises(ValueError):
         await uc.run()
@@ -286,7 +294,8 @@ async def test_commit_failure_rolls_back_and_logs() -> None:
         async def run(self) -> None:
             pass
 
-    uow = FailingUoW(dirty=True)
+    uow = FailingUoW()
+    uow.set_dirty()
     logger = SpyLogger()
     uc = Simple(uow=uow, logger=logger)
     with pytest.raises(RuntimeError):
@@ -327,7 +336,8 @@ async def test_mixed_all_sync_ports_on_success() -> None:
         async def run(self) -> None:
             pass
 
-    uow = SpyUnitOfWork(dirty=True)
+    uow = SpyUnitOfWork()
+    uow.set_dirty()
     logger = SpyLogger()
     bus = SpyEventBus()
     uc = Simple(uow=uow, logger=logger, event_bus=bus)
@@ -343,7 +353,8 @@ async def test_mixed_all_sync_ports_on_failure() -> None:
         async def run(self) -> None:
             raise ValueError("oops")
 
-    uow = SpyUnitOfWork(dirty=True)
+    uow = SpyUnitOfWork()
+    uow.set_dirty()
     logger = SpyLogger()
     uc = Fail(uow=uow, logger=logger)
     with pytest.raises(ValueError):
@@ -359,7 +370,8 @@ async def test_mixed_sync_uow_async_event_bus() -> None:
         async def run(self) -> None:
             self._event_emitter.emit(UserCreated(user_id=1, name="test"))
 
-    uow = SpyUnitOfWork(dirty=True)
+    uow = SpyUnitOfWork()
+    uow.set_dirty()
     bus = AsyncSpyEventBus()
     uc = Emit(uow=uow, event_bus=bus)
     await uc.run()
@@ -372,7 +384,8 @@ async def test_mixed_async_uow_sync_logger() -> None:
         async def run(self) -> None:
             pass
 
-    uow = AsyncSpyUnitOfWork(dirty=True)
+    uow = AsyncSpyUnitOfWork()
+    uow.set_dirty()
     logger = SpyLogger()
     uc = Simple(uow=uow, logger=logger)
     await uc.run()

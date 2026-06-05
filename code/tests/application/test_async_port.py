@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Any, Generic, TypeVar
+from typing import Generic, TypeVar
 
 import pytest
 from aod._internal.core.domain_exception import DomainException
@@ -10,74 +10,11 @@ from aod.application import Command, Query
 from aod.application.event_bus.async_ import EventBus as AsyncEventBus
 from aod.application.logger.async_ import Logger as AsyncLogger
 from aod.application.unit_of_work.async_ import UnitOfWork as AsyncUnitOfWork
-from tests.doubles import LogEntry
-
-
-class AsyncSpyLogger(AsyncLogger):
-    def __init__(self, **data: Any) -> None:
-        object.__setattr__(self, "_entries", [])
-        super().__init__(**data)
-
-    @property
-    def entries(self) -> list[LogEntry]:
-        return list(self._entries)
-
-    async def debug(self, msg: str, **context: object) -> None:
-        self._entries.append(LogEntry("debug", msg, **context))
-
-    async def info(self, msg: str, **context: object) -> None:
-        self._entries.append(LogEntry("info", msg, **context))
-
-    async def warning(self, msg: str, **context: object) -> None:
-        self._entries.append(LogEntry("warning", msg, **context))
-
-    async def error(self, msg: str, **context: object) -> None:
-        self._entries.append(LogEntry("error", msg, **context))
-
-
-class AsyncSpyEventBus(AsyncEventBus):
-    def __init__(self, **data: Any) -> None:
-        object.__setattr__(self, "_published", [])
-        super().__init__(**data)
-
-    @property
-    def published(self) -> list[Event]:
-        return list(self._published)
-
-    async def publish(self, *events: Event) -> None:
-        self._published.extend(events)
-
-
-class AsyncSpyUnitOfWork(AsyncUnitOfWork):
-    def __init__(self, **data: Any) -> None:
-        dirty = data.pop("dirty", False)
-        object.__setattr__(self, "_committed", False)
-        object.__setattr__(self, "_rolled_back", False)
-        object.__setattr__(self, "_flushed", False)
-        super().__init__(**data)
-        if dirty:
-            object.__setattr__(self, "is_dirty", True)
-
-    @property
-    def committed(self) -> bool:
-        return self._committed
-
-    @property
-    def rolled_back(self) -> bool:
-        return self._rolled_back
-
-    @property
-    def flushed(self) -> bool:
-        return self._flushed
-
-    async def commit(self) -> None:
-        self._committed = True
-
-    async def rollback(self) -> None:
-        self._rolled_back = True
-
-    async def flush(self) -> None:
-        self._flushed = True
+from aod.testing.doubles import (
+    AsyncSpyEventBus,
+    AsyncSpyLogger,
+    AsyncSpyUnitOfWork,
+)
 
 
 async def test_async_logger_concrete() -> None:
