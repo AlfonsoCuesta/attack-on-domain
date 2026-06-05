@@ -173,6 +173,21 @@ async def test_async_unit_of_work_dispatch_command() -> None:
     assert len(repo.commands) == 1
 
 
+async def test_async_unit_of_work_is_dirty_after_command() -> None:
+    repo = AsyncSpyUserRepo()
+    uow = AsyncSpyUnitOfWork(repositories=[repo])
+    assert not uow.is_dirty
+    await uow.command(CreateUser(name="Bob"))
+    assert uow.is_dirty
+
+
+async def test_async_unit_of_work_is_dirty_false_after_query_only() -> None:
+    repo = AsyncSpyUserRepo()
+    uow = AsyncSpyUnitOfWork(repositories=[repo])
+    await uow.query(GetUser(user_id=1))
+    assert not uow.is_dirty
+
+
 async def test_async_unit_of_work_dispatch_query() -> None:
     repo = AsyncSpyUserRepo()
     uow = AsyncSpyUnitOfWork(repositories=[repo])

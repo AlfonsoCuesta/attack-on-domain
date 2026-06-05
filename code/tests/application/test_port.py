@@ -178,6 +178,21 @@ def test_unit_of_work_dispatch_command() -> None:
     assert len(repo.commands) == 1
 
 
+def test_unit_of_work_is_dirty_after_command() -> None:
+    repo = SpyUserRepo()
+    uow = SpyUnitOfWork(repositories=[repo])
+    assert not uow.is_dirty
+    uow.command(CreateUser(name="Bob"))
+    assert uow.is_dirty
+
+
+def test_unit_of_work_is_dirty_false_after_query_only() -> None:
+    repo = SpyUserRepo()
+    uow = SpyUnitOfWork(repositories=[repo])
+    uow.query(GetUser(user_id=1))
+    assert not uow.is_dirty
+
+
 def test_unit_of_work_dispatch_query() -> None:
     repo = SpyUserRepo()
     uow = SpyUnitOfWork(repositories=[repo])
