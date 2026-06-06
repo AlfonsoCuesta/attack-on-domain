@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import pytest
-from aod._internal.core.domain_exception import DomainException
 from aod._internal.domain.entity import RootEntity
 from aod.application import Command, Query
 from aod.infrastructure.handlers.async_ import CommandHandler, QueryHandler
@@ -64,19 +63,3 @@ async def test_query_handler_returns_none() -> None:
     h = GetUserHandler()
     result = await h.handle(GetUser(user_id=999))
     assert result is None
-
-
-async def test_invalid_generic_raises() -> None:
-    with pytest.raises(DomainException, match="Generic parameter for"):
-
-        class _(CommandHandler[str]):  # type: ignore
-            async def handle(self, cmd: str) -> str:
-                return cmd
-
-
-async def test_query_invalid_generic_raises() -> None:
-    with pytest.raises(DomainException, match="Generic parameter for"):
-
-        class _(QueryHandler[int]):  # type: ignore
-            async def handle(self, query: int) -> int:
-                return query

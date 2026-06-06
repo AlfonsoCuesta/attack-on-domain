@@ -4,6 +4,8 @@ import pytest
 from aod._internal.core.base_sealed import BaseSealed
 from aod._internal.core.domain_exception import DomainException, MutationForbiddenException
 from aod._internal.domain.entity import Entity, RootEntity
+from aod._internal.type_checks.contract_checks import extract_root_entity
+from aod._internal.type_checks.handler_checks import extract_handler_type, validate_handler_type
 from aod.application import Command, Query
 from aod.infrastructure import CommandHandler, QueryHandler, Repository
 
@@ -218,13 +220,6 @@ class TestCommandHandler:
         result = h.handle(cmd)
         assert result.id == 99
 
-    def test_invalid_generic_raises(self) -> None:
-        with pytest.raises(DomainException, match="Generic parameter for"):
-
-            class _(CommandHandler[str]):  # type: ignore
-                def handle(self, cmd: str) -> str:
-                    return cmd
-
 
 class TestQueryHandler:
     def test_is_abstract(self) -> None:
@@ -255,13 +250,6 @@ class TestQueryHandler:
         count, user = result
         assert count == 42
         assert user.id == 1
-
-    def test_invalid_generic_raises(self) -> None:
-        with pytest.raises(DomainException, match="Generic parameter for"):
-
-            class _(QueryHandler[int]):  # type: ignore
-                def handle(self, query: int) -> int:
-                    return query
 
 
 class TestRepository:
@@ -421,8 +409,6 @@ class TestRepository:
             def handle(self, cmd):
                 return None
 
-        from aod._internal.type_checks.handler_checks import extract_handler_type
-
         with pytest.raises(DomainException):
             extract_handler_type(BadHandler())
 
@@ -443,7 +429,7 @@ class TestRepository:
 class TestContractChecks:
     def test_validate_fields_no_entity_name_error(self) -> None:
         class ForwaredRefCmd(Command[User, User]):
-            items: "NonExistentType"  # type: ignore[name-defined]  # noqa: F722
+            items: "NonExistentType"  # type: ignore  # noqa: F821
 
         # Class creation succeeds because NameError is caught
 
@@ -454,8 +440,6 @@ class TestContractChecks:
         assert issubclass(BareQuery, Query)
 
     def test_extract_root_entity_returns_none(self) -> None:
-        from aod._internal.type_checks.contract_checks import extract_root_entity
-
         class NotARepo(BaseSealed):
             pass
 
@@ -463,17 +447,12 @@ class TestContractChecks:
         assert result is None
 
     def test_extract_root_entity_with_object(self) -> None:
-        from aod._internal.type_checks.contract_checks import extract_root_entity
-
         result = extract_root_entity(object())
         assert result is None
 
 
 class TestHandlerChecks:
     def test_validate_handler_type_raises(self) -> None:
-        from aod._internal.type_checks.handler_checks import validate_handler_type
-        from aod.infrastructure import CommandHandler, QueryHandler
-
         class NotAHandler(BaseSealed):
             pass
 

@@ -5,6 +5,16 @@ from typing import get_args, get_origin
 from aod._internal.core.domain_exception import DomainException
 
 
+def get_last_generic_arg(cls: type) -> type | None:
+    for base in getattr(cls, "__orig_bases__", ()):
+        origin = get_origin(base)
+        if origin is not None:
+            args = get_args(base)
+            if args:
+                return args[-1]
+    return None
+
+
 def get_generic_arg_from_orig_bases(cls: type, target_origin: type, index: int = 0) -> type | None:
     for base in getattr(cls, "__orig_bases__", ()):
         origin = get_origin(base)
@@ -50,6 +60,9 @@ def validate_handler_subclass(
         origin = get_origin(orig_base)
         if origin is not None and isinstance(origin, type) and issubclass(origin, handler_class):
             validate_generic_arg_is_subclass(
-                cls, origin, expected_base, arg_name=arg_name,
+                cls,
+                origin,
+                expected_base,
+                arg_name=arg_name,
             )
             break

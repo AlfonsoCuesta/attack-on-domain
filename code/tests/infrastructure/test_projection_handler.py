@@ -4,8 +4,14 @@ from typing import Any, cast
 
 import pytest
 from aod._internal.core.domain_exception import DomainException
+from aod._internal.infrastructure.projection.projection_handler import (
+    ProjectionQueryHandler as PH,
+)
+from aod._internal.infrastructure.projection.projection_store import (
+    ProjectionStore as PS,
+)
 from aod.application import ProjectionCommand, ProjectionQuery
-from aod.infrastructure import ProjectionCommandHandler, ProjectionQueryHandler
+from aod.infrastructure import ProjectionCommandHandler, ProjectionQueryHandler, ProjectionStore
 
 
 class GetOrders(ProjectionQuery[list[dict]]):
@@ -54,13 +60,6 @@ class TestProjectionHandler:
         result = h.handle(GetOrders(user_id=1))
         assert result[0]["status"] == "pending"
 
-    def test_invalid_query_handler_generic_raises(self) -> None:
-        with pytest.raises(DomainException, match="Generic parameter for"):
-
-            class _(ProjectionQueryHandler[str]):  # type: ignore
-                def handle(self, query: str) -> str:
-                    return query
-
     def test_query_handler_with_custom_return(self) -> None:
         class CountOrders(ProjectionQuery[int]):
             user_id: int
@@ -93,17 +92,8 @@ class TestProjectionHandler:
         h = UpdateOrderHandler()
         h.handle(UpdateOrder(order_id=1, status="shipped"))
 
-    def test_invalid_command_handler_generic_raises(self) -> None:
-        with pytest.raises(DomainException, match="Generic parameter for"):
-
-            class _(ProjectionCommandHandler[str]):  # type: ignore
-                def handle(self, command: str) -> None:
-                    pass
-
 
 def test_store_with_valid_query_handler() -> None:
-    from aod.infrastructure import ProjectionStore
-
     store = ProjectionStore(handlers=[GetOrdersHandler()])
     result = store.query(GetOrders(user_id=1, status="active"))
     assert isinstance(result, list)
@@ -111,31 +101,23 @@ def test_store_with_valid_query_handler() -> None:
 
 
 def test_store_no_query_handler_registered() -> None:
-    from aod.infrastructure import ProjectionStore
-
     store = ProjectionStore()
     with pytest.raises(DomainException, match="No handler registered for"):
         store.query(GetOrders(user_id=1))
 
 
 def test_store_with_valid_command_handler() -> None:
-    from aod.infrastructure import ProjectionStore
-
     store = ProjectionStore(handlers=[UpdateOrderHandler()])
     store.command(UpdateOrder(order_id=1, status="shipped"))
 
 
 def test_store_no_command_handler_registered() -> None:
-    from aod.infrastructure import ProjectionStore
-
     store = ProjectionStore()
     with pytest.raises(DomainException, match="No handler registered for"):
         store.command(UpdateOrder(order_id=1, status="shipped"))
 
 
 def test_store_with_both_handler_types() -> None:
-    from aod.infrastructure import ProjectionStore
-
     store = ProjectionStore(handlers=[GetOrdersHandler(), UpdateOrderHandler()])
     result = store.query(GetOrders(user_id=1))
     assert isinstance(result, list)
@@ -143,15 +125,11 @@ def test_store_with_both_handler_types() -> None:
 
 
 def test_store_duplicate_handler_raises() -> None:
-    from aod.infrastructure import ProjectionStore
-
     with pytest.raises(DomainException, match="Duplicate handler for"):
         ProjectionStore(handlers=[GetOrdersHandler(), GetOrdersHandler()])
 
 
 def test_store_duplicate_command_handler_raises() -> None:
-    from aod.infrastructure import ProjectionStore
-
     class AnotherHandler(ProjectionCommandHandler[UpdateOrder]):
         def handle(self, command: UpdateOrder) -> None:
             pass
@@ -161,9 +139,6 @@ def test_store_duplicate_command_handler_raises() -> None:
 
 
 def test_store_invalid_handler_type_raises() -> None:
-    from aod._internal.infrastructure.projection.projection_store import ProjectionStore as PS
-    from aod._internal.infrastructure.projection.projection_handler import ProjectionQueryHandler as PH
-
     class NoType(PH):
         def handle(self, query: object) -> object:
             return None

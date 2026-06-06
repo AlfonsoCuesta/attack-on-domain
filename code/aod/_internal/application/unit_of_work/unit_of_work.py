@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from abc import abstractmethod
-from typing import Any, TypeVar, cast
+from typing import Any, TypeVar
 
 from aod._internal.application.port import Port
 from aod._internal.application.projection import ProjectionCommand, ProjectionQuery

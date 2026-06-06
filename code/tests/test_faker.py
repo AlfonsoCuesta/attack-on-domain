@@ -10,6 +10,7 @@ from typing import get_args, get_origin
 
 # ── domain types used across tests ──────────────────────────────────────────
 
+
 class Address(ValueObject):
     street: str
     city: str
@@ -27,6 +28,7 @@ class Tag(ValueObject):
 
 
 # ── _flatten ─────────────────────────────────────────────────────────────────
+
 
 class TestFlatten:
     def test_base_guarded_returns_raw_model(self) -> None:
@@ -56,6 +58,7 @@ class TestFlatten:
 
 
 # ── _to_domain ───────────────────────────────────────────────────────────────
+
 
 class TestToDomain:
     def test_none_value_returns_none(self) -> None:
@@ -98,6 +101,7 @@ class TestToDomain:
 
 
 # ── FakeDomain ───────────────────────────────────────────────────────────────
+
 
 class TestFakeDomainConstructor:
     def test_non_domain_raises(self) -> None:

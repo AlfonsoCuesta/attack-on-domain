@@ -143,6 +143,7 @@ def test_check_service_passes_with_custom_class_param() -> None:
 
 # --- type_handlers/__init__.py coverage ---
 
+
 def test_import_generic_utils_through_module() -> None:
     import aod._internal.core.type_handlers as handler_module
 
@@ -168,9 +169,11 @@ def test_module_attribute_error() -> None:
 
 # --- base_guarded_handler.py coverage ---
 
+
 def _add_model_field(cls: type, name: str, annotation: object) -> None:
     from pydantic.fields import FieldInfo
-    cls.__model_fields__[name] = FieldInfo(annotation=annotation)
+
+    cls.__model_fields__[name] = FieldInfo(annotation=annotation)  # type: ignore
 
 
 def test_check_entity_skips_private_fields() -> None:
@@ -240,12 +243,13 @@ def test_discover_types_skips_class_without_model_fields() -> None:
     class Root(RootEntity):
         id: int
 
-    entities, vos = BaseGuardedTypeHandler.discover_types([Root, NonPydantic])  # type: ignore[list-item]
+    entities, vos = BaseGuardedTypeHandler.discover_types([Root, NonPydantic])  # type: ignore
     assert isinstance(entities, list)
     assert isinstance(vos, list)
 
 
 # --- service_handler.py coverage ---
+
 
 def test_check_service_skips_param_without_annotation() -> None:
     class SomeService(Service):

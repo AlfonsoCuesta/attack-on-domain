@@ -54,12 +54,12 @@ async def test_async_logger_error() -> None:
 
 async def test_async_logger_is_abstract() -> None:
     with pytest.raises(TypeError):
-        AsyncLogger()  # type: ignore[abstract]
+        AsyncLogger()
 
 
 async def test_async_event_bus_is_abstract() -> None:
     with pytest.raises(TypeError):
-        AsyncEventBus()  # type: ignore[abstract]
+        AsyncEventBus()
 
 
 async def test_async_event_bus_publish() -> None:
@@ -72,7 +72,7 @@ async def test_async_event_bus_publish() -> None:
 
 async def test_async_unit_of_work_is_abstract() -> None:
     with pytest.raises(TypeError):
-        AsyncUnitOfWork()  # type: ignore[abstract]
+        AsyncUnitOfWork()
 
 
 async def test_async_unit_of_work_commit() -> None:

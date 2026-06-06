@@ -4,6 +4,10 @@ import pytest
 from aod._internal.core.base_sealed import BaseSealed
 from aod._internal.core.domain_exception import DomainException
 from aod._internal.domain.entity import RootEntity
+from aod._internal.type_checks.handler_checks_async import (
+    extract_handler_type,
+    validate_handler_type,
+)
 from aod.application import Command, Query
 from aod.infrastructure.handlers.async_ import CommandHandler, QueryHandler
 from aod.infrastructure.repository.async_ import Repository
@@ -230,9 +234,6 @@ async def test_handler_for_wrong_entity_type() -> None:
 
 
 async def test_validate_handler_type_raises_async() -> None:
-    from aod._internal.type_checks.handler_checks_async import validate_handler_type
-    from aod.infrastructure.handlers.async_ import CommandHandler, QueryHandler
-
     class NotAHandler(BaseSealed):
         pass
 
@@ -244,9 +245,6 @@ async def test_validate_handler_type_raises_async() -> None:
 
 
 async def test_extract_handler_type_raises_async() -> None:
-    from aod._internal.type_checks.handler_checks_async import extract_handler_type
-    from aod.infrastructure.handlers.async_ import CommandHandler
-
     class BadHandler(CommandHandler):
         async def handle(self, cmd):
             return None

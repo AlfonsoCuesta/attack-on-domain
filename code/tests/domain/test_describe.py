@@ -198,8 +198,9 @@ def test_extract_methods_skips_non_callable() -> None:
 
 
 def test_extract_methods_handles_signature_error() -> None:
-    from aod._internal.domain.describe import extract_methods
     import functools
+
+    from aod._internal.domain.describe import extract_methods
 
     class ClassWithBad:
         def good_method(self) -> None:
@@ -230,13 +231,14 @@ def test_extract_fields_with_null_annotation() -> None:
 
 
 def test_extract_fields_skips_private() -> None:
-    from aod._internal.domain.describe import extract_fields
     from types import SimpleNamespace
+
+    from aod._internal.domain.describe import extract_fields
 
     class Fake:
         pass
 
-    Fake.__model_fields__ = {"_hidden": SimpleNamespace(annotation=str)}
+    Fake.__model_fields__ = {"_hidden": SimpleNamespace(annotation=str)}  # type: ignore
 
     result = extract_fields(Fake)
     assert result == []

@@ -35,7 +35,7 @@ class RealRestClient(RestClientExample):
 
 def test_port_abstract_cannot_instantiate() -> None:
     with pytest.raises(TypeError):
-        RestClientExample()  # type: ignore[abstract]
+        RestClientExample()
 
 
 def test_concrete_port_instantiation() -> None:
@@ -84,7 +84,7 @@ def test_port_as_use_case_field() -> None:
 
 def test_logger_abstract() -> None:
     with pytest.raises(TypeError):
-        Logger()  # type: ignore[abstract]
+        Logger()
 
 
 def test_logger_concrete() -> None:

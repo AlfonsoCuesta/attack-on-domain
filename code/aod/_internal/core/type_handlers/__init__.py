@@ -11,6 +11,7 @@ if TYPE_CHECKING:
     from .generic_utils import (
         get_generic_arg_from_mro,
         get_generic_arg_from_orig_bases,
+        get_last_generic_arg,
         validate_generic_arg_is_subclass,
         validate_handler_subclass,
     )
@@ -19,6 +20,7 @@ __all__ = [
     "BaseGuardedTypeHandler",
     "get_generic_arg_from_mro",
     "get_generic_arg_from_orig_bases",
+    "get_last_generic_arg",
     "ServiceTypeHandler",
     "validate_generic_arg_is_subclass",
     "validate_handler_subclass",
@@ -38,6 +40,7 @@ def __getattr__(name: str) -> object:
         if name in (
             "get_generic_arg_from_mro",
             "get_generic_arg_from_orig_bases",
+            "get_last_generic_arg",
             "validate_generic_arg_is_subclass",
             "validate_handler_subclass",
         ):

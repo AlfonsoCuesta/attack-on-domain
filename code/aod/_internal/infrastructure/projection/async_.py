@@ -7,6 +7,7 @@ from aod._internal.application.projection import ProjectionCommand, ProjectionQu
 from aod._internal.core.async_utils import should_await
 from aod._internal.core.domain_exception import DomainException
 from aod._internal.core.fields.fields import Field, PrivateField
+from aod._internal.infrastructure.handlers.base_handler import AsyncBaseHandler
 
 from .projection_handler import ProjectionCommandHandler as SyncProjectionCommandHandler
 from .projection_handler import ProjectionQueryHandler as SyncProjectionQueryHandler
@@ -17,23 +18,25 @@ PC = TypeVar("PC", bound=ProjectionCommand)
 T = TypeVar("T")
 
 
-class ProjectionQueryHandler(SyncProjectionQueryHandler, Generic[PQ]):
+class ProjectionQueryHandler(AsyncBaseHandler, Generic[PQ]):
     @abstractmethod
     async def handle(self, query: PQ) -> object: ...
 
 
-class ProjectionCommandHandler(SyncProjectionCommandHandler, Generic[PC]):
+class ProjectionCommandHandler(AsyncBaseHandler, Generic[PC]):
     @abstractmethod
     async def handle(self, command: PC) -> object: ...
 
 
 class ProjectionStore(SyncProjectionStore):
     handlers: list[
-        ProjectionQueryHandler | SyncProjectionQueryHandler
-        | ProjectionCommandHandler | SyncProjectionCommandHandler
+        ProjectionQueryHandler
+        | SyncProjectionQueryHandler
+        | ProjectionCommandHandler
+        | SyncProjectionCommandHandler
     ] = Field(default_factory=list)
-    _query_handlers: dict[type, ProjectionQueryHandler | SyncProjectionQueryHandler] = (
-        PrivateField(default_factory=dict)
+    _query_handlers: dict[type, ProjectionQueryHandler | SyncProjectionQueryHandler] = PrivateField(
+        default_factory=dict
     )
     _command_handlers: dict[type, ProjectionCommandHandler | SyncProjectionCommandHandler] = (
         PrivateField(default_factory=dict)

@@ -17,6 +17,7 @@ from aod.domain.validation import field_invariance, invariance
 
 # ── build ────────────────────────────────────────────────────────────────────
 
+
 class TestBuild:
     def test_entity(self) -> None:
         class User(RootEntity):
@@ -69,6 +70,7 @@ class TestBuild:
 
 # ── events_of ────────────────────────────────────────────────────────────────
 
+
 class TestEventsOf:
     def test_returns_events_from_emitter(self) -> None:
         class UserCreated(Event):
@@ -92,11 +94,13 @@ class TestEventsOf:
 
         # Direct construction without __post_init__ via build
         from aod.testing.helpers import build as _build
+
         u = _build(User, id=1)
         assert events_of(u) == []
 
 
 # ── assert_event_emitted ─────────────────────────────────────────────────────
+
 
 class TestAssertEventEmitted:
     def test_returns_matching_event(self) -> None:
@@ -142,6 +146,7 @@ class TestAssertEventEmitted:
 
 # ── assert_no_events ─────────────────────────────────────────────────────────
 
+
 class TestAssertNoEvents:
     def test_passes_on_empty(self) -> None:
         assert_no_events([])
@@ -159,6 +164,7 @@ class TestAssertNoEvents:
 
 
 # ── check_invariant ──────────────────────────────────────────────────────────
+
 
 class TestCheckInvariant:
     def test_field_invariance_passes(self) -> None:
