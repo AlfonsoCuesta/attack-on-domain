@@ -4,7 +4,7 @@ import pytest
 from aod._internal.core.domain_exception import MutationForbiddenException
 from aod._internal.domain.entity import Entity, RootEntity
 from aod._internal.domain.value_object import ValueObject
-from aod.application import ProjectionQuery
+from aod.application import ProjectionCommand, ProjectionQuery, ReadModel
 from aod.application.projection import ProjectionQuery as ProjectionQueryDirect
 
 
@@ -23,16 +23,20 @@ class LineItem(Entity):
     qty: int
 
 
+class OrdersResponse(ReadModel):
+    data: list
+
+
 class TestProjection:
     def test_can_be_instantiated(self) -> None:
-        class GetOrders(ProjectionQuery[list[dict]]):
+        class GetOrders(ProjectionQuery[OrdersResponse]):
             user_id: int
 
         p = GetOrders(user_id=1)
         assert p.user_id == 1
 
     def test_is_immutable(self) -> None:
-        class GetOrders(ProjectionQuery[list[dict]]):
+        class GetOrders(ProjectionQuery[OrdersResponse]):
             user_id: int
 
         p = GetOrders(user_id=1)
@@ -40,7 +44,7 @@ class TestProjection:
             p.user_id = 99
 
     def test_repr(self) -> None:
-        class GetOrders(ProjectionQuery[list[dict]]):
+        class GetOrders(ProjectionQuery[OrdersResponse]):
             user_id: int
             status: str | None = None
 
@@ -51,7 +55,7 @@ class TestProjection:
         assert "active" in rep
 
     def test_default_values(self) -> None:
-        class GetOrders(ProjectionQuery[list[dict]]):
+        class GetOrders(ProjectionQuery[OrdersResponse]):
             user_id: int
             status: str | None = None
 
@@ -59,57 +63,48 @@ class TestProjection:
         assert p.status is None
 
     def test_can_have_entity_field(self) -> None:
-        class GetLineItems(ProjectionQuery[list[dict]]):
+        class GetLineItems(ProjectionQuery[OrdersResponse]):
             item: LineItem
 
         p = GetLineItems(item=LineItem(sku="ABC", qty=5))
         assert p.item.sku == "ABC"
 
     def test_can_have_root_entity_field(self) -> None:
-        class GetUserInfo(ProjectionQuery[dict]):
+        class GetUserInfo(ProjectionQuery[OrdersResponse]):
             user: User
 
         p = GetUserInfo(user=User(id=1, name="Alice"))
         assert p.user.name == "Alice"
 
     def test_can_have_value_object_field(self) -> None:
-        class GetAddressInfo(ProjectionQuery[dict]):
+        class GetAddressInfo(ProjectionQuery[OrdersResponse]):
             address: Address
 
         p = GetAddressInfo(address=Address(street="123 Main", city="NYC"))
         assert p.address.city == "NYC"
 
-    def test_can_have_primitive_result_type(self) -> None:
-        class CountOrders(ProjectionQuery[int]):
+    def test_can_have_primitive_fields(self) -> None:
+        class CountOrders(ProjectionQuery[OrdersResponse]):
             user_id: int
 
         p = CountOrders(user_id=1)
         assert p.user_id == 1
 
-    def test_can_have_any_nested_type(self) -> None:
-        class ComplexProjection(ProjectionQuery[tuple[int, User | None, list[LineItem]]]):
-            query: str
-
-        p = ComplexProjection(query="test")
-        assert p.query == "test"
-
     def test_no_fields_still_works(self) -> None:
-        class AllOrders(ProjectionQuery[list[dict]]):
+        class AllOrders(ProjectionQuery[OrdersResponse]):
             pass
 
         p = AllOrders()
         assert isinstance(p, ProjectionQuery)
 
     def test_direct_module_import_works(self) -> None:
-        class DirectOrder(ProjectionQueryDirect[list[dict]]):
+        class DirectOrder(ProjectionQueryDirect[OrdersResponse]):
             user_id: int
 
         p = DirectOrder(user_id=1)
         assert p.user_id == 1
 
     def test_projection_command(self) -> None:
-        from aod.application import ProjectionCommand
-
         class SaveOrder(ProjectionCommand[None]):
             order_id: int
             total: float
@@ -119,11 +114,23 @@ class TestProjection:
         assert cmd.total == 99.99
 
     def test_projection_command_is_immutable(self) -> None:
-        from aod.application import ProjectionCommand
-
         class SaveOrder(ProjectionCommand[None]):
             order_id: int
 
         cmd = SaveOrder(order_id=42)
         with pytest.raises(MutationForbiddenException):
             cmd.order_id = 99
+
+    def test_allows_none_result(self) -> None:
+        class VoidResponse(ReadModel):
+            pass
+
+        class _(ProjectionCommand[VoidResponse]):
+            order_id: int
+
+    def test_allows_union_read_model_none(self) -> None:
+        class OptionalModel(ReadModel):
+            value: int
+
+        class _(ProjectionQuery[OptionalModel | None]):
+            user_id: int

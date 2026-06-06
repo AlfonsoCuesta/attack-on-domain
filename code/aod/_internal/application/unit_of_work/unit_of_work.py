@@ -4,7 +4,7 @@ from abc import abstractmethod
 from typing import Any, TypeVar
 
 from aod._internal.application.port import Port
-from aod._internal.application.projection import ProjectionCommand, ProjectionQuery
+from aod._internal.application.projection import ProjectionCommand, ProjectionQuery, ReadModel
 from aod._internal.application.projection.projection_store import ProjectionStore
 from aod._internal.application.repository import Command, Query, Repository
 from aod._internal.core.domain_exception import DomainException
@@ -15,7 +15,7 @@ from aod._internal.type_checks.contract_checks import extract_root_entity
 
 TEntity = TypeVar("TEntity")
 TResult = TypeVar("TResult")
-T = TypeVar("T")
+T = TypeVar("T", bound=ReadModel | None)
 
 
 class _NullProjectionStore:

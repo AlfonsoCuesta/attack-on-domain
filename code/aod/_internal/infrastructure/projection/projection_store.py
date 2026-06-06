@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import ClassVar, TypeVar, cast
 
-from aod._internal.application.projection import ProjectionCommand, ProjectionQuery
+from aod._internal.application.projection import ProjectionCommand, ProjectionQuery, ReadModel
 from aod._internal.core.base_sealed import BaseSealed
 from aod._internal.core.domain_exception import DomainException
 from aod._internal.core.fields.fields import Field, PrivateField
@@ -12,7 +12,7 @@ from aod._internal.infrastructure.projection.projection_handler import (
     ProjectionQueryHandler,
 )
 
-T = TypeVar("T")
+T = TypeVar("T", bound=ReadModel | None)
 
 _PROJECTION_HANDLERS = (ProjectionQueryHandler, ProjectionCommandHandler)
 

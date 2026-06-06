@@ -2,9 +2,13 @@ from __future__ import annotations
 
 from typing import Protocol, TypeVar, runtime_checkable
 
-from aod._internal.application.projection.projection import ProjectionCommand, ProjectionQuery
+from aod._internal.application.projection.projection import (
+    ProjectionCommand,
+    ProjectionQuery,
+    ReadModel,
+)
 
-T = TypeVar("T")
+T = TypeVar("T", bound=ReadModel | None)
 
 
 @runtime_checkable

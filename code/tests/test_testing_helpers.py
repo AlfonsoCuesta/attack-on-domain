@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from pydantic_core import ValidationError
+
 from aod._internal.core.domain_exception import InvarianceException
 from aod._internal.core.event_emitter import Event
 from aod._internal.domain.entity import RootEntity
@@ -55,8 +57,6 @@ class TestBuild:
         assert u2.id == 2
 
     def test_raises_on_missing_required(self) -> None:
-        from pydantic_core import ValidationError
-
         class User(RootEntity):
             id: int
 
@@ -92,10 +92,7 @@ class TestEventsOf:
         class User(RootEntity):
             id: int
 
-        # Direct construction without __post_init__ via build
-        from aod.testing.helpers import build as _build
-
-        u = _build(User, id=1)
+        u = build(User, id=1)
         assert events_of(u) == []
 
 

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import pytest
+from pydantic import ValidationError
 from aod._internal.core.base_sealed import BaseSealed
 from aod._internal.core.domain_exception import DomainException, MutationForbiddenException
 from aod._internal.domain.entity import Entity, RootEntity
@@ -387,8 +388,6 @@ class TestRepository:
         assert order.total == 99.99
 
     def test_query_handler_in_command_list_raises(self) -> None:
-        from pydantic import ValidationError
-
         class UserRepo(Repository[User]):
             pass
 
@@ -396,8 +395,6 @@ class TestRepository:
             UserRepo(command_handlers=[GetUserHandler()])  # type: ignore
 
     def test_command_handler_in_query_list_raises(self) -> None:
-        from pydantic import ValidationError
-
         class UserRepo(Repository[User]):
             pass
 

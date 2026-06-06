@@ -1,5 +1,10 @@
+import functools
+from types import SimpleNamespace
+
 from aod._internal.domain.app import App
 from aod._internal.domain.bounded_context import BoundedContext
+from aod._internal.domain.describe import extract_fields
+from aod._internal.domain.describe import extract_methods
 from aod._internal.domain.entity import Entity, RootEntity
 from aod._internal.domain.service import Service
 from aod._internal.domain.value_object import ValueObject
@@ -165,8 +170,6 @@ def test_app_describe_includes_all_contexts() -> None:
 
 
 def test_extract_fields_on_non_model() -> None:
-    from aod._internal.domain.describe import extract_fields
-
     class NotAModel:
         pass
 
@@ -184,8 +187,6 @@ def test_describe_skips_private_fields() -> None:
 
 
 def test_extract_methods_skips_non_callable() -> None:
-    from aod._internal.domain.describe import extract_methods
-
     class Mixed:
         def valid_method(self) -> None:
             pass
@@ -198,10 +199,6 @@ def test_extract_methods_skips_non_callable() -> None:
 
 
 def test_extract_methods_handles_signature_error() -> None:
-    import functools
-
-    from aod._internal.domain.describe import extract_methods
-
     class ClassWithBad:
         def good_method(self) -> None:
             pass
@@ -217,9 +214,6 @@ def test_extract_methods_handles_signature_error() -> None:
 
 
 def test_extract_fields_with_null_annotation() -> None:
-    from aod._internal.domain.describe import extract_fields
-    from aod._internal.domain.entity import Entity
-
     class Item(Entity):
         id: int
 
@@ -231,10 +225,6 @@ def test_extract_fields_with_null_annotation() -> None:
 
 
 def test_extract_fields_skips_private() -> None:
-    from types import SimpleNamespace
-
-    from aod._internal.domain.describe import extract_fields
-
     class Fake:
         pass
 

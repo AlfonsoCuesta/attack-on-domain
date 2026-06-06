@@ -7,7 +7,7 @@ import pytest
 from aod._internal.core.domain_exception import DomainException, MutationForbiddenException
 from aod._internal.core.event_emitter import Event
 from aod._internal.domain.entity import RootEntity
-from aod.application import Command, EventBus, Logger, Port, Query, UnitOfWork, UseCase
+from aod.application import Command, EventBus, Logger, Port, ProjectionCommand, ProjectionQuery, Query, ReadModel, UnitOfWork, UseCase
 from aod.testing.doubles import SpyEventBus, SpyLogger, SpyUnitOfWork
 
 
@@ -240,8 +240,6 @@ def test_unit_of_work_empty_repositories_raises() -> None:
 
 
 def test_unit_of_work_cannot_determine_entity() -> None:
-    from aod.application import Query
-
     class AmbiguousQuery(Query[User | None, User | None]):
         pass
 
@@ -251,9 +249,10 @@ def test_unit_of_work_cannot_determine_entity() -> None:
 
 
 def test_unit_of_work_projection_without_store_raises() -> None:
-    from aod.application import ProjectionQuery
+    class StringResponse(ReadModel):
+        value: str
 
-    class SomeProjection(ProjectionQuery[str]):
+    class SomeProjection(ProjectionQuery[StringResponse]):
         pass
 
     uow = SpyUnitOfWork()
@@ -262,26 +261,25 @@ def test_unit_of_work_projection_without_store_raises() -> None:
 
 
 def test_unit_of_work_projection_with_store() -> None:
-    from aod.application import ProjectionCommand, ProjectionQuery
+    class StringResponse(ReadModel):
+        value: str
 
-    class TestProjection(ProjectionQuery[str]):
+    class TestProjection(ProjectionQuery[StringResponse]):
         pass
 
-    class FakeStore[TestProjection]:
-        def query(self, query: TestProjection) -> str:
-            return "ok"
+    class FakeStore:
+        def query(self, query: ProjectionQuery[StringResponse]) -> StringResponse:
+            return StringResponse(value="ok")
 
-        def command(self, command: ProjectionCommand) -> None:
-            pass
+        def command(self, command: ProjectionCommand[StringResponse]) -> StringResponse:
+            return StringResponse(value="")
 
     uow = SpyUnitOfWork(projection_store=FakeStore())
-    result = uow.query(TestProjection())
-    assert result == "ok"
+    result: StringResponse = uow.query(TestProjection())  # type: ignore
+    assert result.value == "ok"
 
 
 def test_unit_of_work_save_without_store_raises() -> None:
-    from aod.application import ProjectionCommand
-
     class SomeCommand(ProjectionCommand[None]):
         pass
 
@@ -291,19 +289,18 @@ def test_unit_of_work_save_without_store_raises() -> None:
 
 
 def test_unit_of_work_save_with_store() -> None:
-    from aod.application import ProjectionCommand, ProjectionQuery
-
     saved: list[ProjectionCommand] = []
 
     class SaveSomething(ProjectionCommand[None]):
         value: str
 
     class FakeStore:
-        def query(self, query: ProjectionQuery[str]) -> str:
-            return "ok"
+        def query(self, query: ProjectionQuery[None]) -> None:
+            return None
 
-        def command(self, command: ProjectionCommand) -> None:
+        def command(self, command: ProjectionCommand[None]) -> None:
             saved.append(command)
+            return None
 
     uow = SpyUnitOfWork(projection_store=FakeStore())
     uow.command(SaveSomething(value="saved-value"))

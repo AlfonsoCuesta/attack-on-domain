@@ -3,7 +3,7 @@ from __future__ import annotations
 from abc import abstractmethod
 from typing import TypeVar, cast
 
-from aod._internal.application.projection import ProjectionCommand, ProjectionQuery
+from aod._internal.application.projection import ProjectionCommand, ProjectionQuery, ReadModel
 from aod._internal.application.projection.async_ import ProjectionStore as AsyncProjectionStore
 from aod._internal.application.projection.projection_store import ProjectionStore
 from aod._internal.application.repository import Command, Query, Repository
@@ -14,7 +14,7 @@ from aod._internal.domain.entity import RootEntity
 
 from .unit_of_work import _NullProjectionStore, _UnitOfWorkBase
 
-T = TypeVar("T")
+T = TypeVar("T", bound=ReadModel | None)
 TEntity = TypeVar("TEntity")
 TResult = TypeVar("TResult")
 

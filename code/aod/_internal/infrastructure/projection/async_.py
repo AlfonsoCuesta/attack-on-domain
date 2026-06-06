@@ -3,7 +3,7 @@ from __future__ import annotations
 from abc import abstractmethod
 from typing import Generic, TypeVar, cast
 
-from aod._internal.application.projection import ProjectionCommand, ProjectionQuery
+from aod._internal.application.projection import ProjectionCommand, ProjectionQuery, ReadModel
 from aod._internal.core.async_utils import should_await
 from aod._internal.core.domain_exception import DomainException
 from aod._internal.core.fields.fields import Field, PrivateField
@@ -15,7 +15,7 @@ from .projection_store import ProjectionStore as SyncProjectionStore
 
 PQ = TypeVar("PQ", bound=ProjectionQuery)
 PC = TypeVar("PC", bound=ProjectionCommand)
-T = TypeVar("T")
+T = TypeVar("T", bound=ReadModel | None)
 
 
 class ProjectionQueryHandler(AsyncBaseHandler, Generic[PQ]):

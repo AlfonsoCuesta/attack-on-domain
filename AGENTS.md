@@ -389,6 +389,7 @@ uv run pytest code/tests -q
 - Always add `__all__` to every `__init__.py` and `async_.py` to avoid `F401` lint warnings
 - Always run all tests before committing
 - `Event.emitted_at` is the timestamp field.
+- **No inline imports in tests** — every import must be at the top of the file. Test-local classes are fine, but imports from `aod`, `pydantic`, `unittest`, `types`, etc. must be at module level.
 
 ## Dependencies
 

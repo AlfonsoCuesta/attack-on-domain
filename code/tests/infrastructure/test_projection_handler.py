@@ -10,20 +10,24 @@ from aod._internal.infrastructure.projection.projection_handler import (
 from aod._internal.infrastructure.projection.projection_store import (
     ProjectionStore as PS,
 )
-from aod.application import ProjectionCommand, ProjectionQuery
+from aod.application import ProjectionCommand, ProjectionQuery, ReadModel
 from aod.infrastructure import ProjectionCommandHandler, ProjectionQueryHandler, ProjectionStore
 
 
-class GetOrders(ProjectionQuery[list[dict]]):
+class OrdersResponse(ReadModel):
+    data: list
+
+
+class GetOrders(ProjectionQuery[OrdersResponse]):
     user_id: int
     status: str | None = None
 
 
 class GetOrdersHandler(ProjectionQueryHandler[GetOrders]):
-    def handle(self, query: GetOrders) -> list[dict]:
-        return [
+    def handle(self, query: GetOrders) -> OrdersResponse:
+        return OrdersResponse(data=[
             {"id": 1, "total": 99.99, "status": query.status or "pending"},
-        ]
+        ])
 
 
 class UpdateOrder(ProjectionCommand[None]):
@@ -33,7 +37,7 @@ class UpdateOrder(ProjectionCommand[None]):
 
 class UpdateOrderHandler(ProjectionCommandHandler[UpdateOrder]):
     def handle(self, command: UpdateOrder) -> None:
-        pass
+        return None
 
 
 class TestProjectionHandler:
@@ -51,31 +55,34 @@ class TestProjectionHandler:
     def test_concrete_query_handler_works(self) -> None:
         h = GetOrdersHandler()
         result = h.handle(GetOrders(user_id=1, status="active"))
-        assert isinstance(result, list)
-        assert result[0]["id"] == 1
-        assert result[0]["status"] == "active"
+        assert isinstance(result, OrdersResponse)
+        assert result.data[0]["id"] == 1
+        assert result.data[0]["status"] == "active"
 
     def test_query_handler_with_default_value(self) -> None:
         h = GetOrdersHandler()
         result = h.handle(GetOrders(user_id=1))
-        assert result[0]["status"] == "pending"
+        assert result.data[0]["status"] == "pending"
 
     def test_query_handler_with_custom_return(self) -> None:
-        class CountOrders(ProjectionQuery[int]):
+        class CountResponse(ReadModel):
+            value: int
+
+        class CountOrders(ProjectionQuery[CountResponse]):
             user_id: int
 
         class CountOrdersHandler(ProjectionQueryHandler[CountOrders]):
-            def handle(self, query: CountOrders) -> int:
-                return 42
+            def handle(self, query: CountOrders) -> CountResponse:
+                return CountResponse(value=42)
 
         h = CountOrdersHandler()
         result = h.handle(CountOrders(user_id=1))
-        assert result == 42
+        assert result.value == 42
 
     def test_handler_is_immutable(self) -> None:
         h = GetOrdersHandler()
         with pytest.raises(DomainException):
-            h.handle = cast(Any, lambda p: [])
+            h.handle = cast(Any, lambda p: OrdersResponse(data=[]))
 
     def test_command_handler_is_abstract(self) -> None:
         with pytest.raises(TypeError):
@@ -96,8 +103,8 @@ class TestProjectionHandler:
 def test_store_with_valid_query_handler() -> None:
     store = ProjectionStore(handlers=[GetOrdersHandler()])
     result = store.query(GetOrders(user_id=1, status="active"))
-    assert isinstance(result, list)
-    assert result[0]["status"] == "active"
+    assert isinstance(result, OrdersResponse)
+    assert result.data[0]["status"] == "active"
 
 
 def test_store_no_query_handler_registered() -> None:
@@ -120,7 +127,7 @@ def test_store_no_command_handler_registered() -> None:
 def test_store_with_both_handler_types() -> None:
     store = ProjectionStore(handlers=[GetOrdersHandler(), UpdateOrderHandler()])
     result = store.query(GetOrders(user_id=1))
-    assert isinstance(result, list)
+    assert isinstance(result, OrdersResponse)
     store.command(UpdateOrder(order_id=1, status="active"))
 
 
@@ -132,7 +139,7 @@ def test_store_duplicate_handler_raises() -> None:
 def test_store_duplicate_command_handler_raises() -> None:
     class AnotherHandler(ProjectionCommandHandler[UpdateOrder]):
         def handle(self, command: UpdateOrder) -> None:
-            pass
+            return None
 
     with pytest.raises(DomainException, match="Duplicate handler for"):
         ProjectionStore(handlers=[UpdateOrderHandler(), AnotherHandler()])

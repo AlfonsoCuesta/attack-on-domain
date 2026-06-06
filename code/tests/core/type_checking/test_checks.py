@@ -1,4 +1,7 @@
+from unittest import mock
+
 import pytest
+from pydantic.fields import FieldInfo
 from aod._internal.core.domain_exception import (
     InvalidNestedTypeError,
     InvalidServiceParameterError,
@@ -171,8 +174,6 @@ def test_module_attribute_error() -> None:
 
 
 def _add_model_field(cls: type, name: str, annotation: object) -> None:
-    from pydantic.fields import FieldInfo
-
     cls.__model_fields__[name] = FieldInfo(annotation=annotation)  # type: ignore
 
 
@@ -260,8 +261,6 @@ def test_check_service_skips_param_without_annotation() -> None:
 
 
 def test_check_service_handles_bad_signature() -> None:
-    from unittest import mock
-
     class SomeService(Service):
         def process(self, x: int) -> None:
             pass
@@ -282,8 +281,6 @@ def test_check_service_handles_string_annotation() -> None:
 
 
 def test_resolved_hints_exception() -> None:
-    from unittest import mock
-
     class SomeService(Service):
         def process(self, x: "int") -> None:  # noqa: F722
             pass

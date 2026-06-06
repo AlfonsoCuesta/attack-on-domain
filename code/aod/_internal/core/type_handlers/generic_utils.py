@@ -18,10 +18,11 @@ def get_last_generic_arg(cls: type) -> type | None:
 def get_generic_arg_from_orig_bases(cls: type, target_origin: type, index: int = 0) -> type | None:
     for base in getattr(cls, "__orig_bases__", ()):
         origin = get_origin(base)
-        if origin is target_origin:
-            args = get_args(base)
-            if len(args) > index:
-                return args[index]
+        if origin is not None and isinstance(origin, type):
+            if origin is target_origin or issubclass(origin, target_origin):
+                args = get_args(base)
+                if len(args) > index:
+                    return args[index]
     return None
 
 

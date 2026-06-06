@@ -8,7 +8,7 @@ from aod._internal.infrastructure.projection.projection_handler import (
     ProjectionCommandHandler as SyncProjectionCommandHandler,
     ProjectionQueryHandler as SyncProjectionQueryHandler,
 )
-from aod.application import ProjectionCommand, ProjectionQuery
+from aod.application import ProjectionCommand, ProjectionQuery, ReadModel
 from aod.infrastructure.projection.async_ import (
     ProjectionCommandHandler,
     ProjectionQueryHandler,
@@ -16,16 +16,20 @@ from aod.infrastructure.projection.async_ import (
 )
 
 
-class GetOrders(ProjectionQuery[list[dict]]):
+class OrdersResponse(ReadModel):
+    data: list
+
+
+class GetOrders(ProjectionQuery[OrdersResponse]):
     user_id: int
     status: str | None = None
 
 
 class GetOrdersHandler(ProjectionQueryHandler[GetOrders]):
-    async def handle(self, query: GetOrders) -> list[dict]:
-        return [
+    async def handle(self, query: GetOrders) -> OrdersResponse:
+        return OrdersResponse(data=[
             {"id": 1, "total": 99.99, "status": query.status or "pending"},
-        ]
+        ])
 
 
 class UpdateOrder(ProjectionCommand[None]):
@@ -35,7 +39,7 @@ class UpdateOrder(ProjectionCommand[None]):
 
 class UpdateOrderHandler(ProjectionCommandHandler[UpdateOrder]):
     async def handle(self, command: UpdateOrder) -> None:
-        pass
+        return None
 
 
 class TestProjectionHandler:
@@ -53,31 +57,34 @@ class TestProjectionHandler:
     async def test_concrete_query_handler_works(self) -> None:
         h = GetOrdersHandler()
         result = await h.handle(GetOrders(user_id=1, status="active"))
-        assert isinstance(result, list)
-        assert result[0]["id"] == 1
-        assert result[0]["status"] == "active"
+        assert isinstance(result, OrdersResponse)
+        assert result.data[0]["id"] == 1
+        assert result.data[0]["status"] == "active"
 
     async def test_query_handler_with_default_value(self) -> None:
         h = GetOrdersHandler()
         result = await h.handle(GetOrders(user_id=1))
-        assert result[0]["status"] == "pending"
+        assert result.data[0]["status"] == "pending"
 
     async def test_query_handler_with_custom_return(self) -> None:
-        class CountOrders(ProjectionQuery[int]):
+        class CountResponse(ReadModel):
+            value: int
+
+        class CountOrders(ProjectionQuery[CountResponse]):
             user_id: int
 
         class CountOrdersHandler(ProjectionQueryHandler[CountOrders]):
-            async def handle(self, query: CountOrders) -> int:
-                return 42
+            async def handle(self, query: CountOrders) -> CountResponse:
+                return CountResponse(value=42)
 
         h = CountOrdersHandler()
         result = await h.handle(CountOrders(user_id=1))
-        assert result == 42
+        assert result.value == 42
 
     async def test_handler_is_immutable(self) -> None:
         h = GetOrdersHandler()
         with pytest.raises(DomainException):
-            h.handle = cast(Any, lambda p: [])
+            h.handle = cast(Any, lambda p: OrdersResponse(data=[]))
 
     async def test_command_handler_is_abstract(self) -> None:
         with pytest.raises(TypeError):
@@ -96,15 +103,13 @@ class TestProjectionHandler:
 
 
 async def test_async_store_with_valid_query_handler() -> None:
-
     store = AsyncProjectionStore(handlers=[GetOrdersHandler()])
     result = await store.query(GetOrders(user_id=1, status="active"))
-    assert isinstance(result, list)
-    assert result[0]["status"] == "active"
+    assert isinstance(result, OrdersResponse)
+    assert result.data[0]["status"] == "active"
 
 
 async def test_async_store_no_query_handler_registered() -> None:
-
     store = AsyncProjectionStore()
     with pytest.raises(DomainException, match="No handler registered for"):
         await store.query(GetOrders(user_id=1))
@@ -112,13 +117,13 @@ async def test_async_store_no_query_handler_registered() -> None:
 
 async def test_async_store_with_sync_query_handler() -> None:
     class SyncHandler(SyncProjectionQueryHandler[GetOrders]):
-        def handle(self, query: GetOrders) -> list[dict]:
-            return [{"id": 1, "total": 1.0}]
+        def handle(self, query: GetOrders) -> OrdersResponse:
+            return OrdersResponse(data=[{"id": 1, "total": 1.0}])
 
     store = AsyncProjectionStore(handlers=[SyncHandler()])
     result = await store.query(GetOrders(user_id=1))
-    assert isinstance(result, list)
-    assert result[0]["total"] == 1.0
+    assert isinstance(result, OrdersResponse)
+    assert result.data[0]["total"] == 1.0
 
 
 async def test_async_store_with_valid_command_handler() -> None:
@@ -135,7 +140,7 @@ async def test_async_store_no_command_handler_registered() -> None:
 async def test_async_store_with_sync_command_handler() -> None:
     class SyncHandler(SyncProjectionCommandHandler[UpdateOrder]):
         def handle(self, command: UpdateOrder) -> None:
-            pass
+            return None
 
     store = AsyncProjectionStore(handlers=[SyncHandler()])
     await store.command(UpdateOrder(order_id=1, status="shipped"))
@@ -144,7 +149,7 @@ async def test_async_store_with_sync_command_handler() -> None:
 async def test_async_store_with_both_handler_types() -> None:
     store = AsyncProjectionStore(handlers=[GetOrdersHandler(), UpdateOrderHandler()])
     result = await store.query(GetOrders(user_id=1))
-    assert isinstance(result, list)
+    assert isinstance(result, OrdersResponse)
     await store.command(UpdateOrder(order_id=1, status="active"))
 
 
@@ -156,7 +161,7 @@ async def test_async_store_duplicate_handler_raises() -> None:
 async def test_async_store_duplicate_command_handler_raises() -> None:
     class AnotherHandler(ProjectionCommandHandler[UpdateOrder]):
         async def handle(self, command: UpdateOrder) -> None:
-            pass
+            return None
 
     with pytest.raises(DomainException, match="Duplicate handler for"):
         AsyncProjectionStore(handlers=[UpdateOrderHandler(), AnotherHandler()])
