@@ -3,8 +3,8 @@ from __future__ import annotations
 from abc import abstractmethod
 from typing import TypeVar, cast
 
+from aod._internal.application.projection import ProjectionCommand, ProjectionQuery
 from aod._internal.application.projection.async_ import ProjectionStore as AsyncProjectionStore
-from aod._internal.application.projection.projection import Projection
 from aod._internal.application.projection.projection_store import ProjectionStore
 from aod._internal.application.repository import Command, Query, Repository
 from aod._internal.application.repository.async_ import Repository as AsyncRepository
@@ -14,9 +14,9 @@ from aod._internal.domain.entity import RootEntity
 
 from .unit_of_work import _NullProjectionStore, _UnitOfWorkBase
 
+T = TypeVar("T")
 TEntity = TypeVar("TEntity")
 TResult = TypeVar("TResult")
-T = TypeVar("T")
 
 
 class UnitOfWork(_UnitOfWorkBase):
@@ -29,16 +29,17 @@ class UnitOfWork(_UnitOfWorkBase):
         default_factory=dict
     )
 
-    async def command(self, command: Command[TEntity, TResult]) -> TResult:
+    async def command(self, command: Command | ProjectionCommand[T]) -> object:
+        if isinstance(command, ProjectionCommand):
+            return cast(object, await should_await(self.projection_store.command(command)))
         result = await should_await(self._resolve_repo(command).command(command))
         self.is_dirty = True
-        return cast(TResult, result)
+        return result
 
-    async def query(self, query: Query[TEntity, TResult]) -> TResult:
-        return cast(TResult, await should_await(self._resolve_repo(query).query(query)))
-
-    async def projection(self, projection: Projection[T]) -> T:
-        return cast(T, await should_await(self.projection_store.projection(projection)))
+    async def query(self, query: Query | ProjectionQuery) -> object:
+        if isinstance(query, ProjectionQuery):
+            return cast(object, await should_await(self.projection_store.query(query)))
+        return cast(object, await should_await(self._resolve_repo(query).query(query)))
 
     @abstractmethod
     async def commit(self) -> None: ...

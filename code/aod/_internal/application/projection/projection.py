@@ -7,5 +7,9 @@ from aod._internal.core.base_sealed import BaseSealed
 T = TypeVar("T")
 
 
-class Projection(BaseSealed, Generic[T]):
+class ProjectionQuery(BaseSealed, Generic[T]):
+    pass
+
+
+class ProjectionCommand(BaseSealed, Generic[T]):
     pass

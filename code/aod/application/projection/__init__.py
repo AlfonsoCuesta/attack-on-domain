@@ -1,8 +1,9 @@
 from __future__ import annotations
 
-from aod._internal.application.projection import Projection, ProjectionStore
+from aod._internal.application.projection import ProjectionCommand, ProjectionQuery, ProjectionStore
 
 __all__ = [
-    "Projection",
+    "ProjectionCommand",
+    "ProjectionQuery",
     "ProjectionStore",
 ]

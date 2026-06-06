@@ -2,39 +2,55 @@ from __future__ import annotations
 
 from typing import ClassVar, TypeVar, cast
 
-from aod._internal.application.projection.projection import Projection
+from aod._internal.application.projection import ProjectionCommand, ProjectionQuery
+from aod._internal.application.projection.projection import ProjectionQuery as ProjectionQueryType
 from aod._internal.core.base_sealed import BaseSealed
 from aod._internal.core.domain_exception import DomainException
 from aod._internal.core.fields.fields import Field, PrivateField
 from aod._internal.core.type_handlers.generic_utils import get_generic_arg_from_mro
-from aod._internal.infrastructure.projection.projection_handler import ProjectionHandler
+from aod._internal.infrastructure.projection.projection_handler import (
+    ProjectionCommandHandler,
+    ProjectionQueryHandler,
+)
 
 T = TypeVar("T")
 
+_PROJECTION_HANDLERS = (ProjectionQueryHandler, ProjectionCommandHandler)
+
 
 class ProjectionStore(BaseSealed):
-    handlers: list[ProjectionHandler] = Field(default_factory=list)
-    _handlers: dict[type, ProjectionHandler] = PrivateField(default_factory=dict)
-    __allowed_handlers__: ClassVar[tuple[type]] = (ProjectionHandler,)
+    handlers: list[ProjectionQueryHandler | ProjectionCommandHandler] = Field(default_factory=list)
+    _query_handlers: dict[type, ProjectionQueryHandler] = PrivateField(default_factory=dict)
+    _command_handlers: dict[type, ProjectionCommandHandler] = PrivateField(default_factory=dict)
+    __allowed_handlers__: ClassVar[tuple[type, ...]] = _PROJECTION_HANDLERS
 
     def __post_init__(self) -> None:
         for h in self.handlers:
             p_type = get_generic_arg_from_mro(type(h), self.__allowed_handlers__)
-            if not isinstance(p_type, type) or not issubclass(p_type, Projection):
+            if not isinstance(p_type, type):
                 msg = f"Cannot determine projection type for {type(h).__name__}"
                 raise DomainException(msg)
-            if p_type in self._handlers:
-                msg = f"Duplicate handler for {p_type.__name__}"
-                raise DomainException(msg)
-            self._handlers[p_type] = h
+            if isinstance(h, ProjectionQueryHandler):
+                if p_type in self._query_handlers:
+                    msg = f"Duplicate handler for {p_type.__name__}"
+                    raise DomainException(msg)
+                self._query_handlers[p_type] = h
+            elif isinstance(h, ProjectionCommandHandler):
+                if p_type in self._command_handlers:
+                    msg = f"Duplicate handler for {p_type.__name__}"
+                    raise DomainException(msg)
+                self._command_handlers[p_type] = h
 
-    def projection(self, projection: Projection[T]) -> T:
-        handler = self._get_handler(projection)
-        return cast(T, handler.handle(projection))
-
-    def _get_handler(self, projection: Projection[T]) -> ProjectionHandler:
-        handler = self._handlers.get(type(projection))
+    def query(self, query: ProjectionQuery[T]) -> T:
+        handler = self._query_handlers.get(type(query))
         if handler is None:
-            msg = f"No handler registered for {type(projection).__name__}"
+            msg = f"No handler registered for {type(query).__name__}"
             raise DomainException(msg)
-        return handler
+        return cast(T, handler.handle(query))
+
+    def command(self, command: ProjectionCommand[T]) -> T:
+        handler = self._command_handlers.get(type(command))
+        if handler is None:
+            msg = f"No handler registered for {type(command).__name__}"
+            raise DomainException(msg)
+        return cast(T, handler.handle(command))

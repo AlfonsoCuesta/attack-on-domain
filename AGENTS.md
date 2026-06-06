@@ -52,8 +52,8 @@ code/
 │       ├── application/              # Application layer (packages)
 │       │   ├── port.py               # Port base class (abstract, mutable-from-inside)
 │       │   ├── projection/           # Projection data class + ProjectionStore Protocol
-│       │   │   ├── __init__.py       # Projection, ProjectionStore
-│       │   │   ├── projection.py     # Projection(BaseSealed, Generic[T])
+│       │   │   ├── __init__.py       # ProjectionQuery, ProjectionCommand, ProjectionStore
+│       │   │   ├── projection.py     # ProjectionQuery[T], ProjectionCommand
 │       │   │   ├── projection_store.py  # ProjectionStore (Protocol)
 │       │   │   └── async_.py         # ProjectionStore (async Protocol)
 │       │   ├── repository/           # Command, Query, Repository (Protocol) — sync + async
@@ -78,7 +78,7 @@ code/
 │       │   │   └── async_.py
 │       │   ├── projection/           # ProjectionHandler + ProjectionStore — sync + async
 │       │   │   ├── __init__.py
-│       │   │   ├── projection_handler.py  # ProjectionHandler (sync)
+│       │   │   ├── projection_handler.py  # ProjectionQueryHandler + ProjectionCommandHandler (sync)
 │       │   │   ├── projection_store.py    # ProjectionStore (concrete, sync)
 │       │   │   └── async_.py         # ProjectionHandler + ProjectionStore (async)
 │       │   └── repository/           # Repository with dispatch — sync + async
@@ -286,7 +286,7 @@ Built-in port types (all `aod.application`):
 - **`Command[TEntity, TResult]`** / **`Query[TEntity, TResult]`** — immutable data classes for writes/reads (extend `BaseSealed`, validate `TEntity` is `RootEntity` subclass at class creation). Field types are checked at `__init_subclass__` — any field referencing a non-root `Entity` (even nested in generics like `list[Entity]`) raises `DomainException`. `Query` additionally requires its `TResult` type argument to contain at least one `RootEntity` (e.g. `Query[User, User]`, `Query[User, list[User]]`, `Query[User, tuple[int, User | None]]` are all valid).
 - **`CommandHandler[C]`** / **`QueryHandler[Q]`** — abstract bases with `handle()` method; validate generic param at class creation
 - **`Repository[TEntity]`** — receives `command_handlers` and `query_handlers` in `__init__`; dispatches via `command()` / `query()`; raises `DomainException` for unregistered types or duplicates
-- **`UnitOfWork`** — receives `repositories: list[Repository]`, auto-builds entity-to-repo dict in `__post_init__`; provides `command()`/`query()` dispatch methods. Has `is_dirty` flag (set True after command). Also accepts `projection_store` and provides `projection()` method.
+- **`UnitOfWork`** — receives `repositories: list[Repository]`, auto-builds entity-to-repo dict in `__post_init__`; `command()` and `query()` dispatch to reposito/query handlers and also handle `ProjectionCommand`/`ProjectionQuery` via `projection_store`. Has `is_dirty` flag (set True after command).
 
 Handler type resolution uses `extract_handler_type()` (in `type_checks/handler_checks.py`) via `get_generic_arg_from_mro` in `generic_utils.py` — works in any scope, avoids `NameError` with locally-defined handlers. Handlers live in `aod._internal.infrastructure.handlers`, imported by `repository.py` from the same module. Reusable helpers: `get_generic_arg_from_orig_bases`, `get_generic_arg_from_mro`, `validate_generic_arg_is_subclass`.
 
@@ -303,16 +303,18 @@ Contract validation in `type_checks/contract_checks.py`:
 - **`validate_result_contains_root_entity(cls, query_type)`** — ensures `Query`'s `TResult` includes a `RootEntity`
 - **`extract_root_entity(repo)`** — extracts the `RootEntity` type from a Repository's generic bases
 
-### Projection / ProjectionStore
+### `ProjectionQuery[T]` / `ProjectionCommand` / `ProjectionStore`
 
-Conceptually similar to `Command`/`Query` but **without RootEntity restrictions**:
+Analogous to `Query`/`Command` but for read/write projections:
 
-- **`Projection[T]`** (`aod.application`) — `BaseSealed, Generic[T]` data class. No `__init_subclass__` validation — fields can reference any type (Entity, RootEntity, ValueObject, primitives, etc.). No constraint on `T`.
-- **`ProjectionStore`** (`aod.application`) — `Protocol` with a single method `projection(p: Projection[T]) -> T`. Sync and async versions available.
-- **`ProjectionHandler[P]`** (`aod.infrastructure`) — abstract base with `handle()` method. Validates generic param `P` is a `Projection` subclass at class creation. Sync and async versions available.
-- **`ProjectionStore`** (`aod.infrastructure`) — concrete dispatcher: receives `handlers: list[ProjectionHandler]`, validates duplicates in `__post_init__`, dispatches via `projection()`.
+- **`ProjectionQuery[T]`** (`aod.application`) — read-only projection. `BaseSealed, Generic[T]` data class. No `__init_subclass__` validation — fields can reference any type. `T` is the return type (like `Query`).
+- **`ProjectionCommand`** (`aod.application`) — write-only projection. `BaseSealed` data class. Carries write data in its own fields (like `Command`). No type parameter — `handle()` returns `None`.
+- **`ProjectionStore`** (`aod.application`) — `Protocol` with `query(query: ProjectionQuery[T]) -> T` and `command(command: ProjectionCommand) -> None`. Sync and async versions available.
+- **`ProjectionQueryHandler[PQ]`** (`aod.infrastructure`) — abstract base with `handle(query: PQ) -> object`. Validates `PQ` is a `ProjectionQuery` subclass.
+- **`ProjectionCommandHandler[PC]`** (`aod.infrastructure`) — abstract base with `handle(command: PC) -> None`. Validates `PC` is a `ProjectionCommand` subclass.
+- **`ProjectionStore`** (`aod.infrastructure`) — concrete dispatcher: receives both handler types, validates duplicates in `__post_init__`, dispatches via `query()` / `command()`.
 
-Unlike `CommandHandler`/`QueryHandler`, `ProjectionHandler` is **not** registered in a `Repository`. It lives in `aod.infrastructure.projection` and is consumed independently via `ProjectionStore`.
+Unlike `CommandHandler`/`QueryHandler`, projection handlers are **not** registered in a `Repository`. They live in `aod.infrastructure.projection` and are consumed independently via `ProjectionStore`.
 
 ### `should_await` Helper
 
@@ -320,7 +322,7 @@ Unlike `CommandHandler`/`QueryHandler`, `ProjectionHandler` is **not** registere
 - If `value` is a coroutine, awaits and returns the result
 - Otherwise returns the value as-is
 
-Used by async `UnitOfWork.command/query/projection` and async `UseCase` wrapper (imported as `awaiter`). This allows async UoW to accept both sync and async repositories/stores without knowing which at call time.
+Used by async `UnitOfWork.command/query` and async `UseCase` wrapper (imported as `awaiter`). This allows async UoW to accept both sync and async repositories/stores without knowing which at call time.
 
 Zero `# type: ignore` in `type_checks/`, `repository.py`, and `handlers.py`.
 
@@ -378,7 +380,6 @@ uv run pytest code/tests -q
 - If you change type checks, update `type_handlers/extractors.py` and/or `type_handlers/checks` and verify tests
 - If you change bounded context logic, update `bounded_context.py` and check `test_bounded_context.py`
 - If you change the projection layer, update `projection_handler.py` / `projection_store.py` (both application and infrastructure) and verify `test_projection.py` / `test_projection_handler.py` / `test_async_projection_handler.py`
-- If you change `ProjectionStore`, update `projection/projection_store.py` and `projection/async_.py` in both application and infrastructure; verify projection handler tests
 - If you change the repository layer, update `repository.py` and/or `handlers.py` and verify `test_repository.py`
 - If you change validation functions, update `type_checks/` and verify `test_repository.py`
 - If you change the application layer, update `port.py` and/or `use_case.py` and verify `test_port.py` / `test_use_case.py`
@@ -397,7 +398,7 @@ uv run pytest code/tests -q
 
 ## Test Count
 
-497 tests
+589 tests
 
 ## At the end of a task
 

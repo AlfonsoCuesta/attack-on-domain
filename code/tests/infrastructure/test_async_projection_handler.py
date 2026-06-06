@@ -4,60 +4,70 @@ from typing import Any, cast
 
 import pytest
 from aod._internal.core.domain_exception import DomainException
-from aod.application import Projection
+from aod.application import ProjectionCommand, ProjectionQuery
 from aod.application.projection.async_ import ProjectionStore as AsyncProjectionStore
-from aod.infrastructure.projection.async_ import ProjectionHandler
+from aod.infrastructure.projection.async_ import ProjectionCommandHandler, ProjectionQueryHandler
 
 
-class GetOrders(Projection[list[dict]]):
+class GetOrders(ProjectionQuery[list[dict]]):
     user_id: int
     status: str | None = None
 
 
-class GetOrdersHandler(ProjectionHandler[GetOrders]):
-    async def handle(self, projection: GetOrders) -> list[dict]:
+class GetOrdersHandler(ProjectionQueryHandler[GetOrders]):
+    async def handle(self, query: GetOrders) -> list[dict]:
         return [
-            {"id": 1, "total": 99.99, "status": projection.status or "pending"},
+            {"id": 1, "total": 99.99, "status": query.status or "pending"},
         ]
 
 
-class TestProjectionHandler:
-    async def test_is_abstract(self) -> None:
-        with pytest.raises(TypeError):
-            ProjectionHandler[GetOrders]()
+class UpdateOrder(ProjectionCommand[None]):
+    order_id: int
+    status: str
 
-    async def test_without_handle_is_abstract(self) -> None:
-        class Incomplete(ProjectionHandler[GetOrders]):
+
+class UpdateOrderHandler(ProjectionCommandHandler[UpdateOrder]):
+    async def handle(self, command: UpdateOrder) -> None:
+        pass
+
+
+class TestProjectionHandler:
+    async def test_query_handler_is_abstract(self) -> None:
+        with pytest.raises(TypeError):
+            ProjectionQueryHandler[GetOrders]()
+
+    async def test_query_handler_without_handle_is_abstract(self) -> None:
+        class Incomplete(ProjectionQueryHandler[GetOrders]):
             pass
 
         with pytest.raises(TypeError):
             Incomplete()
 
-    async def test_concrete_handler_works(self) -> None:
+    async def test_concrete_query_handler_works(self) -> None:
         h = GetOrdersHandler()
         result = await h.handle(GetOrders(user_id=1, status="active"))
         assert isinstance(result, list)
         assert result[0]["id"] == 1
         assert result[0]["status"] == "active"
 
-    async def test_handler_with_default_value(self) -> None:
+    async def test_query_handler_with_default_value(self) -> None:
         h = GetOrdersHandler()
         result = await h.handle(GetOrders(user_id=1))
         assert result[0]["status"] == "pending"
 
-    async def test_invalid_generic_raises(self) -> None:
+    async def test_invalid_query_handler_generic_raises(self) -> None:
         with pytest.raises(DomainException, match="Generic parameter for"):
 
-            class _(ProjectionHandler[str]):  # type: ignore
-                async def handle(self, projection: str) -> str:
-                    return projection
+            class _(ProjectionQueryHandler[str]):  # type: ignore
+                async def handle(self, query: str) -> str:
+                    return query
 
-    async def test_handler_with_custom_return(self) -> None:
-        class CountOrders(Projection[int]):
+    async def test_query_handler_with_custom_return(self) -> None:
+        class CountOrders(ProjectionQuery[int]):
             user_id: int
 
-        class CountOrdersHandler(ProjectionHandler[CountOrders]):
-            async def handle(self, projection: CountOrders) -> int:
+        class CountOrdersHandler(ProjectionQueryHandler[CountOrders]):
+            async def handle(self, query: CountOrders) -> int:
                 return 42
 
         h = CountOrdersHandler()
@@ -69,36 +79,94 @@ class TestProjectionHandler:
         with pytest.raises(DomainException):
             h.handle = cast(Any, lambda p: [])
 
+    async def test_command_handler_is_abstract(self) -> None:
+        with pytest.raises(TypeError):
+            ProjectionCommandHandler[UpdateOrder]()
 
-async def test_async_store_with_valid_handler() -> None:
+    async def test_command_handler_without_handle_is_abstract(self) -> None:
+        class Incomplete(ProjectionCommandHandler[UpdateOrder]):
+            pass
+
+        with pytest.raises(TypeError):
+            Incomplete()
+
+    async def test_command_handler_works(self) -> None:
+        h = UpdateOrderHandler()
+        await h.handle(UpdateOrder(order_id=1, status="shipped"))
+
+    async def test_invalid_command_handler_generic_raises(self) -> None:
+        with pytest.raises(DomainException, match="Generic parameter for"):
+
+            class _(ProjectionCommandHandler[str]):  # type: ignore
+                async def handle(self, command: str) -> None:
+                    pass
+
+
+async def test_async_store_with_valid_query_handler() -> None:
     from aod.infrastructure.projection.async_ import ProjectionStore as AsyncProjectionStore
 
     store = AsyncProjectionStore(handlers=[GetOrdersHandler()])
-    result = await store.projection(GetOrders(user_id=1, status="active"))
+    result = await store.query(GetOrders(user_id=1, status="active"))
     assert isinstance(result, list)
     assert result[0]["status"] == "active"
 
 
-async def test_async_store_no_handler_registered() -> None:
+async def test_async_store_no_query_handler_registered() -> None:
     from aod.infrastructure.projection.async_ import ProjectionStore as AsyncProjectionStore
 
     store = AsyncProjectionStore()
     with pytest.raises(DomainException, match="No handler registered for"):
-        await store.projection(GetOrders(user_id=1))
+        await store.query(GetOrders(user_id=1))
 
 
-async def test_async_store_with_sync_handler() -> None:
-    from aod._internal.infrastructure.projection.projection_handler import ProjectionHandler as SyncPH
+async def test_async_store_with_sync_query_handler() -> None:
+    from aod._internal.infrastructure.projection.projection_handler import ProjectionQueryHandler as SyncPQH
     from aod.infrastructure.projection.async_ import ProjectionStore as AsyncProjectionStore
 
-    class SyncHandler(SyncPH[GetOrders]):
-        def handle(self, projection: GetOrders) -> list[dict]:
+    class SyncHandler(SyncPQH[GetOrders]):
+        def handle(self, query: GetOrders) -> list[dict]:
             return [{"id": 1, "total": 1.0}]
 
     store = AsyncProjectionStore(handlers=[SyncHandler()])
-    result = await store.projection(GetOrders(user_id=1))
+    result = await store.query(GetOrders(user_id=1))
     assert isinstance(result, list)
     assert result[0]["total"] == 1.0
+
+
+async def test_async_store_with_valid_command_handler() -> None:
+    from aod.infrastructure.projection.async_ import ProjectionStore as AsyncProjectionStore
+
+    store = AsyncProjectionStore(handlers=[UpdateOrderHandler()])
+    await store.command(UpdateOrder(order_id=1, status="shipped"))
+
+
+async def test_async_store_no_command_handler_registered() -> None:
+    from aod.infrastructure.projection.async_ import ProjectionStore as AsyncProjectionStore
+
+    store = AsyncProjectionStore()
+    with pytest.raises(DomainException, match="No handler registered for"):
+        await store.command(UpdateOrder(order_id=1, status="shipped"))
+
+
+async def test_async_store_with_sync_command_handler() -> None:
+    from aod._internal.infrastructure.projection.projection_handler import ProjectionCommandHandler as SyncPCH
+    from aod.infrastructure.projection.async_ import ProjectionStore as AsyncProjectionStore
+
+    class SyncHandler(SyncPCH[UpdateOrder]):
+        def handle(self, command: UpdateOrder) -> None:
+            pass
+
+    store = AsyncProjectionStore(handlers=[SyncHandler()])
+    await store.command(UpdateOrder(order_id=1, status="shipped"))
+
+
+async def test_async_store_with_both_handler_types() -> None:
+    from aod.infrastructure.projection.async_ import ProjectionStore as AsyncProjectionStore
+
+    store = AsyncProjectionStore(handlers=[GetOrdersHandler(), UpdateOrderHandler()])
+    result = await store.query(GetOrders(user_id=1))
+    assert isinstance(result, list)
+    await store.command(UpdateOrder(order_id=1, status="active"))
 
 
 async def test_async_store_duplicate_handler_raises() -> None:
@@ -108,12 +176,23 @@ async def test_async_store_duplicate_handler_raises() -> None:
         AsyncProjectionStore(handlers=[GetOrdersHandler(), GetOrdersHandler()])
 
 
+async def test_async_store_duplicate_command_handler_raises() -> None:
+    from aod.infrastructure.projection.async_ import ProjectionStore as AsyncProjectionStore
+
+    class AnotherHandler(ProjectionCommandHandler[UpdateOrder]):
+        async def handle(self, command: UpdateOrder) -> None:
+            pass
+
+    with pytest.raises(DomainException, match="Duplicate handler for"):
+        AsyncProjectionStore(handlers=[UpdateOrderHandler(), AnotherHandler()])
+
+
 async def test_async_store_invalid_handler_type_raises() -> None:
     from aod.infrastructure.projection.async_ import ProjectionStore as AsyncProjectionStore
-    from aod.infrastructure.projection.async_ import ProjectionHandler as AsyncPH
+    from aod.infrastructure.projection.async_ import ProjectionQueryHandler as AsyncPH
 
     class NoType(AsyncPH):
-        async def handle(self, projection: object) -> object:
+        async def handle(self, query: object) -> object:
             return None
 
     with pytest.raises(DomainException, match="Cannot determine projection type for"):

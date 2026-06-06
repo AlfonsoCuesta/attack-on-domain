@@ -184,41 +184,100 @@ async def test_async_unit_of_work_empty_repositories_raises() -> None:
 
 
 async def test_async_unit_of_work_projection_without_store_raises() -> None:
-    from aod.application import Projection
+    from aod.application import ProjectionQuery
 
-    class SomeProjection(Projection[str]):
+    class SomeProjection(ProjectionQuery[str]):
         pass
 
     uow = AsyncSpyUnitOfWork()
     with pytest.raises(DomainException, match="No ProjectionStore configured"):
-        await uow.projection(SomeProjection())
+        await uow.query(SomeProjection())
 
 
 async def test_async_unit_of_work_projection_with_store() -> None:
-    from aod.application import Projection
+    from aod.application import ProjectionCommand, ProjectionQuery
 
-    class TestProjection(Projection[str]):
+    class TestProjection(ProjectionQuery[str]):
         pass
 
     class FakeStore[TestProjection]:
-        async def projection(self, projection):
+        async def query(self, query):
             return "ok"
 
+        async def command(self, command: ProjectionCommand) -> None:
+            pass
+
     uow = AsyncSpyUnitOfWork(projection_store=FakeStore())
-    result = await uow.projection(TestProjection())
+    result = await uow.query(TestProjection())
     assert result == "ok"
 
 
 async def test_async_unit_of_work_projection_with_sync_store() -> None:
-    from aod.application import Projection
+    from aod.application import ProjectionCommand, ProjectionQuery
 
-    class TestProjection(Projection[str]):
+    class TestProjection(ProjectionQuery[str]):
         pass
 
     class SyncFakeStore[TestProjection]:
-        def projection(self, projection):
+        def query(self, query):
             return "sync"
 
-    uow = AsyncSpyUnitOfWork(projection_store=SyncFakeStore())
-    result = await uow.projection(TestProjection())
+        def command(self, command: ProjectionCommand) -> None:
+            pass
+
+    uow = AsyncSpyUnitOfWork(projection_store=SyncFakeStore())  # type: ignore
+    result = await uow.query(TestProjection())
     assert result == "sync"
+
+
+async def test_async_unit_of_work_save_without_store_raises() -> None:
+    from aod.application import ProjectionCommand
+
+    class SomeCommand(ProjectionCommand[None]):
+        pass
+
+    uow = AsyncSpyUnitOfWork()
+    with pytest.raises(DomainException, match="No ProjectionStore configured"):
+        await uow.command(SomeCommand())
+
+
+async def test_async_unit_of_work_save_with_store() -> None:
+    from aod.application import ProjectionCommand, ProjectionQuery
+
+    saved: list[ProjectionCommand] = []
+
+    class SaveData(ProjectionCommand[None]):
+        value: str
+
+    class AsyncFakeStore:
+        async def query(self, query: ProjectionQuery[str]) -> str:
+            return "ok"
+
+        async def command(self, command: ProjectionCommand) -> None:
+            saved.append(command)
+
+    uow = AsyncSpyUnitOfWork(projection_store=AsyncFakeStore())
+    await uow.command(SaveData(value="async-saved"))
+    assert len(saved) == 1
+    assert saved[0].value == "async-saved"
+
+
+async def test_async_unit_of_work_save_with_sync_store() -> None:
+    from aod.application import ProjectionCommand, ProjectionQuery
+
+    saved: list[ProjectionCommand] = []
+
+    class SaveData(ProjectionCommand[None]):
+        value: str
+
+    class SyncSaveStore:
+        async def query(self, query: ProjectionQuery[str]) -> str:
+            return "ok"
+
+        def command(self, command: ProjectionCommand) -> None:
+            saved.append(command)
+
+    uow = AsyncSpyUnitOfWork(projection_store=SyncSaveStore())  # type: ignore
+    await uow.command(SaveData(value="sync-saved"))
+    assert len(saved) == 1
+    assert saved[0].value == "sync-saved"

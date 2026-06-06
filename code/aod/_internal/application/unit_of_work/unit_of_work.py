@@ -4,7 +4,7 @@ from abc import abstractmethod
 from typing import Any, TypeVar, cast
 
 from aod._internal.application.port import Port
-from aod._internal.application.projection.projection import Projection
+from aod._internal.application.projection import ProjectionCommand, ProjectionQuery
 from aod._internal.application.projection.projection_store import ProjectionStore
 from aod._internal.application.repository import Command, Query, Repository
 from aod._internal.core.domain_exception import DomainException
@@ -19,7 +19,11 @@ T = TypeVar("T")
 
 
 class _NullProjectionStore:
-    def projection(self, projection: Projection[T]) -> T:
+    def query(self, query: ProjectionQuery[T]) -> T:
+        msg = "No ProjectionStore configured"
+        raise DomainException(msg)
+
+    def command(self, command: ProjectionCommand[T]) -> T:
         msg = "No ProjectionStore configured"
         raise DomainException(msg)
 
@@ -49,19 +53,20 @@ class _UnitOfWorkBase(Port):
             raise DomainException(msg)
         return repo
 
-    def projection(self, projection: Projection[T]) -> T:
-        return self.projection_store.projection(projection)
-
-
-class UnitOfWork(_UnitOfWorkBase):
-    def command(self, command: Command[TEntity, TResult]) -> TResult:
-        result = cast(TResult, self._resolve_repo(command).command(command))
+    def command(self, command: Command | ProjectionCommand[T]) -> object:
+        if isinstance(command, ProjectionCommand):
+            return self.projection_store.command(command)
+        result = self._resolve_repo(command).command(command)
         self.is_dirty = True
         return result
 
-    def query(self, query: Query[TEntity, TResult]) -> TResult:
-        return cast(TResult, self._resolve_repo(query).query(query))
+    def query(self, query: Query | ProjectionQuery) -> object:
+        if isinstance(query, ProjectionQuery):
+            return self.projection_store.query(query)
+        return self._resolve_repo(query).query(query)
 
+
+class UnitOfWork(_UnitOfWorkBase):
     @abstractmethod
     def commit(self) -> None: ...
 

@@ -251,26 +251,61 @@ def test_unit_of_work_cannot_determine_entity() -> None:
 
 
 def test_unit_of_work_projection_without_store_raises() -> None:
-    from aod.application import Projection
+    from aod.application import ProjectionQuery
 
-    class SomeProjection(Projection[str]):
+    class SomeProjection(ProjectionQuery[str]):
         pass
 
     uow = SpyUnitOfWork()
     with pytest.raises(DomainException, match="No ProjectionStore configured"):
-        uow.projection(SomeProjection())
+        uow.query(SomeProjection())
 
 
 def test_unit_of_work_projection_with_store() -> None:
-    from aod.application import Projection
+    from aod.application import ProjectionCommand, ProjectionQuery
 
-    class TestProjection(Projection[str]):
+    class TestProjection(ProjectionQuery[str]):
         pass
 
     class FakeStore[TestProjection]:
-        def projection(self, projection: TestProjection) -> str:
+        def query(self, query: TestProjection) -> str:
             return "ok"
 
+        def command(self, command: ProjectionCommand) -> None:
+            pass
+
     uow = SpyUnitOfWork(projection_store=FakeStore())
-    result = uow.projection(TestProjection())
+    result = uow.query(TestProjection())
     assert result == "ok"
+
+
+def test_unit_of_work_save_without_store_raises() -> None:
+    from aod.application import ProjectionCommand
+
+    class SomeCommand(ProjectionCommand[None]):
+        pass
+
+    uow = SpyUnitOfWork()
+    with pytest.raises(DomainException, match="No ProjectionStore configured"):
+        uow.command(SomeCommand())
+
+
+def test_unit_of_work_save_with_store() -> None:
+    from aod.application import ProjectionCommand, ProjectionQuery
+
+    saved: list[ProjectionCommand] = []
+
+    class SaveSomething(ProjectionCommand[None]):
+        value: str
+
+    class FakeStore:
+        def query(self, query: ProjectionQuery[str]) -> str:
+            return "ok"
+
+        def command(self, command: ProjectionCommand) -> None:
+            saved.append(command)
+
+    uow = SpyUnitOfWork(projection_store=FakeStore())
+    uow.command(SaveSomething(value="saved-value"))
+    assert len(saved) == 1
+    assert saved[0].value == "saved-value"
