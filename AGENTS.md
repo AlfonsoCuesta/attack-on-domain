@@ -229,8 +229,9 @@ class BoundedContext:
 - Runs check functions on all discovered types
 
 ### Public exceptions in `aod.exceptions`
-Only two exported exceptions:
+Three exported exceptions:
 - `DomainException` — base for all domain errors
+- `ApplicationException` — base for errors from the application and infrastructure layers (repository dispatch, projection store, handlers, UoW)
 - `MutationForbiddenException` — raised when mutating an immutable object
 
 Other exceptions (`InvalidNestedTypeError`, `InvalidServiceParameterError`, `ClassExpectedError`, etc.) remain in `_internal` and are not part of the public API.
@@ -399,7 +400,7 @@ uv run pytest code/tests -q
 
 ## Test Count
 
-589 tests
+582 tests
 
 ## At the end of a task
 

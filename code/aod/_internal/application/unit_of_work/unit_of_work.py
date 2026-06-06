@@ -7,7 +7,7 @@ from aod._internal.application.port import Port
 from aod._internal.application.projection import ProjectionCommand, ProjectionQuery, ReadModel
 from aod._internal.application.projection.projection_store import ProjectionStore
 from aod._internal.application.repository import Command, Query, Repository
-from aod._internal.core.domain_exception import DomainException
+from aod._internal.core.domain_exception import ApplicationException
 from aod._internal.core.fields.fields import Field, PrivateField
 from aod._internal.core.type_handlers.generic_utils import get_generic_arg_from_orig_bases
 from aod._internal.domain.entity import RootEntity
@@ -21,11 +21,11 @@ T = TypeVar("T", bound=ReadModel | None)
 class _NullProjectionStore:
     def query(self, query: ProjectionQuery[T]) -> T:
         msg = "No ProjectionStore configured"
-        raise DomainException(msg)
+        raise ApplicationException(msg)
 
     def command(self, command: ProjectionCommand[T]) -> T:
         msg = "No ProjectionStore configured"
-        raise DomainException(msg)
+        raise ApplicationException(msg)
 
 
 class _UnitOfWorkBase(Port):
@@ -46,11 +46,11 @@ class _UnitOfWorkBase(Port):
         entity = get_generic_arg_from_orig_bases(type(item), base_type)
         if not isinstance(entity, type) or not issubclass(entity, RootEntity):
             msg = f"Cannot determine entity for {kind} {type(item).__name__}"
-            raise DomainException(msg)
+            raise ApplicationException(msg)
         repo = self._repo_map.get(entity)
         if repo is None:
             msg = f"No repository registered for entity {entity.__name__}"
-            raise DomainException(msg)
+            raise ApplicationException(msg)
         return repo
 
     def command(self, command: Command | ProjectionCommand[T]) -> object:

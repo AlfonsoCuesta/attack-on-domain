@@ -5,7 +5,7 @@ from typing import Generic, TypeVar, cast
 
 from aod._internal.application.projection import ProjectionCommand, ProjectionQuery, ReadModel
 from aod._internal.core.async_utils import should_await
-from aod._internal.core.domain_exception import DomainException
+from aod._internal.core.domain_exception import ApplicationException
 from aod._internal.core.fields.fields import Field, PrivateField
 from aod._internal.infrastructure.handlers.base_handler import AsyncBaseHandler
 
@@ -51,12 +51,12 @@ class ProjectionStore(_BaseProjectionStore):
         handler = self._query_handlers.get(type(query))
         if handler is None:
             msg = f"No handler registered for {type(query).__name__}"
-            raise DomainException(msg)
+            raise ApplicationException(msg)
         return cast(T, await should_await(handler.handle(query)))
 
     async def command(self, command: ProjectionCommand[T]) -> T:
         handler = self._command_handlers.get(type(command))
         if handler is None:
             msg = f"No handler registered for {type(command).__name__}"
-            raise DomainException(msg)
+            raise ApplicationException(msg)
         return cast(T, await should_await(handler.handle(command)))

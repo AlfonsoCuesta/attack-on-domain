@@ -3,7 +3,7 @@ from __future__ import annotations
 import pytest
 from pydantic import ValidationError
 from aod._internal.core.base_sealed import BaseSealed
-from aod._internal.core.domain_exception import DomainException, MutationForbiddenException
+from aod._internal.core.domain_exception import ApplicationException, DomainException, MutationForbiddenException
 from aod._internal.domain.entity import Entity, RootEntity
 from aod._internal.type_checks.contract_checks import extract_root_entity
 from aod._internal.type_checks.handler_checks import extract_handler_type, validate_handler_type
@@ -284,7 +284,7 @@ class TestRepository:
 
         repo = UserRepo()
         cmd = CreateUser(name="Alice", email="a@b.com")
-        with pytest.raises(DomainException, match="No command handler registered for CreateUser"):
+        with pytest.raises(ApplicationException, match="No command handler registered for CreateUser"):
             repo.command(cmd)
 
     def test_unknown_query_raises(self) -> None:
@@ -292,21 +292,21 @@ class TestRepository:
             pass
 
         repo = UserRepo()
-        with pytest.raises(DomainException, match="No query handler registered for GetUser"):
+        with pytest.raises(ApplicationException, match="No query handler registered for GetUser"):
             repo.query(GetUser(user_id=1))
 
     def test_duplicate_command_handler_raises(self) -> None:
         class UserRepo(Repository[User]):
             pass
 
-        with pytest.raises(DomainException, match="Duplicate handler for CreateUser"):
+        with pytest.raises(ApplicationException, match="Duplicate handler for CreateUser"):
             UserRepo(command_handlers=[CreateUserHandler(), CreateUserHandler()])
 
     def test_duplicate_query_handler_raises(self) -> None:
         class UserRepo(Repository[User]):
             pass
 
-        with pytest.raises(DomainException, match="Duplicate handler for GetUser"):
+        with pytest.raises(ApplicationException, match="Duplicate handler for GetUser"):
             UserRepo(query_handlers=[GetUserHandler(), GetUserHandler()])
 
     def test_multiple_handlers(self) -> None:

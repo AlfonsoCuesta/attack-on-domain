@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import pytest
 from aod._internal.core.base_sealed import BaseSealed
-from aod._internal.core.domain_exception import DomainException
+from aod._internal.core.domain_exception import ApplicationException, DomainException
 from aod._internal.domain.entity import RootEntity
 from aod._internal.type_checks.handler_checks_async import (
     extract_handler_type,
@@ -107,7 +107,7 @@ async def test_unknown_command_raises() -> None:
 
     repo = UserRepo()
     cmd = CreateUser(name="Alice")
-    with pytest.raises(DomainException, match="No command handler registered for CreateUser"):
+    with pytest.raises(ApplicationException, match="No command handler registered for CreateUser"):
         await repo.command(cmd)
 
 
@@ -116,7 +116,7 @@ async def test_unknown_query_raises() -> None:
         pass
 
     repo = UserRepo()
-    with pytest.raises(DomainException, match="No query handler registered for GetUser"):
+    with pytest.raises(ApplicationException, match="No query handler registered for GetUser"):
         await repo.query(GetUser(user_id=1))
 
 
@@ -124,7 +124,7 @@ async def test_duplicate_command_handler_raises() -> None:
     class UserRepo(Repository[User]):
         pass
 
-    with pytest.raises(DomainException, match="Duplicate handler for CreateUser"):
+    with pytest.raises(ApplicationException, match="Duplicate handler for CreateUser"):
         UserRepo(command_handlers=[CreateUserHandler(), CreateUserHandler()])
 
 
@@ -132,7 +132,7 @@ async def test_duplicate_query_handler_raises() -> None:
     class UserRepo(Repository[User]):
         pass
 
-    with pytest.raises(DomainException, match="Duplicate handler for GetUser"):
+    with pytest.raises(ApplicationException, match="Duplicate handler for GetUser"):
         UserRepo(query_handlers=[GetUserHandler(), GetUserHandler()])
 
 

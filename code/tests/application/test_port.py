@@ -4,7 +4,7 @@ from abc import abstractmethod
 from typing import Generic, TypeVar
 
 import pytest
-from aod._internal.core.domain_exception import DomainException, MutationForbiddenException
+from aod._internal.core.domain_exception import ApplicationException, MutationForbiddenException
 from aod._internal.core.event_emitter import Event
 from aod._internal.domain.entity import RootEntity
 from aod.application import Command, EventBus, Logger, Port, ProjectionCommand, ProjectionQuery, Query, ReadModel, UnitOfWork, UseCase
@@ -229,13 +229,13 @@ def test_unit_of_work_unknown_entity_raises() -> None:
 
     repo = SpyUserRepo()
     uow = SpyUnitOfWork(repositories=[repo])
-    with pytest.raises(DomainException, match="No repository registered for entity OtherEntity"):
+    with pytest.raises(ApplicationException, match="No repository registered for entity OtherEntity"):
         uow.command(OtherCommand())
 
 
 def test_unit_of_work_empty_repositories_raises() -> None:
     uow = SpyUnitOfWork()
-    with pytest.raises(DomainException, match="No repository registered for entity User"):
+    with pytest.raises(ApplicationException, match="No repository registered for entity User"):
         uow.command(CreateUser(name="X"))
 
 
@@ -244,7 +244,7 @@ def test_unit_of_work_cannot_determine_entity() -> None:
         pass
 
     uow = SpyUnitOfWork(repositories=[SpyUserRepo()])
-    with pytest.raises(DomainException, match="Cannot determine entity for query"):
+    with pytest.raises(ApplicationException, match="Cannot determine entity for query"):
         uow.query(AmbiguousQuery())
 
 
@@ -256,7 +256,7 @@ def test_unit_of_work_projection_without_store_raises() -> None:
         pass
 
     uow = SpyUnitOfWork()
-    with pytest.raises(DomainException, match="No ProjectionStore configured"):
+    with pytest.raises(ApplicationException, match="No ProjectionStore configured"):
         uow.query(SomeProjection())
 
 
@@ -284,7 +284,7 @@ def test_unit_of_work_save_without_store_raises() -> None:
         pass
 
     uow = SpyUnitOfWork()
-    with pytest.raises(DomainException, match="No ProjectionStore configured"):
+    with pytest.raises(ApplicationException, match="No ProjectionStore configured"):
         uow.command(SomeCommand())
 
 

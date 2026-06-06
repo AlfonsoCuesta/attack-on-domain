@@ -3,7 +3,7 @@ from __future__ import annotations
 from typing import Generic, TypeVar
 
 import pytest
-from aod._internal.core.domain_exception import DomainException
+from aod._internal.core.domain_exception import ApplicationException
 from aod._internal.core.event_emitter import Event
 from aod._internal.domain.entity import RootEntity
 from aod.application import Command, ProjectionCommand, ProjectionQuery, Query, ReadModel
@@ -173,13 +173,13 @@ async def test_async_unit_of_work_unknown_entity_raises() -> None:
 
     repo = AsyncSpyUserRepo()
     uow = AsyncSpyUnitOfWork(repositories=[repo])
-    with pytest.raises(DomainException, match="No repository registered for entity OtherEntity"):
+    with pytest.raises(ApplicationException, match="No repository registered for entity OtherEntity"):
         await uow.command(OtherCommand())
 
 
 async def test_async_unit_of_work_empty_repositories_raises() -> None:
     uow = AsyncSpyUnitOfWork()
-    with pytest.raises(DomainException, match="No repository registered for entity User"):
+    with pytest.raises(ApplicationException, match="No repository registered for entity User"):
         await uow.command(CreateUser(name="X"))
 
 
@@ -191,7 +191,7 @@ async def test_async_unit_of_work_projection_without_store_raises() -> None:
         pass
 
     uow = AsyncSpyUnitOfWork()
-    with pytest.raises(DomainException, match="No ProjectionStore configured"):
+    with pytest.raises(ApplicationException, match="No ProjectionStore configured"):
         await uow.query(SomeProjection())
 
 
@@ -238,7 +238,7 @@ async def test_async_unit_of_work_save_without_store_raises() -> None:
         pass
 
     uow = AsyncSpyUnitOfWork()
-    with pytest.raises(DomainException, match="No ProjectionStore configured"):
+    with pytest.raises(ApplicationException, match="No ProjectionStore configured"):
         await uow.command(SomeCommand())
 
 

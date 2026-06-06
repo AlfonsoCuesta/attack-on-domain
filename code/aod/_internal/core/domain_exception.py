@@ -4,6 +4,12 @@ class DomainException(Exception):
     pass
 
 
+class ApplicationException(Exception):
+    """Base for errors raised by the application and infrastructure layers."""
+
+    pass
+
+
 class MutationForbiddenException(DomainException):
     """Raised when a mutable or immutable object is updated outside allowed context."""
 

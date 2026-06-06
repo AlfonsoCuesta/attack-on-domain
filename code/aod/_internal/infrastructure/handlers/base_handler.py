@@ -5,7 +5,7 @@ from types import UnionType
 from typing import Any, Generic, TypeVar, get_args, get_origin
 
 from aod._internal.core.base_sealed import BaseSealed
-from aod._internal.core.domain_exception import DomainException
+from aod._internal.core.domain_exception import ApplicationException
 from aod._internal.core.type_handlers.generic_utils import get_last_generic_arg
 
 T = TypeVar("T")
@@ -53,7 +53,7 @@ class BaseHandler(BaseSealed, Generic[T]):
                     f"{type(self).__name__}.handle() returned "
                     f"{type(result).__name__}, expected {expected}"
                 )
-                raise DomainException(msg)
+                raise ApplicationException(msg)
             return result
 
         cls.handle = checked_handle
@@ -78,7 +78,7 @@ class AsyncBaseHandler(BaseHandler, Generic[T]):
                     f"{type(self).__name__}.handle() returned "
                     f"{type(result).__name__}, expected {expected}"
                 )
-                raise DomainException(msg)
+                raise ApplicationException(msg)
             return result
 
         cls.handle = checked_handle
