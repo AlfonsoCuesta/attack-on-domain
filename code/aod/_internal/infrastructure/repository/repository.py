@@ -54,12 +54,12 @@ class Repository(BaseSealed, Generic[TEntity]):
             raise DomainException(msg)
         handlers[q_type] = h
 
-    def command(self, cmd: Command[TEntity, TResult]) -> TResult:
-        handler = self._commands.get(type(cmd))
+    def command(self, command: Command[TEntity, TResult]) -> TResult:
+        handler = self._commands.get(type(command))
         if handler is None:
-            msg = f"No command handler registered for {type(cmd).__name__}"
+            msg = f"No command handler registered for {type(command).__name__}"
             raise DomainException(msg)
-        return cast(TResult, handler.handle(cmd))
+        return cast(TResult, handler.handle(command))
 
     def query(self, query: Query[TEntity, TResult]) -> TResult:
         handler = self._queries.get(type(query))

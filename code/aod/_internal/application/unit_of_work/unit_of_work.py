@@ -54,8 +54,8 @@ class _UnitOfWorkBase(Port):
 
 
 class UnitOfWork(_UnitOfWorkBase):
-    def command(self, cmd: Command[TEntity, TResult]) -> TResult:
-        result = cast(TResult, self._resolve_repo(cmd).command(cmd))
+    def command(self, command: Command[TEntity, TResult]) -> TResult:
+        result = cast(TResult, self._resolve_repo(command).command(command))
         self.is_dirty = True
         return result
 

@@ -114,10 +114,10 @@ class AsyncSpyRepo(Generic[T]):
         self.commands: list[Command] = []
         self.queries: list[Query] = []
 
-    async def command(self, cmd: Command) -> object:
-        self.commands.append(cmd)
-        if isinstance(cmd, CreateUser):
-            return User(id=1, name=cmd.name)
+    async def command(self, command: Command) -> object:
+        self.commands.append(command)
+        if isinstance(command, CreateUser):
+            return User(id=1, name=command.name)
         return None
 
     async def query(self, query: Query) -> object:

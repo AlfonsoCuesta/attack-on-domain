@@ -29,8 +29,8 @@ class UnitOfWork(_UnitOfWorkBase):
         default_factory=dict
     )
 
-    async def command(self, cmd: Command[TEntity, TResult]) -> TResult:
-        result = await should_await(self._resolve_repo(cmd).command(cmd))
+    async def command(self, command: Command[TEntity, TResult]) -> TResult:
+        result = await should_await(self._resolve_repo(command).command(command))
         self.is_dirty = True
         return cast(TResult, result)
 

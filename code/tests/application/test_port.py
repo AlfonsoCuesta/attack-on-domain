@@ -170,10 +170,10 @@ class SpyRepo(Generic[T]):
         self.commands: list[Command] = []
         self.queries: list[Query] = []
 
-    def command(self, cmd: Command) -> object:
-        self.commands.append(cmd)
-        if isinstance(cmd, CreateUser):
-            return User(id=1, name=cmd.name)
+    def command(self, command: Command) -> object:
+        self.commands.append(command)
+        if isinstance(command, CreateUser):
+            return User(id=1, name=command.name)
         return None
 
     def query(self, query: Query) -> object:
