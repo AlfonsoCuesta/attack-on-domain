@@ -1,11 +1,11 @@
 from __future__ import annotations
 
 from abc import abstractmethod
-from typing import Any, TypeVar, cast
+from typing import TypeVar, cast
 
+from aod._internal.application.projection.async_ import ProjectionStore as AsyncProjectionStore
 from aod._internal.application.projection.projection import Projection
 from aod._internal.application.projection.projection_store import ProjectionStore
-from aod._internal.application.projection.async_ import ProjectionStore as AsyncProjectionStore
 from aod._internal.application.repository import Command, Query, Repository
 from aod._internal.application.repository.async_ import Repository as AsyncRepository
 from aod._internal.core.async_utils import should_await
@@ -20,10 +20,14 @@ T = TypeVar("T")
 
 
 class UnitOfWork(_UnitOfWorkBase):
-    repositories: list[Repository[Any, Any] | AsyncRepository[Any, Any]] = Field(default_factory=list)
-    projection_store: ProjectionStore | AsyncProjectionStore = Field(default_factory=_NullProjectionStore)
+    repositories: list[Repository | AsyncRepository] = Field(default_factory=list)
+    projection_store: ProjectionStore | AsyncProjectionStore = Field(
+        default_factory=_NullProjectionStore
+    )
     is_dirty: bool = Field(default=False, init=False)
-    _repo_map: dict[type[RootEntity], Repository[Any, Any] | AsyncRepository[Any, Any]] = PrivateField(default_factory=dict)
+    _repo_map: dict[type[RootEntity], Repository | AsyncRepository] = PrivateField(
+        default_factory=dict
+    )
 
     async def command(self, cmd: Command[TEntity, TResult]) -> TResult:
         result = await should_await(self._resolve_repo(cmd).command(cmd))

@@ -18,9 +18,7 @@ def validate_fields_no_entity(cls: type) -> None:
         return
 
     for field_name in own_field_names:
-        annotation = hints.get(field_name)
-        if annotation is None:
-            continue
+        annotation = hints[field_name]
         for t in extract_types_from_annotation(annotation):
             if isinstance(t, type) and issubclass(t, Entity) and not issubclass(t, RootEntity):
                 msg = (

@@ -70,8 +70,6 @@ class BaseGuardedTypeHandler:
                 if field_type is None:
                     continue
                 for t in extract_types_from_annotation(field_type):
-                    if not isinstance(t, type):
-                        continue
                     if (
                         issubclass(t, Entity)
                         and t is not Entity

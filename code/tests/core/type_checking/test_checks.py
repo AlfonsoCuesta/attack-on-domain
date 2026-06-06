@@ -139,3 +139,153 @@ def test_check_service_passes_with_custom_class_param() -> None:
             return config.rate
 
     ServiceTypeHandler.check_service(GoodService)  # Should not raise
+
+
+# --- type_handlers/__init__.py coverage ---
+
+def test_import_generic_utils_through_module() -> None:
+    import aod._internal.core.type_handlers as handler_module
+
+    func = handler_module.get_generic_arg_from_mro
+    assert callable(func)
+
+    func2 = handler_module.get_generic_arg_from_orig_bases
+    assert callable(func2)
+
+    func3 = handler_module.validate_generic_arg_is_subclass
+    assert callable(func3)
+
+    func4 = handler_module.validate_handler_subclass
+    assert callable(func4)
+
+
+def test_module_attribute_error() -> None:
+    import aod._internal.core.type_handlers as handler_module
+
+    with pytest.raises(AttributeError, match="has no attribute"):
+        handler_module.nonexistent_attr  # type: ignore[attr-defined]
+
+
+# --- base_guarded_handler.py coverage ---
+
+def _add_model_field(cls: type, name: str, annotation: object) -> None:
+    from pydantic.fields import FieldInfo
+    cls.__model_fields__[name] = FieldInfo(annotation=annotation)
+
+
+def test_check_entity_skips_private_fields() -> None:
+    class MyEntity(Entity):
+        id: int
+
+    _add_model_field(MyEntity, "_private", int)
+    BaseGuardedTypeHandler.check_entity(MyEntity)  # Should not raise
+
+
+def test_check_entity_skips_none_annotation() -> None:
+    class MyEntity(Entity):
+        id: int
+
+    _add_model_field(MyEntity, "public_none", None)
+    BaseGuardedTypeHandler.check_entity(MyEntity)  # Should not raise
+
+
+def test_check_value_object_skips_private_fields() -> None:
+    class MyVO(ValueObject):
+        value: str
+
+    _add_model_field(MyVO, "_private", str)
+    BaseGuardedTypeHandler.check_value_object(MyVO)  # Should not raise
+
+
+def test_check_value_object_skips_none_annotation() -> None:
+    class MyVO(ValueObject):
+        value: str
+
+    _add_model_field(MyVO, "public_none", None)
+    BaseGuardedTypeHandler.check_value_object(MyVO)  # Should not raise
+
+
+def test_discover_types_skips_private_fields_in_entity() -> None:
+    class Inner(Entity):
+        id: int
+
+    _add_model_field(Inner, "_private", str)
+
+    class Root(RootEntity):
+        id: int
+        inner: Inner
+
+    entities, vos = BaseGuardedTypeHandler.discover_types([Root])
+    assert Inner in entities
+
+
+def test_discover_types_skips_none_annotation_in_entity() -> None:
+    class Inner(Entity):
+        id: int
+
+    _add_model_field(Inner, "public_none", None)
+
+    class Root(RootEntity):
+        id: int
+        inner: Inner
+
+    entities, vos = BaseGuardedTypeHandler.discover_types([Root])
+    assert Inner in entities
+
+
+def test_discover_types_skips_class_without_model_fields() -> None:
+    class NonPydantic:
+        pass
+
+    class Root(RootEntity):
+        id: int
+
+    entities, vos = BaseGuardedTypeHandler.discover_types([Root, NonPydantic])  # type: ignore[list-item]
+    assert isinstance(entities, list)
+    assert isinstance(vos, list)
+
+
+# --- service_handler.py coverage ---
+
+def test_check_service_skips_param_without_annotation() -> None:
+    class SomeService(Service):
+        def process(self, x) -> None:  # type: ignore[no-untyped-def]
+            pass
+
+    ServiceTypeHandler.check_service(SomeService)  # Should not raise
+
+
+def test_check_service_handles_bad_signature() -> None:
+    from unittest import mock
+
+    class SomeService(Service):
+        def process(self, x: int) -> None:
+            pass
+
+    with mock.patch(
+        "aod._internal.core.type_handlers.service_handler.inspect.signature",
+        side_effect=ValueError("no signature"),
+    ):
+        ServiceTypeHandler.check_service(SomeService)  # Should not raise
+
+
+def test_check_service_handles_string_annotation() -> None:
+    class SomeService(Service):
+        def process(self, x: "int") -> None:  # noqa: F722
+            pass
+
+    ServiceTypeHandler.check_service(SomeService)  # Should not raise
+
+
+def test_resolved_hints_exception() -> None:
+    from unittest import mock
+
+    class SomeService(Service):
+        def process(self, x: "int") -> None:  # noqa: F722
+            pass
+
+    with mock.patch(
+        "aod._internal.core.type_handlers.service_handler.typing.get_type_hints",
+        side_effect=RuntimeError("boom"),
+    ):
+        ServiceTypeHandler.check_service(SomeService)  # Should not raise

@@ -438,3 +438,47 @@ class TestRepository:
             DomainException, match="handles entity Order, but repository is for entity User"
         ):
             UserRepo(command_handlers=[OrderHandler()])
+
+
+class TestContractChecks:
+    def test_validate_fields_no_entity_name_error(self) -> None:
+        class ForwaredRefCmd(Command[User, User]):
+            items: "NonExistentType"  # type: ignore[name-defined]  # noqa: F722
+
+        # Class creation succeeds because NameError is caught
+
+    def test_validate_result_no_result_type(self) -> None:
+        class BareQuery(Query):
+            pass
+
+        assert issubclass(BareQuery, Query)
+
+    def test_extract_root_entity_returns_none(self) -> None:
+        from aod._internal.type_checks.contract_checks import extract_root_entity
+
+        class NotARepo(BaseSealed):
+            pass
+
+        result = extract_root_entity(NotARepo())
+        assert result is None
+
+    def test_extract_root_entity_with_object(self) -> None:
+        from aod._internal.type_checks.contract_checks import extract_root_entity
+
+        result = extract_root_entity(object())
+        assert result is None
+
+
+class TestHandlerChecks:
+    def test_validate_handler_type_raises(self) -> None:
+        from aod._internal.type_checks.handler_checks import validate_handler_type
+        from aod.infrastructure import CommandHandler, QueryHandler
+
+        class NotAHandler(BaseSealed):
+            pass
+
+        with pytest.raises(DomainException, match="does not handle"):
+            validate_handler_type(NotAHandler(), CommandHandler)
+
+        with pytest.raises(DomainException, match="does not handle"):
+            validate_handler_type(NotAHandler(), QueryHandler)

@@ -1,4 +1,4 @@
-from typing import Optional
+from typing import Annotated, Optional
 
 from aod._internal.core.type_checking.extractors import extract_types_from_annotation
 
@@ -48,3 +48,8 @@ def test_extract_types_from_primitive() -> None:
 
 def test_extract_types_from_none_type() -> None:
     assert extract_types_from_annotation(type(None)) == [type(None)]
+
+
+def test_extract_types_from_annotated() -> None:
+    result = extract_types_from_annotation(Annotated[int, ...])
+    assert result == [int]

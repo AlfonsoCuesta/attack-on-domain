@@ -74,8 +74,6 @@ def _wrap_public_methods(cls: type) -> None:
                 continue
             if is_dunder(attr_name):
                 continue
-            if inspect.ismethod(attr_value):
-                continue
             if getattr(attr_value, VALIDATOR_KEY, False):
                 continue
             if getattr(attr_value, MUTABLE_KEY, False):

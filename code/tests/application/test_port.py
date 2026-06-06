@@ -95,6 +95,24 @@ def test_logger_concrete() -> None:
     assert log.entries[0].context == {"user_id": 42}
 
 
+def test_logger_debug() -> None:
+    log = SpyLogger()
+    log.debug("debug msg", x=1)
+    assert len(log.entries) == 1
+    assert log.entries[0].level == "debug"
+    assert log.entries[0].msg == "debug msg"
+    assert log.entries[0].context == {"x": 1}
+
+
+def test_logger_warning() -> None:
+    log = SpyLogger()
+    log.warning("warn msg", y=2)
+    assert len(log.entries) == 1
+    assert log.entries[0].level == "warning"
+    assert log.entries[0].msg == "warn msg"
+    assert log.entries[0].context == {"y": 2}
+
+
 def test_event_bus_abstract() -> None:
     with pytest.raises(TypeError):
         EventBus()  # type: ignore[abstract]
@@ -219,3 +237,40 @@ def test_unit_of_work_empty_repositories_raises() -> None:
     uow = SpyUnitOfWork()
     with pytest.raises(DomainException, match="No repository registered for entity User"):
         uow.command(CreateUser(name="X"))
+
+
+def test_unit_of_work_cannot_determine_entity() -> None:
+    from aod.application import Query
+
+    class AmbiguousQuery(Query[User | None, User | None]):
+        pass
+
+    uow = SpyUnitOfWork(repositories=[SpyUserRepo()])
+    with pytest.raises(DomainException, match="Cannot determine entity for query"):
+        uow.query(AmbiguousQuery())
+
+
+def test_unit_of_work_projection_without_store_raises() -> None:
+    from aod.application import Projection
+
+    class SomeProjection(Projection[str]):
+        pass
+
+    uow = SpyUnitOfWork()
+    with pytest.raises(DomainException, match="No ProjectionStore configured"):
+        uow.projection(SomeProjection())
+
+
+def test_unit_of_work_projection_with_store() -> None:
+    from aod.application import Projection
+
+    class TestProjection(Projection[str]):
+        pass
+
+    class FakeStore:
+        def projection(self, p: TestProjection) -> str:
+            return "ok"
+
+    uow = SpyUnitOfWork(projection_store=FakeStore())
+    result = uow.projection(TestProjection())
+    assert result == "ok"

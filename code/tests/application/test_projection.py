@@ -5,6 +5,7 @@ from aod._internal.core.domain_exception import MutationForbiddenException
 from aod._internal.domain.entity import Entity, RootEntity
 from aod._internal.domain.value_object import ValueObject
 from aod.application import Projection
+from aod.application.projection import Projection as ProjectionDirect
 
 
 class User(RootEntity):
@@ -98,3 +99,10 @@ class TestProjection:
 
         p = AllOrders()
         assert isinstance(p, Projection)
+
+    def test_direct_module_import_works(self) -> None:
+        class DirectOrder(ProjectionDirect[list[dict]]):
+            user_id: int
+
+        p = DirectOrder(user_id=1)
+        assert p.user_id == 1

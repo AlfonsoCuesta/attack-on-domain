@@ -5,6 +5,7 @@ import pytest
 from aod._internal.core.base_validator import BaseValidator
 from aod._internal.core.reconstructable import ReconstructMixin
 from aod._internal.core.fields import Field, PrivateField
+from aod._internal.core.fields.fields import Unset
 from aod._internal.core.invariances import (
     AfterValidator,
     field_invariance,
@@ -188,6 +189,19 @@ def test_invariance_can_raise_validation_error() -> None:
         User(age=16)
 
 
+def test_invariance_with_parentheses_covers_lambda_branch() -> None:
+    class User(BaseValidator):
+        age: int
+
+        @invariance()
+        def reject_minors(self) -> None:
+            if self.age < 18:
+                raise ValueError("Must be 18 or older")
+
+    with pytest.raises(ValidationError, match="Must be 18 or older"):
+        User(age=16)
+
+
 def test_invariance_does_not_raise_on_reconstruct() -> None:
     """Since invariance is not in the raw model, reconstruct bypasses it."""
 
@@ -202,3 +216,31 @@ def test_invariance_does_not_raise_on_reconstruct() -> None:
     user = User.reconstruct(age=16)
 
     assert user.age == 16
+
+
+def test_unset_repr() -> None:
+    assert repr(Unset()) == "UNSET FIELD"
+
+
+def test_child_inherits_field_invariance_from_parent() -> None:
+    class Parent(BaseValidator):
+        age: int
+
+        @field_invariance("age")
+        def normalize_age(cls, value: int) -> int:
+            return value + 5
+
+    class Child(Parent):
+        pass
+
+    child = Child(age=10)
+    assert child.age == 15
+
+
+def test_base_validator_accepts_dict_model_config() -> None:
+    class DictConfig(BaseValidator):
+        model_config = {"frozen": True}
+        age: int
+
+    obj = DictConfig(age=1)
+    assert obj.age == 1

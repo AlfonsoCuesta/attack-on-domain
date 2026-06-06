@@ -5,6 +5,7 @@ from aod._internal.core.domain_exception import (
     InvalidNestedTypeError,
     InvalidRootEntityTypeError,
     InvalidServiceParameterError,
+    InvalidServiceTypeError,
 )
 from aod._internal.domain.bounded_context import BoundedContext
 from aod._internal.domain.entity import Entity, RootEntity
@@ -64,6 +65,14 @@ def test_bounded_context_accepts_services_too() -> None:
 
     assert bc.aggregate_roots == (Order,)
     assert bc.services == (Pricing,)
+
+
+def test_bounded_context_rejects_non_service_class() -> None:
+    class NotService:
+        pass
+
+    with pytest.raises(InvalidServiceTypeError, match="is not a Service"):
+        BoundedContext(services=[NotService])  # type: ignore
 
 
 # ---------------------------------------------------------------------------
@@ -393,6 +402,17 @@ def test_service_with_multiple_params_only_entity_forbidden() -> None:
         )
 
 
+def test_bounded_context_rejects_service_instance() -> None:
+    with pytest.raises(ClassExpectedError, match="service"):
+        BoundedContext(services=["not_a_service"])  # type: ignore
+
+
+def test_bounded_context_repr_without_name() -> None:
+    bc = BoundedContext()
+    result = repr(bc)
+    assert result.startswith("<")
+
+
 def test_service_with_entity_return_type_raises_error() -> None:
     class Customer(Entity):
         id: int
@@ -429,3 +449,16 @@ def test_service_with_value_object_return_type_is_allowed() -> None:
     bc = BoundedContext(services=[GeoService])
 
     assert bc.services == (GeoService,)
+
+
+def test_duplicate_root_entity_in_aggregate_roots() -> None:
+    class Address(ValueObject):
+        street: str
+
+    class Customer(RootEntity):
+        id: int
+        address: Address
+
+    bc = BoundedContext(aggregate_roots=[Customer, Customer])
+
+    assert Address in bc.value_objects

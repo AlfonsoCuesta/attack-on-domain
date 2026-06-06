@@ -24,6 +24,7 @@ class ProjectionStore(SyncProjectionStore):
     _handlers: dict[type, ProjectionHandler | SyncProjectionHandler] = PrivateField(
         default_factory=dict
     )
+    __allowed_handlers__ = (ProjectionHandler, SyncProjectionHandler)
 
     async def projection(self, p: Projection[T]) -> T:
         handler = self._get_handler(p)

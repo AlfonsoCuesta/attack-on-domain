@@ -25,6 +25,33 @@ async def test_async_logger_concrete() -> None:
     assert log.entries[0].context == {"user_id": 42}
 
 
+async def test_async_logger_debug() -> None:
+    log = AsyncSpyLogger()
+    await log.debug("dbg", z=3)
+    assert len(log.entries) == 1
+    assert log.entries[0].level == "debug"
+    assert log.entries[0].msg == "dbg"
+    assert log.entries[0].context == {"z": 3}
+
+
+async def test_async_logger_warning() -> None:
+    log = AsyncSpyLogger()
+    await log.warning("wrn", w=4)
+    assert len(log.entries) == 1
+    assert log.entries[0].level == "warning"
+    assert log.entries[0].msg == "wrn"
+    assert log.entries[0].context == {"w": 4}
+
+
+async def test_async_logger_error() -> None:
+    log = AsyncSpyLogger()
+    await log.error("err", v=5)
+    assert len(log.entries) == 1
+    assert log.entries[0].level == "error"
+    assert log.entries[0].msg == "err"
+    assert log.entries[0].context == {"v": 5}
+
+
 async def test_async_logger_is_abstract() -> None:
     with pytest.raises(TypeError):
         AsyncLogger()  # type: ignore[abstract]
@@ -154,3 +181,44 @@ async def test_async_unit_of_work_empty_repositories_raises() -> None:
     uow = AsyncSpyUnitOfWork()
     with pytest.raises(DomainException, match="No repository registered for entity User"):
         await uow.command(CreateUser(name="X"))
+
+
+async def test_async_unit_of_work_projection_without_store_raises() -> None:
+    from aod.application import Projection
+
+    class SomeProjection(Projection[str]):
+        pass
+
+    uow = AsyncSpyUnitOfWork()
+    with pytest.raises(DomainException, match="No ProjectionStore configured"):
+        await uow.projection(SomeProjection())
+
+
+async def test_async_unit_of_work_projection_with_store() -> None:
+    from aod.application import Projection
+
+    class TestProjection(Projection[str]):
+        pass
+
+    class FakeStore[TestProjection]:
+        async def projection(self, p):
+            return "ok"
+
+    uow = AsyncSpyUnitOfWork(projection_store=FakeStore())
+    result = await uow.projection(TestProjection())
+    assert result == "ok"
+
+
+async def test_async_unit_of_work_projection_with_sync_store() -> None:
+    from aod.application import Projection
+
+    class TestProjection(Projection[str]):
+        pass
+
+    class SyncFakeStore[TestProjection]:
+        def projection(self, p):
+            return "sync"
+
+    uow = AsyncSpyUnitOfWork(projection_store=SyncFakeStore())
+    result = await uow.projection(TestProjection())
+    assert result == "sync"

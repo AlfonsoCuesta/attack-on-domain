@@ -162,3 +162,81 @@ def test_app_describe_includes_all_contexts() -> None:
 
     assert "Catalog" in result
     assert "Sales" in result
+
+
+def test_extract_fields_on_non_model() -> None:
+    from aod._internal.domain.describe import extract_fields
+
+    class NotAModel:
+        pass
+
+    assert extract_fields(NotAModel) == []
+
+
+def test_describe_skips_private_fields() -> None:
+    class Product(RootEntity):
+        id: int
+        name: str
+
+    docs = BoundedContext(aggregate_roots=[Product]).describe()
+    product_doc = next(d for d in docs if d.name == "Product")
+    assert all(not f.name.startswith("_") for f in product_doc.fields)
+
+
+def test_extract_methods_skips_non_callable() -> None:
+    from aod._internal.domain.describe import extract_methods
+
+    class Mixed:
+        def valid_method(self) -> None:
+            pass
+
+        not_callable: int = 42
+
+    result = extract_methods(Mixed)
+    assert len(result) == 1
+    assert result[0].name == "valid_method"
+
+
+def test_extract_methods_handles_signature_error() -> None:
+    from aod._internal.domain.describe import extract_methods
+    import functools
+
+    class ClassWithBad:
+        def good_method(self) -> None:
+            pass
+
+        compute = functools.partial(int)
+
+    result = extract_methods(ClassWithBad)
+    names = {m.name for m in result}
+    assert "good_method" in names
+    assert "compute" in names
+    bad = next(m for m in result if m.name == "compute")
+    assert bad.signature == "(...)"
+
+
+def test_extract_fields_with_null_annotation() -> None:
+    from aod._internal.domain.describe import extract_fields
+    from aod._internal.domain.entity import Entity
+
+    class Item(Entity):
+        id: int
+
+    fi = Item.__model_fields__["id"]
+    object.__setattr__(fi, "annotation", None)
+
+    result = extract_fields(Item)
+    assert all(f.name != "id" for f in result)
+
+
+def test_extract_fields_skips_private() -> None:
+    from aod._internal.domain.describe import extract_fields
+    from types import SimpleNamespace
+
+    class Fake:
+        pass
+
+    Fake.__model_fields__ = {"_hidden": SimpleNamespace(annotation=str)}
+
+    result = extract_fields(Fake)
+    assert result == []

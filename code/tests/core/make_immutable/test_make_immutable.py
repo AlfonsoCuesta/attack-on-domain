@@ -6,6 +6,7 @@ import uuid
 from copy import copy
 
 import pytest
+from aod._internal.core.base_guarded.make_immutable._helpers import identity
 from aod._internal.core.base_guarded.make_immutable.immutable_custom import (
     _immutable_cache,
 )
@@ -498,3 +499,83 @@ def test_make_immutable_custom_object_blocks_inplace_dunder() -> None:
         match="Cannot modify an immutable object Addable",
     ):
         immutable += 1
+
+
+def test_identity_function_returns_value_unchanged() -> None:
+    assert identity(42) == 42
+    assert identity("hello") == "hello"
+
+
+def test_immutable_set_uses_identity_factory_by_default() -> None:
+    immutable = ImmutableSet({1, 2, 3})
+    assert list(immutable) == [1, 2, 3]
+
+
+def test_make_immutable_on_already_immutable_custom_object() -> None:
+    class MyObject:
+        def __init__(self) -> None:
+            self.value = 1
+
+    first = make_immutable(MyObject())
+    second = make_immutable(first)
+
+    assert second is first
+
+
+def test_immutable_dict_iter_wraps_keys_via_factory() -> None:
+    d = make_immutable({"a": 1, "b": 2})
+    keys = list(d)
+    assert keys == ["a", "b"]
+
+
+def test_immutable_dict_get_missing_key_returns_none() -> None:
+    d = make_immutable({"a": 1})
+    result = d.get("missing")
+    assert result is None
+
+
+def test_immutable_dict_keys_yields_keys() -> None:
+    d = make_immutable({"a": 1, "b": 2})
+    keys = list(d.keys())
+    assert keys == ["a", "b"]
+
+
+def test_make_immutable_custom_object_skips_non_model_fields() -> None:
+    class WithFields:
+        __model_fields__ = {"x": None}
+
+        def __init__(self) -> None:
+            self.x = 1
+            self.y = 2  # Not in __model_fields__
+
+    obj = WithFields()
+    immutable = make_immutable(obj)
+    assert immutable.x == 1
+    assert immutable.y == 2
+
+
+def test_make_immutable_frozenset_subclass_with_restrictive_new_returns_original() -> None:
+    class ImmFrozen(frozenset):
+        def __new__(cls, *args, **kwargs):
+            if args:
+                msg = "No positional args"
+                raise TypeError(msg)
+            return super().__new__(cls)
+
+    obj = ImmFrozen()
+    result = make_immutable(obj)
+    assert result is obj
+
+
+def test_make_immutable_custom_object_wraps_arithmetic_result() -> None:
+    class Adder:
+        def __init__(self, value: int = 0) -> None:
+            self.value = value
+
+        def __add__(self, other: int) -> Adder:
+            return Adder(self.value + other)
+
+    immutable = make_immutable(Adder(5))
+    result = immutable + 3
+    assert type(result).__name__ == "ImmutableAdder"
+    assert result.value == 8

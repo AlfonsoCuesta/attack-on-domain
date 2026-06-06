@@ -227,3 +227,29 @@ async def test_handler_for_wrong_entity_type() -> None:
         DomainException, match="handles entity Order, but repository is for entity User"
     ):
         UserRepo(command_handlers=[OrderHandler()])
+
+
+async def test_validate_handler_type_raises_async() -> None:
+    from aod._internal.type_checks.handler_checks_async import validate_handler_type
+    from aod.infrastructure.handlers.async_ import CommandHandler, QueryHandler
+
+    class NotAHandler(BaseSealed):
+        pass
+
+    with pytest.raises(DomainException, match="does not handle"):
+        validate_handler_type(NotAHandler(), CommandHandler)
+
+    with pytest.raises(DomainException, match="does not handle"):
+        validate_handler_type(NotAHandler(), QueryHandler)
+
+
+async def test_extract_handler_type_raises_async() -> None:
+    from aod._internal.type_checks.handler_checks_async import extract_handler_type
+    from aod.infrastructure.handlers.async_ import CommandHandler
+
+    class BadHandler(CommandHandler):
+        async def handle(self, cmd):
+            return None
+
+    with pytest.raises(DomainException):
+        extract_handler_type(BadHandler())

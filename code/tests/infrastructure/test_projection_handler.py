@@ -67,3 +67,39 @@ class TestProjectionHandler:
         h = GetOrdersHandler()
         with pytest.raises(DomainException):
             h.handle = cast(Any, lambda p: [])
+
+
+def test_store_with_valid_handler() -> None:
+    from aod.infrastructure import ProjectionStore
+
+    store = ProjectionStore(handlers=[GetOrdersHandler()])
+    result = store.projection(GetOrders(user_id=1, status="active"))
+    assert isinstance(result, list)
+    assert result[0]["status"] == "active"
+
+
+def test_store_no_handler_registered() -> None:
+    from aod.infrastructure import ProjectionStore
+
+    store = ProjectionStore()
+    with pytest.raises(DomainException, match="No handler registered for"):
+        store.projection(GetOrders(user_id=1))
+
+
+def test_store_duplicate_handler_raises() -> None:
+    from aod.infrastructure import ProjectionStore
+
+    with pytest.raises(DomainException, match="Duplicate handler for"):
+        ProjectionStore(handlers=[GetOrdersHandler(), GetOrdersHandler()])
+
+
+def test_store_invalid_handler_type_raises() -> None:
+    from aod._internal.infrastructure.projection.projection_store import ProjectionStore as PS
+    from aod._internal.infrastructure.projection.projection_handler import ProjectionHandler as PH
+
+    class NoType(PH):
+        def handle(self, projection: object) -> object:
+            return None
+
+    with pytest.raises(DomainException, match="Cannot determine projection type for"):
+        PS(handlers=[NoType()])

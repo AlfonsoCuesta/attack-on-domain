@@ -1,4 +1,4 @@
-from typing import Literal
+from typing import Any, Literal
 
 import pytest
 from aod._internal.core.base_guarded import (
@@ -7,6 +7,7 @@ from aod._internal.core.base_guarded import (
     MutatingState,
     inherit_context,
 )
+from aod._internal.core.base_sealed import BaseSealed
 from aod._internal.core.domain_exception import MutationForbiddenException
 
 
@@ -508,3 +509,40 @@ def test_check_mutable_object_from_mutable_getattr() -> None:
     assert mutable.get_data_list() == [immutable_item]
     assert mutable.get_data_list().__class__ is list
     assert mutable.get_data_list()[0].__class__.__name__ == "ImmutableListItem"
+
+
+def test_base_sealed_can_mutate_returns_false() -> None:
+    class Sealed(BaseSealed):
+        value: int
+
+    obj = Sealed(value=42)
+    assert obj._can_mutate() is False
+
+
+def test_delattr_inside_public_method() -> None:
+    class User(BaseGuarded):
+        name: str
+        age: int
+
+        def delete_age(self) -> None:
+            del self.age
+
+    user = User(name="alice", age=30)
+    user.delete_age()
+    assert not hasattr(user, "age")
+
+
+def test_getattr_returns_function_field_as_is_when_cannot_mutate() -> None:
+    def my_func() -> str:
+        return "hello"
+
+    class Container(BaseGuarded):
+        fn: Any
+
+        def _can_mutate(self) -> bool:
+            return False
+
+    obj = Container(fn=my_func)
+    assert obj.fn is my_func
+    assert callable(obj.fn)
+    assert obj.fn() == "hello"
