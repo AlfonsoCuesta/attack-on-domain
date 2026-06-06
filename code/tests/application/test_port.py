@@ -267,8 +267,8 @@ def test_unit_of_work_projection_with_store() -> None:
     class TestProjection(Projection[str]):
         pass
 
-    class FakeStore:
-        def projection(self, p: TestProjection) -> str:
+    class FakeStore[TestProjection]:
+        def projection(self, projection: TestProjection) -> str:
             return "ok"
 
     uow = SpyUnitOfWork(projection_store=FakeStore())

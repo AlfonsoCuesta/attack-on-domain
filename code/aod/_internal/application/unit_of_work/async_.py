@@ -37,8 +37,8 @@ class UnitOfWork(_UnitOfWorkBase):
     async def query(self, query: Query[TEntity, TResult]) -> TResult:
         return cast(TResult, await should_await(self._resolve_repo(query).query(query)))
 
-    async def projection(self, p: Projection[T]) -> T:
-        return cast(T, await should_await(self.projection_store.projection(p)))
+    async def projection(self, projection: Projection[T]) -> T:
+        return cast(T, await should_await(self.projection_store.projection(projection)))
 
     @abstractmethod
     async def commit(self) -> None: ...

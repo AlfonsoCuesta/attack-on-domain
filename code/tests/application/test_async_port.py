@@ -201,7 +201,7 @@ async def test_async_unit_of_work_projection_with_store() -> None:
         pass
 
     class FakeStore[TestProjection]:
-        async def projection(self, p):
+        async def projection(self, projection):
             return "ok"
 
     uow = AsyncSpyUnitOfWork(projection_store=FakeStore())
@@ -216,7 +216,7 @@ async def test_async_unit_of_work_projection_with_sync_store() -> None:
         pass
 
     class SyncFakeStore[TestProjection]:
-        def projection(self, p):
+        def projection(self, projection):
             return "sync"
 
     uow = AsyncSpyUnitOfWork(projection_store=SyncFakeStore())

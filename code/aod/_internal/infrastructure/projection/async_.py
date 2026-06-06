@@ -26,6 +26,6 @@ class ProjectionStore(SyncProjectionStore):
     )
     __allowed_handlers__ = (ProjectionHandler, SyncProjectionHandler)
 
-    async def projection(self, p: Projection[T]) -> T:
-        handler = self._get_handler(p)
-        return cast(T, await should_await(handler.handle(p)))
+    async def projection(self, projection: Projection[T]) -> T:
+        handler = self._get_handler(projection)
+        return cast(T, await should_await(handler.handle(projection)))

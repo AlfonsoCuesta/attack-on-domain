@@ -19,7 +19,7 @@ T = TypeVar("T")
 
 
 class _NullProjectionStore:
-    def projection(self, p: Projection[T]) -> T:
+    def projection(self, projection: Projection[T]) -> T:
         msg = "No ProjectionStore configured"
         raise DomainException(msg)
 
@@ -49,8 +49,8 @@ class _UnitOfWorkBase(Port):
             raise DomainException(msg)
         return repo
 
-    def projection(self, p: Projection[T]) -> T:
-        return self.projection_store.projection(p)
+    def projection(self, projection: Projection[T]) -> T:
+        return self.projection_store.projection(projection)
 
 
 class UnitOfWork(_UnitOfWorkBase):

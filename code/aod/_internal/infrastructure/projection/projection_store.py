@@ -28,13 +28,13 @@ class ProjectionStore(BaseSealed):
                 raise DomainException(msg)
             self._handlers[p_type] = h
 
-    def projection(self, p: Projection[T]) -> T:
-        handler = self._get_handler(p)
-        return cast(T, handler.handle(p))
+    def projection(self, projection: Projection[T]) -> T:
+        handler = self._get_handler(projection)
+        return cast(T, handler.handle(projection))
 
-    def _get_handler(self, p: Projection[T]) -> ProjectionHandler:
-        handler = self._handlers.get(type(p))
+    def _get_handler(self, projection: Projection[T]) -> ProjectionHandler:
+        handler = self._handlers.get(type(projection))
         if handler is None:
-            msg = f"No handler registered for {type(p).__name__}"
+            msg = f"No handler registered for {type(projection).__name__}"
             raise DomainException(msg)
         return handler
