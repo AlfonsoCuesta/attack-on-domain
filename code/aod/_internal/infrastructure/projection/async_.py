@@ -11,7 +11,7 @@ from aod._internal.infrastructure.handlers.base_handler import AsyncBaseHandler
 
 from .projection_handler import ProjectionCommandHandler as SyncProjectionCommandHandler
 from .projection_handler import ProjectionQueryHandler as SyncProjectionQueryHandler
-from .projection_store import ProjectionStore as SyncProjectionStore
+from .projection_store import _BaseProjectionStore
 
 PQ = TypeVar("PQ", bound=ProjectionQuery)
 PC = TypeVar("PC", bound=ProjectionCommand)
@@ -28,20 +28,19 @@ class ProjectionCommandHandler(AsyncBaseHandler, Generic[PC]):
     async def handle(self, command: PC) -> object: ...
 
 
-class ProjectionStore(SyncProjectionStore):
-    handlers: list[
-        ProjectionQueryHandler
-        | SyncProjectionQueryHandler
-        | ProjectionCommandHandler
-        | SyncProjectionCommandHandler
-    ] = Field(default_factory=list)
-    _query_handlers: dict[type, ProjectionQueryHandler | SyncProjectionQueryHandler] = PrivateField(
-        default_factory=dict
-    )
-    _command_handlers: dict[type, ProjectionCommandHandler | SyncProjectionCommandHandler] = (
-        PrivateField(default_factory=dict)
-    )
-    __allowed_handlers__ = (
+_Handler = (
+    ProjectionQueryHandler
+    | SyncProjectionQueryHandler
+    | ProjectionCommandHandler
+    | SyncProjectionCommandHandler
+)
+
+
+class ProjectionStore(_BaseProjectionStore):
+    handlers: list[_Handler] = Field(default_factory=list)
+    _query_handlers: dict[type, _Handler] = PrivateField(default_factory=dict)
+    _command_handlers: dict[type, _Handler] = PrivateField(default_factory=dict)
+    __allowed_handler_types__ = (
         ProjectionQueryHandler,
         SyncProjectionQueryHandler,
         ProjectionCommandHandler,
