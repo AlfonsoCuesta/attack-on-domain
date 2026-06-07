@@ -18,7 +18,9 @@ Source code is under `code/` (mapped as package root in `pyproject.toml`).
 | `from aod.domain import DomainEvent` | Event base class |
 | `from aod.domain.validation import field_invariance, invariance, inherit_context` | Validation decorators |
 | `from aod.domain.validation import AfterValidator, BeforeValidator` | Pydantic validators |
-| `from aod.exceptions import DomainException, MutationForbiddenException` | Public exceptions |
+| `from aod.exceptions import ApplicationException, DomainException, MutationForbiddenException` | Base exceptions |
+| `from aod.exceptions import (InvalidCommandFieldTypeError, InvalidQueryResultTypeError, InvalidGenericTypeArgError, InvalidProjectionTypeError, InvalidEntityTypeError, InvalidRootEntityTypeError, InvalidServiceTypeError, ClassExpectedError, InvalidNestedTypeError, InvalidServiceParameterError, DuplicateDomainTypeError, HandlerTypeMismatchError, HandlerEntityMismatchError, UnresolvableHandlerTypeError, InvarianceException)` | Domain-specific exceptions |
+| `from aod.exceptions import (ProjectionStoreNotConfiguredError, UnresolvableEntityError, RepositoryNotRegisteredError, UnresolvableProjectionTypeError, DuplicateProjectionHandlerError, ProjectionHandlerNotFoundError, DuplicateHandlerError, HandlerNotFoundError, HandlerResultTypeError)` | Application/infrastructure exceptions |
 
 | `from aod.domain import EventCollector` | Cross-aggregate event capture |
 | `from aod.application import UseCase` | UseCase base class |

@@ -1,6 +1,9 @@
 from typing import get_args, get_type_hints
 
-from aod._internal.core.domain_exception import DomainException
+from aod._internal.core.domain_exception import (
+    InvalidCommandFieldTypeError,
+    InvalidQueryResultTypeError,
+)
 from aod._internal.core.type_checking.extractors import extract_types_from_annotation
 from aod._internal.core.type_handlers.generic_utils import get_generic_arg_from_orig_bases
 from aod._internal.core.type_utils import type_name
@@ -21,11 +24,7 @@ def validate_fields_no_entity(cls: type) -> None:
         annotation = hints[field_name]
         for t in extract_types_from_annotation(annotation):
             if isinstance(t, type) and issubclass(t, Entity) and not issubclass(t, RootEntity):
-                msg = (
-                    f"Field '{field_name}' in {cls.__name__} references non-root Entity "
-                    f"type '{t.__name__}'. Only RootEntity is allowed in Command/Query fields."
-                )
-                raise DomainException(msg)
+                raise InvalidCommandFieldTypeError(cls.__name__, field_name, t.__name__)
 
 
 def validate_result_contains_root_entity(cls: type, query_type: type) -> None:
@@ -35,11 +34,7 @@ def validate_result_contains_root_entity(cls: type, query_type: type) -> None:
 
     all_types = extract_types_from_annotation(result_type)
     if not any(isinstance(t, type) and issubclass(t, RootEntity) for t in all_types):
-        msg = (
-            f"Result type for {cls.__name__} must include a RootEntity, "
-            f"got {type_name(result_type)}"
-        )
-        raise DomainException(msg)
+        raise InvalidQueryResultTypeError(cls.__name__, type_name(result_type))
 
 
 def extract_root_entity(repo: object) -> type | None:

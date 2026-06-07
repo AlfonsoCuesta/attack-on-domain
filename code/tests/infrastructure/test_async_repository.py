@@ -4,7 +4,7 @@ import pytest
 from aod._internal.core.base_sealed import BaseSealed
 from aod._internal.core.domain_exception import ApplicationException, DomainException
 from aod._internal.domain.entity import RootEntity
-from aod._internal.type_checks.handler_checks_async import (
+from aod._internal.type_checks.handler_checks import (
     extract_handler_type,
     validate_handler_type,
 )
@@ -250,4 +250,4 @@ async def test_extract_handler_type_raises_async() -> None:
             return None
 
     with pytest.raises(DomainException):
-        extract_handler_type(BadHandler())
+        extract_handler_type(BadHandler(), (CommandHandler, QueryHandler))

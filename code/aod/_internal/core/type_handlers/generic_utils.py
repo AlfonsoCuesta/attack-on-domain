@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import get_args, get_origin
 
-from aod._internal.core.domain_exception import DomainException
+from aod._internal.core.domain_exception import InvalidGenericTypeArgError
 
 
 def get_last_generic_arg(cls: type) -> type | None:
@@ -46,8 +46,7 @@ def validate_generic_arg_is_subclass(
 ) -> None:
     t = get_generic_arg_from_orig_bases(cls, target_origin)
     if isinstance(t, type) and not issubclass(t, expected_base):
-        msg = f"{arg_name} for {cls.__name__} must be a {expected_base.__name__} subclass, got {t.__name__}"
-        raise DomainException(msg)
+        raise InvalidGenericTypeArgError(arg_name, cls.__name__, expected_base.__name__, t.__name__)
 
 
 def validate_handler_subclass(

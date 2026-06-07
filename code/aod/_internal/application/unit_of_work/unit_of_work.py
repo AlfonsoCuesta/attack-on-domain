@@ -7,7 +7,11 @@ from aod._internal.application.port import Port
 from aod._internal.application.projection import ProjectionCommand, ProjectionQuery, ReadModel
 from aod._internal.application.projection.projection_store import ProjectionStore
 from aod._internal.application.repository import Command, Query, Repository
-from aod._internal.core.domain_exception import ApplicationException
+from aod._internal.core.domain_exception import (
+    ProjectionStoreNotConfiguredError,
+    RepositoryNotRegisteredError,
+    UnresolvableEntityError,
+)
 from aod._internal.core.fields.fields import Field, PrivateField
 from aod._internal.core.type_handlers.generic_utils import get_generic_arg_from_orig_bases
 from aod._internal.domain.entity import RootEntity
@@ -20,12 +24,10 @@ T = TypeVar("T", bound=ReadModel | None)
 
 class _NullProjectionStore:
     def query(self, query: ProjectionQuery[T]) -> T:
-        msg = "No ProjectionStore configured"
-        raise ApplicationException(msg)
+        raise ProjectionStoreNotConfiguredError()
 
     def command(self, command: ProjectionCommand[T]) -> T:
-        msg = "No ProjectionStore configured"
-        raise ApplicationException(msg)
+        raise ProjectionStoreNotConfiguredError()
 
 
 class _UnitOfWorkBase(Port):
@@ -45,12 +47,10 @@ class _UnitOfWorkBase(Port):
         kind = "command" if isinstance(item, Command) else "query"
         entity = get_generic_arg_from_orig_bases(type(item), base_type)
         if not isinstance(entity, type) or not issubclass(entity, RootEntity):
-            msg = f"Cannot determine entity for {kind} {type(item).__name__}"
-            raise ApplicationException(msg)
+            raise UnresolvableEntityError(kind, type(item).__name__)
         repo = self._repo_map.get(entity)
         if repo is None:
-            msg = f"No repository registered for entity {entity.__name__}"
-            raise ApplicationException(msg)
+            raise RepositoryNotRegisteredError(entity.__name__)
         return repo
 
     def command(self, command: Command | ProjectionCommand[T]) -> object:

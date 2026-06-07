@@ -34,9 +34,32 @@ def test_aod_domain_exports_documented_api() -> None:
 def test_aod_exceptions_documented_api() -> None:
     assert aod.exceptions.__all__ == [
         "ApplicationException",
+        "ClassExpectedError",
         "DomainException",
-        "MutationForbiddenException",
+        "DuplicateDomainTypeError",
+        "DuplicateHandlerError",
+        "DuplicateProjectionHandlerError",
+        "HandlerEntityMismatchError",
+        "HandlerNotFoundError",
+        "HandlerResultTypeError",
+        "HandlerTypeMismatchError",
+        "InvalidCommandFieldTypeError",
+        "InvalidEntityTypeError",
+        "InvalidGenericTypeArgError",
+        "InvalidNestedTypeError",
+        "InvalidProjectionTypeError",
+        "InvalidQueryResultTypeError",
+        "InvalidRootEntityTypeError",
+        "InvalidServiceParameterError",
+        "InvalidServiceTypeError",
         "InvarianceException",
+        "MutationForbiddenException",
+        "ProjectionHandlerNotFoundError",
+        "ProjectionStoreNotConfiguredError",
+        "RepositoryNotRegisteredError",
+        "UnresolvableEntityError",
+        "UnresolvableHandlerTypeError",
+        "UnresolvableProjectionTypeError",
     ]
 
 

@@ -4,7 +4,11 @@ from typing import Any, ClassVar, TypeVar, cast
 
 from aod._internal.application.projection import ProjectionCommand, ProjectionQuery, ReadModel
 from aod._internal.core.base_sealed import BaseSealed
-from aod._internal.core.domain_exception import ApplicationException
+from aod._internal.core.domain_exception import (
+    DuplicateProjectionHandlerError,
+    ProjectionHandlerNotFoundError,
+    UnresolvableProjectionTypeError,
+)
 from aod._internal.core.fields.fields import Field, PrivateField
 from aod._internal.core.type_handlers.generic_utils import get_generic_arg_from_mro
 from aod._internal.infrastructure.projection.projection_handler import (
@@ -24,17 +28,14 @@ class _BaseProjectionStore(BaseSealed):
     def _register_handler(self, h: Any) -> None:
         p_type = get_generic_arg_from_mro(type(h), self.__allowed_handler_types__)
         if not isinstance(p_type, type):
-            msg = f"Cannot determine projection type for {type(h).__name__}"
-            raise ApplicationException(msg)
+            raise UnresolvableProjectionTypeError(type(h).__name__)
         if issubclass(p_type, ProjectionQuery):
             if p_type in self._query_handlers:
-                msg = f"Duplicate handler for {p_type.__name__}"
-                raise ApplicationException(msg)
+                raise DuplicateProjectionHandlerError(p_type.__name__)
             self._query_handlers[p_type] = h
         elif issubclass(p_type, ProjectionCommand):
             if p_type in self._command_handlers:
-                msg = f"Duplicate handler for {p_type.__name__}"
-                raise ApplicationException(msg)
+                raise DuplicateProjectionHandlerError(p_type.__name__)
             self._command_handlers[p_type] = h
 
     def __post_init__(self) -> None:
@@ -51,13 +52,11 @@ class ProjectionStore(_BaseProjectionStore):
     def query(self, query: ProjectionQuery[T]) -> T:
         handler = self._query_handlers.get(type(query))
         if handler is None:
-            msg = f"No handler registered for {type(query).__name__}"
-            raise ApplicationException(msg)
+            raise ProjectionHandlerNotFoundError(type(query).__name__)
         return cast(T, handler.handle(query))
 
     def command(self, command: ProjectionCommand[T]) -> T:
         handler = self._command_handlers.get(type(command))
         if handler is None:
-            msg = f"No handler registered for {type(command).__name__}"
-            raise ApplicationException(msg)
+            raise ProjectionHandlerNotFoundError(type(command).__name__)
         return cast(T, handler.handle(command))

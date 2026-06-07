@@ -5,7 +5,7 @@ from types import UnionType
 from typing import Any, Generic, TypeVar, get_args, get_origin
 
 from aod._internal.core.base_sealed import BaseSealed
-from aod._internal.core.domain_exception import ApplicationException
+from aod._internal.core.domain_exception import HandlerResultTypeError
 from aod._internal.core.type_handlers.generic_utils import get_last_generic_arg
 
 T = TypeVar("T")
@@ -49,11 +49,9 @@ class BaseHandler(BaseSealed, Generic[T]):
         def checked_handle(self: Any, *args: Any, **kwargs: Any) -> object:
             result = handle(self, *args, **kwargs)
             if not isinstance(result, checkable):
-                msg = (
-                    f"{type(self).__name__}.handle() returned "
-                    f"{type(result).__name__}, expected {expected}"
+                raise HandlerResultTypeError(
+                    type(self).__name__, type(result).__name__, str(expected)
                 )
-                raise ApplicationException(msg)
             return result
 
         cls.handle = checked_handle
@@ -74,11 +72,9 @@ class AsyncBaseHandler(BaseHandler, Generic[T]):
         async def checked_handle(self: Any, *args: Any, **kwargs: Any) -> object:
             result = await handle(self, *args, **kwargs)
             if not isinstance(result, checkable):
-                msg = (
-                    f"{type(self).__name__}.handle() returned "
-                    f"{type(result).__name__}, expected {expected}"
+                raise HandlerResultTypeError(
+                    type(self).__name__, type(result).__name__, str(expected)
                 )
-                raise ApplicationException(msg)
             return result
 
         cls.handle = checked_handle

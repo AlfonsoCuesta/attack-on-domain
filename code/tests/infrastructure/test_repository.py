@@ -407,7 +407,7 @@ class TestRepository:
                 return None
 
         with pytest.raises(DomainException):
-            extract_handler_type(BadHandler())
+            extract_handler_type(BadHandler(), (CommandHandler, QueryHandler))
 
     def test_handler_for_wrong_entity_type(self) -> None:
         class OrderHandler(CommandHandler[CreateOrder]):

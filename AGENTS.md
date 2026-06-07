@@ -40,8 +40,7 @@ code/
 │       ├── type_checks/             # Contract & handler validation
 │       │   ├── __init__.py
 │       │   ├── contract_checks.py   # validate_fields_no_entity, validate_result_contains_root_entity, extract_root_entity
-│       │   ├── handler_checks.py    # extract_handler_type, validate_handler_type, validate_handler_entity, handler_type_entity
-│       │   └── handler_checks_async.py  # Async mirror (same function signatures)
+│       │   └── handler_checks.py    # extract_handler_type, validate_handler_type, validate_handler_entity, handler_type_entity
 │       └── domain/                   # DDD domain primitives (implementation)
 │           ├── value_object.py
 │           ├── entity.py
@@ -229,12 +228,42 @@ class BoundedContext:
 - Runs check functions on all discovered types
 
 ### Public exceptions in `aod.exceptions`
-Three exported exceptions:
-- `DomainException` — base for all domain errors
-- `ApplicationException` — base for errors from the application and infrastructure layers (repository dispatch, projection store, handlers, UoW)
-- `MutationForbiddenException` — raised when mutating an immutable object
+All framework exceptions are re-exported from `aod.exceptions`. The hierarchy:
 
-Other exceptions (`InvalidNestedTypeError`, `InvalidServiceParameterError`, `ClassExpectedError`, etc.) remain in `_internal` and are not part of the public API.
+**Bases:**
+- `DomainException` — base for all domain rule violations
+- `ApplicationException` — base for application and infrastructure layer errors (repository dispatch, projection store, handlers, UoW)
+
+**`DomainException` subclasses:**
+- `MutationForbiddenException(DomainException)` — mutation outside allowed context
+- `InvarianceException(DomainException, ValueError)` — field/model invariance violated
+- `InvalidCommandFieldTypeError` — Command/Query field references non-root Entity
+- `InvalidQueryResultTypeError` — `Query` TResult does not include a `RootEntity`
+- `InvalidGenericTypeArgError` — generic argument fails its constraint
+- `InvalidProjectionTypeError` — projection type is not `ReadModel` or `None`
+- `InvalidEntityTypeError` — not an `Entity` subclass
+- `InvalidRootEntityTypeError` — `Entity` but not `RootEntity`
+- `InvalidServiceTypeError` — not a `Service` subclass
+- `ClassExpectedError` — instance given where class required
+- `InvalidNestedTypeError` — Entity field references forbidden domain type
+- `InvalidServiceParameterError` — Service method parameter has disallowed type
+- `DuplicateDomainTypeError` — domain type registered in >1 `BoundedContext`
+- `HandlerTypeMismatchError` — handler not a subclass of expected handler base
+- `HandlerEntityMismatchError` — handler's entity does not match repository's entity
+- `UnresolvableHandlerTypeError` — cannot determine Command/Query type from handler
+
+**`ApplicationException` subclasses:**
+- `ProjectionStoreNotConfiguredError` — no `ProjectionStore` in UoW
+- `UnresolvableEntityError` — cannot determine `RootEntity` from Command/Query
+- `RepositoryNotRegisteredError` — no repository for the entity
+- `UnresolvableProjectionTypeError` — cannot determine projection type from handler
+- `DuplicateProjectionHandlerError` — duplicate handler in `ProjectionStore`
+- `ProjectionHandlerNotFoundError` — no handler for projection type
+- `DuplicateHandlerError` — duplicate handler in `Repository`
+- `HandlerNotFoundError` — no handler for Command/Query in `Repository`
+- `HandlerResultTypeError` — handler returned wrong type
+
+> For details on when each is raised, see `docs/core/exceptions.md`.
 
 ### Public/Private Layer Separation
 
@@ -289,12 +318,10 @@ Built-in port types (all `aod.application`):
 - **`Repository[TEntity]`** — receives `command_handlers` and `query_handlers` in `__init__`; dispatches via `command()` / `query()`; raises `DomainException` for unregistered types or duplicates
 - **`UnitOfWork`** — receives `repositories: list[Repository]`, auto-builds entity-to-repo dict in `__post_init__`; `command()` and `query()` dispatch to reposito/query handlers and also handle `ProjectionCommand`/`ProjectionQuery` via `projection_store`. Has `is_dirty` flag (set True after command).
 
-Handler type resolution uses `extract_handler_type()` (in `type_checks/handler_checks.py`) via `get_generic_arg_from_mro` in `generic_utils.py` — works in any scope, avoids `NameError` with locally-defined handlers. Handlers live in `aod._internal.infrastructure.handlers`, imported by `repository.py` from the same module. Reusable helpers: `get_generic_arg_from_orig_bases`, `get_generic_arg_from_mro`, `validate_generic_arg_is_subclass`.
-
-Handler type resolution uses `extract_handler_type()` (in `type_checks/handler_checks.py`) via `get_generic_arg_from_mro` in `generic_utils.py` — works in any scope, avoids `NameError` with locally-defined handlers. Handlers live in `aod._internal.infrastructure.handlers`, imported by `repository.py` from the same module. Reusable helpers: `get_generic_arg_from_orig_bases`, `get_generic_arg_from_mro`, `validate_generic_arg_is_subclass`.
+Handler type resolution uses `extract_handler_type()` (in `type_checks/handler_checks.py`) via `get_generic_arg_from_mro` in `generic_utils.py` — works in any scope, avoids `NameError` with locally-defined handlers. Validators: `handler_type_entity`, `validate_handler_type`, `validate_handler_entity`. Reusable helpers: `get_generic_arg_from_orig_bases`, `get_generic_arg_from_mro`, `validate_generic_arg_is_subclass`.
 
 Validation functions in `type_checks/handler_checks.py`:
-- **`extract_handler_type(handler)`** — returns `type[Command]` or `type[Query]` via overloads; raises `DomainException` if unresolvable
+- **`extract_handler_type(handler, handler_types)`** — returns `type[Command]` or `type[Query]`; callers pass the handler-type tuple (sync or async) as `handler_types`; raises `DomainException` if unresolvable
 - **`validate_handler_type(handler, expected_type)`** — raises `DomainException` if handler is not the expected class
 - **`validate_handler_entity(handler, handler_type, repo_entity)`** — checks that `CommandHandler`/`QueryHandler` entity matches `Repository[TEntity]`'s entity
 - **`handler_type_entity(handler_type)`** — extracts the entity param from a `Command`/`Query` type

@@ -4,7 +4,7 @@ from types import UnionType
 from typing import Generic, TypeVar, get_args, get_origin
 
 from aod._internal.core.base_sealed import BaseSealed
-from aod._internal.core.domain_exception import DomainException
+from aod._internal.core.domain_exception import InvalidProjectionTypeError
 from aod._internal.core.type_handlers.generic_utils import get_generic_arg_from_orig_bases
 
 class ReadModel(BaseSealed):
@@ -30,10 +30,7 @@ def _validate_projection_arg(cls: type) -> None:
 
     for t in _flatten_union(tp):
         if t is not type(None) and not issubclass(t, ReadModel):
-            raise DomainException(
-                f"Projection type must be a ReadModel subclass or None, "
-                f"got {t.__name__}"
-            )
+            raise InvalidProjectionTypeError(t.__name__)
 
 
 class BaseProjection(BaseSealed, Generic[TReadModel]):

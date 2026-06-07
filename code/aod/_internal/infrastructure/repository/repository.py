@@ -4,7 +4,7 @@ from typing import Generic, TypeVar, cast
 
 from aod._internal.application.repository import Command, Query
 from aod._internal.core.base_sealed import BaseSealed
-from aod._internal.core.domain_exception import ApplicationException
+from aod._internal.core.domain_exception import DuplicateHandlerError, HandlerNotFoundError
 from aod._internal.core.fields.fields import Field, PrivateField
 from aod._internal.core.type_handlers.generic_utils import get_generic_arg_from_orig_bases
 from aod._internal.infrastructure.handlers import CommandHandler, QueryHandler
@@ -38,7 +38,7 @@ class Repository(BaseSealed, Generic[TEntity]):
         handlers: dict,
     ) -> None:
         validate_handler_type(h, handler_type)
-        q_type = extract_handler_type(h)
+        q_type = extract_handler_type(h, (CommandHandler, QueryHandler))
         repo_entity = get_generic_arg_from_orig_bases(type(self), Repository)
         validate_handler_entity(h, q_type, repo_entity)
         self._store(h, q_type, handlers)
@@ -50,20 +50,17 @@ class Repository(BaseSealed, Generic[TEntity]):
         handlers: dict,
     ) -> None:
         if q_type in handlers:
-            msg = f"Duplicate handler for {q_type.__name__}"
-            raise ApplicationException(msg)
+            raise DuplicateHandlerError(q_type.__name__)
         handlers[q_type] = h
 
     def command(self, command: Command[TEntity, TResult]) -> TResult:
         handler = self._commands.get(type(command))
         if handler is None:
-            msg = f"No command handler registered for {type(command).__name__}"
-            raise ApplicationException(msg)
+            raise HandlerNotFoundError("command", type(command).__name__)
         return cast(TResult, handler.handle(command))
 
     def query(self, query: Query[TEntity, TResult]) -> TResult:
         handler = self._queries.get(type(query))
         if handler is None:
-            msg = f"No query handler registered for {type(query).__name__}"
-            raise ApplicationException(msg)
+            raise HandlerNotFoundError("query", type(query).__name__)
         return cast(TResult, handler.handle(query))
