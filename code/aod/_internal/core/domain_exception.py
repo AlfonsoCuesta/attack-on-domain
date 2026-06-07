@@ -2,10 +2,6 @@ class DomainException(Exception):
     """Base for errors raised by domain rules and related guards."""
 
 
-class ApplicationException(Exception):
-    """Base for errors raised by the application and infrastructure layers."""
-
-
 class MutationForbiddenException(DomainException):
     """Raised when a mutable or immutable object is updated outside allowed context."""
 
@@ -84,9 +80,6 @@ class InvarianceException(DomainException, ValueError):
         super().__init__(message or f"Invariance '{name}' violated")
 
 
-# --- Specific DomainException subclasses (class-creation time) ---
-
-
 class InvalidCommandFieldTypeError(DomainException):
     """Field in a Command or Query references a non-root Entity."""
 
@@ -123,9 +116,6 @@ class InvalidProjectionTypeError(DomainException):
         )
 
 
-# --- Specific DomainException subclasses (handler dispatch) ---
-
-
 class HandlerTypeMismatchError(DomainException):
     """Handler is not a subclass of the expected handler base."""
 
@@ -148,69 +138,3 @@ class UnresolvableHandlerTypeError(DomainException):
 
     def __init__(self, handler_name: str) -> None:
         super().__init__(f"Cannot determine handler type for {handler_name}")
-
-
-# --- Specific ApplicationException subclasses ---
-
-
-class ProjectionStoreNotConfiguredError(ApplicationException):
-    """No ProjectionStore was provided when one was required."""
-
-    def __init__(self) -> None:
-        super().__init__("No ProjectionStore configured")
-
-
-class UnresolvableEntityError(ApplicationException):
-    """Cannot determine the RootEntity type from a Command or Query."""
-
-    def __init__(self, kind: str, item_name: str) -> None:
-        super().__init__(f"Cannot determine entity for {kind} {item_name}")
-
-
-class RepositoryNotRegisteredError(ApplicationException):
-    """No repository is registered for the given RootEntity."""
-
-    def __init__(self, entity_name: str) -> None:
-        super().__init__(f"No repository registered for entity {entity_name}")
-
-
-class UnresolvableProjectionTypeError(ApplicationException):
-    """Cannot determine the projection type from a handler's generic bases."""
-
-    def __init__(self, handler_name: str) -> None:
-        super().__init__(f"Cannot determine projection type for {handler_name}")
-
-
-class DuplicateProjectionHandlerError(ApplicationException):
-    """A second handler was registered for the same projection type."""
-
-    def __init__(self, type_name: str) -> None:
-        super().__init__(f"Duplicate handler for {type_name}")
-
-
-class ProjectionHandlerNotFoundError(ApplicationException):
-    """No handler is registered for the given projection type."""
-
-    def __init__(self, name: str) -> None:
-        super().__init__(f"No handler registered for {name}")
-
-
-class DuplicateHandlerError(ApplicationException):
-    """A second handler was registered for the same Command or Query type."""
-
-    def __init__(self, type_name: str) -> None:
-        super().__init__(f"Duplicate handler for {type_name}")
-
-
-class HandlerNotFoundError(ApplicationException):
-    """No handler is registered for the given Command or Query type."""
-
-    def __init__(self, kind: str, name: str) -> None:
-        super().__init__(f"No {kind} handler registered for {name}")
-
-
-class HandlerResultTypeError(ApplicationException):
-    """Handler.handle() returned an object of the wrong type."""
-
-    def __init__(self, handler_name: str, got: str, expected: str) -> None:
-        super().__init__(f"{handler_name}.handle() returned {got}, expected {expected}")

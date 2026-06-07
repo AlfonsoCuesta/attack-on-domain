@@ -3,7 +3,8 @@ from __future__ import annotations
 from typing import Any, cast
 
 import pytest
-from aod._internal.core.domain_exception import ApplicationException, DomainException
+from aod._internal.core.domain_exception import DomainException
+from aod._internal.core.infrastructure_exception import InfrastructureException
 from aod._internal.infrastructure.projection.projection_handler import (
     ProjectionCommandHandler as SyncProjectionCommandHandler,
     ProjectionQueryHandler as SyncProjectionQueryHandler,
@@ -111,7 +112,7 @@ async def test_async_store_with_valid_query_handler() -> None:
 
 async def test_async_store_no_query_handler_registered() -> None:
     store = AsyncProjectionStore()
-    with pytest.raises(ApplicationException, match="No handler registered for"):
+    with pytest.raises(InfrastructureException, match="No handler registered for"):
         await store.query(GetOrders(user_id=1))
 
 
@@ -133,7 +134,7 @@ async def test_async_store_with_valid_command_handler() -> None:
 
 async def test_async_store_no_command_handler_registered() -> None:
     store = AsyncProjectionStore()
-    with pytest.raises(ApplicationException, match="No handler registered for"):
+    with pytest.raises(InfrastructureException, match="No handler registered for"):
         await store.command(UpdateOrder(order_id=1, status="shipped"))
 
 
@@ -154,7 +155,7 @@ async def test_async_store_with_both_handler_types() -> None:
 
 
 async def test_async_store_duplicate_handler_raises() -> None:
-    with pytest.raises(ApplicationException, match="Duplicate handler for"):
+    with pytest.raises(InfrastructureException, match="Duplicate handler for"):
         AsyncProjectionStore(handlers=[GetOrdersHandler(), GetOrdersHandler()])
 
 
@@ -163,7 +164,7 @@ async def test_async_store_duplicate_command_handler_raises() -> None:
         async def handle(self, command: UpdateOrder) -> None:
             return None
 
-    with pytest.raises(ApplicationException, match="Duplicate handler for"):
+    with pytest.raises(InfrastructureException, match="Duplicate handler for"):
         AsyncProjectionStore(handlers=[UpdateOrderHandler(), AnotherHandler()])
 
 
@@ -172,5 +173,5 @@ async def test_async_store_invalid_handler_type_raises() -> None:
         async def handle(self, query: object) -> object:
             return None
 
-    with pytest.raises(ApplicationException, match="Cannot determine projection type for"):
+    with pytest.raises(InfrastructureException, match="Cannot determine projection type for"):
         AsyncProjectionStore(handlers=[NoType()])

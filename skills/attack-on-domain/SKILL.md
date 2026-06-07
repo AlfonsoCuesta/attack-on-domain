@@ -18,9 +18,12 @@ Source code is under `code/` (mapped as package root in `pyproject.toml`).
 | `from aod.domain import DomainEvent` | Event base class |
 | `from aod.domain.validation import field_invariance, invariance, inherit_context` | Validation decorators |
 | `from aod.domain.validation import AfterValidator, BeforeValidator` | Pydantic validators |
-| `from aod.exceptions import ApplicationException, DomainException, MutationForbiddenException` | Base exceptions |
-| `from aod.exceptions import (InvalidCommandFieldTypeError, InvalidQueryResultTypeError, InvalidGenericTypeArgError, InvalidProjectionTypeError, InvalidEntityTypeError, InvalidRootEntityTypeError, InvalidServiceTypeError, ClassExpectedError, InvalidNestedTypeError, InvalidServiceParameterError, DuplicateDomainTypeError, HandlerTypeMismatchError, HandlerEntityMismatchError, UnresolvableHandlerTypeError, InvarianceException)` | Domain-specific exceptions |
-| `from aod.exceptions import (ProjectionStoreNotConfiguredError, UnresolvableEntityError, RepositoryNotRegisteredError, UnresolvableProjectionTypeError, DuplicateProjectionHandlerError, ProjectionHandlerNotFoundError, DuplicateHandlerError, HandlerNotFoundError, HandlerResultTypeError)` | Application/infrastructure exceptions |
+| `from aod.domain import DomainException` | Domain base exception |
+| `from aod.domain.exceptions import MutationForbiddenException, InvalidEntityTypeError, InvarianceException, …` | Domain-specific exceptions |
+| `from aod.application import ApplicationException` | Application base exception |
+| `from aod.application.exceptions import ProjectionStoreNotConfiguredError, UnresolvableEntityError, RepositoryNotRegisteredError` | Application-specific exceptions |
+| `from aod.infrastructure import InfrastructureException` | Infrastructure base exception |
+| `from aod.infrastructure.exceptions import DuplicateHandlerError, HandlerNotFoundError, HandlerResultTypeError, …` | Infrastructure-specific exceptions |
 
 | `from aod.domain import EventCollector` | Cross-aggregate event capture |
 | `from aod.application import UseCase` | UseCase base class |

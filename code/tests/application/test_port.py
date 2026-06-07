@@ -4,7 +4,8 @@ from abc import abstractmethod
 from typing import Generic, TypeVar
 
 import pytest
-from aod._internal.core.domain_exception import ApplicationException, MutationForbiddenException
+from aod._internal.core.application_exception import ApplicationException
+from aod._internal.core.domain_exception import MutationForbiddenException
 from aod._internal.core.event_emitter import Event
 from aod._internal.domain.entity import RootEntity
 from aod.application import Command, EventBus, Logger, Port, ProjectionCommand, ProjectionQuery, Query, ReadModel, UnitOfWork, UseCase

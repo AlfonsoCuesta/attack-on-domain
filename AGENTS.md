@@ -26,7 +26,9 @@ code/
 │       │   ├── base_guarded/         # BaseGuarded, MutatingContext, make_immutable subsystem
 │       │   ├── event_emitter.py      # Event, EventEmitter, EventCollector
 │       │   ├── model_maker.py        # Dual Pydantic model generation
-│       │   ├── domain_exception.py   # DomainException hierarchy
+│       │   ├── domain_exception.py       # DomainException hierarchy
+│       │   ├── application_exception.py  # ApplicationException hierarchy
+│       │   ├── infrastructure_exception.py  # InfrastructureException hierarchy
 │       │   ├── type_checking/        # DDD type constraint extractors
 │       │   │   ├── __init__.py       # Re-exports: extract_types_from_annotation
 │       │   │   └── extractors.py     # extract_types_from_annotation
@@ -228,11 +230,18 @@ class BoundedContext:
 - Runs check functions on all discovered types
 
 ### Public exceptions in `aod.exceptions`
-All framework exceptions are re-exported from `aod.exceptions`. The hierarchy:
+All framework exceptions are re-exported from `aod.exceptions`. The hierarchy is also available per-layer via `aod.domain.exceptions`, `aod.application.exceptions`, and `aod.infrastructure.exceptions`. The base exceptions are exported directly on each layer's package:
+
+- `from aod.domain import DomainException`
+- `from aod.application import ApplicationException`
+- `from aod.infrastructure import InfrastructureException`
+
+The hierarchy:
 
 **Bases:**
 - `DomainException` — base for all domain rule violations
-- `ApplicationException` — base for application and infrastructure layer errors (repository dispatch, projection store, handlers, UoW)
+- `ApplicationException` — base for application layer errors (UoW dispatch)
+- `InfrastructureException` — base for infrastructure layer errors (repository dispatch, projection store, handlers)
 
 **`DomainException` subclasses:**
 - `MutationForbiddenException(DomainException)` — mutation outside allowed context
@@ -256,6 +265,8 @@ All framework exceptions are re-exported from `aod.exceptions`. The hierarchy:
 - `ProjectionStoreNotConfiguredError` — no `ProjectionStore` in UoW
 - `UnresolvableEntityError` — cannot determine `RootEntity` from Command/Query
 - `RepositoryNotRegisteredError` — no repository for the entity
+
+**`InfrastructureException` subclasses:**
 - `UnresolvableProjectionTypeError` — cannot determine projection type from handler
 - `DuplicateProjectionHandlerError` — duplicate handler in `ProjectionStore`
 - `ProjectionHandlerNotFoundError` — no handler for projection type

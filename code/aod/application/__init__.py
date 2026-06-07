@@ -5,8 +5,10 @@ from aod._internal.application.projection import ProjectionCommand, ProjectionQu
 from aod._internal.application.repository import Command, Query
 from aod._internal.application.unit_of_work import UnitOfWork
 from aod._internal.application.use_case import UseCase
+from aod._internal.core.application_exception import ApplicationException
 
 __all__ = [
+    "ApplicationException",
     "Command",
     "EventBus",
     "Logger",

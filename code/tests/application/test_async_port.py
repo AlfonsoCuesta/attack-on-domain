@@ -3,7 +3,7 @@ from __future__ import annotations
 from typing import Generic, TypeVar
 
 import pytest
-from aod._internal.core.domain_exception import ApplicationException
+from aod._internal.core.application_exception import ApplicationException
 from aod._internal.core.event_emitter import Event
 from aod._internal.domain.entity import RootEntity
 from aod.application import Command, ProjectionCommand, ProjectionQuery, Query, ReadModel

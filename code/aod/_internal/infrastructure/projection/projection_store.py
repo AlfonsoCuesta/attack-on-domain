@@ -4,7 +4,7 @@ from typing import Any, ClassVar, TypeVar, cast
 
 from aod._internal.application.projection import ProjectionCommand, ProjectionQuery, ReadModel
 from aod._internal.core.base_sealed import BaseSealed
-from aod._internal.core.domain_exception import (
+from aod._internal.core.infrastructure_exception import (
     DuplicateProjectionHandlerError,
     ProjectionHandlerNotFoundError,
     UnresolvableProjectionTypeError,

@@ -5,7 +5,7 @@ from typing import Generic, TypeVar, cast
 
 from aod._internal.application.projection import ProjectionCommand, ProjectionQuery, ReadModel
 from aod._internal.core.async_utils import should_await
-from aod._internal.core.domain_exception import ProjectionHandlerNotFoundError
+from aod._internal.core.infrastructure_exception import ProjectionHandlerNotFoundError
 from aod._internal.core.fields.fields import Field, PrivateField
 from aod._internal.infrastructure.handlers.base_handler import AsyncBaseHandler
 

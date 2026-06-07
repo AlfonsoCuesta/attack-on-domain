@@ -28,10 +28,12 @@ Exception
 │   ├── HandlerEntityMismatchError          # Handler entity ≠ repo entity
 │   └── UnresolvableHandlerTypeError        # Cannot determine Command/Query type
 │
-└── ApplicationException                    # Base: app/infrastructure layer errors
-    ├── ProjectionStoreNotConfiguredError   # No ProjectionStore in UoW
-    ├── UnresolvableEntityError             # Cannot determine RootEntity from Command/Query
-    ├── RepositoryNotRegisteredError        # No repo for entity
+├── ApplicationException                    # Base: application layer errors
+│   ├── ProjectionStoreNotConfiguredError   # No ProjectionStore in UoW
+│   ├── UnresolvableEntityError             # Cannot determine RootEntity from Command/Query
+│   └── RepositoryNotRegisteredError        # No repo for entity
+│
+└── InfrastructureException                # Base: infrastructure layer errors
     ├── UnresolvableProjectionTypeError     # Cannot determine projection type from handler
     ├── DuplicateProjectionHandlerError     # Duplicate handler in ProjectionStore
     ├── ProjectionHandlerNotFoundError      # No handler for projection type
@@ -65,7 +67,7 @@ Exception
 | `HandlerEntityMismatchError` | `Repository[User]` receives a handler that handles `Order` |
 | `UnresolvableHandlerTypeError` | A handler's generic bases don't contain a recognizable `Command`/`Query` type |
 
-### Runtime — Repository Dispatch (ApplicationException subclasses)
+### Runtime — Repository Dispatch (InfrastructureException subclasses)
 
 | Exception | Trigger |
 |---|---|
@@ -73,7 +75,7 @@ Exception
 | `HandlerNotFoundError` | `repo.command()` or `repo.query()` called with a type that has no handler |
 | `HandlerResultTypeError` | `handler.handle()` returned a value that doesn't match the expected return type |
 
-### Runtime — ProjectionStore Dispatch (ApplicationException subclasses)
+### Runtime — ProjectionStore Dispatch (InfrastructureException subclasses)
 
 | Exception | Trigger |
 |---|---|
@@ -103,6 +105,7 @@ from aod.exceptions import (
     ApplicationException,
     DomainException,
     HandlerNotFoundError,
+    InfrastructureException,
     ProjectionStoreNotConfiguredError,
 )
 
@@ -112,8 +115,11 @@ except ProjectionStoreNotConfiguredError:
     ...
 except HandlerNotFoundError:
     ...
+except InfrastructureException:
+    # Catch-all for infrastructure errors
+    ...
 except ApplicationException:
-    # Catch-all for application/infrastructure errors
+    # Catch-all for application errors
     ...
 except DomainException:
     # Catch-all for domain rule violations

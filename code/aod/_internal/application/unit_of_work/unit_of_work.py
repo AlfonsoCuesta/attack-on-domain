@@ -7,7 +7,7 @@ from aod._internal.application.port import Port
 from aod._internal.application.projection import ProjectionCommand, ProjectionQuery, ReadModel
 from aod._internal.application.projection.projection_store import ProjectionStore
 from aod._internal.application.repository import Command, Query, Repository
-from aod._internal.core.domain_exception import (
+from aod._internal.core.application_exception import (
     ProjectionStoreNotConfiguredError,
     RepositoryNotRegisteredError,
     UnresolvableEntityError,

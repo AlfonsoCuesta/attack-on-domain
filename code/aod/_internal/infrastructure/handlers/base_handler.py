@@ -5,7 +5,7 @@ from types import UnionType
 from typing import Any, Generic, TypeVar, get_args, get_origin
 
 from aod._internal.core.base_sealed import BaseSealed
-from aod._internal.core.domain_exception import HandlerResultTypeError
+from aod._internal.core.infrastructure_exception import HandlerResultTypeError
 from aod._internal.core.type_handlers.generic_utils import get_last_generic_arg
 
 T = TypeVar("T")

@@ -4,7 +4,7 @@ from typing import Generic, TypeVar, cast
 
 from aod._internal.application.repository import Command, Query
 from aod._internal.core.base_sealed import BaseSealed
-from aod._internal.core.domain_exception import DuplicateHandlerError, HandlerNotFoundError
+from aod._internal.core.infrastructure_exception import DuplicateHandlerError, HandlerNotFoundError
 from aod._internal.core.fields.fields import Field, PrivateField
 from aod._internal.core.type_handlers.generic_utils import get_generic_arg_from_orig_bases
 from aod._internal.infrastructure.handlers import CommandHandler, QueryHandler

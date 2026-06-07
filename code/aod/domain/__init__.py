@@ -8,6 +8,7 @@ exists for packaging layout only; it is not a semver-stable API surface.
 from aod._internal.core.event_emitter import Event as DomainEvent
 from aod._internal.core.event_emitter import EventCollector
 from aod._internal.core.fields.fields import Field, PrivateField
+from aod._internal.core.domain_exception import DomainException
 from aod._internal.domain.app import App
 from aod._internal.domain.bounded_context import BoundedContext
 from aod._internal.domain.entity import Entity, RootEntity
@@ -18,6 +19,7 @@ __all__ = [
     "App",
     "BoundedContext",
     "DomainEvent",
+    "DomainException",
     "EventCollector",
     "Entity",
     "RootEntity",
