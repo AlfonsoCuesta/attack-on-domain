@@ -55,7 +55,7 @@ across aggregate boundaries. Designed for testing or for flushing
 domain events to an outbox at the end of a use case.
 
 ```python
-from aod.domain import EventCollector
+from aod.events import EventCollector
 
 with EventCollector() as events:
     order.place(item)

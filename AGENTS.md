@@ -12,9 +12,10 @@
 code/
 ├── aod/                              # Package root
 │   ├── __init__.py                   # Empty package marker
+│   ├── events.py                     # Public: Event, EventCollector (cross-layer)
 │   ├── py.typed                      # PEP 561 marker
 │   ├── domain/                       # Public domain layer (re-exports from _internal)
-│   │   ├── __init__.py               # Re-exports: App, BoundedContext, DomainEvent, EventCollector, Entity, RootEntity, Service, ValueObject, Field, PrivateField
+│   │   ├── __init__.py               # Re-exports: App, BoundedContext, Entity, RootEntity, Service, ValueObject, Field, PrivateField, DomainException
 │   │   └── validation/               # Public: AfterValidator, BeforeValidator, field_invariance, invariance, inherit_context
 │   ├── exceptions/__init__.py        # Public: DomainException, MutationForbiddenException
 │   └── _internal/                    # Private — not semver-stable

@@ -27,11 +27,11 @@ Import only from the public API:
 ```python
 from aod.domain import (
     BoundedContext,
-    DomainEvent,
     Entity,
     ValueObject,
 )
-from aod.exceptions import DomainException
+from aod.domain import DomainException
+from aod.events import Event
 ```
 
 Requires **Python 3.14+**.

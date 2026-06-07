@@ -15,7 +15,8 @@ Source code is under `code/` (mapped as package root in `pyproject.toml`).
 |--------|------|
 | `from aod.domain import BoundedContext, Entity, RootEntity, ValueObject, Service` | Domain primitives |
 | `from aod.domain import Field, PrivateField` | Field wrappers |
-| `from aod.domain import DomainEvent` | Event base class |
+| `from aod.events import Event` | Event base class |
+| `from aod.events import EventCollector` | Cross-aggregate event capture |
 | `from aod.domain.validation import field_invariance, invariance, inherit_context` | Validation decorators |
 | `from aod.domain.validation import AfterValidator, BeforeValidator` | Pydantic validators |
 | `from aod.domain import DomainException` | Domain base exception |
@@ -25,7 +26,6 @@ Source code is under `code/` (mapped as package root in `pyproject.toml`).
 | `from aod.infrastructure import InfrastructureException` | Infrastructure base exception |
 | `from aod.infrastructure.exceptions import DuplicateHandlerError, HandlerNotFoundError, HandlerResultTypeError, …` | Infrastructure-specific exceptions |
 
-| `from aod.domain import EventCollector` | Cross-aggregate event capture |
 | `from aod.application import UseCase` | UseCase base class |
 | `from aod.application import Port` | Abstract port/gateway base class |
 | `from aod.application import Logger, EventBus, UnitOfWork` | Built-in port types |
@@ -174,9 +174,9 @@ class Money(ValueObject):
 ## Event System
 
 ```python
-from aod.domain import DomainEvent
+from aod.events import Event
 
-class OrderPlaced(DomainEvent):
+class OrderPlaced(Event):
     order_id: str
 
 # Inside an Entity, RootEntity, or ValueObject:
@@ -205,7 +205,7 @@ Capture events across aggregate boundaries (for testing or for
 flushing to an outbox at the end of a use case):
 
 ```python
-from aod.domain import EventCollector
+from aod.events import EventCollector
 
 with EventCollector() as events:
     order.place(item)
