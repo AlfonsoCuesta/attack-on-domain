@@ -68,10 +68,14 @@ def test_aod_application_exports_documented_api() -> None:
         "ProjectionStore",
         "Query",
         "ReadModel",
+        "Session",
         "UnitOfWork",
         "UseCase",
     ]
     assert aod.application.ApplicationException.__name__ == "ApplicationException"
+    assert aod.application.Session.__name__ == "Session"
+    from aod.application.session.async_ import Session as AsyncSession
+    assert AsyncSession.__name__ == "Session"
 
 
 def test_aod_application_exceptions_documented_api() -> None:

@@ -71,6 +71,9 @@ code/
 │       │   │   ├── __init__.py
 │       │   │   ├── unit_of_work.py   # _UnitOfWorkBase (shared logic), UnitOfWork (sync)
 │       │   │   └── async_.py         # UnitOfWork (async, accepts sync/async repos + stores)
+│       │   ├── session/              # Session (database abstraction)
+│       │   │   ├── __init__.py
+│       │   │   └── session.py        # Session(Port) — abstract base
 │       │   └── use_case/             # UseCase base — sync + async
 │       │       ├── __init__.py
 │       │       └── async_.py

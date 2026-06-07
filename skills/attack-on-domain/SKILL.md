@@ -29,6 +29,7 @@ Source code is under `code/` (mapped as package root in `pyproject.toml`).
 | `from aod.application import UseCase` | UseCase base class |
 | `from aod.application import Port` | Abstract port/gateway base class |
 | `from aod.application import Logger, EventBus, UnitOfWork` | Built-in port types |
+| `from aod.application import Session` | Database session abstraction |
 | `from aod.application import Command, Query` | Application contracts |
 | `from aod.infrastructure import Repository, CommandHandler, QueryHandler` | Infrastructure |
 
