@@ -20,7 +20,7 @@ Source code is under `code/` (mapped as package root in `pyproject.toml`).
 | `from aod.domain.validation import field_invariance, invariance, inherit_context` | Validation decorators |
 | `from aod.domain.validation import AfterValidator, BeforeValidator` | Pydantic validators |
 | `from aod.domain import DomainException` | Domain base exception |
-| `from aod.domain.exceptions import MutationForbiddenException, InvalidEntityTypeError, InvarianceException, …` | Domain-specific exceptions |
+| `from aod.domain.exceptions import MutationForbiddenException, InvalidEntityTypeError, InvarianceException, ModelValidationError, …` | Domain-specific exceptions |
 | `from aod.application import ApplicationException` | Application base exception |
 | `from aod.application.exceptions import ProjectionStoreNotConfiguredError, UnresolvableEntityError, RepositoryNotRegisteredError` | Application-specific exceptions |
 | `from aod.infrastructure import InfrastructureException` | Infrastructure base exception |
@@ -146,6 +146,10 @@ Each user class gets **two** Pydantic models at class creation:
 - `__raw_model__` — strips all validators
 
 `__init__` uses the validation model. `ReconstructMixin.reconstruct()` uses the raw model (bypasses re-validation). Only classes that mix in `ReconstructMixin` (`Entity`, `ValueObject`, `RootEntity`) have `reconstruct()` — `Service` and `UseCase` do not.
+
+If Pydantic raises `ValidationError` during `__init__`, it is caught and:
+- If the underlying cause is an `InvarianceException`, that exception is re-raised directly
+- Otherwise, a `ModelValidationError(DomainException)` is raised wrapping the original error
 
 ## Validation Decorators
 

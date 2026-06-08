@@ -22,6 +22,10 @@ Checks the `_use_raw_model` ContextVar:
 - If `True` → validates using `__raw_model__` (no field validators, no `@invariance`)
 - If `False` (default) → validates using `__validation_model__` (full validation)
 
+If Pydantic raises `ValidationError`, it is caught and:
+- If the underlying cause is an `InvarianceException`, that exception is re-raised directly
+- Otherwise, a `ModelValidationError(DomainException)` is raised wrapping the original error
+
 After validation, calls `__set_model_attributes(validated)` to copy fields and private attributes onto `self` using `object.__setattr__`.
 
 ### `__set_model_attributes(validated)`

@@ -290,6 +290,7 @@ The hierarchy:
 - `HandlerTypeMismatchError` — handler not a subclass of expected handler base
 - `HandlerEntityMismatchError` — handler's entity does not match repository's entity
 - `UnresolvableHandlerTypeError` — cannot determine Command/Query type from handler
+- `ModelValidationError` — Pydantic validation failed during model construction (wraps `ValidationError`; if the cause is an `InvarianceException`, that is re-raised directly)
 
 **`ApplicationException` subclasses:**
 - `ProjectionStoreNotConfiguredError` — no `ProjectionStore` in UoW
@@ -371,9 +372,9 @@ Validation functions in `type_checks/handler_checks.py`:
 - **`handler_type_entity(handler_type)`** — extracts the entity param from a `Command`/`Query` type
 
 Contract validation in `type_checks/contract_checks.py`:
-- **`validate_fields_no_entity(cls)`** — ensures no `Command`/`Query` field references a non-root `Entity`
-- **`validate_result_contains_root_entity(cls, query_type)`** — ensures `Query`'s `TResult` includes a `RootEntity`
 - **`extract_root_entity(repo)`** — extracts the `RootEntity` type from a Repository's generic bases
+
+`Command`/`Query`-specific field validation lives in `aod._internal.application.repository.repository.py` as private helpers `_validate_fields_no_entity` and `_validate_result_contains_root_entity`, called from `Command.__init_subclass__` and `Query.__init_subclass__` respectively.
 
 ### `ProjectionQuery[T]` / `ProjectionCommand` / `ProjectionStore`
 

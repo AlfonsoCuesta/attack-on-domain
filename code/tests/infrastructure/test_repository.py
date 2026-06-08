@@ -2,7 +2,11 @@ from __future__ import annotations
 
 import pytest
 from aod._internal.core.base_sealed import BaseSealed
-from aod._internal.core.domain_exception import DomainException, MutationForbiddenException
+from aod._internal.core.domain_exception import (
+    DomainException,
+    ModelValidationError,
+    MutationForbiddenException,
+)
 from aod._internal.core.infrastructure_exception import (
     HandlerResultTypeError,
     InfrastructureException,
@@ -12,7 +16,6 @@ from aod._internal.type_checks.contract_checks import extract_root_entity
 from aod._internal.type_checks.handler_checks import extract_handler_type, validate_handler_type
 from aod.application import Command, Query
 from aod.infrastructure import CommandHandler, QueryHandler, Repository
-from pydantic import ValidationError
 
 
 class User(RootEntity):
@@ -399,14 +402,14 @@ class TestRepository:
         class UserRepo(Repository[User]):
             pass
 
-        with pytest.raises(ValidationError):
+        with pytest.raises(ModelValidationError):
             UserRepo(command_handlers=[GetUserHandler()])  # type: ignore
 
     def test_command_handler_in_query_list_raises(self) -> None:
         class UserRepo(Repository[User]):
             pass
 
-        with pytest.raises(ValidationError):
+        with pytest.raises(ModelValidationError):
             UserRepo(query_handlers=[CreateUserHandler()])  # type: ignore
 
     def test_unbound_handler_raises(self) -> None:

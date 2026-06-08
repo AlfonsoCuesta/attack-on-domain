@@ -3,8 +3,9 @@ import inspect
 from abc import ABCMeta
 from typing import Any, Callable, ClassVar, Type, dataclass_transform
 
-from pydantic import BaseModel
+from pydantic import BaseModel, ValidationError
 
+from .domain_exception import InvarianceException, ModelValidationError
 from .fields import Field
 from .invariances import is_validator
 from .model_maker import (
@@ -66,7 +67,14 @@ class BaseValidator(metaclass=ValidationModelMeta):
         else:
             model = self.__class__.__validation_model__
 
-        validated = model(**kwargs)
+        try:
+            validated = model(**kwargs)
+        except ValidationError as e:
+            for error in e.errors():
+                cause = error.get("ctx", {}).get("error")
+                if isinstance(cause, InvarianceException):
+                    raise cause from e
+            raise ModelValidationError(self.__class__.__name__, str(e)) from e
 
         self.__set_model_attributes(validated)
         if not _use_raw_model.get():

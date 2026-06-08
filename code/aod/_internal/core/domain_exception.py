@@ -138,3 +138,10 @@ class UnresolvableHandlerTypeError(DomainException):
 
     def __init__(self, handler_name: str) -> None:
         super().__init__(f"Cannot determine handler type for {handler_name}")
+
+
+class ModelValidationError(DomainException):
+    """Pydantic validation failed during model construction."""
+
+    def __init__(self, cls_name: str, message: str) -> None:
+        super().__init__(f"Validation failed for {cls_name}: {message}")

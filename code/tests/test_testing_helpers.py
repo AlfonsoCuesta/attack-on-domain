@@ -1,8 +1,7 @@
 from __future__ import annotations
 
-from pydantic_core import ValidationError
-
-from aod._internal.core.domain_exception import InvarianceException
+import pytest
+from aod._internal.core.domain_exception import InvarianceException, ModelValidationError
 from aod._internal.core.event_emitter import Event
 from aod._internal.domain.entity import RootEntity
 from aod._internal.domain.service import Service
@@ -60,12 +59,8 @@ class TestBuild:
         class User(RootEntity):
             id: int
 
-        try:
+        with pytest.raises(ModelValidationError):
             build(User)
-            msg = "expected ValidationError"
-            raise AssertionError(msg)
-        except ValidationError:
-            pass
 
 
 # ── events_of ────────────────────────────────────────────────────────────────
@@ -112,12 +107,8 @@ class TestAssertEventEmitted:
         class OrderPlaced(Event):
             order_id: int
 
-        try:
+        with pytest.raises(AssertionError):
             assert_event_emitted([], OrderPlaced, order_id=1)
-            msg = "expected AssertionError"
-            raise AssertionError(msg)
-        except AssertionError:
-            pass
 
     def test_checks_all_attributes(self) -> None:
         class UserCreated(Event):
@@ -133,12 +124,8 @@ class TestAssertEventEmitted:
             user_id: int
 
         events = [UserCreated(user_id=5)]
-        try:
+        with pytest.raises(AssertionError):
             assert_event_emitted(events, UserCreated, user_id=99)
-            msg = "expected AssertionError"
-            raise AssertionError(msg)
-        except AssertionError:
-            pass
 
 
 # ── assert_no_events ─────────────────────────────────────────────────────────
@@ -152,12 +139,8 @@ class TestAssertNoEvents:
         class OrderPlaced(Event):
             order_id: int
 
-        try:
+        with pytest.raises(AssertionError):
             assert_no_events([OrderPlaced(order_id=1)])
-            msg = "expected AssertionError"
-            raise AssertionError(msg)
-        except AssertionError:
-            pass
 
 
 # ── check_invariant ──────────────────────────────────────────────────────────
@@ -186,12 +169,8 @@ class TestCheckInvariant:
                     raise ValueError("username must not be empty")
                 return value
 
-        try:
+        with pytest.raises(InvarianceException):
             check_invariant(User, "username_must_not_be_empty", username="")
-            msg = "expected InvarianceException"
-            raise AssertionError(msg)
-        except InvarianceException:
-            pass
 
     def test_model_invariance_passes(self) -> None:
         class User(RootEntity):
@@ -215,20 +194,12 @@ class TestCheckInvariant:
                 if self.age < 18:
                     raise ValueError("must be adult")
 
-        try:
+        with pytest.raises(InvarianceException):
             check_invariant(User, "adult", username="Alf", age=15)
-            msg = "expected InvarianceException"
-            raise AssertionError(msg)
-        except InvarianceException:
-            pass
 
     def test_raises_on_unknown_name(self) -> None:
         class User(RootEntity):
             username: str | None = None
 
-        try:
+        with pytest.raises(ValueError, match="does_not_exist"):
             check_invariant(User, "does_not_exist", username="Alf")
-            msg = "expected ValueError"
-            raise AssertionError(msg)
-        except ValueError as e:
-            assert "does_not_exist" in str(e)

@@ -26,7 +26,10 @@ Exception
 │   │   # Handler dispatch (wiring errors)
 │   ├── HandlerTypeMismatchError            # Handler not subclass of expected base
 │   ├── HandlerEntityMismatchError          # Handler entity ≠ repo entity
-│   └── UnresolvableHandlerTypeError        # Cannot determine Command/Query type
+│   ├── UnresolvableHandlerTypeError        # Cannot determine Command/Query type
+│   │
+│   │   # Construction time (Pydantic validation wrapper)
+│   └── ModelValidationError                # Pydantic validation failed during model construction
 │
 ├── ApplicationException                    # Base: application layer errors
 │   ├── ProjectionStoreNotConfiguredError   # No ProjectionStore in UoW
@@ -97,6 +100,12 @@ Exception
 |---|---|
 | `MutationForbiddenException` | Setting/deleting an attribute on an object that is in a blocked mutation state |
 | `InvarianceException` | A `@field_invariance` or `@invariance` validator failed |
+
+### Construction Time — Model Validation
+
+| Exception | Trigger |
+|---|---|
+| `ModelValidationError` | Pydantic validation failed during `__init__` (e.g. missing required field, wrong type). If the cause is an `InvarianceException`, that exception is re-raised directly instead. |
 
 ## Catching Pattern
 

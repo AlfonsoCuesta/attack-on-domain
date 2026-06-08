@@ -3,6 +3,7 @@ from typing import Annotated, Any, Callable, cast
 
 import pytest
 from aod._internal.core.base_validator import BaseValidator
+from aod._internal.core.domain_exception import InvarianceException, ModelValidationError
 from aod._internal.core.reconstructable import ReconstructMixin
 from aod._internal.core.fields import Field, PrivateField
 from aod._internal.core.fields.fields import Unset
@@ -11,7 +12,6 @@ from aod._internal.core.invariances import (
     field_invariance,
     invariance,
 )
-from pydantic import ValidationError
 
 
 def test_base_validator_validates_and_sets_attributes() -> None:
@@ -72,7 +72,7 @@ def test_base_validator_annotated_field_constraints_raise_validation_error() -> 
     class User(BaseValidator):
         name: Annotated[str, Field(min_length=3)]
 
-    with pytest.raises(ValidationError):
+    with pytest.raises(ModelValidationError):
         User(name="ab")
 
 
@@ -137,7 +137,7 @@ def test_base_validator_raises_when_required_field_is_missing() -> None:
         name: str
 
     kwargs: dict[str, Any] = {"age": 1}
-    with pytest.raises(ValidationError):
+    with pytest.raises(ModelValidationError):
         User(**kwargs)
 
 
@@ -185,7 +185,7 @@ def test_invariance_can_raise_validation_error() -> None:
             if self.age < 18:
                 raise ValueError("Must be 18 or older")
 
-    with pytest.raises(ValidationError, match="Must be 18 or older"):
+    with pytest.raises(InvarianceException, match="Must be 18 or older"):
         User(age=16)
 
 
@@ -198,7 +198,7 @@ def test_invariance_with_parentheses_covers_lambda_branch() -> None:
             if self.age < 18:
                 raise ValueError("Must be 18 or older")
 
-    with pytest.raises(ValidationError, match="Must be 18 or older"):
+    with pytest.raises(InvarianceException, match="Must be 18 or older"):
         User(age=16)
 
 
