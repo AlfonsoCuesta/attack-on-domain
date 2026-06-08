@@ -1,9 +1,29 @@
 # Session
 
-`Session` is an abstract base class for database sessions. It lives in the application layer (`from aod.application import Session`) and extends `Port`.
+`Session` is an abstract base class for database sessions. It lives in the infrastructure layer (`from aod.infrastructure import Session`) and extends `Port`. An `AsyncSession` variant with coroutine methods is also available.
+
+## Sync `Session`
 
 ```python
 class Session(Port):
+    @abstractmethod
+    def execute(self, operation: object) -> object: ...
+    @abstractmethod
+    def query(self, operation: object) -> object: ...
+    @abstractmethod
+    def begin(self) -> None: ...
+    @abstractmethod
+    def commit(self) -> None: ...
+    @abstractmethod
+    def rollback(self) -> None: ...
+    @abstractmethod
+    def close(self) -> None: ...
+```
+
+## Async `AsyncSession`
+
+```python
+class AsyncSession(Port):
     @abstractmethod
     async def execute(self, operation: object) -> object: ...
     @abstractmethod
@@ -18,10 +38,7 @@ class Session(Port):
     async def close(self) -> None: ...
 ```
 
-- **`execute`** — write operations (INSERT, UPDATE, DELETE, or document creation)
-- **`query`** — read operations (SELECT, find, aggregation)
-- **`begin` / `commit` / `rollback`** — transaction lifecycle
-- **`close`** — release pool/connection resources
+### Common Operations
 
 ## PostgreSQL Example
 
@@ -31,7 +48,7 @@ from __future__ import annotations
 from typing import Any
 
 import asyncpg
-from aod.application import Session
+from aod.infrastructure import Session
 
 
 class PostgresSession(Session):
@@ -86,7 +103,7 @@ Helper functions `_unpack` and `_inverse` are application‑specific (convert do
 from __future__ import annotations
 
 from motor.motor_asyncio import AsyncIOMotorClient, AsyncIOMotorDatabase
-from aod.application import Session
+from aod.infrastructure import Session
 
 
 class MongoSession(Session):

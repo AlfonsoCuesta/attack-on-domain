@@ -8,29 +8,19 @@ Enforces DDD type constraints at `BoundedContext` construction time. Lives in `c
 
 ```
 type_checking/
-├── __init__.py       # Re-exports: extract_types_from_annotation, get_validation_model
-└── extractors.py     # extract_types_from_annotation, get_validation_model, extract_domain_types_from_model
+├── __init__.py       # Re-exports: extract_types_from_annotation
+└── extractors.py     # extract_types_from_annotation
 
 type_handlers/
-├── __init__.py                    # Re-exports: BaseGuardedTypeHandler, ServiceTypeHandler
+├── __init__.py                    # Re-exports: BaseGuardedTypeHandler, ServiceTypeHandler, get_generic_arg_from_mro, get_generic_arg_from_orig_bases, validate_generic_arg_is_subclass, validate_handler_subclass
 ├── base_guarded_handler.py        # check_entity, check_root_entity, check_value_object, discover_types
+├── generic_utils.py               # get_generic_arg_from_orig_bases, get_generic_arg_from_mro, get_last_generic_arg, validate_generic_arg_is_subclass, validate_handler_subclass
 └── service_handler.py             # check_service
 ```
 
 ## extractors.py
 
 ### `extract_types_from_annotation(annotation: object) -> list[type]`
-
-Recursively extracts all type objects from an annotation, handling:
-- Plain types (`int`, `str`, `User`) → `[type]`
-- `Annotated[T, ...]` → recurses on `T`
-- `Optional[T]`, `Union[A, B]` → recurses on each arg, filters out `NoneType`
-- `list[T]`, `dict[K, V]`, etc. → recurses on each type arg
-- Forward references (strings) → returns empty `[]`
-
-### `get_validation_model(cls: type) -> type[BaseModel]`
-
-Returns `cls.__validation_model__`. Only call on `BaseValidator` subclasses.
 
 ## base_guarded_handler.py
 

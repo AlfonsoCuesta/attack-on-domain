@@ -46,7 +46,7 @@ _event_emitter: EventEmitter = PrivateField(default_factory=EventEmitter)
 `EventEmitter` itself is not part of the public API — it's an internal
 implementation detail accessed via the `_event_emitter: EventEmitter`
 `PrivateField` on domain objects. Users import `EventCollector` from
-`aod.domain` for inter-aggregate event capture.
+`aod.events` for inter-aggregate event capture.
 
 ## EventCollector
 

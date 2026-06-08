@@ -13,6 +13,17 @@ ValidatorInfo(validation=pydantic_field_validator, "age", mode="before")(fn)
 # → pydantic_field_validator("age", mode="before")(fn)
 ```
 
+## Re-exported Pydantic Validators
+
+`AfterValidator` and `BeforeValidator` are re-exported from `aod.domain.validation` for convenience in field annotations:
+
+```python
+from aod.domain.validation import AfterValidator, BeforeValidator
+
+class Name(ValueObject):
+    value: Annotated[str, AfterValidator(str.upper)]
+```
+
 ## Decorators
 
 ### `@field_invariance(*fields, mode="before", check_fields=False)`

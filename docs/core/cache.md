@@ -1,17 +1,39 @@
 # Cache
 
-`Cache` is an abstract port for key-value caching. Extends `Port`, available at `from aod.application import Cache` (sync) or `from aod.application.cache.async_ import Cache` (async).
+`Cache` is a structural interface (Protocol) for key-value caching, available at `from aod.application import Cache`. Infrastructure implementations extend `Cache(Port)` from `aod.infrastructure`. Async at `from aod.application.async_ import Cache`.
 
 ```python
-class Cache(Port):
+class Cache(Protocol):
     def get(self, key: str) -> Any: ...
     def set(self, key: str, value: Any, ttl: float | None = None) -> None: ...
     def delete(self, key: str) -> None: ...
+    def flush(self) -> None: ...
+    def set_promise(self, key: str, value: Any, ttl: float | None = None) -> None: ...
+    def delete_promise(self, key: str) -> None: ...
 ```
 
 - **`get(key)`** — retrieve by key, returns `None` if missing
 - **`set(key, value, ttl=None)`** — store with optional TTL in seconds
 - **`delete(key)`** — remove key
+- **`flush()`** — execute all promised sets/deletes
+- **`set_promise(key, value, ttl=None)`** — queue a delayed set (executed on `flush()`)
+- **`delete_promise(key)`** — queue a delayed delete (executed on `flush()`)
+
+## Infrastructure Cache
+
+The concrete `Cache(Port)` at `aod.infrastructure` provides promise/flush support:
+
+```python
+from aod.infrastructure import Cache
+
+class RedisCache(Cache):
+    def get(self, key: str) -> Any:
+        ...
+    def set(self, key: str, value: Any, ttl: float | None = None) -> None:
+        ...
+    def delete(self, key: str) -> None:
+        ...
+```
 
 ## Redis Example
 
@@ -20,7 +42,7 @@ import json
 from typing import Any
 
 from redis.asyncio import Redis
-from aod.application.cache.async_ import Cache
+from aod.infrastructure import Cache
 
 
 class RedisCache(Cache):

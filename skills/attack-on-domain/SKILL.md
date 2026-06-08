@@ -76,6 +76,7 @@ Source code is under `code/` (mapped as package root in `pyproject.toml`).
   - `uow: UnitOfWork` — commits on success, rolls back on failure; defaults to `_NullUnitOfWork` (no-op)
   - `logger: Logger` — auto-logs completion (with event count) and failure; defaults to `_NullLogger` (no-op)
   - `event_bus: EventBus` — auto-publishes collected events after successful commit; defaults to `_NullEventBus` (no-op)
+  - `cache: Cache` — auto-flushed after successful commit; defaults to `_NullCache` (no-op)
 - `run()` is abstract, decorated with `@inherit_context` so mutation is allowed inside (INHERIT bypasses seal)
 - `__init_subclass__` auto-wraps `run()` with an `EventCollector` and captures events into `self.events`
 - Events emitted via `self._event_emitter.emit(...)` inside `run()` are automatically collected in `self.events`
@@ -94,7 +95,7 @@ Built-in port types (all `aod.application`):
 - **`Logger`** — `debug(msg, **context)`, `info(msg, **context)`, `warning(msg, **context)`, `error(msg, **context)`
 - **`EventBus`** — `publish(*events)` for publishing domain events to external handlers
 - **`UnitOfWork`** — `commit()`, `rollback()`, `flush()` for transactional boundaries (sync); `AsyncUnitOfWork` for async
-- **`Cache`** — `get(key)`, `set(key, value, ttl=None)`, `delete(key)` for caching (sync); `AsyncCache` for async
+- **`Cache`** — `get(key)`, `set(key, value, ttl=None)`, `delete(key)`, `flush()`, `set_promise()`, `delete_promise()` for caching (sync); `AsyncCache` for async (application-level `Cache` is a `Protocol`; infrastructure provides `Cache(Port)` with promise/flush support)
 - **`Session`** — database abstraction (`execute`, `query`, `begin`, `commit`, `rollback`, `close`) — defined in `aod._internal.infrastructure.session`, not exported from `aod.application`
 
 ```python

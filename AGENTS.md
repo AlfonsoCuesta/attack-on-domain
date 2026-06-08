@@ -17,7 +17,7 @@ code/
 │   ├── domain/                       # Public domain layer (re-exports from _internal)
 │   │   ├── __init__.py               # Re-exports: App, BoundedContext, Entity, RootEntity, Service, ValueObject, Field, PrivateField, DomainException
 │   │   └── validation/               # Public: AfterValidator, BeforeValidator, field_invariance, invariance, inherit_context
-│   ├── exceptions/__init__.py        # Public: DomainException, MutationForbiddenException
+│   ├── exceptions/__init__.py        # Public: all domain/app/infra exceptions
 │   ├── testing/                       # Public testing utilities
 │   │   ├── __init__.py                # FakeDomain, build, events_of, assert_*
 │   │   └── doubles/
@@ -136,12 +136,11 @@ code/
     │   ├── test_async_port.py
     │   └── test_async_use_case.py
     ├── infrastructure/               # Infrastructure layer tests
-    │   ├── test_projection_handler.py
-    │   ├── test_async_projection_handler.py
-    │   ├── test_repository.py
-    │   ├── test_handlers.py
     │   ├── test_async_handlers.py
-    │   └── test_async_repository.py
+    │   ├── test_async_projection_handler.py
+    │   ├── test_async_repository.py
+    │   ├── test_projection_handler.py
+    │   └── test_repository.py
     └── ...
 ```
 
@@ -149,13 +148,13 @@ code/
 
 ```
 BaseValidator (metaclass: ValidationModelMeta → ABCMeta)
-├── UseCase                         (application use case, no reconstruct)
 └── BaseGuarded                     (mutation-guarded)
     ├── Entity(ReconstructMixin, BaseGuarded)     → has reconstruct ✓
     │   └── RootEntity                            → inherits reconstruct ✓
     └── BaseSealed                  (always immutable)
         ├── ValueObject(ReconstructMixin, BaseSealed) → has reconstruct ✓
-        └── Service                               → no reconstruct ✓
+        ├── Service                               → no reconstruct ✓
+        └── UseCase                               → no reconstruct ✓
 ```
 
 `ReconstructMixin` is only mixed into `Entity` and `ValueObject`. `Service` and `UseCase` never see `reconstruct()`.
@@ -188,6 +187,7 @@ All domain classes (`Entity`, `ValueObject`, `Service`) declare `_event_emitter`
 - Dunder methods (`__*__`)
 - Methods already marked with `__mutable__` attribute
 - Methods decorated with `@field_invariance` or `@invariance` (they have `__field_validator_info__`)
+- Abstract methods (marked with `@abstractmethod`)
 
 ### Immutable Proxies via `make_immutable`
 When an attribute is read outside a mutation context, `BaseGuarded.__getattribute__` returns `make_immutable(value)`:
@@ -247,6 +247,8 @@ class BoundedContext:
         self,
         aggregate_roots: Iterable[RootEntityType] | None = None,
         services: Iterable[ServiceType] | None = None,
+        *,
+        name: str | None = None,
     ):
 ```
 - Only accepts `aggregate_roots` (RootEntity subclasses) and `services` (Service subclasses)
@@ -325,6 +327,7 @@ Public modules re-export from `_internal`; they contain no logic of their own. T
   - `uow: UnitOfWork` — auto-commits on success (only if `is_dirty`), auto-rollbacks on failure; defaults to `_NullUnitOfWork` (no-op)
   - `logger: Logger` — auto-logs completion (with event count) and failure; defaults to `_NullLogger` (no-op)
   - `event_bus: EventBus` — auto-publishes collected events after successful commit; defaults to `_NullEventBus` (no-op)
+  - `cache: Cache` — auto-flushed after successful commit; defaults to `_NullCache` (no-op)
 
 - `__init_subclass__` automatically wraps any subclass's `run` to:
   1. Open an `EventCollector` context
@@ -347,7 +350,7 @@ Built-in port types (all `aod.application`):
 - **`Logger`** — `debug(msg, **context)`, `info(msg, **context)`, `warning(msg, **context)`, `error(msg, **context)`
 - **`EventBus`** — `publish(*events)` for publishing domain events to external handlers
 - **`UnitOfWork`** — `commit()`, `rollback()`, `flush()` for transactional boundaries
-- **`Cache`** — `get(key)`, `set(key, value, ttl=None)`, `delete(key)` for caching (sync + async)
+- **`Cache`** — `get(key)`, `set(key, value, ttl=None)`, `delete(key)`, `flush()`, `set_promise()`, `delete_promise()` for caching (sync + async). Application-level `Cache` is a `Protocol`; infrastructure provides `Cache(Port)` with promise/flush support.
 
 ### Repository Layer
 
@@ -377,10 +380,10 @@ Contract validation in `type_checks/contract_checks.py`:
 Analogous to `Query`/`Command` but for read/write projections:
 
 - **`ProjectionQuery[T]`** (`aod.application`) — read-only projection. `BaseSealed, Generic[T]` data class. No `__init_subclass__` validation — fields can reference any type. `T` is the return type (like `Query`).
-- **`ProjectionCommand`** (`aod.application`) — write-only projection. `BaseSealed` data class. Carries write data in its own fields (like `Command`). No type parameter — `handle()` returns `None`.
-- **`ProjectionStore`** (`aod.application`) — `Protocol` with `query(query: ProjectionQuery[T]) -> T` and `command(command: ProjectionCommand) -> None`. Sync and async versions available.
+- **`ProjectionCommand[T]`** (`aod.application`) — write-only projection. `BaseSealed, Generic[T]` data class. Carries write data in its own fields (like `Command`). `T` is the return type.
+- **`ProjectionStore`** (`aod.application`) — `Protocol` with `query(query: ProjectionQuery[T]) -> T` and `command(command: ProjectionCommand[T]) -> T`. Sync and async versions available.
 - **`ProjectionQueryHandler[PQ]`** (`aod.infrastructure`) — abstract base with `handle(query: PQ) -> object`. Validates `PQ` is a `ProjectionQuery` subclass.
-- **`ProjectionCommandHandler[PC]`** (`aod.infrastructure`) — abstract base with `handle(command: PC) -> None`. Validates `PC` is a `ProjectionCommand` subclass.
+- **`ProjectionCommandHandler[PC]`** (`aod.infrastructure`) — abstract base with `handle(command: PC) -> object`. Validates `PC` is a `ProjectionCommand` subclass.
 - **`ProjectionStore`** (`aod.infrastructure`) — concrete dispatcher: receives both handler types, validates duplicates in `__post_init__`, dispatches via `query()` / `command()`.
 
 Unlike `CommandHandler`/`QueryHandler`, projection handlers are **not** registered in a `Repository`. They live in `aod.infrastructure.projection` and are consumed independently via `ProjectionStore`.
@@ -472,13 +475,13 @@ uv run pytest code/tests -q
 
 ## Dependencies
 
-- **Runtime**: `pydantic>=2.12.4`, `typing-inspect>=0.9.0`
-- **Dev**: `ruff`, `ty`, `pre-commit`, `pytest`
+- **Runtime**: `pydantic>=2.12.4`, `polyfactory>=3.3.0`
+- **Dev**: `ruff`, `ty`, `pre-commit`, `pytest`, `pytest-cov`, `pytest-asyncio`
 - **Build**: `setuptools`, `wheel`
 
 ## Test Count
 
-588 tests
+624 tests
 
 ## At the end of a task
 

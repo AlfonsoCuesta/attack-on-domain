@@ -21,6 +21,7 @@ A method IS wrapped if all of these are true:
 - It is NOT a bound method (`inspect.ismethod`)
 - It does NOT have `__field_validator_info__` (not a validator)
 - It does NOT have `__mutable__` (not already explicitly marked)
+- It does NOT have `__isabstractmethod__` (abstract methods are skipped)
 
 ### INHERIT state propagation
 If a method overrides a parent method that was marked as `INHERIT`, the override also gets `INHERIT` status.

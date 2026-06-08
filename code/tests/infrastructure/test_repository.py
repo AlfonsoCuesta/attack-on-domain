@@ -3,6 +3,10 @@ from __future__ import annotations
 import pytest
 from pydantic import ValidationError
 from aod._internal.core.base_sealed import BaseSealed
+from aod._internal.core.infrastructure_exception import (
+    HandlerResultTypeError,
+    InfrastructureException,
+)
 from aod._internal.core.domain_exception import DomainException, MutationForbiddenException
 from aod._internal.core.infrastructure_exception import InfrastructureException
 from aod._internal.domain.entity import Entity, RootEntity
@@ -459,3 +463,34 @@ class TestHandlerChecks:
 
         with pytest.raises(DomainException, match="does not handle"):
             validate_handler_type(NotAHandler(), QueryHandler)
+
+
+class TestHandlerResultTypeError:
+    def test_command_handler_wrong_result_type_raises(self) -> None:
+        class BadCommandHandler(CommandHandler[CreateUser]):
+            def handle(self, cmd: CreateUser) -> object:
+                return "not a user"
+
+        h = BadCommandHandler()
+        with pytest.raises(HandlerResultTypeError) as exc:
+            h.handle(CreateUser(name="x", email="x@x.com"))
+        assert "BadCommandHandler" in str(exc.value)
+
+    def test_query_handler_wrong_result_type_raises(self) -> None:
+        class BadQueryHandler(QueryHandler[GetUser]):
+            def handle(self, query: GetUser) -> object:
+                return 42
+
+        h = BadQueryHandler()
+        with pytest.raises(HandlerResultTypeError) as exc:
+            h.handle(GetUser(user_id=1))
+        assert "BadQueryHandler" in str(exc.value)
+
+    def test_handler_returns_none_when_disallowed(self) -> None:
+        class NoneReturningHandler(QueryHandler[GetUser]):
+            def handle(self, query: GetUser) -> object:
+                return None
+
+        h = NoneReturningHandler()
+        result = h.handle(GetUser(user_id=1))
+        assert result is None

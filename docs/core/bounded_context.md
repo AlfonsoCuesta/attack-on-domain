@@ -12,6 +12,8 @@ class BoundedContext:
         self,
         aggregate_roots: Iterable[RootEntityType] | None = None,
         services: Iterable[ServiceType] | None = None,
+        *,
+        name: str | None = None,
     ):
 ```
 
@@ -21,6 +23,7 @@ class BoundedContext:
 |-----------|------|-------------|
 | `aggregate_roots` | `Iterable[type[RootEntity]] \| None` | Root entity classes in this context |
 | `services` | `Iterable[type[Service]] \| None` | Service classes in this context |
+| `name` | `str \| None` | Optional context name |
 
 ### Validation
 
@@ -64,6 +67,7 @@ After discovery, checks run on all discovered types:
 
 | Property | Type | Description |
 |----------|------|-------------|
+| `name` | `str \| None` | Optional context name |
 | `aggregate_roots` | `tuple[type[RootEntity], ...]` | Root entities |
 | `entities` | `tuple[type[Entity], ...]` | Non-root entities (auto-discovered) |
 | `value_objects` | `tuple[type[ValueObject], ...]` | Value objects (auto-discovered) |

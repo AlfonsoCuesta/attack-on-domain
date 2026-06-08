@@ -7,13 +7,14 @@ When `BaseGuarded.__getattribute__` detects mutation is not allowed, it wraps th
 ## Entry Point: `make_immutable(value)`
 
 Dispatch logic:
-1. **Primitives** (`int`, `float`, `str`, `bool`, `bytes`, `None`, `datetime.*`, `decimal.Decimal`, `uuid.UUID`) → returned as-is
+1. **Primitives** (`int`, `float`, `str`, `bool`, `bytes`, `None`, `datetime.*`, `datetime.timedelta`, `datetime.timezone`, `decimal.Decimal`, `uuid.UUID`, `complex`, `range`) → returned as-is
 2. **Callables** (functions, methods, builtins) → returned as-is
 3. **Already immutable** (`ImmutableList`, `ImmutableDict`, `ImmutableSet`, `frozenset`, anything with `__immutable_class__`) → returned as-is
-4. **list** → `ImmutableList(value, make_immutable)`
-5. **dict** → `ImmutableDict(value, make_immutable)`
-6. **set** → `ImmutableSet(value, make_immutable)`
-7. **Everything else** → `_make_immutable_object(value, make_immutable)` (dynamic proxy)
+4. **tuple** → returned as a new tuple with each element recursively wrapped
+5. **list** → `ImmutableList(value, make_immutable)`
+6. **dict** → `ImmutableDict(value, make_immutable)`
+7. **set** → `ImmutableSet(value, make_immutable)`
+8. **Everything else** → `_make_immutable_object(value, make_immutable)` (dynamic proxy)
 
 ## ImmutableList(list)
 
