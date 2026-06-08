@@ -1,3 +1,4 @@
+from aod._internal.application.cache import Cache
 from aod._internal.application.event_bus import EventBus
 from aod._internal.application.logger import Logger
 from aod._internal.application.port import Port
@@ -10,6 +11,7 @@ from aod._internal.core.application_exception import ApplicationException
 
 __all__ = [
     "ApplicationException",
+    "Cache",
     "Command",
     "EventBus",
     "Logger",

@@ -28,7 +28,7 @@ Source code is under `code/` (mapped as package root in `pyproject.toml`).
 
 | `from aod.application import UseCase` | UseCase base class |
 | `from aod.application import Port` | Abstract port/gateway base class |
-| `from aod.application import Logger, EventBus, UnitOfWork` | Built-in port types |
+| `from aod.application import Logger, EventBus, UnitOfWork, Cache` | Built-in port types |
 | `from aod.application import Session` | Database session abstraction |
 | `from aod.application import Command, Query` | Application contracts |
 | `from aod.infrastructure import Repository, CommandHandler, QueryHandler` | Infrastructure |
@@ -81,6 +81,8 @@ Built-in port types (all `aod.application`):
 - **`Logger`** — `debug(msg, **context)`, `info(msg, **context)`, `warning(msg, **context)`, `error(msg, **context)`
 - **`EventBus`** — `publish(*events)` for publishing domain events to external handlers
 - **`UnitOfWork`** — `commit()`, `rollback()`, `flush()` for transactional boundaries
+- **`Cache`** — `get(key)`, `set(key, value, ttl=None)`, `delete(key)` for caching (sync + async)
+- **`Session`** — `execute(operation)`, `query(operation)`, `begin()`, `commit()`, `rollback()`, `close()` for database fachada (sync + async)
 
 ```python
 from aod.application import Port, UseCase

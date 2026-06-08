@@ -53,6 +53,10 @@ code/
 │           └── describe.py
 │       ├── application/              # Application layer (packages)
 │       │   ├── port.py               # Port base class (abstract, mutable-from-inside)
+│       │   ├── cache/                # Cache port — sync + async
+│       │   │   ├── __init__.py
+│       │   │   ├── cache.py           # Cache(Port) — abstract base (sync)
+│       │   │   └── async_.py          # Cache (async)
 │       │   ├── projection/           # Projection data class + ProjectionStore Protocol
 │       │   │   ├── __init__.py       # ProjectionQuery, ProjectionCommand, ProjectionStore
 │       │   │   ├── projection.py     # ProjectionQuery[T], ProjectionCommand
@@ -73,7 +77,8 @@ code/
 │       │   │   └── async_.py         # UnitOfWork (async, accepts sync/async repos + stores)
 │       │   ├── session/              # Session (database abstraction)
 │       │   │   ├── __init__.py
-│       │   │   └── session.py        # Session(Port) — abstract base
+│       │   │   ├── session.py        # Session(Port) — abstract base (sync)
+│       │   │   └── async_.py         # Session (async)
 │       │   └── use_case/             # UseCase base — sync + async
 │       │       ├── __init__.py
 │       │       └── async_.py
@@ -322,6 +327,8 @@ Built-in port types (all `aod.application`):
 - **`Logger`** — `debug(msg, **context)`, `info(msg, **context)`, `warning(msg, **context)`, `error(msg, **context)`
 - **`EventBus`** — `publish(*events)` for publishing domain events to external handlers
 - **`UnitOfWork`** — `commit()`, `rollback()`, `flush()` for transactional boundaries
+- **`Cache`** — `get(key)`, `set(key, value, ttl=None)`, `delete(key)` for caching (sync + async)
+- **`Session`** — `execute(operation)`, `query(operation)`, `begin()`, `commit()`, `rollback()`, `close()` for database fachada (sync + async)
 
 ### Repository Layer
 

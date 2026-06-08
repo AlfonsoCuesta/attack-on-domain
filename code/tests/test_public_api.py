@@ -59,6 +59,7 @@ def test_aod_domain_exceptions_documented_api() -> None:
 def test_aod_application_exports_documented_api() -> None:
     assert aod.application.__all__ == [
         "ApplicationException",
+        "Cache",
         "Command",
         "EventBus",
         "Logger",
@@ -73,7 +74,10 @@ def test_aod_application_exports_documented_api() -> None:
         "UseCase",
     ]
     assert aod.application.ApplicationException.__name__ == "ApplicationException"
+    assert aod.application.Cache.__name__ == "Cache"
     assert aod.application.Session.__name__ == "Session"
+    from aod.application.cache.async_ import Cache as AsyncCache
+    assert AsyncCache.__name__ == "Cache"
     from aod.application.session.async_ import Session as AsyncSession
     assert AsyncSession.__name__ == "Session"
 
