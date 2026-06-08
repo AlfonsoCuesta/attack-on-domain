@@ -18,6 +18,14 @@ code/
 │   │   ├── __init__.py               # Re-exports: App, BoundedContext, Entity, RootEntity, Service, ValueObject, Field, PrivateField, DomainException
 │   │   └── validation/               # Public: AfterValidator, BeforeValidator, field_invariance, invariance, inherit_context
 │   ├── exceptions/__init__.py        # Public: DomainException, MutationForbiddenException
+│   ├── testing/                       # Public testing utilities
+│   │   ├── __init__.py                # FakeDomain, build, events_of, assert_*
+│   │   └── doubles/
+│   │       ├── __init__.py            # Empty (package marker)
+│   │       ├── application/
+│   │       │   ├── __init__.py        # Sync: LogEntry, SpyLogger, SpyEventBus, SpyUnitOfWork
+│   │       │   └── async_/
+│   │       │       └── __init__.py    # Async (plain name): SpyLogger, SpyEventBus, SpyUnitOfWork
 │   └── _internal/                    # Private — not semver-stable
 │       ├── core/                     # Framework internals
 │       │   ├── async_utils.py        # should_await (sync/async bridge)
@@ -90,6 +98,21 @@ code/
 │       │   └── repository/           # Repository with dispatch — sync + async
 │       │       ├── __init__.py
 │       │       └── repository.py     # Repository + AsyncRepository
+│       └── testing/                  # Testing utilities (implementation)
+│           ├── __init__.py           # Re-exports: DomainType, FakeDomain, build, helpers
+│           ├── helpers.py            # build(), events_of(), assert_event_emitted(), etc.
+│           ├── doubles/              # Spy implementations
+│           │   ├── __init__.py       # Re-exports all (sync + async)
+│           │   ├── async_/
+│           │   │   └── __init__.py   # Re-exports async spies from application
+│           │   └── application/
+│           │       ├── __init__.py
+│           │       ├── logger.py     # LogEntry, SpyLogger, AsyncSpyLogger
+│           │       ├── event_bus.py  # SpyEventBus, AsyncSpyEventBus
+│           │       └── unit_of_work.py  # SpyUnitOfWork, AsyncSpyUnitOfWork
+│           └── faker/
+│               ├── __init__.py
+│               └── faker.py          # DomainType, FakeDomain
 └── tests/                            # All tests
     ├── test_public_api.py
     ├── core/                         # Core framework tests
@@ -372,32 +395,42 @@ Used by async `UnitOfWork.command/query` and async `UseCase` wrapper (imported a
 
 Zero `# type: ignore` in `type_checks/`, `repository.py`, and `handlers.py`.
 
-### Test Doubles (`aod.testing.doubles`)
+### Test Doubles (`aod._internal.testing.doubles`)
 
-Spy classes for testing application-layer ports, organized by layer under `aod/testing/doubles/`:
+Spy classes for testing application-layer ports, organized under `aod/_internal/testing/doubles/`:
 
 ```
-aod/testing/
-├── __init__.py
-└── doubles/
-    ├── __init__.py                     # Re-exports all (sync + async)
-    ├── application/
-    │   ├── __init__.py                 # Re-exports from modules
-    │   ├── logger.py                   # LogEntry, SpyLogger
-    │   ├── event_bus.py                # SpyEventBus
-    │   ├── unit_of_work.py             # SpyUnitOfWork
-    │   └── async_.py                   # AsyncSpyLogger, AsyncSpyEventBus, AsyncSpyUnitOfWork (live in this file with imports from aod.application.async_)
-    └── infrastructure/
-        └── __init__.py                 # Placeholder for future doubles
+aod/_internal/testing/
+├── __init__.py                     # Re-exports: DomainType, FakeDomain, build, helpers
+├── helpers.py                      # build(), events_of(), assert_event_emitted()
+├── doubles/
+│   ├── __init__.py                 # Re-exports all (sync + async)
+│   └── application/
+│       ├── __init__.py
+│       ├── logger.py               # LogEntry, SpyLogger, AsyncSpyLogger
+│       ├── event_bus.py            # SpyEventBus, AsyncSpyEventBus
+│       └── unit_of_work.py         # SpyUnitOfWork, AsyncSpyUnitOfWork
+└── faker/
+    ├── __init__.py
+    └── faker.py                    # DomainType, FakeDomain
 ```
 
-All spy classes use `PrivateField` instead of `object.__setattr__` to stay consistent with the framework's mutation-guarding system. Public methods are auto-wrapped by `_wrap_public_methods`, so in-place mutations (`.append()`, `.extend()`) inside them work transparently.
+Public re-exports live at `aod/testing/`:
+- `from aod.testing import FakeDomain, build, events_of, assert_event_emitted, assert_no_events, check_invariant`
+- `from aod.testing.doubles.application import LogEntry, SpyLogger, SpyEventBus, SpyUnitOfWork`
+- `from aod.testing.doubles.application.async_ import SpyLogger, SpyEventBus, SpyUnitOfWork` (async variants, plain names)
 
-- **`SpyLogger`** — captures `LogEntry` objects; `.entries` returns a snapshot copy
-- **`SpyEventBus`** — captures published `Event` objects; `.published` returns a snapshot copy
-- **`SpyUnitOfWork`** — tracks `committed`, `rolled_back`, `flushed` booleans; has `set_dirty()` to mark `is_dirty`
+### Testing Utilities (`aod.testing`)
 
-Import from `aod.testing.doubles` (sync) or from individual modules.
+| Import | What |
+|--------|------|
+| `from aod.testing import FakeDomain` | Factory for domain objects with auto-generated fake data |
+| `from aod.testing import build` | Construct domain objects skipping validation (raw model) |
+| `from aod.testing import events_of` | Extract events emitted by an entity/service/vo |
+| `from aod.testing import assert_event_emitted, assert_no_events` | Event assertions |
+| `from aod.testing import check_invariant` | Run a single invariant validator |
+| `from aod.testing.doubles.application import LogEntry, SpyLogger, SpyEventBus, SpyUnitOfWork` | Sync test doubles |
+| `from aod.testing.doubles.application.async_ import SpyLogger, SpyEventBus, SpyUnitOfWork` | Async test doubles (same names) |
 
 ## Development Commands
 

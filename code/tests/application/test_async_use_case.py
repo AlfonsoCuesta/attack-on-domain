@@ -13,13 +13,15 @@ from tests.application._use_case_scenarios import (
     _RUN_BODIES,
     run_uc,
 )
-from aod.testing.doubles import (
-    AsyncSpyEventBus,
-    AsyncSpyLogger,
-    AsyncSpyUnitOfWork,
+from aod.testing.doubles.application import (
     SpyEventBus,
     SpyLogger,
     SpyUnitOfWork,
+)
+from aod.testing.doubles.application.async_ import (
+    SpyEventBus as AsyncSpyEventBus,
+    SpyLogger as AsyncSpyLogger,
+    SpyUnitOfWork as AsyncSpyUnitOfWork,
 )
 
 

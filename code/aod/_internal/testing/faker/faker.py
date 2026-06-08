@@ -5,7 +5,7 @@ from typing import Any, Generic, TypeVar, Union, cast, get_args, get_origin
 
 from aod._internal.domain.entity import Entity, RootEntity
 from aod._internal.domain.value_object import ValueObject
-from aod.testing.helpers import build
+from aod._internal.testing.helpers import build
 from polyfactory.factories.pydantic_factory import ModelFactory as PolyModelFactory
 from pydantic import create_model
 

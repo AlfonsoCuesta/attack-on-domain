@@ -34,6 +34,18 @@ Source code is under `code/` (mapped as package root in `pyproject.toml`).
 | `from aod.application import Command, Query` | Application contracts |
 | `from aod.infrastructure import Repository, CommandHandler, QueryHandler` | Infrastructure |
 
+## Testing Utilities
+
+| Import | What |
+|--------|------|
+| `from aod.testing import FakeDomain` | Factory for domain objects with auto-generated fake data |
+| `from aod.testing import build` | Construct domain objects skipping validation (raw model) |
+| `from aod.testing import events_of` | Extract events emitted by an entity/service/vo |
+| `from aod.testing import assert_event_emitted, assert_no_events` | Event assertions |
+| `from aod.testing import check_invariant` | Run a single invariant validator |
+| `from aod.testing.doubles.application import LogEntry, SpyLogger, SpyEventBus, SpyUnitOfWork` | Sync test doubles |
+| `from aod.testing.doubles.application.async_ import SpyLogger, SpyEventBus, SpyUnitOfWork` | Async test doubles (plain names) |
+
 ## Domain Primitives
 
 ### ValueObject

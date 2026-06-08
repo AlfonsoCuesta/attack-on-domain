@@ -1,10 +1,8 @@
-from aod.testing.doubles.application.logger import LogEntry, SpyLogger
-from aod.testing.doubles.application.event_bus import SpyEventBus
-from aod.testing.doubles.application.unit_of_work import SpyUnitOfWork
-from aod.testing.doubles.application.async_ import (
-    AsyncSpyLogger,
-    AsyncSpyEventBus,
-    AsyncSpyUnitOfWork,
+from aod._internal.testing.doubles.application import (
+    LogEntry,
+    SpyEventBus,
+    SpyLogger,
+    SpyUnitOfWork,
 )
 
 __all__ = [
@@ -12,7 +10,4 @@ __all__ = [
     "SpyLogger",
     "SpyEventBus",
     "SpyUnitOfWork",
-    "AsyncSpyLogger",
-    "AsyncSpyEventBus",
-    "AsyncSpyUnitOfWork",
 ]

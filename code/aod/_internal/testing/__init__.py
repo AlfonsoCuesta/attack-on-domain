@@ -1,5 +1,5 @@
-from aod._internal.testing import (
-    FakeDomain,
+from .faker import DomainType, FakeDomain
+from .helpers import (
     assert_event_emitted,
     assert_no_events,
     build,
@@ -8,6 +8,7 @@ from aod._internal.testing import (
 )
 
 __all__ = [
+    "DomainType",
     "FakeDomain",
     "assert_event_emitted",
     "assert_no_events",

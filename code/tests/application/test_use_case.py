@@ -16,7 +16,7 @@ from tests.application._use_case_scenarios import (
     UserRenamed,
     _RUN_BODIES,
 )
-from aod.testing.doubles import SpyEventBus, SpyLogger, SpyUnitOfWork
+from aod.testing.doubles.application import SpyEventBus, SpyLogger, SpyUnitOfWork
 
 
 class CreateUser(UseCase):

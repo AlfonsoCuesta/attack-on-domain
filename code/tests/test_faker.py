@@ -4,7 +4,7 @@ from aod._internal.domain.entity import RootEntity
 from aod._internal.domain.service import Service
 from aod._internal.domain.value_object import ValueObject
 from aod.testing import FakeDomain
-from aod.testing.faker.faker import _flatten, _to_domain
+from aod._internal.testing.faker.faker import _flatten, _to_domain
 from typing import get_args, get_origin
 
 

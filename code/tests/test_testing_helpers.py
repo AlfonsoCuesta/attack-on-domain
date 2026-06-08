@@ -7,7 +7,7 @@ from aod._internal.core.event_emitter import Event
 from aod._internal.domain.entity import RootEntity
 from aod._internal.domain.service import Service
 from aod._internal.domain.value_object import ValueObject
-from aod.testing.helpers import (
+from aod.testing import (
     assert_event_emitted,
     assert_no_events,
     build,

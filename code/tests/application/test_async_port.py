@@ -8,10 +8,10 @@ from aod._internal.core.event_emitter import Event
 from aod._internal.domain.entity import RootEntity
 from aod.application import Command, ProjectionCommand, ProjectionQuery, Query, ReadModel
 from aod.application.async_ import EventBus, Logger, UnitOfWork
-from aod.testing.doubles import (
-    AsyncSpyEventBus,
-    AsyncSpyLogger,
-    AsyncSpyUnitOfWork,
+from aod.testing.doubles.application.async_ import (
+    SpyEventBus as AsyncSpyEventBus,
+    SpyLogger as AsyncSpyLogger,
+    SpyUnitOfWork as AsyncSpyUnitOfWork,
 )
 
 
