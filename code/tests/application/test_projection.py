@@ -1,6 +1,12 @@
 from __future__ import annotations
 
 import pytest
+from aod._internal.application.projection.projection import (
+    ProjectionQuery as ProjectionQueryDirect,
+)
+from aod._internal.application.projection.projection import (
+    _flatten_union,
+)
 from aod._internal.core.domain_exception import (
     InvalidProjectionTypeError,
     MutationForbiddenException,
@@ -8,10 +14,6 @@ from aod._internal.core.domain_exception import (
 from aod._internal.domain.entity import Entity, RootEntity
 from aod._internal.domain.value_object import ValueObject
 from aod.application import ProjectionCommand, ProjectionQuery, ReadModel
-from aod._internal.application.projection.projection import (
-    ProjectionQuery as ProjectionQueryDirect,
-    _flatten_union,
-)
 
 
 class User(RootEntity):
@@ -146,19 +148,19 @@ class TestProjection:
     def test_invalid_projection_query_type_raises(self) -> None:
         with pytest.raises(InvalidProjectionTypeError):
 
-            class _(ProjectionQuery[int]):
+            class _(ProjectionQuery[int]):  # type: ignore
                 pass
 
     def test_invalid_projection_command_type_raises(self) -> None:
         with pytest.raises(InvalidProjectionTypeError):
 
-            class _(ProjectionCommand[str]):
+            class _(ProjectionCommand[str]):  # type: ignore
                 pass
 
     def test_invalid_projection_in_union_raises(self) -> None:
         with pytest.raises(InvalidProjectionTypeError):
 
-            class _(ProjectionQuery[ReadModel | str]):
+            class _(ProjectionQuery[ReadModel | str]):  # type: ignore
                 pass
 
     # --- _flatten_union fallback ---

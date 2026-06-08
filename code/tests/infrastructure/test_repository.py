@@ -1,19 +1,18 @@
 from __future__ import annotations
 
 import pytest
-from pydantic import ValidationError
 from aod._internal.core.base_sealed import BaseSealed
+from aod._internal.core.domain_exception import DomainException, MutationForbiddenException
 from aod._internal.core.infrastructure_exception import (
     HandlerResultTypeError,
     InfrastructureException,
 )
-from aod._internal.core.domain_exception import DomainException, MutationForbiddenException
-from aod._internal.core.infrastructure_exception import InfrastructureException
 from aod._internal.domain.entity import Entity, RootEntity
 from aod._internal.type_checks.contract_checks import extract_root_entity
 from aod._internal.type_checks.handler_checks import extract_handler_type, validate_handler_type
 from aod.application import Command, Query
 from aod.infrastructure import CommandHandler, QueryHandler, Repository
+from pydantic import ValidationError
 
 
 class User(RootEntity):
@@ -289,7 +288,9 @@ class TestRepository:
 
         repo = UserRepo()
         cmd = CreateUser(name="Alice", email="a@b.com")
-        with pytest.raises(InfrastructureException, match="No command handler registered for CreateUser"):
+        with pytest.raises(
+            InfrastructureException, match="No command handler registered for CreateUser"
+        ):
             repo.command(cmd)
 
     def test_unknown_query_raises(self) -> None:
@@ -297,7 +298,9 @@ class TestRepository:
             pass
 
         repo = UserRepo()
-        with pytest.raises(InfrastructureException, match="No query handler registered for GetUser"):
+        with pytest.raises(
+            InfrastructureException, match="No query handler registered for GetUser"
+        ):
             repo.query(GetUser(user_id=1))
 
     def test_duplicate_command_handler_raises(self) -> None:

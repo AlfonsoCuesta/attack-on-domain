@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import pytest
 from aod._internal.core.infrastructure_exception import HandlerResultTypeError
-from aod._internal.core.event_emitter import Event
 from aod._internal.domain.entity import RootEntity
 from aod.application import Command, Query
 from aod.infrastructure.async_ import CommandHandler, QueryHandler
