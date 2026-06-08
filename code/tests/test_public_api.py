@@ -102,7 +102,7 @@ def test_aod_infrastructure_exports_documented_api() -> None:
         "ProjectionCommandHandler",
         "ProjectionQueryHandler",
         "ProjectionStore",
-        "PromisedCache",
+        "Cache",
         "QueryHandler",
         "Repository",
     ]
@@ -110,7 +110,7 @@ def test_aod_infrastructure_exports_documented_api() -> None:
 
     assert aod.infrastructure.async_.__all__ == [
         "CommandHandler",
-        "PromisedCache",
+        "Cache",
         "ProjectionCommandHandler",
         "ProjectionQueryHandler",
         "ProjectionStore",

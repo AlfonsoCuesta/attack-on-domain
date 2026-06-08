@@ -1,8 +1,9 @@
 from __future__ import annotations
 
-from typing import Any, Protocol
+from typing import Any, Protocol, runtime_checkable
 
 
+@runtime_checkable
 class Cache(Protocol):
     def flush(self) -> None: ...
 
@@ -17,6 +18,7 @@ class Cache(Protocol):
     def set_promise(self, key: str, value: Any, ttl: float | None = None) -> None: ...
 
 
+@runtime_checkable
 class AsyncCache(Protocol):
     async def flush(self) -> None: ...
 
