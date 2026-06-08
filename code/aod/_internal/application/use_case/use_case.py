@@ -4,6 +4,7 @@ from abc import abstractmethod
 from functools import wraps
 from typing import Any, Callable, ClassVar
 
+from aod._internal.application.cache import AsyncCache, Cache
 from aod._internal.application.event_bus import AsyncEventBus, EventBus
 from aod._internal.application.logger import AsyncLogger, Logger
 from aod._internal.application.unit_of_work import AsyncUnitOfWork, UnitOfWork
@@ -33,6 +34,14 @@ class _NullUnitOfWork(UnitOfWork):
     def flush(self) -> None: ...
 
 
+class _NullCache(Cache):
+    def set(self, key: str, value: Any, ttl: float | None = None) -> None: ...
+    def delete(self, key: str) -> None: ...
+    def delete_promise(self, key: str) -> None: ...
+    def set_promise(self, key: str, value: Any, ttl: float | None = None) -> None: ...
+    def get(self, key: str) -> Any: ...
+
+
 class UseCase(BaseSealed):
     __skip_method_wrapping__: ClassVar[bool] = True
     _event_emitter: EventEmitter = PrivateField(default_factory=EventEmitter)
@@ -40,6 +49,7 @@ class UseCase(BaseSealed):
     uow: UnitOfWork = Field(default_factory=_NullUnitOfWork)
     logger: Logger = Field(default_factory=_NullLogger)
     event_bus: EventBus = Field(default_factory=_NullEventBus)
+    cache: Cache = Field(default_factory=_NullCache)
 
     def __init_subclass__(cls, **kwargs: Any) -> None:
         original_run: Callable[..., None] | None = cls.__dict__.get("run")
@@ -79,6 +89,7 @@ class UseCase(BaseSealed):
                     self.logger.error(f"{type(self).__name__} commit failed")
                     raise
 
+            self.cache.flush()
             self.event_bus.publish(*self.events)
             self.logger.info(
                 f"{type(self).__name__} completed",
@@ -99,6 +110,7 @@ class AsyncUseCase(BaseSealed):
     uow: UnitOfWork | AsyncUnitOfWork = Field(default_factory=_NullUnitOfWork)
     logger: Logger | AsyncLogger = Field(default_factory=_NullLogger)
     event_bus: EventBus | AsyncEventBus = Field(default_factory=_NullEventBus)
+    cache: Cache | AsyncCache = Field(default_factory=_NullCache)
 
     def __init_subclass__(cls, **kwargs: Any) -> None:
         original_run: Callable[..., Any] | None = cls.__dict__.get("run")
@@ -140,6 +152,7 @@ class AsyncUseCase(BaseSealed):
                     await awaiter(self.logger.error(f"{type(self).__name__} commit failed"))
                     raise
 
+            await awaiter(self.cache.flush())
             await awaiter(self.event_bus.publish(*self.events))
             await awaiter(
                 self.logger.info(

@@ -1,28 +1,31 @@
 from __future__ import annotations
 
-from abc import abstractmethod
-from typing import Any
-
-from aod._internal.application.port import Port
+from typing import Any, Protocol
 
 
-class Cache(Port):
-    @abstractmethod
+class Cache(Protocol):
+    def flush(self) -> None: ...
+
     def get(self, key: str) -> Any: ...
 
-    @abstractmethod
     def set(self, key: str, value: Any, ttl: float | None = None) -> None: ...
 
-    @abstractmethod
     def delete(self, key: str) -> None: ...
 
+    def delete_promise(self, key: str) -> None: ...
 
-class AsyncCache(Port):
-    @abstractmethod
+    def set_promise(self, key: str, value: Any, ttl: float | None = None) -> None: ...
+
+
+class AsyncCache(Protocol):
+    async def flush(self) -> None: ...
+
     async def get(self, key: str) -> Any: ...
 
-    @abstractmethod
     async def set(self, key: str, value: Any, ttl: float | None = None) -> None: ...
 
-    @abstractmethod
     async def delete(self, key: str) -> None: ...
+
+    async def delete_promise(self, key: str) -> None: ...
+
+    async def set_promise(self, key: str, value: Any, ttl: float | None = None) -> None: ...
