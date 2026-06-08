@@ -23,3 +23,23 @@ class Session(Port):
 
     @abstractmethod
     def close(self) -> None: ...
+
+
+class AsyncSession(Port):
+    @abstractmethod
+    async def execute(self, operation: object) -> object: ...
+
+    @abstractmethod
+    async def query(self, operation: object) -> object: ...
+
+    @abstractmethod
+    async def begin(self) -> None: ...
+
+    @abstractmethod
+    async def commit(self) -> None: ...
+
+    @abstractmethod
+    async def rollback(self) -> None: ...
+
+    @abstractmethod
+    async def close(self) -> None: ...

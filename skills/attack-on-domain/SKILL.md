@@ -28,8 +28,9 @@ Source code is under `code/` (mapped as package root in `pyproject.toml`).
 
 | `from aod.application import UseCase` | UseCase base class |
 | `from aod.application import Port` | Abstract port/gateway base class |
-| `from aod.application import Logger, EventBus, UnitOfWork, Cache` | Built-in port types |
-| `from aod.application import Session` | Database session abstraction |
+| `from aod.application import Logger, EventBus, UnitOfWork, Cache` | Built-in port types (sync) |
+| `from aod.application.async_ import Cache, EventBus, Logger, UnitOfWork` | Async versions (methods are coroutines) |
+| `from aod.infrastructure.async_ import CommandHandler, QueryHandler, Repository` | Async infrastructure |
 | `from aod.application import Command, Query` | Application contracts |
 | `from aod.infrastructure import Repository, CommandHandler, QueryHandler` | Infrastructure |
 
@@ -80,9 +81,9 @@ Source code is under `code/` (mapped as package root in `pyproject.toml`).
 Built-in port types (all `aod.application`):
 - **`Logger`** — `debug(msg, **context)`, `info(msg, **context)`, `warning(msg, **context)`, `error(msg, **context)`
 - **`EventBus`** — `publish(*events)` for publishing domain events to external handlers
-- **`UnitOfWork`** — `commit()`, `rollback()`, `flush()` for transactional boundaries
-- **`Cache`** — `get(key)`, `set(key, value, ttl=None)`, `delete(key)` for caching (sync + async)
-- **`Session`** — `execute(operation)`, `query(operation)`, `begin()`, `commit()`, `rollback()`, `close()` for database fachada (sync + async)
+- **`UnitOfWork`** — `commit()`, `rollback()`, `flush()` for transactional boundaries (sync); `AsyncUnitOfWork` for async
+- **`Cache`** — `get(key)`, `set(key, value, ttl=None)`, `delete(key)` for caching (sync); `AsyncCache` for async
+- **`Session`** — database abstraction (`execute`, `query`, `begin`, `commit`, `rollback`, `close`) — defined in `aod._internal.infrastructure.session`, not exported from `aod.application`
 
 ```python
 from aod.application import Port, UseCase

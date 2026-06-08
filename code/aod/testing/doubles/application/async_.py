@@ -2,9 +2,7 @@ from __future__ import annotations
 
 from aod._internal.core.event_emitter import Event
 from aod._internal.core.fields.fields import PrivateField
-from aod.application.event_bus.async_ import EventBus as AsyncEventBus
-from aod.application.logger.async_ import Logger as AsyncLogger
-from aod.application.unit_of_work.async_ import UnitOfWork as AsyncUnitOfWork
+from aod.application.async_ import EventBus as AsyncEventBus, Logger as AsyncLogger, UnitOfWork as AsyncUnitOfWork
 from aod.testing.doubles.application.logger import LogEntry
 
 

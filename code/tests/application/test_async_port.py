@@ -7,9 +7,7 @@ from aod._internal.core.application_exception import ApplicationException
 from aod._internal.core.event_emitter import Event
 from aod._internal.domain.entity import RootEntity
 from aod.application import Command, ProjectionCommand, ProjectionQuery, Query, ReadModel
-from aod.application.event_bus.async_ import EventBus as AsyncEventBus
-from aod.application.logger.async_ import Logger as AsyncLogger
-from aod.application.unit_of_work.async_ import UnitOfWork as AsyncUnitOfWork
+from aod.application.async_ import EventBus, Logger, UnitOfWork
 from aod.testing.doubles import (
     AsyncSpyEventBus,
     AsyncSpyLogger,
@@ -54,12 +52,12 @@ async def test_async_logger_error() -> None:
 
 async def test_async_logger_is_abstract() -> None:
     with pytest.raises(TypeError):
-        AsyncLogger()
+        Logger()
 
 
 async def test_async_event_bus_is_abstract() -> None:
     with pytest.raises(TypeError):
-        AsyncEventBus()
+        EventBus()
 
 
 async def test_async_event_bus_publish() -> None:
@@ -72,7 +70,7 @@ async def test_async_event_bus_publish() -> None:
 
 async def test_async_unit_of_work_is_abstract() -> None:
     with pytest.raises(TypeError):
-        AsyncUnitOfWork()
+        UnitOfWork()
 
 
 async def test_async_unit_of_work_commit() -> None:

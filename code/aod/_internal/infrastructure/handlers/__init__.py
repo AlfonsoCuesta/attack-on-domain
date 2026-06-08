@@ -1,8 +1,15 @@
 from __future__ import annotations
 
-from aod._internal.infrastructure.handlers.handlers import CommandHandler, QueryHandler
+from .handlers import (
+    AsyncCommandHandler,
+    AsyncQueryHandler,
+    CommandHandler,
+    QueryHandler,
+)
 
 __all__ = [
+    "AsyncCommandHandler",
+    "AsyncQueryHandler",
     "CommandHandler",
     "QueryHandler",
 ]

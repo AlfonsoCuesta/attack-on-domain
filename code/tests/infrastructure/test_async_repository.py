@@ -10,8 +10,7 @@ from aod._internal.type_checks.handler_checks import (
     validate_handler_type,
 )
 from aod.application import Command, Query
-from aod.infrastructure.handlers.async_ import CommandHandler, QueryHandler
-from aod.infrastructure.repository.async_ import Repository
+from aod.infrastructure.async_ import CommandHandler, QueryHandler, Repository
 
 
 class User(RootEntity):

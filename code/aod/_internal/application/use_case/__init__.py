@@ -1,7 +1,8 @@
 from __future__ import annotations
 
-from aod._internal.application.use_case.use_case import UseCase
+from .use_case import AsyncUseCase, UseCase
 
 __all__ = [
+    "AsyncUseCase",
     "UseCase",
 ]

@@ -1,6 +1,7 @@
 """Smoke tests for the supported public import surface."""
 
 import aod.application
+import aod.application.async_
 import aod.application.exceptions
 import aod.domain
 import aod.domain.exceptions
@@ -8,6 +9,7 @@ import aod.domain.validation
 import aod.events
 import aod.exceptions
 import aod.infrastructure
+import aod.infrastructure.async_
 import aod.infrastructure.exceptions
 from aod._internal.core.event_emitter import Event
 
@@ -66,20 +68,23 @@ def test_aod_application_exports_documented_api() -> None:
         "Port",
         "ProjectionCommand",
         "ProjectionQuery",
-        "ProjectionStore",
         "Query",
         "ReadModel",
-        "Session",
         "UnitOfWork",
         "UseCase",
     ]
     assert aod.application.ApplicationException.__name__ == "ApplicationException"
     assert aod.application.Cache.__name__ == "Cache"
-    assert aod.application.Session.__name__ == "Session"
-    from aod.application.cache.async_ import Cache as AsyncCache
-    assert AsyncCache.__name__ == "Cache"
-    from aod.application.session.async_ import Session as AsyncSession
-    assert AsyncSession.__name__ == "Session"
+    import inspect
+    assert inspect.iscoroutinefunction(aod.application.async_.Cache.get)
+
+    assert aod.application.async_.__all__ == [
+        "Cache",
+        "EventBus",
+        "Logger",
+        "UnitOfWork",
+        "UseCase",
+    ]
 
 
 def test_aod_application_exceptions_documented_api() -> None:
@@ -101,6 +106,15 @@ def test_aod_infrastructure_exports_documented_api() -> None:
         "Repository",
     ]
     assert aod.infrastructure.InfrastructureException.__name__ == "InfrastructureException"
+
+    assert aod.infrastructure.async_.__all__ == [
+        "CommandHandler",
+        "ProjectionCommandHandler",
+        "ProjectionQueryHandler",
+        "ProjectionStore",
+        "QueryHandler",
+        "Repository",
+    ]
 
 
 def test_aod_infrastructure_exceptions_documented_api() -> None:

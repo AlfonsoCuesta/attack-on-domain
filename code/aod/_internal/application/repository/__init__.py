@@ -1,8 +1,9 @@
 from __future__ import annotations
 
-from aod._internal.application.repository.repository import Command, Query, Repository
+from .repository import AsyncRepository, Command, Query, Repository
 
 __all__ = [
+    "AsyncRepository",
     "Command",
     "Query",
     "Repository",

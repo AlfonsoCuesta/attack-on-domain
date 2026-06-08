@@ -1,7 +1,8 @@
 from __future__ import annotations
 
-from aod._internal.application.unit_of_work.unit_of_work import UnitOfWork
+from .unit_of_work import AsyncUnitOfWork, UnitOfWork
 
 __all__ = [
+    "AsyncUnitOfWork",
     "UnitOfWork",
 ]

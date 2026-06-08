@@ -9,3 +9,8 @@ from aod._internal.core.event_emitter import Event
 class EventBus(Port):
     @abstractmethod
     def publish(self, *events: Event) -> None: ...
+
+
+class AsyncEventBus(Port):
+    @abstractmethod
+    async def publish(self, *events: Event) -> None: ...

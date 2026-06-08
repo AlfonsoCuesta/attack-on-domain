@@ -1,9 +1,10 @@
 from __future__ import annotations
 
-from aod._internal.application.projection.projection import ProjectionCommand, ProjectionQuery, ReadModel
-from aod._internal.application.projection.projection_store import ProjectionStore
+from .projection import ProjectionCommand, ProjectionQuery, ReadModel
+from .projection_store import AsyncProjectionStore, ProjectionStore
 
 __all__ = [
+    "AsyncProjectionStore",
     "ProjectionCommand",
     "ProjectionQuery",
     "ProjectionStore",

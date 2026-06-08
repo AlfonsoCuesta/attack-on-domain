@@ -1,7 +1,8 @@
 from __future__ import annotations
 
-from aod._internal.application.logger.logger import Logger
+from .logger import AsyncLogger, Logger
 
 __all__ = [
+    "AsyncLogger",
     "Logger",
 ]

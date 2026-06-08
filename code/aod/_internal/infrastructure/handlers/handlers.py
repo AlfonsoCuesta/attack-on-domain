@@ -5,7 +5,7 @@ from typing import Generic, TypeVar
 
 from aod._internal.application.repository import Command, Query
 
-from .base_handler import BaseHandler
+from .base_handler import AsyncBaseHandler, BaseHandler
 
 C = TypeVar("C", bound="Command")
 Q = TypeVar("Q", bound="Query")
@@ -19,3 +19,13 @@ class CommandHandler(BaseHandler, Generic[C]):
 class QueryHandler(BaseHandler, Generic[Q]):
     @abstractmethod
     def handle(self, query: Q) -> object: ...
+
+
+class AsyncCommandHandler(AsyncBaseHandler, Generic[C]):
+    @abstractmethod
+    async def handle(self, cmd: C) -> object: ...
+
+
+class AsyncQueryHandler(AsyncBaseHandler, Generic[Q]):
+    @abstractmethod
+    async def handle(self, query: Q) -> object: ...

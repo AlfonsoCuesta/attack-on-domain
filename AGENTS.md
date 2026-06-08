@@ -55,45 +55,41 @@ code/
 │       │   ├── port.py               # Port base class (abstract, mutable-from-inside)
 │       │   ├── cache/                # Cache port — sync + async
 │       │   │   ├── __init__.py
-│       │   │   ├── cache.py           # Cache(Port) — abstract base (sync)
-│       │   │   └── async_.py          # Cache (async)
-│       │   ├── projection/           # Projection data class + ProjectionStore Protocol
-│       │   │   ├── __init__.py       # ProjectionQuery, ProjectionCommand, ProjectionStore
+│       │   │   └── cache.py           # Cache(Port) + AsyncCache(Port)
+│       │   ├── projection/           # Projection data class + Protocol
+│       │   │   ├── __init__.py       # ProjectionQuery, ProjectionCommand, ProjectionStore, AsyncProjectionStore
 │       │   │   ├── projection.py     # ProjectionQuery[T], ProjectionCommand
-│       │   │   ├── projection_store.py  # ProjectionStore (Protocol)
-│       │   │   └── async_.py         # ProjectionStore (async Protocol)
+│       │   │   └── projection_store.py  # ProjectionStore + AsyncProjectionStore (Protocol)
 │       │   ├── repository/           # Command, Query, Repository (Protocol) — sync + async
-│       │   │   ├── __init__.py       # Command, Query, Repository (sync Protocol)
-│       │   │   └── async_.py         # Repository (async Protocol)
+│       │   │   ├── __init__.py       # Command, Query, Repository + AsyncRepository
+│       │   │   └── repository.py     # Command, Query, Repository, AsyncRepository (Protocol)
 │       │   ├── event_bus/            # EventBus port — sync + async
 │       │   │   ├── __init__.py
-│       │   │   └── async_.py
+│       │   │   └── event_bus.py       # EventBus(Port) + AsyncEventBus(Port)
 │       │   ├── logger/               # Logger port — sync + async
 │       │   │   ├── __init__.py
-│       │   │   └── async_.py
+│       │   │   └── logger.py          # Logger(Port) + AsyncLogger(Port)
 │       │   ├── unit_of_work/         # UnitOfWork port — sync + async
 │       │   │   ├── __init__.py
-│       │   │   ├── unit_of_work.py   # _UnitOfWorkBase (shared logic), UnitOfWork (sync)
-│       │   │   └── async_.py         # UnitOfWork (async, accepts sync/async repos + stores)
-│       │   ├── session/              # Session (database abstraction)
-│       │   │   ├── __init__.py
-│       │   │   ├── session.py        # Session(Port) — abstract base (sync)
-│       │   │   └── async_.py         # Session (async)
+│       │   │   └── unit_of_work.py   # _UnitOfWorkBase (shared logic), UnitOfWork (sync), AsyncUnitOfWork (async, accepts sync/async repos + stores)
 │       │   └── use_case/             # UseCase base — sync + async
 │       │       ├── __init__.py
-│       │       └── async_.py
+│       │       └── use_case.py       # UseCase(BaseSealed) + AsyncUseCase(BaseSealed)
 │       ├── infrastructure/           # Infrastructure layer (packages)
+│       │   ├── session/              # Session (database abstraction)
+│       │   │   ├── __init__.py
+│       │   │   └── session.py        # Session(Port) + AsyncSession(Port)
 │       │   ├── handlers/             # CommandHandler, QueryHandler — sync + async
 │       │   │   ├── __init__.py
-│       │   │   └── async_.py
+│       │   │   ├── base_handler.py   # BaseHandler + AsyncBaseHandler
+│       │   │   └── handlers.py       # CommandHandler, QueryHandler, AsyncCommandHandler, AsyncQueryHandler
 │       │   ├── projection/           # ProjectionHandler + ProjectionStore — sync + async
 │       │   │   ├── __init__.py
-│       │   │   ├── projection_handler.py  # ProjectionQueryHandler + ProjectionCommandHandler (sync)
-│       │   │   ├── projection_store.py    # ProjectionStore (concrete, sync)
-│       │   │   └── async_.py         # ProjectionHandler + ProjectionStore (async)
+│       │   │   ├── projection_handler.py  # ProjectionQueryHandler + ProjectionCommandHandler + Async variants
+│       │   │   └── projection_store.py    # ProjectionStore + AsyncProjectionStore (concrete)
 │       │   └── repository/           # Repository with dispatch — sync + async
 │       │       ├── __init__.py
-│       │       └── async_.py
+│       │       └── repository.py     # Repository + AsyncRepository
 └── tests/                            # All tests
     ├── test_public_api.py
     ├── core/                         # Core framework tests
@@ -290,6 +286,7 @@ The hierarchy:
 The package splits into two layers:
 
 - **`aod.domain`, `aod.domain.validation`, `aod.exceptions`, `aod.application`, `aod.infrastructure`** — public API. These are thin re-export shims that surface symbols from `_internal`. User code and downstream tools must import from here.
+- **`aod.application.async_`**, **`aod.infrastructure.async_`** — aggregated async counterparts. Import the same names as sync (e.g. `from aod.application.async_ import Cache` for `AsyncCache`).
 - **`aod._internal.core`, `aod._internal.domain`, `aod._internal.application`, `aod._internal.infrastructure`** — private implementation. This is where everything is built and where new code goes. Not part of the supported public API and not semver-stable.
 
 Public modules re-export from `_internal`; they contain no logic of their own. The reverse direction is never used — `_internal` never imports from `aod.domain` to avoid circular dependencies.
@@ -328,7 +325,6 @@ Built-in port types (all `aod.application`):
 - **`EventBus`** — `publish(*events)` for publishing domain events to external handlers
 - **`UnitOfWork`** — `commit()`, `rollback()`, `flush()` for transactional boundaries
 - **`Cache`** — `get(key)`, `set(key, value, ttl=None)`, `delete(key)` for caching (sync + async)
-- **`Session`** — `execute(operation)`, `query(operation)`, `begin()`, `commit()`, `rollback()`, `close()` for database fachada (sync + async)
 
 ### Repository Layer
 
@@ -390,7 +386,7 @@ aod/testing/
     │   ├── logger.py                   # LogEntry, SpyLogger
     │   ├── event_bus.py                # SpyEventBus
     │   ├── unit_of_work.py             # SpyUnitOfWork
-    │   └── async_.py                   # AsyncSpyLogger, AsyncSpyEventBus, AsyncSpyUnitOfWork
+    │   └── async_.py                   # AsyncSpyLogger, AsyncSpyEventBus, AsyncSpyUnitOfWork (live in this file with imports from aod.application.async_)
     └── infrastructure/
         └── __init__.py                 # Placeholder for future doubles
 ```
@@ -417,8 +413,8 @@ uv run pytest code/tests -q
 4. **No emojis** unless explicitly requested by the user
 5. Tests mirror source structure under `code/tests/`
 6. Never import from `_internal` in user-facing code — only through `aod.domain`, `aod.domain.validation`, `aod.exceptions`, `aod.application`, `aod.infrastructure`
-7. Every `__init__.py` and `async_.py` must define `__all__` to suppress `F401` ("imported but unused") warnings
-8. Sync/async duality: every port, handler, use case, and repository has sync (`__init__.py`) and async (`async_.py`) versions with the same class name. Async versions inherit from sync counterparts where possible (e.g., `async_.CommandHandler` inherits from `handlers.CommandHandler`)
+7. Every `__init__.py` must define `__all__` to suppress `F401` ("imported but unused") warnings. Public `async_.py` aggregators also define `__all__`.
+8. Sync/async duality: every port, handler, use case, and repository has sync and async versions. Sync classes keep the base name (`Cache`, `Session`, `UnitOfWork`, `Repository`, etc.), async classes use the `Async` prefix (`AsyncCache`, `AsyncSession`, `AsyncUnitOfWork`, `AsyncRepository`). Both live in the same file.
 
 ## When Modifying This Code
 
@@ -434,7 +430,7 @@ uv run pytest code/tests -q
 - If you change validation functions, update `type_checks/` and verify `test_repository.py`
 - If you change the application layer, update `port.py` and/or `use_case.py` and verify `test_port.py` / `test_use_case.py`
 - If you change the UnitOfWork, update `unit_of_work.py` (sync + async) and verify `test_port.py` / `test_async_port.py` (includes `is_dirty` tests)
-- If you change async counterparts (in `async_.py` files), update both sync and async test files
+- If you change async counterparts (aggregated in `aod.application.async_` / `aod.infrastructure.async_`), update both sync and async test files
 - If you change `should_await` in `async_utils.py`, verify `test_use_case.py` / `test_async_use_case.py` (used as `awaiter`) and `test_async_port.py`
 - Always add `__all__` to every `__init__.py` and `async_.py` to avoid `F401` lint warnings
 - Always run all tests before committing
@@ -449,7 +445,7 @@ uv run pytest code/tests -q
 
 ## Test Count
 
-582 tests
+588 tests
 
 ## At the end of a task
 

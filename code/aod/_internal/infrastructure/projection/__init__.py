@@ -1,12 +1,20 @@
 from __future__ import annotations
 
-from aod._internal.infrastructure.projection.projection_handler import (
+from .projection_handler import (
+    AsyncProjectionCommandHandler,
+    AsyncProjectionQueryHandler,
     ProjectionCommandHandler,
     ProjectionQueryHandler,
 )
-from aod._internal.infrastructure.projection.projection_store import ProjectionStore
+from .projection_store import (
+    AsyncProjectionStore,
+    ProjectionStore,
+)
 
 __all__ = [
+    "AsyncProjectionCommandHandler",
+    "AsyncProjectionQueryHandler",
+    "AsyncProjectionStore",
     "ProjectionCommandHandler",
     "ProjectionQueryHandler",
     "ProjectionStore",

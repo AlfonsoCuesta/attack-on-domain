@@ -5,7 +5,7 @@ from aod._internal.core.domain_exception import MutationForbiddenException
 from aod._internal.domain.entity import Entity, RootEntity
 from aod._internal.domain.value_object import ValueObject
 from aod.application import ProjectionCommand, ProjectionQuery, ReadModel
-from aod.application.projection import ProjectionQuery as ProjectionQueryDirect
+from aod._internal.application.projection import ProjectionQuery as ProjectionQueryDirect
 
 
 class User(RootEntity):

@@ -3,7 +3,7 @@ from __future__ import annotations
 import pytest
 from aod._internal.domain.entity import RootEntity
 from aod.application import Command, Query
-from aod.infrastructure.handlers.async_ import CommandHandler, QueryHandler
+from aod.infrastructure.async_ import CommandHandler, QueryHandler
 
 
 class User(RootEntity):

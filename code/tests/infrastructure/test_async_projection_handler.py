@@ -10,10 +10,10 @@ from aod._internal.infrastructure.projection.projection_handler import (
     ProjectionQueryHandler as SyncProjectionQueryHandler,
 )
 from aod.application import ProjectionCommand, ProjectionQuery, ReadModel
-from aod.infrastructure.projection.async_ import (
+from aod.infrastructure.async_ import (
     ProjectionCommandHandler,
     ProjectionQueryHandler,
-    ProjectionStore as AsyncProjectionStore,
+    ProjectionStore,
 )
 
 
@@ -104,14 +104,14 @@ class TestProjectionHandler:
 
 
 async def test_async_store_with_valid_query_handler() -> None:
-    store = AsyncProjectionStore(handlers=[GetOrdersHandler()])
+    store = ProjectionStore(handlers=[GetOrdersHandler()])
     result = await store.query(GetOrders(user_id=1, status="active"))
     assert isinstance(result, OrdersResponse)
     assert result.data[0]["status"] == "active"
 
 
 async def test_async_store_no_query_handler_registered() -> None:
-    store = AsyncProjectionStore()
+    store = ProjectionStore()
     with pytest.raises(InfrastructureException, match="No handler registered for"):
         await store.query(GetOrders(user_id=1))
 
@@ -121,19 +121,19 @@ async def test_async_store_with_sync_query_handler() -> None:
         def handle(self, query: GetOrders) -> OrdersResponse:
             return OrdersResponse(data=[{"id": 1, "total": 1.0}])
 
-    store = AsyncProjectionStore(handlers=[SyncHandler()])
+    store = ProjectionStore(handlers=[SyncHandler()])
     result = await store.query(GetOrders(user_id=1))
     assert isinstance(result, OrdersResponse)
     assert result.data[0]["total"] == 1.0
 
 
 async def test_async_store_with_valid_command_handler() -> None:
-    store = AsyncProjectionStore(handlers=[UpdateOrderHandler()])
+    store = ProjectionStore(handlers=[UpdateOrderHandler()])
     await store.command(UpdateOrder(order_id=1, status="shipped"))
 
 
 async def test_async_store_no_command_handler_registered() -> None:
-    store = AsyncProjectionStore()
+    store = ProjectionStore()
     with pytest.raises(InfrastructureException, match="No handler registered for"):
         await store.command(UpdateOrder(order_id=1, status="shipped"))
 
@@ -143,12 +143,12 @@ async def test_async_store_with_sync_command_handler() -> None:
         def handle(self, command: UpdateOrder) -> None:
             return None
 
-    store = AsyncProjectionStore(handlers=[SyncHandler()])
+    store = ProjectionStore(handlers=[SyncHandler()])
     await store.command(UpdateOrder(order_id=1, status="shipped"))
 
 
 async def test_async_store_with_both_handler_types() -> None:
-    store = AsyncProjectionStore(handlers=[GetOrdersHandler(), UpdateOrderHandler()])
+    store = ProjectionStore(handlers=[GetOrdersHandler(), UpdateOrderHandler()])
     result = await store.query(GetOrders(user_id=1))
     assert isinstance(result, OrdersResponse)
     await store.command(UpdateOrder(order_id=1, status="active"))
@@ -156,7 +156,7 @@ async def test_async_store_with_both_handler_types() -> None:
 
 async def test_async_store_duplicate_handler_raises() -> None:
     with pytest.raises(InfrastructureException, match="Duplicate handler for"):
-        AsyncProjectionStore(handlers=[GetOrdersHandler(), GetOrdersHandler()])
+        ProjectionStore(handlers=[GetOrdersHandler(), GetOrdersHandler()])
 
 
 async def test_async_store_duplicate_command_handler_raises() -> None:
@@ -165,7 +165,7 @@ async def test_async_store_duplicate_command_handler_raises() -> None:
             return None
 
     with pytest.raises(InfrastructureException, match="Duplicate handler for"):
-        AsyncProjectionStore(handlers=[UpdateOrderHandler(), AnotherHandler()])
+        ProjectionStore(handlers=[UpdateOrderHandler(), AnotherHandler()])
 
 
 async def test_async_store_invalid_handler_type_raises() -> None:
@@ -174,4 +174,4 @@ async def test_async_store_invalid_handler_type_raises() -> None:
             return None
 
     with pytest.raises(InfrastructureException, match="Cannot determine projection type for"):
-        AsyncProjectionStore(handlers=[NoType()])
+        ProjectionStore(handlers=[NoType()])

@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import pytest
 from aod._internal.core.domain_exception import MutationForbiddenException
-from aod.application.use_case.async_ import UseCase as AsyncUseCase
+from aod.application.async_ import UseCase
 from tests.application._use_case_scenarios import (
     SCENARIOS,
     Scenario,
@@ -23,7 +23,7 @@ from aod.testing.doubles import (
 )
 
 
-class CreateUser(AsyncUseCase):
+class CreateUser(UseCase):
     user_id: int
     name: str
 
@@ -34,11 +34,11 @@ class CreateUser(AsyncUseCase):
 
 async def test_async_use_case_is_abstract() -> None:
     with pytest.raises(TypeError):
-        AsyncUseCase()
+        UseCase()
 
 
 async def test_subclass_without_run_is_abstract() -> None:
-    class Incomplete(AsyncUseCase):
+    class Incomplete(UseCase):
         pass
 
     with pytest.raises(TypeError):
@@ -54,7 +54,7 @@ async def test_scenario(scenario: Scenario) -> None:
     body = _RUN_BODIES[scenario.name]
     ns = {"__annotations__": scenario.annotations.copy(), "run": lambda self: body(self)}
     ns.update(scenario.defaults)
-    cls = type(scenario.name, (AsyncUseCase,), ns)
+    cls = type(scenario.name, (UseCase,), ns)
     uc = cls(**scenario.kwargs)
     if scenario.expected_exception is not None:
         with pytest.raises(scenario.expected_exception):
@@ -70,7 +70,7 @@ async def test_events_is_empty_before_run() -> None:
 
 
 async def test_events_is_empty_after_init_even_without_call() -> None:
-    class NoOp(AsyncUseCase):
+    class NoOp(UseCase):
         async def run(self) -> None:
             pass
 
@@ -88,7 +88,7 @@ async def test_run_collects_events_from_entity() -> None:
 
 
 async def test_run_collects_multiple_events_from_entity() -> None:
-    class MultiEmit(AsyncUseCase):
+    class MultiEmit(UseCase):
         user_id: int
 
         async def run(self) -> None:
@@ -113,7 +113,7 @@ async def test_run_replaces_previous_events() -> None:
 
 
 async def test_run_with_no_events_keeps_empty_list() -> None:
-    class NoOp(AsyncUseCase):
+    class NoOp(UseCase):
         async def run(self) -> None:
             pass
 
@@ -125,7 +125,7 @@ async def test_run_with_no_events_keeps_empty_list() -> None:
 async def test_run_takes_no_parameters() -> None:
     captured: list[int] = []
 
-    class Stateful(AsyncUseCase):
+    class Stateful(UseCase):
         value: int
 
         async def run(self) -> None:
@@ -137,7 +137,7 @@ async def test_run_takes_no_parameters() -> None:
 
 
 async def test_subclass_can_have_private_methods() -> None:
-    class WithHelper(AsyncUseCase):
+    class WithHelper(UseCase):
         user_id: int
 
         async def _double(self, n: int) -> int:
@@ -150,7 +150,7 @@ async def test_subclass_can_have_private_methods() -> None:
 
 
 async def test_subclass_with_complex_init_state() -> None:
-    class Complex(AsyncUseCase):
+    class Complex(UseCase):
         user_id: int
         address: Address
 
@@ -165,7 +165,7 @@ async def test_subclass_with_complex_init_state() -> None:
 
 
 async def test_run_is_wrapped_automatically() -> None:
-    class MyUseCase(AsyncUseCase):
+    class MyUseCase(UseCase):
         called: bool = False
 
         async def run(self) -> None:
@@ -188,7 +188,7 @@ async def test_events_is_immutable_from_outside() -> None:
 
 
 async def test_run_exception_still_collects_emitted_events() -> None:
-    class FailAfterEmit(AsyncUseCase):
+    class FailAfterEmit(UseCase):
         user_id: int
 
         async def run(self) -> None:
@@ -204,7 +204,7 @@ async def test_run_exception_still_collects_emitted_events() -> None:
 
 
 async def test_run_exception_no_emit_keeps_events_empty() -> None:
-    class FailFast(AsyncUseCase):
+    class FailFast(UseCase):
         async def run(self) -> None:
             msg = "fail"
             raise ValueError(msg)
@@ -224,7 +224,7 @@ async def test_events_not_shared_across_instances() -> None:
 
 
 async def test_uow_auto_commit_on_success() -> None:
-    class Create(AsyncUseCase):
+    class Create(UseCase):
         async def run(self) -> None:
             pass
 
@@ -237,7 +237,7 @@ async def test_uow_auto_commit_on_success() -> None:
 
 
 async def test_uow_skips_commit_when_not_dirty() -> None:
-    class NoOp(AsyncUseCase):
+    class NoOp(UseCase):
         async def run(self) -> None:
             pass
 
@@ -249,7 +249,7 @@ async def test_uow_skips_commit_when_not_dirty() -> None:
 
 
 async def test_uow_auto_rollback_on_failure() -> None:
-    class Fail(AsyncUseCase):
+    class Fail(UseCase):
         async def run(self) -> None:
             raise ValueError("oops")
 
@@ -263,7 +263,7 @@ async def test_uow_auto_rollback_on_failure() -> None:
 
 
 async def test_logger_auto_logs_completion() -> None:
-    class Simple(AsyncUseCase):
+    class Simple(UseCase):
         async def run(self) -> None:
             pass
 
@@ -275,7 +275,7 @@ async def test_logger_auto_logs_completion() -> None:
 
 
 async def test_event_bus_auto_publishes_on_success() -> None:
-    class Emit(AsyncUseCase):
+    class Emit(UseCase):
         async def run(self) -> None:
             self._event_emitter.emit(UserCreated(user_id=1, name="test"))
 
@@ -290,7 +290,7 @@ async def test_commit_failure_rolls_back_and_logs() -> None:
         async def commit(self) -> None:
             raise RuntimeError("commit failed")
 
-    class Simple(AsyncUseCase):
+    class Simple(UseCase):
         async def run(self) -> None:
             pass
 
@@ -305,7 +305,7 @@ async def test_commit_failure_rolls_back_and_logs() -> None:
 
 
 async def test_use_case_can_emit_events_directly() -> None:
-    class EmittingUseCase(AsyncUseCase):
+    class EmittingUseCase(UseCase):
         async def run(self) -> None:
             self._event_emitter.emit(UserCreated(user_id=1, name="from_uc"))
 
@@ -318,7 +318,7 @@ async def test_use_case_can_emit_events_directly() -> None:
 async def test_post_init_runs_on_use_case() -> None:
     called: list[bool] = []
 
-    class WithPostInit(AsyncUseCase):
+    class WithPostInit(UseCase):
         user_id: int
 
         def __post_init__(self) -> None:
@@ -332,7 +332,7 @@ async def test_post_init_runs_on_use_case() -> None:
 
 
 async def test_mixed_all_sync_ports_on_success() -> None:
-    class Simple(AsyncUseCase):
+    class Simple(UseCase):
         async def run(self) -> None:
             pass
 
@@ -349,7 +349,7 @@ async def test_mixed_all_sync_ports_on_success() -> None:
 
 
 async def test_mixed_all_sync_ports_on_failure() -> None:
-    class Fail(AsyncUseCase):
+    class Fail(UseCase):
         async def run(self) -> None:
             raise ValueError("oops")
 
@@ -366,7 +366,7 @@ async def test_mixed_all_sync_ports_on_failure() -> None:
 
 
 async def test_mixed_sync_uow_async_event_bus() -> None:
-    class Emit(AsyncUseCase):
+    class Emit(UseCase):
         async def run(self) -> None:
             self._event_emitter.emit(UserCreated(user_id=1, name="test"))
 
@@ -380,7 +380,7 @@ async def test_mixed_sync_uow_async_event_bus() -> None:
 
 
 async def test_mixed_async_uow_sync_logger() -> None:
-    class Simple(AsyncUseCase):
+    class Simple(UseCase):
         async def run(self) -> None:
             pass
 
@@ -396,7 +396,7 @@ async def test_mixed_async_uow_sync_logger() -> None:
 
 
 async def test_mixed_sync_event_bus_async_logger() -> None:
-    class Emit(AsyncUseCase):
+    class Emit(UseCase):
         async def run(self) -> None:
             self._event_emitter.emit(UserCreated(user_id=1, name="test"))
 
