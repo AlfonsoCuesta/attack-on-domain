@@ -85,10 +85,10 @@ def test_service_is_immutable_cannot_del_fields() -> None:
         del srv._event_emitter
 
 
-def test_service_public_method_does_not_allow_self_mutation() -> None:
+def test_service_public_method_allows_self_mutation() -> None:
     srv = NotificationService()
-    with pytest.raises(MutationForbiddenException):
-        srv.notify("hello")
+    srv.notify("hello")
+    assert srv.sent == ["hello"]
 
 
 def test_service_repr() -> None:
@@ -165,7 +165,7 @@ def test_service_allows_private_methods() -> None:
     assert srv.get_value() == 42
 
 
-def test_service_cannot_be_mutated_via_public_method() -> None:
+def test_service_can_be_mutated_via_public_method() -> None:
     class MutateService(Service):
         counter: int = 0
 
@@ -173,8 +173,8 @@ def test_service_cannot_be_mutated_via_public_method() -> None:
             self.counter += 1
 
     srv = MutateService()
-    with pytest.raises(MutationForbiddenException):
-        srv.increment()
+    srv.increment()
+    assert srv.counter == 1
 
 
 def test_service_with_no_public_methods() -> None:

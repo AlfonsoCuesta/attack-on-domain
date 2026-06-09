@@ -16,7 +16,9 @@ from aod._internal.infrastructure.inject import (
     _extract_handler_contract,
     _extract_port_type,
     inject_adapters,
+    inject_projection,
 )
+from aod._internal.infrastructure.projection import ReadModel, ReadProjection
 from aod._internal.infrastructure.session import AsyncSession, Session
 from aod.application import Command, Query, UseCase
 from aod.application.async_ import UseCase as AsyncUseCase
@@ -346,3 +348,52 @@ class TestInjectAdapters:
         container = _CustomContainer(handlers=[AsyncCreateUserHandler])
         with pytest.raises(SessionNotFoundError, match="No session of type"):
             inject_adapters(container, AsyncHandlerUseCase)
+
+
+class TestInjectProjection:
+    def test_injects_session_and_logger(self) -> None:
+        class TestProjection(ReadProjection):
+            def read(self, model: ReadModel) -> str:
+                return "ok"
+
+        session = _SyncSession()
+        container = _CustomContainer(sessions={session})
+        partial = inject_projection(container, TestProjection)
+        p = partial()
+        assert isinstance(p.session, Session)
+        assert p.logger is not None
+        assert p.event_bus is not None
+        assert p.cache is not None
+
+    def test_injects_session_from_container(self) -> None:
+        class TestProjection(ReadProjection):
+            def read(self, model: ReadModel) -> str:
+                return "ok"
+
+        session = _SyncSession()
+        container = _CustomContainer(sessions={session})
+        partial = inject_projection(container, TestProjection)
+        p = partial()
+        assert isinstance(p.session, Session)
+
+    def test_session_is_none_when_no_sessions(self) -> None:
+        class TestProjection(ReadProjection):
+            def read(self, model: ReadModel) -> str:
+                return "ok"
+
+        container = _CustomContainer()
+        partial = inject_projection(container, TestProjection)
+        p = partial()
+        assert p.session is None
+
+    def test_overrides_session(self) -> None:
+        class TestProjection(ReadProjection):
+            def read(self, model: ReadModel) -> str:
+                return "ok"
+
+        session = _SyncSession()
+        override_session = _SyncSession()
+        container = _CustomContainer(sessions={session})
+        partial = inject_projection(container, TestProjection, session=override_session)
+        p = partial()
+        assert isinstance(p.session, Session)

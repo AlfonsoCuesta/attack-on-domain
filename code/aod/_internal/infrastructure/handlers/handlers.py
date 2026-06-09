@@ -4,14 +4,14 @@ from abc import abstractmethod
 from typing import Any, Generic, TypeVar
 
 from aod._internal.application.contracts import Command, Query
-from aod._internal.core.base_sealed import BaseSealed
+from aod._internal.core.base_behaviour import BaseBehaviour
 from aod._internal.infrastructure.session import AsyncSession, Session
 
 TCommand = TypeVar("TCommand", bound=Command)
 TQuery = TypeVar("TQuery", bound=Query)
 
 
-class BaseHandler(BaseSealed):
+class BaseHandler(BaseBehaviour):
     session: Session | None = None
 
 

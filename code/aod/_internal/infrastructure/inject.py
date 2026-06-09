@@ -13,6 +13,7 @@ from aod._internal.infrastructure.handlers.handlers import (
     CommandHandler,
     QueryHandler,
 )
+from aod._internal.infrastructure.projection import ProjectionBase
 
 _SPECIAL_FIELDS = frozenset({"uow", "logger", "event_bus", "cache"})
 
@@ -73,3 +74,28 @@ def inject_adapters(
             continue
 
     return partial(use_case_cls, **kwargs)
+
+
+def _pick_session(
+    container: AdapterContainerBase,
+) -> Any:
+    for s in container.sessions:
+        return s
+    return None
+
+
+def inject_projection(
+    container: AdapterContainerBase,
+    projection_cls: type[ProjectionBase],
+    **overrides: Any,
+) -> partial[ProjectionBase]:
+    if overrides:
+        container = container.copy(**overrides)
+
+    kwargs: dict[str, Any] = {
+        "session": _pick_session(container),
+        "logger": container.logger,
+        "event_bus": container.event_bus,
+        "cache": container.cache,
+    }
+    return partial(projection_cls, **kwargs)

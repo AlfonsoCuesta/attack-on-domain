@@ -44,7 +44,6 @@ def test_aod_domain_exceptions_documented_api() -> None:
         "InvalidEntityTypeError",
         "InvalidGenericTypeArgError",
         "InvalidNestedTypeError",
-        "InvalidProjectionTypeError",
         "InvalidRootEntityTypeError",
         "InvalidServiceParameterError",
         "InvalidServiceTypeError",
@@ -62,11 +61,8 @@ def test_aod_application_exports_documented_api() -> None:
         "EventBus",
         "Logger",
         "Port",
-        "ProjectionCommand",
-        "ProjectionQuery",
         "Query",
         "QueryHandler",
-        "ReadModel",
         "UnitOfWork",
         "UseCase",
     ]
@@ -99,8 +95,13 @@ def test_aod_infrastructure_exports_documented_api() -> None:
         "CommandHandler",
         "InfrastructureException",
         "inject_adapters",
-        "ProjectionCommandHandler",
-        "ProjectionQueryHandler",
+        "inject_projection",
+        "Projection",
+        "ProjectionBase",
+        "ReadModel",
+        "ReadProjection",
+        "WriteModel",
+        "WriteProjection",
         "Cache",
         "QueryHandler",
         "UnitOfWork",
@@ -110,8 +111,6 @@ def test_aod_infrastructure_exports_documented_api() -> None:
     assert aod.infrastructure.async_.__all__ == [
         "CommandHandler",
         "Cache",
-        "ProjectionCommandHandler",
-        "ProjectionQueryHandler",
         "QueryHandler",
         "UnitOfWork",
     ]
@@ -141,7 +140,6 @@ def test_aod_exceptions_documented_api() -> None:
         "InvalidGenericTypeArgError",
         "InvalidNestedTypeError",
         "InvalidPortFieldError",
-        "InvalidProjectionTypeError",
         "InvalidRootEntityTypeError",
         "InvalidServiceParameterError",
         "InvalidServiceTypeError",
@@ -170,36 +168,15 @@ def test_aod_domain_validation_documented_api() -> None:
     ]
 
 
-def test_unresolvable_entity_error() -> None:
-    from aod._internal.core.application_exception import UnresolvableEntityError
-
-    exc = UnresolvableEntityError("Command", "TestCommand")
-    assert "TestCommand" in str(exc)
-
-
-def test_unresolvable_projection_type_error() -> None:
-    from aod._internal.core.infrastructure_exception import UnresolvableProjectionTypeError
-
-    exc = UnresolvableProjectionTypeError("TestHandler")
-    assert "TestHandler" in str(exc)
-
-
-def test_duplicate_projection_handler_error() -> None:
-    from aod._internal.core.infrastructure_exception import DuplicateProjectionHandlerError
-
-    exc = DuplicateProjectionHandlerError("TestType")
-    assert "TestType" in str(exc)
-
-
-def test_projection_handler_not_found_error() -> None:
-    from aod._internal.core.infrastructure_exception import ProjectionHandlerNotFoundError
-
-    exc = ProjectionHandlerNotFoundError("TestType")
-    assert "TestType" in str(exc)
-
-
 def test_handler_result_type_error() -> None:
     from aod._internal.core.infrastructure_exception import HandlerResultTypeError
 
     exc = HandlerResultTypeError("TestHandler", "str", "int")
     assert "TestHandler" in str(exc)
+
+
+def test_unresolvable_entity_error() -> None:
+    from aod._internal.core.application_exception import UnresolvableEntityError
+
+    exc = UnresolvableEntityError("Command", "TestCommand")
+    assert "TestCommand" in str(exc)

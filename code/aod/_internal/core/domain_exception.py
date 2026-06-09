@@ -107,15 +107,6 @@ class InvalidGenericTypeArgError(DomainException):
         super().__init__(f"{arg_name} for {cls_name} must be a {expected} subclass, got {got}")
 
 
-class InvalidProjectionTypeError(DomainException):
-    """Projection generic type is not a ReadModel subclass or None."""
-
-    def __init__(self, type_name: str) -> None:
-        super().__init__(
-            f"Projection type must be a ReadModel subclass or None, got {type_name}"
-        )
-
-
 class ModelValidationError(DomainException):
     """Pydantic validation failed during model construction."""
 
