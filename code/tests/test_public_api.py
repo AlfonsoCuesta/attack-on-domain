@@ -95,7 +95,7 @@ def test_aod_application_exceptions_documented_api() -> None:
 
 def test_aod_infrastructure_exports_documented_api() -> None:
     assert aod.infrastructure.__all__ == [
-        "AdapterContainer",
+        "AdapterContainerBase",
         "CommandHandler",
         "InfrastructureException",
         "inject_adapters",
@@ -122,6 +122,7 @@ def test_aod_infrastructure_exceptions_documented_api() -> None:
         "DuplicateHandlerError",
         "HandlerNotFoundError",
         "HandlerResultTypeError",
+        "InvalidPortFieldError",
     ]
 
 
@@ -139,6 +140,7 @@ def test_aod_exceptions_documented_api() -> None:
         "InvalidEntityTypeError",
         "InvalidGenericTypeArgError",
         "InvalidNestedTypeError",
+        "InvalidPortFieldError",
         "InvalidProjectionTypeError",
         "InvalidRootEntityTypeError",
         "InvalidServiceParameterError",

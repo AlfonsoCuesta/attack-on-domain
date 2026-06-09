@@ -1,13 +1,13 @@
 from __future__ import annotations
 
-from aod._internal.application.port import Port
 from aod._internal.core.async_utils import should_await
+from aod._internal.core.base_guarded.base_guarded import BaseGuarded
 from aod._internal.core.fields.fields import Field
 from aod._internal.infrastructure.commit_context import _CommitContext
 from aod._internal.infrastructure.session import AsyncSession, Session
 
 
-class UnitOfWork(Port):
+class UnitOfWork(BaseGuarded):
     sessions: set[Session] = Field(default_factory=set)
 
     def commit(self) -> None:
@@ -29,7 +29,7 @@ class UnitOfWork(Port):
             s.flush()
 
 
-class AsyncUnitOfWork(Port):
+class AsyncUnitOfWork(BaseGuarded):
     sessions: set[Session | AsyncSession] = Field(default_factory=set)
 
     async def commit(self) -> None:

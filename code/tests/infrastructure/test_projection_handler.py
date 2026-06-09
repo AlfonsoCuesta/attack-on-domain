@@ -4,9 +4,6 @@ from typing import Any, cast
 
 import pytest
 from aod._internal.core.domain_exception import DomainException
-from aod._internal.infrastructure.projection.projection_handler import (
-    ProjectionQueryHandler as PH,
-)
 from aod.application import ProjectionCommand, ProjectionQuery, ReadModel
 from aod.infrastructure import ProjectionCommandHandler, ProjectionQueryHandler
 
@@ -22,9 +19,11 @@ class GetOrders(ProjectionQuery[OrdersResponse]):
 
 class GetOrdersHandler(ProjectionQueryHandler[GetOrders]):
     def handle(self, query: GetOrders) -> OrdersResponse:
-        return OrdersResponse(data=[
-            {"id": 1, "total": 99.99, "status": query.status or "pending"},
-        ])
+        return OrdersResponse(
+            data=[
+                {"id": 1, "total": 99.99, "status": query.status or "pending"},
+            ]
+        )
 
 
 class UpdateOrder(ProjectionCommand[None]):

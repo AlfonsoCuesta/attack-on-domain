@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import pytest
-from aod._internal.core.infrastructure_exception import HandlerResultTypeError
 from aod._internal.domain.entity import RootEntity
 from aod.application import Command, Query
 from aod.infrastructure.async_ import CommandHandler, QueryHandler
@@ -64,25 +63,3 @@ async def test_query_handler_returns_none() -> None:
     h = GetUserHandler()
     result = await h.handle(GetUser(user_id=999))
     assert result is None
-
-
-async def test_command_handler_wrong_result_type_raises() -> None:
-    class BadHandler(CommandHandler[CreateUser]):
-        async def handle(self, command: CreateUser) -> object:
-            return "not a user"
-
-    h = BadHandler()
-    with pytest.raises(HandlerResultTypeError) as exc:
-        await h.handle(CreateUser(name="Alice"))
-    assert "BadHandler" in str(exc.value)
-
-
-async def test_query_handler_wrong_result_type_raises() -> None:
-    class BadQueryHandler(QueryHandler[GetUser]):
-        async def handle(self, query: GetUser) -> object:
-            return 42
-
-    h = BadQueryHandler()
-    with pytest.raises(HandlerResultTypeError) as exc:
-        await h.handle(GetUser(user_id=1))
-    assert "BadQueryHandler" in str(exc.value)

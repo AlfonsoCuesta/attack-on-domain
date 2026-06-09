@@ -4,16 +4,16 @@ from functools import partial
 from typing import Any
 
 from aod._internal.application.use_case import AsyncUseCase, UseCase
-from aod._internal.infrastructure.container import AdapterContainer
+from aod._internal.infrastructure.container import AdapterContainerBase
 
 
 def inject_adapters(
-    container: AdapterContainer,
+    container: AdapterContainerBase,
     use_case_cls: type[UseCase | AsyncUseCase],
     **overrides: Any,
 ) -> partial[UseCase | AsyncUseCase]:
     if overrides:
-        container = container.with_(**overrides)
+        container = container.copy(**overrides)
 
     kwargs: dict[str, Any] = {"uow": container.uow}
     if container.logger is not None:

@@ -1,7 +1,7 @@
 import contextvars
 import inspect
 from abc import ABCMeta
-from typing import Any, Callable, ClassVar, Type, dataclass_transform
+from typing import Any, Callable, ClassVar, Self, Type, dataclass_transform
 
 from pydantic import BaseModel, ValidationError
 
@@ -82,6 +82,13 @@ class BaseValidator(metaclass=ValidationModelMeta):
 
     def __post_init__(self) -> None:
         pass
+
+    def copy(self, **overrides: Any) -> Self:
+        current = {}
+        for k in self.__model_fields__:
+            current[k] = getattr(self, k)
+        current.update(overrides)
+        return self.__class__(**current)
 
     def __set_model_attributes(self, validated: BaseModel) -> None:
         for k, v in validated.model_dump().items():

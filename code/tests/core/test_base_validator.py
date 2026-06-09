@@ -3,7 +3,11 @@ from typing import Annotated, Any, Callable, cast
 
 import pytest
 from aod._internal.core.base_validator import BaseValidator
-from aod._internal.core.domain_exception import InvarianceException, ModelValidationError
+from aod._internal.core.domain_exception import (
+    InvarianceException,
+    ModelValidationError,
+    MutationForbiddenException,
+)
 from aod._internal.core.reconstructable import ReconstructMixin
 from aod._internal.core.fields import Field, PrivateField
 from aod._internal.core.fields.fields import Unset
@@ -244,3 +248,42 @@ def test_base_validator_accepts_dict_model_config() -> None:
 
     obj = DictConfig(age=1)
     assert obj.age == 1
+
+
+class _CopyModel(BaseValidator):
+    name: str
+    age: int = 0
+
+
+def test_copy_without_overrides_returns_same_values() -> None:
+    original = _CopyModel(name="Alice", age=30)
+    copied = original.copy()
+    assert copied.name == "Alice"
+    assert copied.age == 30
+
+
+def test_copy_original_unchanged() -> None:
+    original = _CopyModel(name="Alice", age=30)
+    copied = original.copy(age=99)
+    assert original.age == 30
+    assert copied.age == 99
+
+
+def test_copy_runs_validation() -> None:
+    original = _CopyModel(name="Alice", age=30)
+    with pytest.raises(ModelValidationError):
+        original.copy(age="not a number")
+
+
+def test_copy_preserves_immutability() -> None:
+    from aod._internal.core.base_sealed import BaseSealed
+
+    class _SealedCopy(BaseSealed):
+        name: str
+
+    original = _SealedCopy(name="Alice")
+    copied = original.copy(name="Bob")
+    assert copied.name == "Bob"
+    assert original.name == "Alice"
+    with pytest.raises(MutationForbiddenException):
+        copied.name = "Charlie"

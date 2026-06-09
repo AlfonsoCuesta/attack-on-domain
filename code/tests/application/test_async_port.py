@@ -5,7 +5,11 @@ from aod._internal.core.event_emitter import Event
 from aod.application.async_ import EventBus, Logger, UnitOfWork
 from aod.testing.doubles.application.async_ import (
     SpyEventBus as AsyncSpyEventBus,
+)
+from aod.testing.doubles.application.async_ import (
     SpyLogger as AsyncSpyLogger,
+)
+from aod.testing.doubles.application.async_ import (
     SpyUnitOfWork as AsyncSpyUnitOfWork,
 )
 
@@ -65,7 +69,7 @@ async def test_async_event_bus_publish() -> None:
 
 async def test_async_unit_of_work_is_abstract() -> None:
     with pytest.raises(TypeError):
-        UnitOfWork()
+        UnitOfWork()  # type: ignore
 
 
 async def test_async_unit_of_work_commit() -> None:

@@ -4,7 +4,7 @@ from abc import abstractmethod
 from typing import Generic, TypeVar
 
 from aod._internal.application.projection import ProjectionCommand, ProjectionQuery
-from aod._internal.infrastructure.handlers.base_handler import AsyncBaseHandler, BaseHandler
+from aod._internal.infrastructure.handlers.handlers import AsyncBaseHandler, BaseHandler
 
 PQ = TypeVar("PQ", bound=ProjectionQuery)
 PC = TypeVar("PC", bound=ProjectionCommand)

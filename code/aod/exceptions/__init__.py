@@ -22,6 +22,7 @@ from aod._internal.core.infrastructure_exception import (
     HandlerNotFoundError,
     HandlerResultTypeError,
     InfrastructureException,
+    InvalidPortFieldError,
 )
 
 __all__ = [
@@ -37,6 +38,7 @@ __all__ = [
     "InvalidEntityTypeError",
     "InvalidGenericTypeArgError",
     "InvalidNestedTypeError",
+    "InvalidPortFieldError",
     "InvalidProjectionTypeError",
     "InvalidRootEntityTypeError",
     "InvalidServiceParameterError",

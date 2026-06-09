@@ -2,6 +2,13 @@ class InfrastructureException(Exception):
     """Base for errors raised by the infrastructure layer."""
 
 
+class HandlerModelError(InfrastructureException):
+    """A handler class is missing a required field."""
+
+    def __init__(self, handler: type, field: str) -> None:
+        super().__init__(f"Handler {handler.__name__} is missing required field '{field}'")
+
+
 class UnresolvableProjectionTypeError(InfrastructureException):
     """Cannot determine the projection type from a handler's generic bases."""
 
@@ -42,3 +49,24 @@ class HandlerResultTypeError(InfrastructureException):
 
     def __init__(self, handler_name: str, got: str, expected: str) -> None:
         super().__init__(f"{handler_name}.handle() returned {got}, expected {expected}")
+
+
+class InvalidPortFieldError(InfrastructureException):
+    """A field on an AdapterContainerBase subclass is not a Port type."""
+
+    def __init__(self, field_name: str, field_type: str) -> None:
+        super().__init__(f"Field '{field_name}' must be a Port subclass, got {field_type}")
+
+
+class PortNotFoundError(InfrastructureException):
+    """No port of the requested type is registered on the container."""
+
+    def __init__(self, port_type: type) -> None:
+        super().__init__(f"No port of type {port_type.__name__} registered")
+
+
+class SessionNotFoundError(InfrastructureException):
+    """No session of the requested type is registered on the container."""
+
+    def __init__(self, session: type) -> None:
+        super().__init__(f"No session of type {session.__name__} registered")

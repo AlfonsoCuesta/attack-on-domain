@@ -113,7 +113,7 @@ def test_logger_warning() -> None:
 
 def test_event_bus_abstract() -> None:
     with pytest.raises(TypeError):
-        EventBus()  # type: ignore[abstract]
+        EventBus()
 
 
 def test_event_bus_publish() -> None:
@@ -126,7 +126,7 @@ def test_event_bus_publish() -> None:
 
 def test_unit_of_work_abstract() -> None:
     with pytest.raises(TypeError):
-        UnitOfWork()  # type: ignore[abstract]
+        UnitOfWork()  # type: ignore
 
 
 def test_unit_of_work_commit() -> None:
