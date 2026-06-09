@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import pytest
+from aod._internal.core.application_exception import CommitOutsideUnitOfWorkError
 from aod._internal.infrastructure.commit_context import _CommitContext
 from aod._internal.infrastructure.session import AsyncSession, Session
 
@@ -72,6 +73,11 @@ class TestSession:
         s.rollback()
         s.close()
 
+    def test_commit_outside_uow_raises(self) -> None:
+        s = ConcreteSession()
+        with pytest.raises(CommitOutsideUnitOfWorkError):
+            s.commit()
+
 
 class TestAsyncSession:
     async def test_is_abstract(self) -> None:
@@ -95,3 +101,8 @@ class TestAsyncSession:
             _CommitContext.reset(token)
         await s.rollback()
         await s.close()
+
+    async def test_commit_outside_uow_raises(self) -> None:
+        s = ConcreteAsyncSession()
+        with pytest.raises(CommitOutsideUnitOfWorkError):
+            await s.commit()

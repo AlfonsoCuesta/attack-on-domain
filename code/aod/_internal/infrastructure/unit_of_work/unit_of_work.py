@@ -24,10 +24,6 @@ class UnitOfWork(BaseGuarded):
             if s.is_dirty():
                 s.rollback()
 
-    def flush(self) -> None:
-        for s in self.sessions:
-            s.flush()
-
 
 class AsyncUnitOfWork(BaseGuarded):
     sessions: set[Session | AsyncSession] = Field(default_factory=set)
@@ -45,7 +41,3 @@ class AsyncUnitOfWork(BaseGuarded):
         for s in self.sessions:
             if s.is_dirty():
                 await should_await(s.rollback())
-
-    async def flush(self) -> None:
-        for s in self.sessions:
-            await should_await(s.flush())

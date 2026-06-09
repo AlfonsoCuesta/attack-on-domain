@@ -164,6 +164,14 @@ def test_inherited_fields_are_not_revalidated() -> None:
     assert hasattr(_Custom, "logger")
 
 
+def test_subclass_with_generic_port_field_works() -> None:
+    class _GenericContainer(AdapterContainerBase):
+        clients: list[_FakePort]
+
+    container = _GenericContainer(clients=[_FakePort()])
+    assert len(container.clients) == 1
+
+
 class TestGetPort:
     def test_finds_existing_port(self) -> None:
         port = _FakePort()
@@ -180,6 +188,28 @@ class TestGetPort:
         container = _CustomContainer(weather_client=None)
         result = container.get_port(_FakePort)
         assert result is None
+
+    def test_finds_port_with_plain_type(self) -> None:
+        class _PlainPortContainer(AdapterContainerBase):
+            client: _FakePort
+
+        port = _FakePort()
+        container = _PlainPortContainer(client=port)
+        result = container.get_port(_FakePort)
+        assert result is port
+
+    def test_skips_field_without_type_hint_in_get_port(self) -> None:
+        class _PlainPortContainer(AdapterContainerBase):
+            client: _FakePort
+
+        port = _FakePort()
+        container = _PlainPortContainer(client=port)
+        with patch(
+            "aod._internal.infrastructure.container.get_type_hints",
+            return_value={"client": None},
+        ):
+            with pytest.raises(PortNotFoundError, match="No port of type"):
+                container.get_port(_FakePort)
 
 
 class TestFindHandler:
@@ -340,3 +370,31 @@ class TestGetHandler:
 
         container = AdapterContainerBase(handlers=[_Create, _Get])
         assert len(container.handlers) == 2
+
+    def test_contract_from_handler_raises_when_no_command_param(self) -> None:
+        class _BadHandler(CommandHandler[CreateUser]):
+            def handle(self, command: CreateUser) -> User:
+                return User(id=1, name=command.name)
+
+        with patch(
+            "aod._internal.infrastructure.container.get_type_hints",
+            return_value={"return": User},
+        ):
+            with pytest.raises(HandlerModelError, match="handle"):
+                AdapterContainerBase._contract_from_handler(_BadHandler)
+
+    def test_get_handler_with_non_union_session_type(self) -> None:
+        class _ExactSessionHandler(CommandHandler[CreateUser]):
+            session: Session
+
+            def handle(self, command: CreateUser) -> User:
+                return User(id=1, name=command.name)
+
+        session = _SyncSession()
+        container = AdapterContainerBase(
+            handlers=[_ExactSessionHandler],
+            sessions={session},
+        )
+        handler = container.get_handler(CreateUser)
+        assert isinstance(handler, _ExactSessionHandler)
+        assert isinstance(handler.session, Session)

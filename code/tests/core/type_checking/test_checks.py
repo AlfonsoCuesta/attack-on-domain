@@ -7,6 +7,10 @@ from aod._internal.core.domain_exception import (
     InvalidServiceParameterError,
 )
 from aod._internal.core.type_handlers import BaseGuardedTypeHandler, ServiceTypeHandler
+from aod._internal.core.type_handlers.generic_utils import (
+    get_generic_arg_from_mro,
+    get_last_generic_arg,
+)
 from aod._internal.domain.entity import Entity, RootEntity
 from aod._internal.domain.service import Service
 from aod._internal.domain.value_object import ValueObject
@@ -290,3 +294,50 @@ def test_resolved_hints_exception() -> None:
         side_effect=RuntimeError("boom"),
     ):
         ServiceTypeHandler.check_service(SomeService)  # Should not raise
+
+
+def test_get_generic_arg_from_mro_finds_arg() -> None:
+    from typing import Generic, TypeVar
+
+    T = TypeVar("T")
+
+    class Base(Generic[T]):
+        pass
+
+    class Concrete(Base[int]):
+        pass
+
+    result = get_generic_arg_from_mro(Concrete, (Base,))
+    assert result is int
+
+
+def test_get_generic_arg_from_mro_returns_none_when_not_found() -> None:
+    class Plain:
+        pass
+
+    result = get_generic_arg_from_mro(Plain, (int,))
+    assert result is None
+
+
+def test_get_last_generic_arg_finds_last_arg() -> None:
+    from typing import Generic, TypeVar
+
+    T = TypeVar("T")
+    U = TypeVar("U")
+
+    class Base(Generic[T, U]):
+        pass
+
+    class Concrete(Base[int, str]):
+        pass
+
+    result = get_last_generic_arg(Concrete)
+    assert result is str
+
+
+def test_get_last_generic_arg_returns_none_when_not_found() -> None:
+    class Plain:
+        pass
+
+    result = get_last_generic_arg(Plain)
+    assert result is None

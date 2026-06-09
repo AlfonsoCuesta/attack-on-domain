@@ -168,3 +168,38 @@ def test_aod_domain_validation_documented_api() -> None:
         "invariance",
         "inherit_context",
     ]
+
+
+def test_unresolvable_entity_error() -> None:
+    from aod._internal.core.application_exception import UnresolvableEntityError
+
+    exc = UnresolvableEntityError("Command", "TestCommand")
+    assert "TestCommand" in str(exc)
+
+
+def test_unresolvable_projection_type_error() -> None:
+    from aod._internal.core.infrastructure_exception import UnresolvableProjectionTypeError
+
+    exc = UnresolvableProjectionTypeError("TestHandler")
+    assert "TestHandler" in str(exc)
+
+
+def test_duplicate_projection_handler_error() -> None:
+    from aod._internal.core.infrastructure_exception import DuplicateProjectionHandlerError
+
+    exc = DuplicateProjectionHandlerError("TestType")
+    assert "TestType" in str(exc)
+
+
+def test_projection_handler_not_found_error() -> None:
+    from aod._internal.core.infrastructure_exception import ProjectionHandlerNotFoundError
+
+    exc = ProjectionHandlerNotFoundError("TestType")
+    assert "TestType" in str(exc)
+
+
+def test_handler_result_type_error() -> None:
+    from aod._internal.core.infrastructure_exception import HandlerResultTypeError
+
+    exc = HandlerResultTypeError("TestHandler", "str", "int")
+    assert "TestHandler" in str(exc)
