@@ -21,8 +21,8 @@ class GetUser(Query[User, User | None]):
 
 
 class CreateUserHandler(CommandHandler[CreateUser]):
-    async def handle(self, cmd: CreateUser) -> User:
-        return User(id=1, name=cmd.name)
+    async def handle(self, command: CreateUser) -> User:
+        return User(id=1, name=command.name)
 
 
 class GetUserHandler(QueryHandler[GetUser]):
@@ -68,7 +68,7 @@ async def test_query_handler_returns_none() -> None:
 
 async def test_command_handler_wrong_result_type_raises() -> None:
     class BadHandler(CommandHandler[CreateUser]):
-        async def handle(self, cmd: CreateUser) -> object:
+        async def handle(self, command: CreateUser) -> object:
             return "not a user"
 
     h = BadHandler()

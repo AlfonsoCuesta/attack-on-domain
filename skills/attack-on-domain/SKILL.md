@@ -22,7 +22,7 @@ Source code is under `code/` (mapped as package root in `pyproject.toml`).
 | `from aod.domain import DomainException` | Domain base exception |
 | `from aod.domain.exceptions import MutationForbiddenException, InvalidEntityTypeError, InvarianceException, ModelValidationError, …` | Domain-specific exceptions |
 | `from aod.application import ApplicationException` | Application base exception |
-| `from aod.application.exceptions import ProjectionStoreNotConfiguredError, UnresolvableEntityError, RepositoryNotRegisteredError` | Application-specific exceptions |
+| `from aod.application.exceptions import ProjectionStoreNotConfiguredError, UnresolvableEntityError, CommitOutsideUnitOfWorkError` | Application-specific exceptions |
 | `from aod.infrastructure import InfrastructureException` | Infrastructure base exception |
 | `from aod.infrastructure.exceptions import DuplicateHandlerError, HandlerNotFoundError, HandlerResultTypeError, …` | Infrastructure-specific exceptions |
 
@@ -30,9 +30,8 @@ Source code is under `code/` (mapped as package root in `pyproject.toml`).
 | `from aod.application import Port` | Abstract port/gateway base class |
 | `from aod.application import Logger, EventBus, UnitOfWork, Cache` | Built-in port types (sync) |
 | `from aod.application.async_ import Cache, EventBus, Logger, UnitOfWork` | Async versions (methods are coroutines) |
-| `from aod.infrastructure.async_ import CommandHandler, QueryHandler, Repository` | Async infrastructure |
 | `from aod.application import Command, Query` | Application contracts |
-| `from aod.infrastructure import Repository, CommandHandler, QueryHandler` | Infrastructure |
+| `from aod.infrastructure import CommandHandler, QueryHandler` | Infrastructure handlers |
 
 ## Testing Utilities
 
@@ -112,32 +111,20 @@ class SendEmailUseCase(UseCase):
         self.email.send("user@example.com", "Hello", "World")
 ```
 
-### Repository Layer
+### Contracts
 
-CQRS-inspired repository abstraction at `from aod.application import Command, Query` and `from aod.infrastructure import Repository, CommandHandler, QueryHandler`:
+Application-layer contracts at `from aod.application import Command, Query`:
 
-- **`Command[TEntity, TResult]`** / **`Query[TEntity, TResult]`** — immutable value objects for writes/reads; validate `TEntity` is a `RootEntity` subclass. Fields are checked — non-root `Entity` types are forbidden (including nested types like `list[Entity]`). `Query` additionally requires `TResult` to contain a `RootEntity` (e.g. `Query[User, tuple[int, User | None]]` is valid, `Query[User, int]` is not)
+- **`Command[TEntity, TResult]`** / **`Query[TEntity, TResult]`** — immutable data classes for writes/reads; validate `TEntity` is a `RootEntity` subclass. Fields are checked — non-root `Entity` types are forbidden (including nested types like `list[Entity]`). `Query` additionally requires `TResult` to contain a `RootEntity` (e.g. `Query[User, tuple[int, User | None]]` is valid, `Query[User, int]` is not)
+
+### CommandHandler / QueryHandler
+
+Abstract handler bases at `from aod.infrastructure import CommandHandler, QueryHandler`:
+
 - **`CommandHandler[C]`** / **`QueryHandler[Q]`** — abstract bases with `handle()` method; validate generic param at class creation
-- **`Repository[TEntity]`** — receives `command_handlers` and `query_handlers` in `__init__`; dispatches via `command()` / `query()`
+- **`AsyncCommandHandler[C]`** / **`AsyncQueryHandler[Q]`** — async variants
 
-```python
-from aod.application import Command
-from aod.infrastructure import CommandHandler, Repository
-
-class CreateUser(Command[User, User]):
-    name: str
-
-class CreateUserHandler(CommandHandler[CreateUser]):
-    def handle(self, cmd: CreateUser) -> User:
-        ...
-
-repo = Repository[User](
-    command_handlers=[CreateUserHandler()],
-)
-repo.command(CreateUser(name="Alice"))
-```
-
-Handler type resolution uses `extract_handler_type()` (public in `aod._internal.type_checks.handler_checks`) via `get_generic_arg_from_mro` in `type_handlers/generic_utils.py` — works in any scope, avoids `NameError` with locally-defined handlers. `handlers.py` imports `Command`/`Query` directly from `repository_port` with no circular deps.
+Handler type validation uses `get_last_generic_arg` from `type_handlers/generic_utils.py` — works in any scope, avoids `NameError` with locally-defined handlers.
 
 ## Dual-Model Validation
 
@@ -260,7 +247,6 @@ Constructor only accepts `aggregate_roots` (RootEntity subclasses) and `services
 - `code/tests/core/test_post_init.py` — 22 tests covering `__post_init__` for Entity, RootEntity, ValueObject, inheritance, event emission, public method calls, and reconstruct suppression.
 - `code/tests/application/test_use_case.py` — 45 tests covering UseCase instantiation, event collection, immutability, exceptions, inheritance, `__post_init__`, `__repr__`, multiple runs, UoW auto-commit/rollback, logger auto-log, and edge cases.
 - `code/tests/domain/test_service.py` — 17 tests covering Service instantiation, event emission, immutability, `__post_init__`, inheritance, private methods, collection, and event isolation.
-- `code/tests/infrastructure/test_repository.py` — 52 tests covering Command/Query validation, handler type checking, dispatch, duplicates, and edge cases.
 - `code/tests/application/test_port.py` — 16 tests covering Port instantiation, abstract enforcement, method wrapping, mutation blocking, and built-in port types (Logger, EventBus, UnitOfWork).
 
 ## Development Commands

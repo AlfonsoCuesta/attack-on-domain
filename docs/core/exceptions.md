@@ -23,25 +23,19 @@ Exception
 │   ├── InvalidGenericTypeArgError          # Generic arg fails constraint
 │   ├── InvalidProjectionTypeError          # Projection type not ReadModel or None
 │   │
-│   │   # Handler dispatch (wiring errors)
-│   ├── HandlerTypeMismatchError            # Handler not subclass of expected base
-│   ├── HandlerEntityMismatchError          # Handler entity ≠ repo entity
-│   ├── UnresolvableHandlerTypeError        # Cannot determine Command/Query type
-│   │
 │   │   # Construction time (Pydantic validation wrapper)
 │   └── ModelValidationError                # Pydantic validation failed during model construction
 │
 ├── ApplicationException                    # Base: application layer errors
-│   ├── ProjectionStoreNotConfiguredError   # No ProjectionStore in UoW
 │   ├── UnresolvableEntityError             # Cannot determine RootEntity from Command/Query
-│   └── RepositoryNotRegisteredError        # No repo for entity
+│   └── CommitOutsideUnitOfWorkError        # Commit outside UnitOfWork context
 │
 └── InfrastructureException                # Base: infrastructure layer errors
     ├── UnresolvableProjectionTypeError     # Cannot determine projection type from handler
     ├── DuplicateProjectionHandlerError     # Duplicate handler in ProjectionStore
     ├── ProjectionHandlerNotFoundError      # No handler for projection type
-    ├── DuplicateHandlerError               # Duplicate handler in Repository
-    ├── HandlerNotFoundError                # No handler for Command/Query in Repository
+    ├── DuplicateHandlerError               # Duplicate handler for Command/Query
+    ├── HandlerNotFoundError                # No handler for Command/Query
     └── HandlerResultTypeError              # Handler returned wrong type
 ```
 
@@ -70,12 +64,12 @@ Exception
 | `HandlerEntityMismatchError` | `Repository[User]` receives a handler that handles `Order` |
 | `UnresolvableHandlerTypeError` | A handler's generic bases don't contain a recognizable `Command`/`Query` type |
 
-### Runtime — Repository Dispatch (InfrastructureException subclasses)
+### Runtime — Handler Dispatch (InfrastructureException subclasses)
 
 | Exception | Trigger |
 |---|---|
-| `DuplicateHandlerError` | Two handlers registered for the same `Command`/`Query` type in a single `Repository` |
-| `HandlerNotFoundError` | `repo.command()` or `repo.query()` called with a type that has no handler |
+| `DuplicateHandlerError` | Two handlers registered for the same `Command`/`Query` type |
+| `HandlerNotFoundError` | No handler found for a given `Command`/`Query` type |
 | `HandlerResultTypeError` | `handler.handle()` returned a value that doesn't match the expected return type |
 
 ### Runtime — ProjectionStore Dispatch (InfrastructureException subclasses)
@@ -92,7 +86,7 @@ Exception
 |---|---|
 | `ProjectionStoreNotConfiguredError` | UoW receives a `ProjectionQuery`/`ProjectionCommand` but no `projection_store` was provided |
 | `UnresolvableEntityError` | UoW cannot determine which `RootEntity` a `Command`/`Query` targets |
-| `RepositoryNotRegisteredError` | UoW resolves the entity but no repository was registered for it |
+| `CommitOutsideUnitOfWorkError` | `commit()` called outside a `UnitOfWork` context |
 
 ### Runtime — General
 
@@ -113,17 +107,11 @@ Exception
 from aod.exceptions import (
     ApplicationException,
     DomainException,
-    HandlerNotFoundError,
     InfrastructureException,
-    ProjectionStoreNotConfiguredError,
 )
 
 try:
     uow.command(some_command)
-except ProjectionStoreNotConfiguredError:
-    ...
-except HandlerNotFoundError:
-    ...
 except InfrastructureException:
     # Catch-all for infrastructure errors
     ...

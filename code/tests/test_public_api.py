@@ -41,20 +41,15 @@ def test_aod_domain_exceptions_documented_api() -> None:
     assert aod.domain.exceptions.__all__ == [
         "ClassExpectedError",
         "DuplicateDomainTypeError",
-        "HandlerEntityMismatchError",
-        "HandlerTypeMismatchError",
-        "InvalidCommandFieldTypeError",
         "InvalidEntityTypeError",
         "InvalidGenericTypeArgError",
         "InvalidNestedTypeError",
         "InvalidProjectionTypeError",
-        "InvalidQueryResultTypeError",
         "InvalidRootEntityTypeError",
         "InvalidServiceParameterError",
         "InvalidServiceTypeError",
         "InvarianceException",
         "MutationForbiddenException",
-        "UnresolvableHandlerTypeError",
     ]
 
 
@@ -63,12 +58,14 @@ def test_aod_application_exports_documented_api() -> None:
         "ApplicationException",
         "Cache",
         "Command",
+        "CommandHandler",
         "EventBus",
         "Logger",
         "Port",
         "ProjectionCommand",
         "ProjectionQuery",
         "Query",
+        "QueryHandler",
         "ReadModel",
         "UnitOfWork",
         "UseCase",
@@ -80,8 +77,10 @@ def test_aod_application_exports_documented_api() -> None:
 
     assert aod.application.async_.__all__ == [
         "Cache",
+        "CommandHandler",
         "EventBus",
         "Logger",
+        "QueryHandler",
         "UnitOfWork",
         "UseCase",
     ]
@@ -89,22 +88,22 @@ def test_aod_application_exports_documented_api() -> None:
 
 def test_aod_application_exceptions_documented_api() -> None:
     assert aod.application.exceptions.__all__ == [
-        "ProjectionStoreNotConfiguredError",
-        "RepositoryNotRegisteredError",
+        "CommitOutsideUnitOfWorkError",
         "UnresolvableEntityError",
     ]
 
 
 def test_aod_infrastructure_exports_documented_api() -> None:
     assert aod.infrastructure.__all__ == [
+        "AdapterContainer",
         "CommandHandler",
         "InfrastructureException",
+        "inject_adapters",
         "ProjectionCommandHandler",
         "ProjectionQueryHandler",
-        "ProjectionStore",
         "Cache",
         "QueryHandler",
-        "Repository",
+        "UnitOfWork",
     ]
     assert aod.infrastructure.InfrastructureException.__name__ == "InfrastructureException"
 
@@ -113,20 +112,16 @@ def test_aod_infrastructure_exports_documented_api() -> None:
         "Cache",
         "ProjectionCommandHandler",
         "ProjectionQueryHandler",
-        "ProjectionStore",
         "QueryHandler",
-        "Repository",
+        "UnitOfWork",
     ]
 
 
 def test_aod_infrastructure_exceptions_documented_api() -> None:
     assert aod.infrastructure.exceptions.__all__ == [
         "DuplicateHandlerError",
-        "DuplicateProjectionHandlerError",
         "HandlerNotFoundError",
         "HandlerResultTypeError",
-        "ProjectionHandlerNotFoundError",
-        "UnresolvableProjectionTypeError",
     ]
 
 
@@ -134,32 +129,23 @@ def test_aod_exceptions_documented_api() -> None:
     assert aod.exceptions.__all__ == [
         "ApplicationException",
         "ClassExpectedError",
+        "CommitOutsideUnitOfWorkError",
         "DomainException",
         "DuplicateDomainTypeError",
         "DuplicateHandlerError",
-        "DuplicateProjectionHandlerError",
-        "HandlerEntityMismatchError",
         "HandlerNotFoundError",
         "HandlerResultTypeError",
-        "HandlerTypeMismatchError",
         "InfrastructureException",
-        "InvalidCommandFieldTypeError",
         "InvalidEntityTypeError",
         "InvalidGenericTypeArgError",
         "InvalidNestedTypeError",
         "InvalidProjectionTypeError",
-        "InvalidQueryResultTypeError",
         "InvalidRootEntityTypeError",
         "InvalidServiceParameterError",
         "InvalidServiceTypeError",
         "InvarianceException",
         "MutationForbiddenException",
-        "ProjectionHandlerNotFoundError",
-        "ProjectionStoreNotConfiguredError",
-        "RepositoryNotRegisteredError",
         "UnresolvableEntityError",
-        "UnresolvableHandlerTypeError",
-        "UnresolvableProjectionTypeError",
     ]
 
 

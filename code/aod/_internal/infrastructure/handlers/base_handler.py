@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from functools import wraps
 from types import UnionType
-from typing import Any, Generic, TypeVar, get_args, get_origin
+from typing import Any, Generic, TypeVar, get_args, get_origin, get_type_hints
 
 from aod._internal.core.base_sealed import BaseSealed
 from aod._internal.core.infrastructure_exception import HandlerResultTypeError
@@ -33,6 +33,14 @@ class BaseHandler(BaseSealed, Generic[T]):
                     result = get_last_generic_arg(args[0])
                     if result is not None:
                         return result
+        handle = cls.__dict__.get("handle")
+        if handle is None or getattr(handle, "__isabstractmethod__", False):
+            return object
+        hints = get_type_hints(handle)
+        for param_type in hints.values():
+            result = get_last_generic_arg(param_type)
+            if result is not None:
+                return result
         return object
 
     @classmethod

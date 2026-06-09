@@ -1,11 +1,9 @@
 from aod._internal.core.application_exception import (
-    ProjectionStoreNotConfiguredError,
-    RepositoryNotRegisteredError,
+    CommitOutsideUnitOfWorkError,
     UnresolvableEntityError,
 )
 
 __all__ = [
-    "ProjectionStoreNotConfiguredError",
-    "RepositoryNotRegisteredError",
+    "CommitOutsideUnitOfWorkError",
     "UnresolvableEntityError",
 ]

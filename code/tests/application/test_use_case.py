@@ -436,14 +436,13 @@ def test_uow_auto_commit_on_success() -> None:
             pass
 
     uow = SpyUnitOfWork()
-    uow.set_dirty()
     uc = Create(uow=uow)
     uc.run()
     assert uow.committed
     assert not uow.rolled_back
 
 
-def test_uow_skips_commit_when_not_dirty() -> None:
+def test_uow_always_commits_on_success() -> None:
     class NoOp(UseCase):
         def run(self) -> None:
             pass
@@ -451,7 +450,7 @@ def test_uow_skips_commit_when_not_dirty() -> None:
     uow = SpyUnitOfWork()
     uc = NoOp(uow=uow)
     uc.run()
-    assert not uow.committed
+    assert uow.committed
     assert not uow.rolled_back
 
 
@@ -461,7 +460,6 @@ def test_uow_auto_rollback_on_failure() -> None:
             raise ValueError("oops")
 
     uow = SpyUnitOfWork()
-    uow.set_dirty()
     uc = Fail(uow=uow)
     with pytest.raises(ValueError):
         uc.run()
@@ -529,12 +527,10 @@ def test_commit_failure_rolls_back_and_logs() -> None:
             pass
 
     uow = FailingUoW()
-    uow.set_dirty()
     logger = SpyLogger()
     uc = Simple(uow=uow, logger=logger)
     with pytest.raises(RuntimeError):
         uc.run()
     assert uow.rolled_back
-    assert not uow.committed
     errors = [e for e in logger.entries if e.level == "error"]
     assert any("commit failed" in str(e.msg) for e in errors)

@@ -6,16 +6,10 @@ from .projection_handler import (
     ProjectionCommandHandler,
     ProjectionQueryHandler,
 )
-from .projection_store import (
-    AsyncProjectionStore,
-    ProjectionStore,
-)
 
 __all__ = [
     "AsyncProjectionCommandHandler",
     "AsyncProjectionQueryHandler",
-    "AsyncProjectionStore",
     "ProjectionCommandHandler",
     "ProjectionQueryHandler",
-    "ProjectionStore",
 ]

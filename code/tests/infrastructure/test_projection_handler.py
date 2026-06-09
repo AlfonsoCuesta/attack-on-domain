@@ -4,15 +4,11 @@ from typing import Any, cast
 
 import pytest
 from aod._internal.core.domain_exception import DomainException
-from aod._internal.core.infrastructure_exception import InfrastructureException
 from aod._internal.infrastructure.projection.projection_handler import (
     ProjectionQueryHandler as PH,
 )
-from aod._internal.infrastructure.projection.projection_store import (
-    ProjectionStore as PS,
-)
 from aod.application import ProjectionCommand, ProjectionQuery, ReadModel
-from aod.infrastructure import ProjectionCommandHandler, ProjectionQueryHandler, ProjectionStore
+from aod.infrastructure import ProjectionCommandHandler, ProjectionQueryHandler
 
 
 class OrdersResponse(ReadModel):
@@ -99,57 +95,3 @@ class TestProjectionHandler:
     def test_command_handler_works(self) -> None:
         h = UpdateOrderHandler()
         h.handle(UpdateOrder(order_id=1, status="shipped"))
-
-
-def test_store_with_valid_query_handler() -> None:
-    store = ProjectionStore(handlers=[GetOrdersHandler()])
-    result = store.query(GetOrders(user_id=1, status="active"))
-    assert isinstance(result, OrdersResponse)
-    assert result.data[0]["status"] == "active"
-
-
-def test_store_no_query_handler_registered() -> None:
-    store = ProjectionStore()
-    with pytest.raises(InfrastructureException, match="No handler registered for"):
-        store.query(GetOrders(user_id=1))
-
-
-def test_store_with_valid_command_handler() -> None:
-    store = ProjectionStore(handlers=[UpdateOrderHandler()])
-    store.command(UpdateOrder(order_id=1, status="shipped"))
-
-
-def test_store_no_command_handler_registered() -> None:
-    store = ProjectionStore()
-    with pytest.raises(InfrastructureException, match="No handler registered for"):
-        store.command(UpdateOrder(order_id=1, status="shipped"))
-
-
-def test_store_with_both_handler_types() -> None:
-    store = ProjectionStore(handlers=[GetOrdersHandler(), UpdateOrderHandler()])
-    result = store.query(GetOrders(user_id=1))
-    assert isinstance(result, OrdersResponse)
-    store.command(UpdateOrder(order_id=1, status="active"))
-
-
-def test_store_duplicate_handler_raises() -> None:
-    with pytest.raises(InfrastructureException, match="Duplicate handler for"):
-        ProjectionStore(handlers=[GetOrdersHandler(), GetOrdersHandler()])
-
-
-def test_store_duplicate_command_handler_raises() -> None:
-    class AnotherHandler(ProjectionCommandHandler[UpdateOrder]):
-        def handle(self, command: UpdateOrder) -> None:
-            return None
-
-    with pytest.raises(InfrastructureException, match="Duplicate handler for"):
-        ProjectionStore(handlers=[UpdateOrderHandler(), AnotherHandler()])
-
-
-def test_store_invalid_handler_type_raises() -> None:
-    class NoType(PH):
-        def handle(self, query: object) -> object:
-            return None
-
-    with pytest.raises(InfrastructureException, match="Cannot determine projection type for"):
-        PS(handlers=[NoType()])

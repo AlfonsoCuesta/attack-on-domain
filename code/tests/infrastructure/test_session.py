@@ -1,10 +1,14 @@
 from __future__ import annotations
 
 import pytest
+from aod._internal.infrastructure.commit_context import _CommitContext
 from aod._internal.infrastructure.session import AsyncSession, Session
 
 
 class ConcreteSession(Session):
+    def is_dirty(self) -> bool:
+        return False
+
     def execute(self, operation: object) -> object:
         return operation
 
@@ -25,6 +29,9 @@ class ConcreteSession(Session):
 
 
 class ConcreteAsyncSession(AsyncSession):
+    def is_dirty(self) -> bool:
+        return False
+
     async def execute(self, operation: object) -> object:
         return operation
 
@@ -57,7 +64,11 @@ class TestSession:
     def test_lifecycle_methods(self) -> None:
         s = ConcreteSession()
         s.begin()
-        s.commit()
+        token = _CommitContext.set(True)
+        try:
+            s.commit()
+        finally:
+            _CommitContext.reset(token)
         s.rollback()
         s.close()
 
@@ -77,6 +88,10 @@ class TestAsyncSession:
     async def test_lifecycle_methods(self) -> None:
         s = ConcreteAsyncSession()
         await s.begin()
-        await s.commit()
+        token = _CommitContext.set(True)
+        try:
+            await s.commit()
+        finally:
+            _CommitContext.reset(token)
         await s.rollback()
         await s.close()

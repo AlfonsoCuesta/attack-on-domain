@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Generic, Protocol, TypeVar, get_type_hints, runtime_checkable
+from typing import Generic, TypeVar, get_type_hints
 
 from aod._internal.core.base_sealed import BaseSealed
 from aod._internal.core.domain_exception import (
@@ -61,13 +61,10 @@ class Query(BaseSealed, Generic[TEntity, TResult]):
         _validate_result_contains_root_entity(cls, Query)
 
 
-@runtime_checkable
-class Repository(Protocol, Generic[TEntity, TResult]):
-    def command(self, command: Command[TEntity, TResult]) -> TResult: ...
-    def query(self, query: Query[TEntity, TResult]) -> TResult: ...
+class User(RootEntity):
+    id: int
+    name: str
 
 
-@runtime_checkable
-class AsyncRepository(Protocol, Generic[TEntity, TResult]):
-    async def command(self, command: Command[TEntity, TResult]) -> TResult: ...
-    async def query(self, query: Query[TEntity, TResult]) -> TResult: ...
+class GetUser(Query[User, User | None]):
+    user_id: int

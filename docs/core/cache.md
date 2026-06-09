@@ -80,10 +80,10 @@ class GetUserUseCase(UseCase):
 
 ## Composition over Injection
 
-Cache is infrastructure, not domain. To keep handlers clean, compose cache inside a concrete `Session` or `Repository`:
+Cache is infrastructure, not domain. To keep handlers clean, compose cache inside a concrete `Session`:
 
 ```python
-class CachedUserRepository(Session):
+class CachedUserSession(Session):
     def __init__(self, db: Session, cache: Cache) -> None:
         self._db = db
         self._cache = cache

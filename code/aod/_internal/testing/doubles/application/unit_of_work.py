@@ -1,17 +1,13 @@
 from __future__ import annotations
 
 from aod._internal.core.fields.fields import PrivateField
-from aod.application import UnitOfWork
-from aod.application.async_ import UnitOfWork as AsyncUnitOfWork
+from aod._internal.infrastructure.unit_of_work import AsyncUnitOfWork, UnitOfWork
 
 
 class SpyUnitOfWork(UnitOfWork):
     _committed: bool = PrivateField(default=False)
     _rolled_back: bool = PrivateField(default=False)
     _flushed: bool = PrivateField(default=False)
-
-    def set_dirty(self) -> None:
-        self.is_dirty = True
 
     @property
     def committed(self) -> bool:
@@ -39,9 +35,6 @@ class AsyncSpyUnitOfWork(AsyncUnitOfWork):
     _committed: bool = PrivateField(default=False)
     _rolled_back: bool = PrivateField(default=False)
     _flushed: bool = PrivateField(default=False)
-
-    def set_dirty(self) -> None:
-        self.is_dirty = True
 
     @property
     def committed(self) -> bool:

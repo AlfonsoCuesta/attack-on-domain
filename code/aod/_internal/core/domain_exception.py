@@ -116,30 +116,6 @@ class InvalidProjectionTypeError(DomainException):
         )
 
 
-class HandlerTypeMismatchError(DomainException):
-    """Handler is not a subclass of the expected handler base."""
-
-    def __init__(self, handler_name: str, expected_type_name: str) -> None:
-        super().__init__(f"Handler {handler_name} does not handle a {expected_type_name}")
-
-
-class HandlerEntityMismatchError(DomainException):
-    """Handler's entity does not match the repository's entity."""
-
-    def __init__(self, handler_name: str, h_entity: str, repo_entity: str) -> None:
-        super().__init__(
-            f"Handler {handler_name} handles entity {h_entity}, "
-            f"but repository is for entity {repo_entity}"
-        )
-
-
-class UnresolvableHandlerTypeError(DomainException):
-    """Cannot determine the Command/Query type from a handler's generic bases."""
-
-    def __init__(self, handler_name: str) -> None:
-        super().__init__(f"Cannot determine handler type for {handler_name}")
-
-
 class ModelValidationError(DomainException):
     """Pydantic validation failed during model construction."""
 

@@ -46,12 +46,8 @@ code/
 │       │   │   ├── base_guarded_handler.py  # check_entity, check_root_entity, check_value_object, discover_types
 │       │   │   ├── generic_utils.py         # get_generic_arg_from_orig_bases, get_generic_arg_from_mro, validate_generic_arg_is_subclass
 │       │   │   └── service_handler.py       # check_service
-│       │   ├── fields/fields.py      # Field(), PrivateField() wrappers
-│       │   └── invariances/invariances.py  # field_invariance, invariance, is_validator
-│       ├── type_checks/             # Contract & handler validation
-│       │   ├── __init__.py
-│       │   ├── contract_checks.py   # validate_fields_no_entity, validate_result_contains_root_entity, extract_root_entity
-│       │   └── handler_checks.py    # extract_handler_type, validate_handler_type, validate_handler_entity, handler_type_entity
+│       │       ├── fields/fields.py      # Field(), PrivateField() wrappers
+│       │       └── invariances/invariances.py  # field_invariance, invariance, is_validator
 │       └── domain/                   # DDD domain primitives (implementation)
 │           ├── value_object.py
 │           ├── entity.py
@@ -68,9 +64,9 @@ code/
 │       │   │   ├── __init__.py       # ProjectionQuery, ProjectionCommand, ProjectionStore, AsyncProjectionStore
 │       │   │   ├── projection.py     # ProjectionQuery[T], ProjectionCommand
 │       │   │   └── projection_store.py  # ProjectionStore + AsyncProjectionStore (Protocol)
-│       │   ├── repository/           # Command, Query, Repository (Protocol) — sync + async
-│       │   │   ├── __init__.py       # Command, Query, Repository + AsyncRepository
-│       │   │   └── repository.py     # Command, Query, Repository, AsyncRepository (Protocol)
+│       │   ├── contracts/            # Command, Query — application contracts
+│       │   │   ├── __init__.py       # Command, Query
+│       │   │   └── contracts.py      # Command(BaseSealed), Query(BaseSealed) with field validation
 │       │   ├── event_bus/            # EventBus port — sync + async
 │       │   │   ├── __init__.py
 │       │   │   └── event_bus.py       # EventBus(Port) + AsyncEventBus(Port)
@@ -79,25 +75,22 @@ code/
 │       │   │   └── logger.py          # Logger(Port) + AsyncLogger(Port)
 │       │   ├── unit_of_work/         # UnitOfWork port — sync + async
 │       │   │   ├── __init__.py
-│       │   │   └── unit_of_work.py   # _UnitOfWorkBase (shared logic), UnitOfWork (sync), AsyncUnitOfWork (async, accepts sync/async repos + stores)
+│       │   │   └── unit_of_work.py   # _UnitOfWorkBase (shared logic), UnitOfWork (sync), AsyncUnitOfWork (async, accepts sync/async sessions)
 │       │   └── use_case/             # UseCase base — sync + async
 │       │       ├── __init__.py
 │       │       └── use_case.py       # UseCase(BaseSealed) + AsyncUseCase(BaseSealed)
-│       ├── infrastructure/           # Infrastructure layer (packages)
-│       │   ├── session/              # Session (database abstraction)
-│       │   │   ├── __init__.py
-│       │   │   └── session.py        # Session(Port) + AsyncSession(Port)
-│       │   ├── handlers/             # CommandHandler, QueryHandler — sync + async
-│       │   │   ├── __init__.py
-│       │   │   ├── base_handler.py   # BaseHandler + AsyncBaseHandler
-│       │   │   └── handlers.py       # CommandHandler, QueryHandler, AsyncCommandHandler, AsyncQueryHandler
-│       │   ├── projection/           # ProjectionHandler + ProjectionStore — sync + async
+│   ├── infrastructure/           # Infrastructure layer (packages)
+│   │   ├── session/              # Session (database abstraction)
+│   │   │   ├── __init__.py
+│   │   │   └── session.py        # Session(Port) + AsyncSession(Port)
+│   │   ├── handlers/             # CommandHandler, QueryHandler — sync + async
+│   │   │   ├── __init__.py
+│   │   │   ├── base_handler.py   # BaseHandler + AsyncBaseHandler
+│   │   │   └── handlers.py       # CommandHandler, QueryHandler, AsyncCommandHandler, AsyncQueryHandler
+│   │   ├── projection/           # ProjectionHandler + ProjectionStore — sync + async
 │       │   │   ├── __init__.py
 │       │   │   ├── projection_handler.py  # ProjectionQueryHandler + ProjectionCommandHandler + Async variants
 │       │   │   └── projection_store.py    # ProjectionStore + AsyncProjectionStore (concrete)
-│       │   └── repository/           # Repository with dispatch — sync + async
-│       │       ├── __init__.py
-│       │       └── repository.py     # Repository + AsyncRepository
 │       └── testing/                  # Testing utilities (implementation)
 │           ├── __init__.py           # Re-exports: DomainType, FakeDomain, build, helpers
 │           ├── helpers.py            # build(), events_of(), assert_event_emitted(), etc.
@@ -136,11 +129,8 @@ code/
     │   ├── test_async_port.py
     │   └── test_async_use_case.py
     ├── infrastructure/               # Infrastructure layer tests
-    │   ├── test_async_handlers.py
     │   ├── test_async_projection_handler.py
-    │   ├── test_async_repository.py
     │   ├── test_projection_handler.py
-    │   └── test_repository.py
     └── ...
 ```
 
@@ -271,7 +261,7 @@ The hierarchy:
 **Bases:**
 - `DomainException` — base for all domain rule violations
 - `ApplicationException` — base for application layer errors (UoW dispatch)
-- `InfrastructureException` — base for infrastructure layer errors (repository dispatch, projection store, handlers)
+- `InfrastructureException` — base for infrastructure layer errors
 
 **`DomainException` subclasses:**
 - `MutationForbiddenException(DomainException)` — mutation outside allowed context
@@ -287,22 +277,13 @@ The hierarchy:
 - `InvalidNestedTypeError` — Entity field references forbidden domain type
 - `InvalidServiceParameterError` — Service method parameter has disallowed type
 - `DuplicateDomainTypeError` — domain type registered in >1 `BoundedContext`
-- `HandlerTypeMismatchError` — handler not a subclass of expected handler base
-- `HandlerEntityMismatchError` — handler's entity does not match repository's entity
-- `UnresolvableHandlerTypeError` — cannot determine Command/Query type from handler
 - `ModelValidationError` — Pydantic validation failed during model construction (wraps `ValidationError`; if the cause is an `InvarianceException`, that is re-raised directly)
 
 **`ApplicationException` subclasses:**
-- `ProjectionStoreNotConfiguredError` — no `ProjectionStore` in UoW
 - `UnresolvableEntityError` — cannot determine `RootEntity` from Command/Query
-- `RepositoryNotRegisteredError` — no repository for the entity
+- `CommitOutsideUnitOfWorkError` — commit attempted outside a `UnitOfWork` context
 
 **`InfrastructureException` subclasses:**
-- `UnresolvableProjectionTypeError` — cannot determine projection type from handler
-- `DuplicateProjectionHandlerError` — duplicate handler in `ProjectionStore`
-- `ProjectionHandlerNotFoundError` — no handler for projection type
-- `DuplicateHandlerError` — duplicate handler in `Repository`
-- `HandlerNotFoundError` — no handler for Command/Query in `Repository`
 - `HandlerResultTypeError` — handler returned wrong type
 
 > For details on when each is raised, see `docs/core/exceptions.md`.
@@ -353,41 +334,34 @@ Built-in port types (all `aod.application`):
 - **`UnitOfWork`** — `commit()`, `rollback()`, `flush()` for transactional boundaries
 - **`Cache`** — `get(key)`, `set(key, value, ttl=None)`, `delete(key)`, `flush()`, `set_promise()`, `delete_promise()` for caching (sync + async). Application-level `Cache` is a `Protocol`; infrastructure provides `Cache(Port)` with promise/flush support.
 
-### Repository Layer
+### Contracts (`Command` / `Query`)
 
-`aod.application` provides the application-level contracts; `aod.infrastructure` provides the handler bases and repository:
+`aod.application` provides application-layer contracts:
 
-- **`Repository`** (Protocol in `aod.application`) — structural interface with `command()` and `query()`, no inheritance needed
 - **`Command[TEntity, TResult]`** / **`Query[TEntity, TResult]`** — immutable data classes for writes/reads (extend `BaseSealed`, validate `TEntity` is `RootEntity` subclass at class creation). Field types are checked at `__init_subclass__` — any field referencing a non-root `Entity` (even nested in generics like `list[Entity]`) raises `DomainException`. `Query` additionally requires its `TResult` type argument to contain at least one `RootEntity` (e.g. `Query[User, User]`, `Query[User, list[User]]`, `Query[User, tuple[int, User | None]]` are all valid).
-- **`CommandHandler[C]`** / **`QueryHandler[Q]`** — abstract bases with `handle()` method; validate generic param at class creation
-- **`Repository[TEntity]`** — receives `command_handlers` and `query_handlers` in `__init__`; dispatches via `command()` / `query()`; raises `DomainException` for unregistered types or duplicates
-- **`UnitOfWork`** — receives `repositories: list[Repository]`, auto-builds entity-to-repo dict in `__post_init__`; `command()` and `query()` dispatch to reposito/query handlers and also handle `ProjectionCommand`/`ProjectionQuery` via `projection_store`. Has `is_dirty` flag (set True after command).
 
-Handler type resolution uses `extract_handler_type()` (in `type_checks/handler_checks.py`) via `get_generic_arg_from_mro` in `generic_utils.py` — works in any scope, avoids `NameError` with locally-defined handlers. Validators: `handler_type_entity`, `validate_handler_type`, `validate_handler_entity`. Reusable helpers: `get_generic_arg_from_orig_bases`, `get_generic_arg_from_mro`, `validate_generic_arg_is_subclass`.
+Contract validation lives in `aod._internal.application.contracts.contracts.py` as private helpers `_validate_fields_no_entity` and `_validate_result_contains_root_entity`, called from `Command.__init_subclass__` and `Query.__init_subclass__` respectively.
 
-Validation functions in `type_checks/handler_checks.py`:
-- **`extract_handler_type(handler, handler_types)`** — returns `type[Command]` or `type[Query]`; callers pass the handler-type tuple (sync or async) as `handler_types`; raises `DomainException` if unresolvable
-- **`validate_handler_type(handler, expected_type)`** — raises `DomainException` if handler is not the expected class
-- **`validate_handler_entity(handler, handler_type, repo_entity)`** — checks that `CommandHandler`/`QueryHandler` entity matches `Repository[TEntity]`'s entity
-- **`handler_type_entity(handler_type)`** — extracts the entity param from a `Command`/`Query` type
+### CommandHandler / QueryHandler
 
-Contract validation in `type_checks/contract_checks.py`:
-- **`extract_root_entity(repo)`** — extracts the `RootEntity` type from a Repository's generic bases
+`aod.infrastructure` provides abstract handler bases with automatic result-type checking:
 
-`Command`/`Query`-specific field validation lives in `aod._internal.application.repository.repository.py` as private helpers `_validate_fields_no_entity` and `_validate_result_contains_root_entity`, called from `Command.__init_subclass__` and `Query.__init_subclass__` respectively.
+- **`CommandHandler[C]`** / **`QueryHandler[Q]`** — abstract bases with `handle()` method
+- **`AsyncCommandHandler[C]`** / **`AsyncQueryHandler[Q]`** — async variants
+- **`BaseHandler`** — base class with `_wrap_handle()` that validates the `handle()` return type against the handler's generic parameter at runtime. Uses `get_last_generic_arg` from `generic_utils.py`.
 
-### `ProjectionQuery[T]` / `ProjectionCommand` / `ProjectionStore`
+Zero `# type: ignore` in `handlers.py`.
 
-Analogous to `Query`/`Command` but for read/write projections:
+### `ProjectionQuery[T]` / `ProjectionCommand`
 
-- **`ProjectionQuery[T]`** (`aod.application`) — read-only projection. `BaseSealed, Generic[T]` data class. No `__init_subclass__` validation — fields can reference any type. `T` is the return type (like `Query`).
+Analogous to `Query`/`Command` but for read/write projections — isolated from the Command/Query dispatch system:
+
+- **`ProjectionQuery[T]`** (`aod.application`) — read-only projection. `BaseSealed, Generic[T]` data class. Fields can reference any type. `T` is the return type (like `Query`).
 - **`ProjectionCommand[T]`** (`aod.application`) — write-only projection. `BaseSealed, Generic[T]` data class. Carries write data in its own fields (like `Command`). `T` is the return type.
-- **`ProjectionStore`** (`aod.application`) — `Protocol` with `query(query: ProjectionQuery[T]) -> T` and `command(command: ProjectionCommand[T]) -> T`. Sync and async versions available.
 - **`ProjectionQueryHandler[PQ]`** (`aod.infrastructure`) — abstract base with `handle(query: PQ) -> object`. Validates `PQ` is a `ProjectionQuery` subclass.
 - **`ProjectionCommandHandler[PC]`** (`aod.infrastructure`) — abstract base with `handle(command: PC) -> object`. Validates `PC` is a `ProjectionCommand` subclass.
-- **`ProjectionStore`** (`aod.infrastructure`) — concrete dispatcher: receives both handler types, validates duplicates in `__post_init__`, dispatches via `query()` / `command()`.
 
-Unlike `CommandHandler`/`QueryHandler`, projection handlers are **not** registered in a `Repository`. They live in `aod.infrastructure.projection` and are consumed independently via `ProjectionStore`.
+Projections exist independently and are never mixed with `Command`/`Query`, `UnitOfWork`, or `Repository`.
 
 ### `should_await` Helper
 
@@ -451,7 +425,7 @@ uv run pytest code/tests -q
 5. Tests mirror source structure under `code/tests/`
 6. Never import from `_internal` in user-facing code — only through `aod.domain`, `aod.domain.validation`, `aod.exceptions`, `aod.application`, `aod.infrastructure`
 7. Every `__init__.py` must define `__all__` to suppress `F401` ("imported but unused") warnings. Public `async_.py` aggregators also define `__all__`.
-8. Sync/async duality: every port, handler, use case, and repository has sync and async versions. Sync classes keep the base name (`Cache`, `Session`, `UnitOfWork`, `Repository`, etc.), async classes use the `Async` prefix (`AsyncCache`, `AsyncSession`, `AsyncUnitOfWork`, `AsyncRepository`). Both live in the same file.
+8. Sync/async duality: every port, handler, and use case has sync and async versions. Sync classes keep the base name (`Cache`, `Session`, `UnitOfWork`, `CommandHandler`, etc.), async classes use the `Async` prefix (`AsyncCache`, `AsyncSession`, `AsyncUnitOfWork`, `AsyncCommandHandler`). Both live in the same file.
 
 ## When Modifying This Code
 
@@ -460,11 +434,10 @@ uv run pytest code/tests -q
 - If you change `__post_init__`, update `base_validator.py` (definition and trigger), and verify `test_post_init.py`
 - If you change `reconstruct()`, update `reconstructable.py` and verify `test_post_init.py` + `test_base_validator.py`
 - If you change domain classes, check `test_event_emitter.py`, `test_entity.py`, `test_value_object.py`
-- If you change type checks, update `type_handlers/extractors.py` and/or `type_handlers/checks` and verify tests
-- If you change bounded context logic, update `bounded_context.py` and check `test_bounded_context.py`
-- If you change the projection layer, update `projection_handler.py` / `projection_store.py` (both application and infrastructure) and verify `test_projection.py` / `test_projection_handler.py` / `test_async_projection_handler.py`
-- If you change the repository layer, update `repository.py` and/or `handlers.py` and verify `test_repository.py`
-- If you change validation functions, update `type_checks/` and verify `test_repository.py`
+- If you change the type checks, update `type_handlers/extractors.py` and/or `type_handlers/checks` and verify tests
+- If you change the bounded context logic, update `bounded_context.py` and check `test_bounded_context.py`
+- If you change the projection layer, update `projection_handler.py` (infrastructure) and verify `test_projection.py` / `test_projection_handler.py` / `test_async_projection_handler.py`
+- If you change the handler layer, update `handlers.py` and/or `base_handler.py` and verify `test_async_handlers.py`
 - If you change the application layer, update `port.py` and/or `use_case.py` and verify `test_port.py` / `test_use_case.py`
 - If you change the UnitOfWork, update `unit_of_work.py` (sync + async) and verify `test_port.py` / `test_async_port.py` (includes `is_dirty` tests)
 - If you change async counterparts (aggregated in `aod.application.async_` / `aod.infrastructure.async_`), update both sync and async test files
@@ -482,7 +455,7 @@ uv run pytest code/tests -q
 
 ## Test Count
 
-624 tests
+509 tests
 
 ## At the end of a task
 

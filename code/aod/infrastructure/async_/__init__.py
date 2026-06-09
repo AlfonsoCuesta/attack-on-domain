@@ -7,17 +7,13 @@ from aod._internal.infrastructure.projection.projection_handler import (
 from aod._internal.infrastructure.projection.projection_handler import (
     AsyncProjectionQueryHandler as ProjectionQueryHandler,
 )
-from aod._internal.infrastructure.projection.projection_store import (
-    AsyncProjectionStore as ProjectionStore,
-)
-from aod._internal.infrastructure.repository import AsyncRepository as Repository
+from aod._internal.infrastructure.unit_of_work import AsyncUnitOfWork as UnitOfWork
 
 __all__ = [
     "CommandHandler",
     "Cache",
     "ProjectionCommandHandler",
     "ProjectionQueryHandler",
-    "ProjectionStore",
     "QueryHandler",
-    "Repository",
+    "UnitOfWork",
 ]

@@ -8,7 +8,7 @@ from aod._internal.application.cache import AsyncCache, Cache
 from aod._internal.application.event_bus import AsyncEventBus, EventBus
 from aod._internal.application.logger import AsyncLogger, Logger
 from aod._internal.application.unit_of_work import AsyncUnitOfWork, UnitOfWork
-from aod._internal.core.async_utils import should_await as awaiter
+from aod._internal.core.async_utils import should_await
 from aod._internal.core.base_guarded import inherit_context
 from aod._internal.core.base_sealed import BaseSealed
 from aod._internal.core.event_emitter import Event, EventCollector, EventEmitter
@@ -28,9 +28,11 @@ class _NullEventBus(EventBus):
     def publish(self, *events: Event) -> None: ...
 
 
-class _NullUnitOfWork(UnitOfWork):
+class _NullUnitOfWork:
     def commit(self) -> None: ...
+
     def rollback(self) -> None: ...
+
     def flush(self) -> None: ...
 
 
@@ -76,18 +78,16 @@ class UseCase(BaseSealed):
             self.logger.info(f"{type(self).__name__} events", events=self.events)
 
             if exception is not None:
-                if self.uow.is_dirty:
-                    self.uow.rollback()
+                self.uow.rollback()
                 self.logger.error(f"{type(self).__name__} failed with exception: {exception}")
                 raise exception
 
-            if self.uow.is_dirty:
-                try:
-                    self.uow.commit()
-                except BaseException:
-                    self.uow.rollback()
-                    self.logger.error(f"{type(self).__name__} commit failed")
-                    raise
+            try:
+                self.uow.commit()
+            except BaseException:
+                self.uow.rollback()
+                self.logger.error(f"{type(self).__name__} commit failed")
+                raise
 
             self.cache.flush()
             self.event_bus.publish(*self.events)
@@ -128,33 +128,33 @@ class AsyncUseCase(BaseSealed):
 
             with EventCollector() as events:
                 try:
-                    await awaiter(fn(self, *args, **kwargs))
+                    await should_await(fn(self, *args, **kwargs))
                 except BaseException as e:
                     exception = e
 
                 self.events = list(events)
 
-            await awaiter(self.logger.info(f"{type(self).__name__} events", events=self.events))
+            await should_await(
+                self.logger.info(f"{type(self).__name__} events", events=self.events)
+            )
 
             if exception is not None:
-                if self.uow.is_dirty:
-                    await awaiter(self.uow.rollback())
-                await awaiter(
+                await should_await(self.uow.rollback())
+                await should_await(
                     self.logger.error(f"{type(self).__name__} failed with exception: {exception}")
                 )
                 raise exception
 
-            if self.uow.is_dirty:
-                try:
-                    await awaiter(self.uow.commit())
-                except BaseException:
-                    await awaiter(self.uow.rollback())
-                    await awaiter(self.logger.error(f"{type(self).__name__} commit failed"))
-                    raise
+            try:
+                await should_await(self.uow.commit())
+            except BaseException:
+                await should_await(self.uow.rollback())
+                await should_await(self.logger.error(f"{type(self).__name__} commit failed"))
+                raise
 
-            await awaiter(self.cache.flush())
-            await awaiter(self.event_bus.publish(*self.events))
-            await awaiter(
+            await should_await(self.cache.flush())
+            await should_await(self.event_bus.publish(*self.events))
+            await should_await(
                 self.logger.info(
                     f"{type(self).__name__} completed",
                     events=len(self.events),
