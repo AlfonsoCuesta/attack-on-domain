@@ -93,9 +93,9 @@ class _AsyncSession(AsyncSession):
 def test_can_instantiate_with_defaults() -> None:
     container = AdapterContainerBase()
     assert container.sessions == set()
-    assert container.logger is None
-    assert container.event_bus is None
-    assert container.cache is None
+    assert container.logger is not None
+    assert container.event_bus is not None
+    assert container.cache is not None
     assert container.handlers == []
 
 

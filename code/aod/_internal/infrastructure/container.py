@@ -4,9 +4,12 @@ from types import UnionType
 from typing import Any, ClassVar, Self, Union, cast, get_args, get_origin, get_type_hints
 
 from aod._internal.application.cache import AsyncCache, Cache
+from aod._internal.application.cache.null_cache import NullCache
 from aod._internal.application.contracts import Command, Query
 from aod._internal.application.event_bus import AsyncEventBus, EventBus
+from aod._internal.application.event_bus.null_event_bus import NullEventBus
 from aod._internal.application.logger import AsyncLogger, Logger
+from aod._internal.application.logger.null_logger import NullLogger
 from aod._internal.application.port import Port
 from aod._internal.core.base_guarded import BaseGuarded
 from aod._internal.core.infrastructure_exception import (
@@ -48,9 +51,9 @@ def _is_port_type(tp: object) -> bool:
 
 class AdapterContainerBase(BaseGuarded):
     sessions: set[Session | AsyncSession] = Field(default_factory=set)
-    logger: Logger | AsyncLogger | None = None
-    event_bus: EventBus | AsyncEventBus | None = None
-    cache: Cache | AsyncCache | None = None
+    logger: Logger | AsyncLogger = Field(default_factory=NullLogger)
+    event_bus: EventBus | AsyncEventBus = Field(default_factory=NullEventBus)
+    cache: Cache | AsyncCache = Field(default_factory=NullCache)
     handlers: list[AnyHandler] = Field(default_factory=list)
 
     def __init_subclass__(cls, **kwargs: object) -> None:
