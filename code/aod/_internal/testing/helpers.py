@@ -44,16 +44,19 @@ def assert_no_events(events: Sequence[Event]) -> None:
         raise AssertionError(f"Expected no events, got {len(events)}")
 
 
-def check_invariant(cls: type, name: str, **data: Any) -> None:
+def check_invariant(
+    cls: type, invariant_name: str, data: dict[str, Any] | None = None, **kwargs: Any
+) -> None:
+    merged: dict[str, Any] = {**(data or {}), **kwargs}
     registry: dict[str, Any] = getattr(cls, "__validator_registry__", {})
-    validator_fn = registry.get(name)
+    validator_fn = registry.get(invariant_name)
     if validator_fn is None:
         names = ", ".join(sorted(registry))
-        msg = f"No invariant named {name!r} on {cls.__name__}. Available: {names}"
+        msg = f"No invariant named {invariant_name!r} on {cls.__name__}. Available: {names}"
         raise ValueError(msg)
 
     info = is_validator(validator_fn)
-    obj = build(cls, **data)
+    obj = build(cls, **merged)
 
     if info and info.args:
         field = info.args[0]

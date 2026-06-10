@@ -241,25 +241,25 @@ class TestGetSession:
     def test_finds_sync_session(self) -> None:
         session = _SyncSession()
         container = AdapterContainerBase(sessions={session})
-        result = container._get_session(Session)
+        result = container.get_session(Session)
         assert result is session
 
     def test_finds_async_session(self) -> None:
         session = _AsyncSession()
         container = AdapterContainerBase(sessions={session})
-        result = container._get_session(AsyncSession)
+        result = container.get_session(AsyncSession)
         assert result is session
 
     def test_raises_when_session_type_missing(self) -> None:
         container = AdapterContainerBase()
         with pytest.raises(SessionNotFoundError, match="No session of type"):
-            container._get_session(Session)
+            container.get_session(Session)
 
     def test_returns_first_match(self) -> None:
         s1 = _SyncSession()
         s2 = _SyncSession()
         container = AdapterContainerBase(sessions={s1, s2})
-        result = container._get_session(Session)
+        result = container.get_session(Session)
         assert result in {s1, s2}
 
 

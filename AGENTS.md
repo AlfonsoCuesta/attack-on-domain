@@ -126,7 +126,19 @@ code/
     │   ├── test_async_port.py
     │   └── test_async_use_case.py
     ├── infrastructure/               # Infrastructure layer tests
-    └── ...
+    │   ├── test_async_handlers.py
+    │   ├── test_cache.py
+    │   ├── test_container.py
+    │   ├── test_inject.py
+    │   ├── test_projection_classes.py
+    │   ├── test_session.py
+    │   └── test_unit_of_work.py
+    └── e2e/                          # End-to-end real-world usage tests
+        ├── test_ecommerce.py         # E-commerce domain: VOs, entities, bounded context, app, use case, container, inject, faker, build
+        ├── test_invariances.py       # field_invariance, invariance, check_invariant helper
+        ├── test_handler_injection.py # Application-layer Protocol handlers, inject_adapters with handlers + ports
+        ├── test_projections.py       # ReadProjection, WriteProjection, Projection, async variants, injection
+        └── test_mutation_rules.py    # _can_mutate, BaseGuarded mutation rules, immutable proxies, nested entities
 ```
 
 ## Class Hierarchy
@@ -330,6 +342,8 @@ Public modules re-export from `_internal`; they contain no logic of their own. T
 
 Events emitted directly by the UseCase via `self._event_emitter.emit(...)` or by any entity touched during `run` are all captured and stored on the UseCase, replacing any events from previous runs.
 
+**Handler fields on UseCase**: When a `UseCase` needs a `CommandHandler` or `QueryHandler`, the field must be declared with the **concrete infrastructure handler type** (e.g. `create_user: CreateUserHandler`), not the application-layer `Protocol`. This is because Pydantic cannot use `Protocol` as a field type (it raises `SchemaError`). The `inject_adapters` function resolves the correct handler from the container by matching the field's type against registered handlers. The **semantic dependency** is still against the application-layer `Protocol` — the `UseCase` never imports or knows the infrastructure implementation directly; it only declares the concrete type so Pydantic can validate the field.
+
 ### `Port` Base Class
 
 `Port` (public via `aod.application`) is an abstract base class for defining dependency interfaces (ports/gateways) in the application layer. It extends `BaseGuarded`, so:
@@ -483,7 +497,7 @@ uv run pytest code/tests -q
 
 ## Test Count
 
-646 tests
+768 tests
 
 ## At the end of a task
 

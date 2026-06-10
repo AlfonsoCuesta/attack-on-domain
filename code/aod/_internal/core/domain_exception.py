@@ -95,8 +95,7 @@ class InvalidQueryResultTypeError(DomainException):
 
     def __init__(self, cls_name: str, result_type_name: str) -> None:
         super().__init__(
-            f"Result type for {cls_name} must include a RootEntity, "
-            f"got {result_type_name}"
+            f"Result type for {cls_name} must include a RootEntity, got {result_type_name}"
         )
 
 

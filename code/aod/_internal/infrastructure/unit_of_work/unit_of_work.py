@@ -1,13 +1,16 @@
 from __future__ import annotations
 
+from aod._internal.application.unit_of_work.unit_of_work import (
+    AsyncUnitOfWork as AppAsyncUnitOfWork,
+)
+from aod._internal.application.unit_of_work.unit_of_work import UnitOfWork as AppUnitOfWork
 from aod._internal.core.async_utils import should_await
-from aod._internal.core.base_guarded.base_guarded import BaseGuarded
 from aod._internal.core.fields.fields import Field
 from aod._internal.infrastructure.commit_context import _CommitContext
 from aod._internal.infrastructure.session import AsyncSession, Session
 
 
-class UnitOfWork(BaseGuarded):
+class UnitOfWork(AppUnitOfWork):
     sessions: set[Session] = Field(default_factory=set)
 
     def commit(self) -> None:
@@ -25,7 +28,7 @@ class UnitOfWork(BaseGuarded):
                 s.rollback()
 
 
-class AsyncUnitOfWork(BaseGuarded):
+class AsyncUnitOfWork(AppAsyncUnitOfWork):
     sessions: set[Session | AsyncSession] = Field(default_factory=set)
 
     async def commit(self) -> None:

@@ -14,3 +14,8 @@ class CommitOutsideUnitOfWorkError(ApplicationException):
 
     def __init__(self) -> None:
         super().__init__("Cannot commit outside a UnitOfWork context")
+
+
+class InvalidPortFieldError(ApplicationException):
+    def __init__(self, field_name: str, cls_name: str, got: str) -> None:
+        super().__init__(f"Field '{field_name}' on {cls_name} must be a Port subclass (got {got})")

@@ -15,6 +15,7 @@ _USE_CASE_WRAPPED_KEY = "__aod_use_case_wrapped__"
 
 
 class UseCase(BaseOperation):
+    __skip_port_check__ = True
     uow: UnitOfWork = Field(default_factory=NullUnitOfWork)
 
     def __init_subclass__(cls, **kwargs: Any) -> None:
@@ -60,10 +61,11 @@ class UseCase(BaseOperation):
         return wrapper
 
     @abstractmethod
-    def run(self) -> None: ...
+    def run(self, *args: Any, **kwargs: Any) -> Any: ...
 
 
 class AsyncUseCase(BaseOperation):
+    __skip_port_check__ = True
     uow: UnitOfWork | AsyncUnitOfWork = Field(default_factory=NullUnitOfWork)
 
     def __init_subclass__(cls, **kwargs: Any) -> None:
@@ -107,11 +109,9 @@ class AsyncUseCase(BaseOperation):
             )
             await should_await(self.cache.flush())
             await should_await(self.event_bus.publish(*self.events))
-            await should_await(
-                self.logger.info(f"{type(self).__name__} completed")
-            )
+            await should_await(self.logger.info(f"{type(self).__name__} completed"))
 
         return wrapper
 
     @abstractmethod
-    async def run(self) -> None: ...
+    async def run(self, *args: Any, **kwargs: Any) -> Any: ...

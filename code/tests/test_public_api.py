@@ -69,6 +69,7 @@ def test_aod_application_exports_documented_api() -> None:
     assert aod.application.ApplicationException.__name__ == "ApplicationException"
     assert aod.application.Cache.__name__ == "Cache"
     import inspect
+
     assert inspect.iscoroutinefunction(aod.application.async_.Cache.get)
 
     assert aod.application.async_.__all__ == [

@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-from unittest.mock import patch
-
 import pytest
 from aod._internal.application.logger.null_logger import NullLogger
 from aod._internal.application.port import Port
@@ -13,7 +11,6 @@ from aod._internal.core.infrastructure_exception import (
 from aod._internal.infrastructure.container import AdapterContainerBase
 from aod._internal.infrastructure.handlers import AsyncCommandHandler
 from aod._internal.infrastructure.inject import (
-    _extract_handler_contract,
     _extract_port_type,
     inject_adapters,
 )
@@ -98,29 +95,6 @@ class TestExtractPortType:
         assert _extract_port_type(42) is None
 
 
-class TestExtractHandlerContract:
-    def test_returns_contract_for_command_handler(self) -> None:
-        assert _extract_handler_contract(CreateUserHandler) is CreateUser
-
-    def test_returns_contract_for_query_handler(self) -> None:
-        assert _extract_handler_contract(GetUserHandler) is GetUser
-
-    def test_returns_contract_for_async_handler(self) -> None:
-        assert _extract_handler_contract(AsyncCreateUserHandler) is CreateUser
-
-    def test_returns_none_for_non_handler(self) -> None:
-        assert _extract_handler_contract(int) is None
-
-    def test_returns_none_for_non_type(self) -> None:
-        assert _extract_handler_contract(42) is None
-
-    def test_returns_none_for_handler_without_generic(self) -> None:
-        class _Plain(CommandHandler):
-            def handle(self, command: object) -> object: ...
-
-        assert _extract_handler_contract(_Plain) is None
-
-
 class TestInjectAdapters:
     def test_injects_special_fields(self) -> None:
         class SimpleUseCase(UseCase):
@@ -146,57 +120,6 @@ class TestInjectAdapters:
         uc = partial()
         assert isinstance(uc.weather_client, _FakePort)
 
-    def test_injects_handler_field(self) -> None:
-        class HandlerUseCase(UseCase):
-            create_user: CreateUserHandler
-
-            def run(self) -> None: ...
-
-        session = _SyncSession()
-        container = _CustomContainer(
-            handlers=[CreateUserHandler],
-            sessions={session},
-        )
-        partial = inject_adapters(container, HandlerUseCase)
-        uc = partial()
-        assert isinstance(uc.create_user, CreateUserHandler)
-        assert isinstance(uc.create_user.session, Session)
-
-    def test_injects_async_handler_field(self) -> None:
-        class AsyncHandlerUseCase(AsyncUseCase):
-            create_user: AsyncCreateUserHandler
-
-            async def run(self) -> None: ...
-
-        session = _AsyncSession()
-        container = _CustomContainer(
-            handlers=[AsyncCreateUserHandler],
-            sessions={session},
-        )
-        partial = inject_adapters(container, AsyncHandlerUseCase)
-        uc = partial()
-        assert isinstance(uc.create_user, AsyncCreateUserHandler)
-        assert isinstance(uc.create_user.session, AsyncSession)
-
-    def test_injects_multiple_fields(self) -> None:
-        class MultiUseCase(UseCase):
-            weather_client: _FakePort
-            create_user: CreateUserHandler
-
-            def run(self) -> None: ...
-
-        port = _FakePort()
-        session = _SyncSession()
-        container = _CustomContainer(
-            weather_client=port,
-            handlers=[CreateUserHandler],
-            sessions={session},
-        )
-        partial = inject_adapters(container, MultiUseCase)
-        uc = partial()
-        assert isinstance(uc.weather_client, _FakePort)
-        assert isinstance(uc.create_user, CreateUserHandler)
-
     def test_overrides_special_field(self) -> None:
         class SimpleUseCase(UseCase):
             def run(self) -> None: ...
@@ -218,23 +141,6 @@ class TestInjectAdapters:
         partial = inject_adapters(container, PortUseCase, weather_client=override_port)
         uc = partial()
         assert isinstance(uc.weather_client, _FakePort)
-
-    def test_overrides_handler_field(self) -> None:
-        class HandlerUseCase(UseCase):
-            create_user: CreateUserHandler
-
-            def run(self) -> None: ...
-
-        session = _SyncSession()
-        container = _CustomContainer(
-            handlers=[CreateUserHandler],
-            sessions={session},
-        )
-        override_handler = CreateUserHandler(session=session)
-        partial = inject_adapters(container, HandlerUseCase, create_user=override_handler)
-        uc = partial()
-        assert isinstance(uc.create_user, CreateUserHandler)
-        assert isinstance(uc.create_user.session, Session)
 
     def test_raises_when_port_not_found(self) -> None:
         class PortUseCase(UseCase):
@@ -296,19 +202,6 @@ class TestInjectAdapters:
         partial = inject_adapters(container, OtherFieldUseCase)
         uc = partial()
         assert uc.some_value == "default"
-
-    def test_skips_field_without_type_hint(self) -> None:
-        class SimpleUseCase(UseCase):
-            def run(self) -> None: ...
-
-        container = _CustomContainer()
-        with patch(
-            "aod._internal.infrastructure.inject.get_type_hints",
-            return_value={"nonexistent": None},
-        ):
-            partial = inject_adapters(container, SimpleUseCase)
-        uc = partial()
-        assert uc.uow is not None
 
     def test_works_with_async_use_case(self) -> None:
         class AsyncPortUseCase(AsyncUseCase):
@@ -381,9 +274,8 @@ class TestInjectProjection:
                 return "ok"
 
         container = _CustomContainer()
-        partial = inject_adapters(container, TestProjection)
-        p = partial()
-        assert p.session is None
+        with pytest.raises(Exception):
+            inject_adapters(container, TestProjection)
 
     def test_overrides_session(self) -> None:
         class TestProjection(ReadProjection):

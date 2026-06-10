@@ -133,13 +133,13 @@ class AdapterContainerBase(BaseGuarded):
                 session_cls = next(a for a in args if a is not type(None))
             else:
                 session_cls = session_type
-            session = self._get_session(session_cls)
+            session = self.get_session(session_cls)
 
         if issubclass(handler, AsyncBaseHandler):
             return cast(_ASYNC_HANDLERS, handler(session=cast(AsyncSession | None, session)))
         return cast(_SYNC_HANDLERS, handler(session=cast(Session | None, session)))
 
-    def _get_session(
+    def get_session(
         self, session_cls: type[Session] | type[AsyncSession]
     ) -> Session | AsyncSession:
         for s in self.sessions:

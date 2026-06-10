@@ -20,6 +20,7 @@ from aod.testing.doubles.application import SpyEventBus, SpyLogger, SpyUnitOfWor
 
 
 class CreateUser(UseCase):
+    __skip_port_check__ = True
     user_id: int
     name: str
 
@@ -48,7 +49,11 @@ def test_subclass_with_run_can_be_instantiated() -> None:
 @pytest.mark.parametrize("scenario", SCENARIOS, ids=lambda s: s.name)
 def test_scenario(scenario: Scenario) -> None:
     body = _RUN_BODIES[scenario.name]
-    ns = {"__annotations__": scenario.annotations.copy(), "run": lambda self: body(self)}
+    ns = {
+        "__skip_port_check__": True,
+        "__annotations__": scenario.annotations.copy(),
+        "run": lambda self: body(self),
+    }
     ns.update(scenario.defaults)
     cls = type(scenario.name, (UseCase,), ns)
     uc = cls(**scenario.kwargs)
@@ -308,6 +313,7 @@ def test_post_init_does_not_run_on_use_case_without_override() -> None:
 
 def test_inheritance_chain_with_intermediate_abstract() -> None:
     class BaseUseCase(UseCase):
+        __skip_port_check__ = True
         base_field: str
 
         @abstractmethod
@@ -340,6 +346,7 @@ def test_inheritance_chain_deep() -> None:
 
 def test_inheritance_chain_preserves_event_collection() -> None:
     class BaseOrder(UseCase):
+        __skip_port_check__ = True
         order_id: int
 
         def run(self) -> None:

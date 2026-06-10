@@ -1,17 +1,21 @@
 from __future__ import annotations
 
-from typing import Protocol, runtime_checkable
+from abc import abstractmethod
+
+from aod._internal.application.port import Port
 
 
-@runtime_checkable
-class UnitOfWork(Protocol):
+class UnitOfWork(Port):
+    @abstractmethod
     def commit(self) -> None: ...
 
+    @abstractmethod
     def rollback(self) -> None: ...
 
 
-@runtime_checkable
-class AsyncUnitOfWork(Protocol):
+class AsyncUnitOfWork(Port):
+    @abstractmethod
     async def commit(self) -> None: ...
 
+    @abstractmethod
     async def rollback(self) -> None: ...
