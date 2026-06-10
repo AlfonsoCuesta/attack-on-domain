@@ -40,23 +40,34 @@ def _extract_handler_contract(tp: object) -> type[Command] | type[Query] | None:
     return None
 
 
+def _pick_session(container: AdapterContainerBase) -> Any:
+    for s in container.sessions:
+        return s
+    return None
+
+
 def inject_adapters(
     container: AdapterContainerBase,
-    use_case_cls: type[UseCase | AsyncUseCase],
+    operation_cls: type[UseCase | AsyncUseCase | ProjectionBase],
     **overrides: Any,
-) -> partial[UseCase | AsyncUseCase]:
+) -> partial:
     if overrides:
         container = container.copy(**overrides)
 
     kwargs: dict[str, Any] = {
-        "uow": container.get_uow(),
         "logger": container.logger,
         "event_bus": container.event_bus,
         "cache": container.cache,
     }
-    hints = get_type_hints(use_case_cls)
 
-    for field_name in use_case_cls.__model_fields__:
+    if issubclass(operation_cls, ProjectionBase):
+        kwargs["session"] = _pick_session(container)
+        return partial(operation_cls, **kwargs)
+
+    kwargs["uow"] = container.get_uow()
+    hints = get_type_hints(operation_cls)
+
+    for field_name in operation_cls.__model_fields__:
         if field_name.startswith("_") or field_name in _SPECIAL_FIELDS:
             continue
         field_type = hints.get(field_name)
@@ -73,29 +84,4 @@ def inject_adapters(
             kwargs[field_name] = container.get_handler(handler_contract)
             continue
 
-    return partial(use_case_cls, **kwargs)
-
-
-def _pick_session(
-    container: AdapterContainerBase,
-) -> Any:
-    for s in container.sessions:
-        return s
-    return None
-
-
-def inject_projection(
-    container: AdapterContainerBase,
-    projection_cls: type[ProjectionBase],
-    **overrides: Any,
-) -> partial[ProjectionBase]:
-    if overrides:
-        container = container.copy(**overrides)
-
-    kwargs: dict[str, Any] = {
-        "session": _pick_session(container),
-        "logger": container.logger,
-        "event_bus": container.event_bus,
-        "cache": container.cache,
-    }
-    return partial(projection_cls, **kwargs)
+    return partial(operation_cls, **kwargs)

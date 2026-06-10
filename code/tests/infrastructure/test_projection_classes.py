@@ -1,10 +1,15 @@
 from __future__ import annotations
 
 
+from typing import cast
+
 import pytest
 from aod._internal.core.event_emitter import Event
 from aod._internal.infrastructure.commit_context import _CommitContext
 from aod._internal.infrastructure.projection import (
+    AsyncProjection,
+    AsyncReadProjection,
+    AsyncWriteProjection,
     Projection,
     ProjectionBase,
     ReadModel,
@@ -12,7 +17,7 @@ from aod._internal.infrastructure.projection import (
     WriteModel,
     WriteProjection,
 )
-from aod._internal.infrastructure.session import Session
+from aod._internal.infrastructure.session import AsyncSession, Session
 
 
 class UserReadModel(ReadModel):
@@ -57,6 +62,34 @@ class _TestSession(Session):
         pass
 
 
+class _TestAsyncSession(AsyncSession):
+    def __init__(self) -> None:
+        super().__init__()
+        object.__setattr__(self, "_committed", False)
+        object.__setattr__(self, "_rolled_back", False)
+
+    def is_dirty(self) -> bool:
+        return True
+
+    async def execute(self, operation: object) -> object:
+        return operation
+
+    async def query(self, operation: object) -> object:
+        return operation
+
+    async def begin(self) -> None:
+        pass
+
+    async def commit(self) -> None:
+        object.__setattr__(self, "_committed", True)
+
+    async def rollback(self) -> None:
+        object.__setattr__(self, "_rolled_back", True)
+
+    async def close(self) -> None:
+        pass
+
+
 class TestReadModel:
     def test_can_instantiate(self) -> None:
         m = UserReadModel(user_id=1)
@@ -82,13 +115,7 @@ class TestWriteModel:
 
 class TestProjectionBase:
     def test_can_instantiate(self) -> None:
-        p = ProjectionBase()
-        assert p.session is None
-
-    def test_with_session(self) -> None:
-        session = _TestSession()
-        p = ProjectionBase(session=session)
-        assert isinstance(p.session, _TestSession)
+        ProjectionBase()
 
     def test_has_default_logger(self) -> None:
         p = ProjectionBase()
@@ -313,6 +340,137 @@ class TestProjection:
 
         p = UserProjection()
         p.read(UserReadModel(user_id=1))
+
+
+class TestAsyncReadProjection:
+    async def test_is_abstract(self) -> None:
+        with pytest.raises(TypeError):
+            AsyncReadProjection()
+
+    async def test_subclass_without_read_is_abstract(self) -> None:
+        class Incomplete(AsyncReadProjection):
+            pass
+
+        with pytest.raises(TypeError):
+            Incomplete()
+
+    async def test_read_returns_result(self) -> None:
+        class GetUser(AsyncReadProjection):
+            async def read(self, model: ReadModel) -> str:  # type: ignore[override]
+                return f"user-{model.user_id}"  # type: ignore[attr-defined]
+
+        p = GetUser()
+        result = await p.read(UserReadModel(user_id=1))
+        assert result == "user-1"
+
+    async def test_read_captures_events(self) -> None:
+        class GetUser(AsyncReadProjection):
+            async def read(self, model: ReadModel) -> str:  # type: ignore[override]
+                self._event_emitter.emit(UserCreated(user_id=model.user_id, name="test"))  # type: ignore[attr-defined]
+                return "ok"
+
+        p = GetUser()
+        await p.read(UserReadModel(user_id=1))
+        assert len(p.events) == 1
+        assert p.events[0].user_id == 1
+
+    async def test_read_exception_is_logged_and_re_raised(self) -> None:
+        class FailingRead(AsyncReadProjection):
+            async def read(self, model: ReadModel) -> str:  # type: ignore[override]
+                raise ValueError("read failed")
+
+        p = FailingRead()
+        with pytest.raises(ValueError, match="read failed"):
+            await p.read(UserReadModel(user_id=1))
+
+
+class TestAsyncWriteProjection:
+    async def test_is_abstract(self) -> None:
+        with pytest.raises(TypeError):
+            AsyncWriteProjection()
+
+    async def test_subclass_without_write_is_abstract(self) -> None:
+        class Incomplete(AsyncWriteProjection):
+            pass
+
+        with pytest.raises(TypeError):
+            Incomplete()
+
+    async def test_write_captures_events(self) -> None:
+        class CreateUser(AsyncWriteProjection):
+            async def write(self, model: WriteModel) -> str:  # type: ignore[override]
+                self._event_emitter.emit(UserCreated(user_id=model.user_id, name=model.name))  # type: ignore[attr-defined]
+                return "created"
+
+        p = CreateUser()
+        result = await p.write(UserWriteModel(user_id=1, name="Alice"))
+        assert result == "created"
+        assert len(p.events) == 1
+        assert p.events[0].name == "Alice"
+
+    async def test_write_commit_context_enabled(self) -> None:
+        class CreateUser(AsyncWriteProjection):
+            async def write(self, model: WriteModel) -> str:  # type: ignore[override]
+                assert _CommitContext.get(False) is True
+                return "created"
+
+        p = CreateUser()
+        result = await p.write(UserWriteModel(user_id=1, name="Alice"))
+        assert result == "created"
+
+    async def test_write_can_commit_session(self) -> None:
+        class CreateUser(AsyncWriteProjection):
+            async def write(self, model: WriteModel) -> str:  # type: ignore[override]
+                assert self.session is not None
+                await cast(AsyncSession, self.session).commit()
+                return "created"
+
+        session = _TestAsyncSession()
+        p = CreateUser(session=session)
+        await p.write(UserWriteModel(user_id=1, name="Alice"))
+        assert session._committed
+
+    async def test_write_rolls_back_session_on_error(self) -> None:
+        class FailingWrite(AsyncWriteProjection):
+            async def write(self, model: WriteModel) -> str:  # type: ignore[override]
+                raise ValueError("write failed")
+
+        session = _TestAsyncSession()
+        p = FailingWrite(session=session)
+        with pytest.raises(ValueError, match="write failed"):
+            await p.write(UserWriteModel(user_id=1, name="Alice"))
+        assert session._rolled_back
+
+    async def test_commit_context_reset_after_error(self) -> None:
+        class FailingWrite(AsyncWriteProjection):
+            async def write(self, model: WriteModel) -> str:  # type: ignore[override]
+                raise ValueError("write failed")
+
+        p = FailingWrite()
+        with pytest.raises(ValueError):
+            await p.write(UserWriteModel(user_id=1, name="Alice"))
+        assert _CommitContext.get(False) is False
+
+
+class TestAsyncProjection:
+    async def test_is_abstract(self) -> None:
+        with pytest.raises(TypeError):
+            AsyncProjection()
+
+    async def test_read_and_write_work(self) -> None:
+        class UserProjection(AsyncProjection):
+            async def read(self, model: ReadModel) -> dict:
+                return {"action": "read", "id": model.user_id}
+
+            async def write(self, model: WriteModel) -> str:
+                return "written"
+
+        p = UserProjection()
+        read_result = await p.read(UserReadModel(user_id=42))
+        assert read_result == {"action": "read", "id": 42}
+
+        write_result = await p.write(UserWriteModel(user_id=1, name="test"))
+        assert write_result == "written"
 
     def test_write_rolls_back_on_error(self) -> None:
         class UserProjection(Projection):

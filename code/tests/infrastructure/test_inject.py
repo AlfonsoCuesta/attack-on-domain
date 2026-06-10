@@ -16,7 +16,6 @@ from aod._internal.infrastructure.inject import (
     _extract_handler_contract,
     _extract_port_type,
     inject_adapters,
-    inject_projection,
 )
 from aod._internal.infrastructure.projection import ReadModel, ReadProjection
 from aod._internal.infrastructure.session import AsyncSession, Session
@@ -358,7 +357,7 @@ class TestInjectProjection:
 
         session = _SyncSession()
         container = _CustomContainer(sessions={session})
-        partial = inject_projection(container, TestProjection)
+        partial = inject_adapters(container, TestProjection)
         p = partial()
         assert isinstance(p.session, Session)
         assert p.logger is not None
@@ -372,7 +371,7 @@ class TestInjectProjection:
 
         session = _SyncSession()
         container = _CustomContainer(sessions={session})
-        partial = inject_projection(container, TestProjection)
+        partial = inject_adapters(container, TestProjection)
         p = partial()
         assert isinstance(p.session, Session)
 
@@ -382,7 +381,7 @@ class TestInjectProjection:
                 return "ok"
 
         container = _CustomContainer()
-        partial = inject_projection(container, TestProjection)
+        partial = inject_adapters(container, TestProjection)
         p = partial()
         assert p.session is None
 
@@ -394,6 +393,6 @@ class TestInjectProjection:
         session = _SyncSession()
         override_session = _SyncSession()
         container = _CustomContainer(sessions={session})
-        partial = inject_projection(container, TestProjection, session=override_session)
+        partial = inject_adapters(container, TestProjection, session=override_session)
         p = partial()
         assert isinstance(p.session, Session)

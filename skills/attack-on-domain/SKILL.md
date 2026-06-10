@@ -22,7 +22,7 @@ Source code is under `code/` (mapped as package root in `pyproject.toml`).
 | `from aod.domain import DomainException` | Domain base exception |
 | `from aod.domain.exceptions import MutationForbiddenException, InvalidEntityTypeError, InvarianceException, ModelValidationError, …` | Domain-specific exceptions |
 | `from aod.application import ApplicationException` | Application base exception |
-| `from aod.application.exceptions import ProjectionStoreNotConfiguredError, UnresolvableEntityError, CommitOutsideUnitOfWorkError` | Application-specific exceptions |
+| `from aod.application.exceptions import UnresolvableEntityError, CommitOutsideUnitOfWorkError` | Application-specific exceptions |
 | `from aod.infrastructure import InfrastructureException` | Infrastructure base exception |
 | `from aod.infrastructure.exceptions import DuplicateHandlerError, HandlerNotFoundError, HandlerResultTypeError, …` | Infrastructure-specific exceptions |
 
@@ -32,6 +32,10 @@ Source code is under `code/` (mapped as package root in `pyproject.toml`).
 | `from aod.application.async_ import Cache, EventBus, Logger, UnitOfWork` | Async versions (methods are coroutines) |
 | `from aod.application import Command, Query` | Application contracts |
 | `from aod.infrastructure import CommandHandler, QueryHandler` | Infrastructure handlers |
+| `from aod.infrastructure import ReadProjection, WriteProjection, Projection` | Projection base classes |
+| `from aod.infrastructure import AsyncReadProjection, AsyncWriteProjection, AsyncProjection` | Async projection classes |
+| `from aod.infrastructure import ReadModel, WriteModel` | Projection data models |
+| `from aod.infrastructure import inject_adapters` | Dependency injection for UseCases and Projections |
 
 ## Testing Utilities
 
@@ -61,14 +65,14 @@ Source code is under `code/` (mapped as package root in `pyproject.toml`).
 - Cannot be nested inside other entities (enforced at `BoundedContext` construction)
 
 ### Service
-- **Immutable** — inherits `BaseSealed`, stateless service pattern
+- **Behaviour** — inherits `BaseBehaviour`, allows mutation inside public methods
 - `_event_emitter` via `PrivateField(default_factory=EventEmitter)`, same as Entity/ValueObject
 - Methods must not accept or return non-root `Entity` types (enforced at `BoundedContext` construction)
-- Public methods do **not** allow mutation (BaseSealed blocks PASS context)
+- Mutation blocked from outside (reads return immutable proxies)
 
 ### UseCase
 - `UseCase` is the base for application-layer use cases, available at `from aod.application import UseCase`
-- Extends `BaseSealed` — immutable from outside
+- Extends `BaseOperation` (which extends `BaseBehaviour`) — mutation allowed inside methods
 - Declares `_event_emitter` as `PrivateField(default_factory=EventEmitter)` for direct event emission
 - Declares `events: list[Event] = Field(default_factory=list, init=False)` for collected events
 - Auto-wired fields with Null Object defaults (no `is not None` checks):
@@ -76,12 +80,30 @@ Source code is under `code/` (mapped as package root in `pyproject.toml`).
   - `logger: Logger` — auto-logs completion (with event count) and failure; defaults to `_NullLogger` (no-op)
   - `event_bus: EventBus` — auto-publishes collected events after successful commit; defaults to `_NullEventBus` (no-op)
   - `cache: Cache` — auto-flushed after successful commit; defaults to `_NullCache` (no-op)
-- `run()` is abstract, decorated with `@inherit_context` so mutation is allowed inside (INHERIT bypasses seal)
+- `run()` is abstract
 - `__init_subclass__` auto-wraps `run()` with an `EventCollector` and captures events into `self.events`
 - Events emitted via `self._event_emitter.emit(...)` inside `run()` are automatically collected in `self.events`
-- `uc.events` returns `ImmutableList` from outside (mutation blocked, iteration/indexing works)
-- `__skip_method_wrapping__` is `True` on UseCase, so `_wrap_public_methods` stops at UseCase (the abstract `run` is never wrapped by the public-method system; the event-collector wrapping handles it)
 - Works with inheritance chains (UseCase → Abstract → Concrete)
+
+### AsyncUseCase
+- Same as UseCase but async: `uow: UnitOfWork | AsyncUnitOfWork`, `async run()`
+- Uses `should_await` for logger/event_bus/cache calls
+
+### Projection System
+- Available at `from aod.infrastructure import ReadProjection, WriteProjection, Projection`
+- Also async variants: `from aod.infrastructure import AsyncReadProjection, AsyncWriteProjection, AsyncProjection`
+- **ReadModel(BaseSealed)** / **WriteModel(BaseSealed)** — data models for projection inputs
+- **ProjectionBase(BaseOperation)** — base with `_event_emitter`, `events`, `logger`, `event_bus`, `cache`
+- **ReadProjection** — `session: Session | None`, abstract `read(model: ReadModel)`. Auto-wraps with EventCollector + log + event_bus publish
+- **WriteProjection** — `session: Session | None`, abstract `write(model: WriteModel)`. Auto-wraps with CommitContext + EventCollector + log + rollback + event_bus publish
+- **Projection** — both `read()` and `write()` methods
+
+### inject_adapters
+- `from aod.infrastructure import inject_adapters`
+- Unified injection for UseCase, AsyncUseCase, and Projection classes
+- Auto-detects type and injects: `uow` (UseCase), `session` (Projection), plus `logger`, `event_bus`, `cache`
+- Supports `**overrides` for custom values
+- For UseCase also injects user-defined Ports and Handlers from the container
 
 ### Port
 - `Port` is the base for defining dependency interfaces (ports/gateways), available at `from aod.application import Port`
@@ -176,6 +198,7 @@ class Money(ValueObject):
   - `set` → `ImmutableSet`
   - Custom objects → dynamically created `Immutable{ClassName}` subclass
 - `BaseSealed._mutation_status` returns `INHERIT` during init, `BLOCK` otherwise (even for PASS) — truly sealed
+- `BaseBehaviour._mutation_status` returns `INHERIT` for any non-BLOCK state — allows mutation inside methods
 - `@inherit_context` on a method causes `_wrap_public_methods` to wrap it with `INHERIT` context (via `super_attrs` lookup)
 - During `__init__`, `BaseGuarded` enters `INHERIT` context, allowing temporary mutation for `__post_init__`
 
@@ -205,7 +228,7 @@ class User(RootEntity):
         self._event_emitter.emit(UserCreatedEvent(user_id=self.id))
 ```
 
-Works for `Entity`, `RootEntity`, `ValueObject`, `Service`, and `UseCase`. For `BaseGuarded` subclasses, `__mutating_context__` exists before `super().__init__()` (created in `BaseGuarded.__init__`), so public methods and field mutation work during the hook (INHERIT context active).
+Works for `Entity`, `RootEntity`, `ValueObject`, `Service`, `UseCase`, and `Projection` classes. For `BaseGuarded` subclasses, `__mutating_context__` exists before `super().__init__()` (created in `BaseGuarded.__init__`), so public methods and field mutation work during the hook (INHERIT context active).
 
 ### EventCollector
 
@@ -245,9 +268,12 @@ Constructor only accepts `aggregate_roots` (RootEntity subclasses) and `services
 - `check_service` — forbids non-root Entity in service method params/returns
 ### Tests
 - `code/tests/core/test_post_init.py` — 22 tests covering `__post_init__` for Entity, RootEntity, ValueObject, inheritance, event emission, public method calls, and reconstruct suppression.
-- `code/tests/application/test_use_case.py` — 45 tests covering UseCase instantiation, event collection, immutability, exceptions, inheritance, `__post_init__`, `__repr__`, multiple runs, UoW auto-commit/rollback, logger auto-log, and edge cases.
-- `code/tests/domain/test_service.py` — 17 tests covering Service instantiation, event emission, immutability, `__post_init__`, inheritance, private methods, collection, and event isolation.
+- `code/tests/application/test_use_case.py` — 57 tests covering UseCase instantiation, event collection, immutability, exceptions, inheritance, `__post_init__`, `__repr__`, multiple runs, UoW auto-commit/rollback, logger auto-log, and edge cases.
+- `code/tests/domain/test_service.py` — 17 tests covering Service instantiation, event emission, mutability via methods, `__post_init__`, inheritance, private methods, collection, and event isolation.
 - `code/tests/application/test_port.py` — 16 tests covering Port instantiation, abstract enforcement, method wrapping, mutation blocking, and built-in port types (Logger, EventBus, UnitOfWork).
+- `code/tests/infrastructure/test_projection_classes.py` — 52 tests covering ReadProjection, WriteProjection, Projection, async variants, event capture, commit context, rollback on error.
+- `code/tests/infrastructure/test_inject.py` — 34 tests covering inject_adapters for UseCase, AsyncUseCase, and Projection classes.
+- `code/tests/infrastructure/test_container.py` — 36 tests covering get_port, get_handler, get_uow, duplicate validation.
 
 ## Development Commands
 

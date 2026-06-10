@@ -92,10 +92,12 @@ def test_aod_application_exceptions_documented_api() -> None:
 def test_aod_infrastructure_exports_documented_api() -> None:
     assert aod.infrastructure.__all__ == [
         "AdapterContainerBase",
+        "AsyncProjection",
+        "AsyncReadProjection",
+        "AsyncWriteProjection",
         "CommandHandler",
         "InfrastructureException",
         "inject_adapters",
-        "inject_projection",
         "Projection",
         "ProjectionBase",
         "ReadModel",
@@ -109,10 +111,13 @@ def test_aod_infrastructure_exports_documented_api() -> None:
     assert aod.infrastructure.InfrastructureException.__name__ == "InfrastructureException"
 
     assert aod.infrastructure.async_.__all__ == [
-        "CommandHandler",
         "Cache",
+        "CommandHandler",
+        "Projection",
         "QueryHandler",
+        "ReadProjection",
         "UnitOfWork",
+        "WriteProjection",
     ]
 
 

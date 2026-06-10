@@ -17,11 +17,10 @@ Exception
 │   ├── DuplicateDomainTypeError            # Domain type in >1 BoundedContext
 │   ├── InvarianceException (also ValueError)  # Field/model invariance violated
 │   │
-│   │   # Class-creation time (Command/Query/Projection validation)
+│   │   # Class-creation time (Command/Query validation)
 │   ├── InvalidCommandFieldTypeError        # Command/Query field has non-root Entity
 │   ├── InvalidQueryResultTypeError         # Query TResult has no RootEntity
 │   ├── InvalidGenericTypeArgError          # Generic arg fails constraint
-│   ├── InvalidProjectionTypeError          # Projection type not ReadModel or None
 │   │
 │   │   # Construction time (Pydantic validation wrapper)
 │   └── ModelValidationError                # Pydantic validation failed during model construction
@@ -31,12 +30,13 @@ Exception
 │   └── CommitOutsideUnitOfWorkError        # Commit outside UnitOfWork context
 │
 └── InfrastructureException                # Base: infrastructure layer errors
-    ├── UnresolvableProjectionTypeError     # Cannot determine projection type from handler
-    ├── DuplicateProjectionHandlerError     # Duplicate handler in ProjectionStore
-    ├── ProjectionHandlerNotFoundError      # No handler for projection type
+    ├── HandlerModelError                   # Handler missing required field
     ├── DuplicateHandlerError               # Duplicate handler for Command/Query
     ├── HandlerNotFoundError                # No handler for Command/Query
-    └── HandlerResultTypeError              # Handler returned wrong type
+    ├── HandlerResultTypeError              # Handler returned wrong type
+    ├── InvalidPortFieldError               # Container field not a Port subclass
+    ├── PortNotFoundError                   # No port of requested type registered
+    └── SessionNotFoundError                # No session of requested type registered
 ```
 
 ## When Each Exception Is Raised
@@ -53,38 +53,29 @@ Exception
 | `InvalidCommandFieldTypeError` | A `Command` or `Query` field references a non-root `Entity` (e.g. `items: list[Entity]`) |
 | `InvalidQueryResultTypeError` | `Query[TEntity, TResult]` where `TResult` does not include any `RootEntity` |
 | `InvalidGenericTypeArgError` | A generic argument (e.g. `TEntity` in `Command[str, int]`) does not satisfy its constraint |
-| `InvalidProjectionTypeError` | `ProjectionQuery[T]` or `ProjectionCommand[T]` where `T` is not `ReadModel`, `None`, or a `ReadModel` subclass |
 | `DuplicateDomainTypeError` | Same domain type registered in >1 `BoundedContext` |
-
-### Handler Wiring Time (DomainException subclasses)
-
-| Exception | Trigger |
-|---|---|
-| `HandlerTypeMismatchError` | A `QueryHandler` passed to `command_handlers` (or vice‑versa), or a handler that doesn't extend the expected base |
-| `HandlerEntityMismatchError` | `Repository[User]` receives a handler that handles `Order` |
-| `UnresolvableHandlerTypeError` | A handler's generic bases don't contain a recognizable `Command`/`Query` type |
 
 ### Runtime — Handler Dispatch (InfrastructureException subclasses)
 
 | Exception | Trigger |
 |---|---|
+| `HandlerModelError` | A handler's `handle` method or class is missing a required field |
 | `DuplicateHandlerError` | Two handlers registered for the same `Command`/`Query` type |
 | `HandlerNotFoundError` | No handler found for a given `Command`/`Query` type |
 | `HandlerResultTypeError` | `handler.handle()` returned a value that doesn't match the expected return type |
 
-### Runtime — ProjectionStore Dispatch (InfrastructureException subclasses)
+### Runtime — Container (InfrastructureException subclasses)
 
 | Exception | Trigger |
 |---|---|
-| `UnresolvableProjectionTypeError` | A projection handler's generic bases don't contain a recognizable projection type |
-| `DuplicateProjectionHandlerError` | Two handlers registered for the same projection type in a `ProjectionStore` |
-| `ProjectionHandlerNotFoundError` | `store.query()` or `store.command()` called with a type that has no handler |
+| `InvalidPortFieldError` | An `AdapterContainerBase` subclass field is not a `Port` subclass |
+| `PortNotFoundError` | `get_port()` called for a port type not registered on the container |
+| `SessionNotFoundError` | `get_handler()` cannot find a session of the required type |
 
 ### Runtime — UnitOfWork (ApplicationException subclasses)
 
 | Exception | Trigger |
 |---|---|
-| `ProjectionStoreNotConfiguredError` | UoW receives a `ProjectionQuery`/`ProjectionCommand` but no `projection_store` was provided |
 | `UnresolvableEntityError` | UoW cannot determine which `RootEntity` a `Command`/`Query` targets |
 | `CommitOutsideUnitOfWorkError` | `commit()` called outside a `UnitOfWork` context |
 

@@ -489,7 +489,11 @@ def test_logger_auto_logs_events_count() -> None:
     uc.run()
     completions = [e for e in logger.entries if "completed" in str(e.msg)]
     assert len(completions) == 1
-    assert completions[0].context.get("events") == 1
+    events_logs = [e for e in logger.entries if "events" in str(e.msg)]
+    assert len(events_logs) == 1
+    evts = events_logs[0].context.get("events")
+    assert evts is not None
+    assert len(evts) == 1  # type: ignore
 
 
 def test_logger_auto_logs_failure() -> None:

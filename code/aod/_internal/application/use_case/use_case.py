@@ -33,13 +33,11 @@ class UseCase(BaseOperation):
 
             with EventCollector() as events:
                 try:
-                    fn(self, *args, **kwargs)
+                    result = fn(self, *args, **kwargs)
                 except BaseException as e:
                     exception = e
 
                 self.events = list(events)
-
-            self.logger.info(f"{type(self).__name__} events", events=self.events)
 
             if exception is not None:
                 self.uow.rollback()
@@ -53,12 +51,11 @@ class UseCase(BaseOperation):
                 self.logger.error(f"{type(self).__name__} commit failed")
                 raise
 
+            self.logger.info(f"{type(self).__name__} events", events=self.events)
             self.cache.flush()
             self.event_bus.publish(*self.events)
-            self.logger.info(
-                f"{type(self).__name__} completed",
-                events=len(self.events),
-            )
+            self.logger.info(f"{type(self).__name__} completed")
+            return result
 
         return wrapper
 
@@ -91,10 +88,6 @@ class AsyncUseCase(BaseOperation):
 
                 self.events = list(events)
 
-            await should_await(
-                self.logger.info(f"{type(self).__name__} events", events=self.events)
-            )
-
             if exception is not None:
                 await should_await(self.uow.rollback())
                 await should_await(
@@ -109,13 +102,13 @@ class AsyncUseCase(BaseOperation):
                 await should_await(self.logger.error(f"{type(self).__name__} commit failed"))
                 raise
 
+            await should_await(
+                self.logger.info(f"{type(self).__name__} events", events=self.events)
+            )
             await should_await(self.cache.flush())
             await should_await(self.event_bus.publish(*self.events))
             await should_await(
-                self.logger.info(
-                    f"{type(self).__name__} completed",
-                    events=len(self.events),
-                )
+                self.logger.info(f"{type(self).__name__} completed")
             )
 
         return wrapper

@@ -33,6 +33,8 @@ code/
 │       │   ├── reconstructable.py    # ReconstructMixin (reconstruct classmethod)
 │       │   ├── base_sealed.py        # BaseSealed (always-blocked mutation)
 │       │   ├── base_guarded/         # BaseGuarded, MutatingContext, make_immutable subsystem
+│       │   ├── base_behaviour.py     # BaseBehaviour (allows mutation inside methods)
+│       │   ├── base_operation.py     # BaseOperation(BaseBehaviour) — adds _event_emitter, events, logger, event_bus, cache
 │       │   ├── event_emitter.py      # Event, EventEmitter, EventCollector
 │       │   ├── model_maker.py        # Dual Pydantic model generation
 │       │   ├── domain_exception.py       # DomainException hierarchy
@@ -60,10 +62,6 @@ code/
 │       │   ├── cache/                # Cache port — sync + async
 │       │   │   ├── __init__.py
 │       │   │   └── cache.py           # Cache(Port) + AsyncCache(Port)
-│       │   ├── projection/           # Projection data class + Protocol
-│       │   │   ├── __init__.py       # ProjectionQuery, ProjectionCommand, ProjectionStore, AsyncProjectionStore
-│       │   │   ├── projection.py     # ProjectionQuery[T], ProjectionCommand
-│       │   │   └── projection_store.py  # ProjectionStore + AsyncProjectionStore (Protocol)
 │       │   ├── contracts/            # Command, Query — application contracts
 │       │   │   ├── __init__.py       # Command, Query
 │       │   │   └── contracts.py      # Command(BaseSealed), Query(BaseSealed) with field validation
@@ -78,7 +76,7 @@ code/
 │       │   │   └── unit_of_work.py   # _UnitOfWorkBase (shared logic), UnitOfWork (sync), AsyncUnitOfWork (async, accepts sync/async sessions)
 │       │   └── use_case/             # UseCase base — sync + async
 │       │       ├── __init__.py
-│       │       └── use_case.py       # UseCase(BaseSealed) + AsyncUseCase(BaseSealed)
+│       │       └── use_case.py       # UseCase(BaseOperation) + AsyncUseCase(BaseOperation)
 │   ├── infrastructure/           # Infrastructure layer (packages)
 │   │   ├── session/              # Session (database abstraction)
 │   │   │   ├── __init__.py
@@ -87,10 +85,10 @@ code/
 │   │   │   ├── __init__.py
 │   │   │   ├── base_handler.py   # BaseHandler + AsyncBaseHandler
 │   │   │   └── handlers.py       # CommandHandler, QueryHandler, AsyncCommandHandler, AsyncQueryHandler
-│   │   ├── projection/           # ProjectionHandler + ProjectionStore — sync + async
-│       │   │   ├── __init__.py
-│       │   │   ├── projection_handler.py  # ProjectionQueryHandler + ProjectionCommandHandler + Async variants
-│       │   │   └── projection_store.py    # ProjectionStore + AsyncProjectionStore (concrete)
+│   │   ├── projection/           # Projection models + base classes — sync + async
+│   │   │   ├── __init__.py
+│   │   │   ├── models.py         # ReadModel(BaseSealed), WriteModel(BaseSealed)
+│   │   │   └── projection.py     # ProjectionBase, ReadProjectionBase, WriteProjectionBase, ReadProjection, WriteProjection, Projection, AsyncReadProjection, AsyncWriteProjection, AsyncProjection
 │       └── testing/                  # Testing utilities (implementation)
 │           ├── __init__.py           # Re-exports: DomainType, FakeDomain, build, helpers
 │           ├── helpers.py            # build(), events_of(), assert_event_emitted(), etc.
@@ -123,14 +121,11 @@ code/
     │   ├── test_service.py
     │   └── test_value_object.py
     ├── application/                  # Application layer tests
-    │   ├── test_projection.py        # Projection data class (no entity constraints)
     │   ├── test_use_case.py
     │   ├── test_port.py
     │   ├── test_async_port.py
     │   └── test_async_use_case.py
     ├── infrastructure/               # Infrastructure layer tests
-    │   ├── test_async_projection_handler.py
-    │   ├── test_projection_handler.py
     └── ...
 ```
 
@@ -139,12 +134,28 @@ code/
 ```
 BaseValidator (metaclass: ValidationModelMeta → ABCMeta)
 └── BaseGuarded                     (mutation-guarded)
-    ├── Entity(ReconstructMixin, BaseGuarded)     → has reconstruct ✓
-    │   └── RootEntity                            → inherits reconstruct ✓
-    └── BaseSealed                  (always immutable)
-        ├── ValueObject(ReconstructMixin, BaseSealed) → has reconstruct ✓
-        ├── Service                               → no reconstruct ✓
-        └── UseCase                               → no reconstruct ✓
+    ├── BaseBehaviour               (extends BaseGuarded — allows mutation inside methods)
+    │   ├── BaseOperation           (adds _event_emitter, events, logger, event_bus, cache)
+    │   │   ├── UseCase             → +uow, +run()
+    │   │   ├── AsyncUseCase        → +uow, +async run()
+    │   │   ├── ProjectionBase
+    │   │   │   ├── ReadProjectionBase
+    │   │   │   │   ├── ReadProjection       → +session, +read()
+    │   │   │   │   └── AsyncReadProjection  → +async read()
+    │   │   │   ├── WriteProjectionBase
+    │   │   │   │   ├── WriteProjection      → +session, +write()
+    │   │   │   │   └── AsyncWriteProjection → +async write()
+    │   │   │   ├── Projection               → +read() +write()
+    │   │   │   └── AsyncProjection          → +async read() +write()
+    │   │   └── Service (in domain, does NOT inherit BaseOperation — just BaseBehaviour)
+    │   └── BaseSealed              (always blocks mutation)
+    │       ├── ValueObject(ReconstructMixin, BaseSealed) → has reconstruct ✓
+    │       ├── Event
+    │       ├── Command
+    │       ├── Query
+    │       ├── ReadModel
+    │       └── WriteModel
+    └── BaseGuarded (direct inheritance for Port, Session, etc.)
 ```
 
 `ReconstructMixin` is only mixed into `Entity` and `ValueObject`. `Service` and `UseCase` never see `reconstruct()`.
@@ -269,7 +280,6 @@ The hierarchy:
 - `InvalidCommandFieldTypeError` — Command/Query field references non-root Entity
 - `InvalidQueryResultTypeError` — `Query` TResult does not include a `RootEntity`
 - `InvalidGenericTypeArgError` — generic argument fails its constraint
-- `InvalidProjectionTypeError` — projection type is not `ReadModel` or `None`
 - `InvalidEntityTypeError` — not an `Entity` subclass
 - `InvalidRootEntityTypeError` — `Entity` but not `RootEntity`
 - `InvalidServiceTypeError` — not a `Service` subclass
@@ -300,7 +310,7 @@ Public modules re-export from `_internal`; they contain no logic of their own. T
 
 ### `UseCase` Base Class
 
-`UseCase` (public via `aod.application`) is the base for application-layer use cases. It extends `BaseSealed` (no `ReconstructMixin`) and provides a single abstract public method `run()` that subclasses must implement.
+`UseCase` (public via `aod.application`) is the base for application-layer use cases. It extends `BaseOperation` (no `ReconstructMixin`) and provides a single abstract public method `run()` that subclasses must implement.
 
 - `run()` has no parameters — all dependencies are passed via `__init__` (declared as Pydantic fields on the subclass)
 - The class has **no public methods** other than `run`; subclasses may add private helpers
@@ -352,14 +362,32 @@ Contract validation lives in `aod._internal.application.contracts.contracts.py` 
 
 Zero `# type: ignore` in `handlers.py`.
 
-### `ProjectionQuery[T]` / `ProjectionCommand`
+### Projection System (`aod.infrastructure.projection`)
 
-Analogous to `Query`/`Command` but for read/write projections — isolated from the Command/Query dispatch system:
+The projection system provides read and write projections with automatic event collection, logging, and event bus publishing. It is isolated from the Command/Query dispatch system.
 
-- **`ProjectionQuery[T]`** (`aod.application`) — read-only projection. `BaseSealed, Generic[T]` data class. Fields can reference any type. `T` is the return type (like `Query`).
-- **`ProjectionCommand[T]`** (`aod.application`) — write-only projection. `BaseSealed, Generic[T]` data class. Carries write data in its own fields (like `Command`). `T` is the return type.
-- **`ProjectionQueryHandler[PQ]`** (`aod.infrastructure`) — abstract base with `handle(query: PQ) -> object`. Validates `PQ` is a `ProjectionQuery` subclass.
-- **`ProjectionCommandHandler[PC]`** (`aod.infrastructure`) — abstract base with `handle(command: PC) -> object`. Validates `PC` is a `ProjectionCommand` subclass.
+#### Data Models
+
+- **`ReadModel(BaseSealed)`** — immutable data class for read projection inputs. Fields can reference any type.
+- **`WriteModel(BaseSealed)`** — immutable data class for write projection inputs. Fields can reference any type.
+
+#### Base Classes
+
+- **`ProjectionBase(BaseOperation)`** — no additional fields. Inherits `_event_emitter`, `events`, `logger`, `event_bus`, `cache` from `BaseOperation`.
+- **`ReadProjectionBase(ProjectionBase)`** — wraps `read()` with `EventCollector` + log + event_bus publish.
+- **`WriteProjectionBase(ProjectionBase)`** — wraps `write()` with `CommitContext` + `EventCollector` + log + rollback + event_bus publish.
+
+#### Concrete Classes
+
+- **`ReadProjection(ReadProjectionBase)`** — `session: Session | None`, abstract `read(model: ReadModel)`.
+- **`WriteProjection(WriteProjectionBase)`** — `session: Session | None`, abstract `write(model: WriteModel)`.
+- **`Projection(ReadProjection, WriteProjection)`** — both `read()` and `write()` methods.
+
+#### Async Counterparts
+
+- **`AsyncReadProjection`** — async `read()`, uses `should_await` on logger/event_bus/session calls.
+- **`AsyncWriteProjection`** — async `write()`, uses `should_await` on logger/event_bus/session calls.
+- **`AsyncProjection`** — both async `read()` and `write()`.
 
 Projections exist independently and are never mixed with `Command`/`Query`, `UnitOfWork`, or `Repository`.
 
@@ -369,7 +397,7 @@ Projections exist independently and are never mixed with `Command`/`Query`, `Uni
 - If `value` is a coroutine, awaits and returns the result
 - Otherwise returns the value as-is
 
-Used by async `UnitOfWork.command/query` and async `UseCase` wrapper (imported as `awaiter`). This allows async UoW to accept both sync and async repositories/stores without knowing which at call time.
+Used by async `UnitOfWork.command/query`, async `UseCase` wrapper, and async projection classes (imported as `awaiter`). This allows async UoW to accept both sync and async repositories/stores without knowing which at call time.
 
 Zero `# type: ignore` in `type_checks/`, `repository.py`, and `handlers.py`.
 
@@ -436,7 +464,7 @@ uv run pytest code/tests -q
 - If you change domain classes, check `test_event_emitter.py`, `test_entity.py`, `test_value_object.py`
 - If you change the type checks, update `type_handlers/extractors.py` and/or `type_handlers/checks` and verify tests
 - If you change the bounded context logic, update `bounded_context.py` and check `test_bounded_context.py`
-- If you change the projection layer, update `projection_handler.py` (infrastructure) and verify `test_projection.py` / `test_projection_handler.py` / `test_async_projection_handler.py`
+- If you change the projection layer, update `projection.py` (infrastructure/projection/) and verify `test_projection_classes.py`
 - If you change the handler layer, update `handlers.py` and/or `base_handler.py` and verify `test_async_handlers.py`
 - If you change the application layer, update `port.py` and/or `use_case.py` and verify `test_port.py` / `test_use_case.py`
 - If you change the UnitOfWork, update `unit_of_work.py` (sync + async) and verify `test_port.py` / `test_async_port.py` (includes `is_dirty` tests)
@@ -455,7 +483,7 @@ uv run pytest code/tests -q
 
 ## Test Count
 
-509 tests
+646 tests
 
 ## At the end of a task
 
