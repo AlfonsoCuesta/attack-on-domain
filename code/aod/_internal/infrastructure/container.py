@@ -11,7 +11,7 @@ from aod._internal.application.event_bus.null_event_bus import NullEventBus
 from aod._internal.application.logger import AsyncLogger, Logger
 from aod._internal.application.logger.null_logger import NullLogger
 from aod._internal.application.port import Port
-from aod._internal.core.base_guarded import BaseGuarded
+from aod._internal.core.base_behaviour import BaseBehaviour
 from aod._internal.core.infrastructure_exception import (
     DuplicateHandlerError,
     HandlerModelError,
@@ -49,8 +49,9 @@ def _is_port_type(tp: object) -> bool:
     return isinstance(tp, type) and issubclass(tp, Port)
 
 
-class AdapterContainerBase(BaseGuarded):
-    sessions: set[Session | AsyncSession] = Field(default_factory=set)
+class AdapterContainerBase(BaseBehaviour):
+    sessions: set[type[Session] | type[AsyncSession]] = Field(default_factory=set)
+    _sessions_needed: set[Session | AsyncSession] = Field(default_factory=set)
     logger: Logger | AsyncLogger = Field(default_factory=NullLogger)
     event_bus: EventBus | AsyncEventBus = Field(default_factory=NullEventBus)
     cache: Cache | AsyncCache = Field(default_factory=NullCache)
@@ -89,9 +90,9 @@ class AdapterContainerBase(BaseGuarded):
             seen.add(contract)
 
     def get_uow(self) -> UnitOfWork | AsyncUnitOfWork:
-        if any(isinstance(session, AsyncSession) for session in self.sessions):
-            return AsyncUnitOfWork(sessions=self.sessions)
-        return UnitOfWork(sessions=cast(set[Session], self.sessions))
+        if any(isinstance(session, AsyncSession) for session in self._sessions_needed):
+            return AsyncUnitOfWork(sessions=self._sessions_needed)
+        return UnitOfWork(sessions=cast(set[Session], self._sessions_needed))
 
     def with_adapters(self, **overrides: Any) -> Self:
         return self.copy(**overrides)
@@ -144,5 +145,7 @@ class AdapterContainerBase(BaseGuarded):
     ) -> Session | AsyncSession:
         for s in self.sessions:
             if isinstance(s, session_cls):
-                return s
+                instance = s()
+                self._sessions_needed.add(instance)
+                return instance
         raise SessionNotFoundError(session_cls)

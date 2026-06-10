@@ -73,6 +73,7 @@ def _make_async_read_wrapper(fn: Callable[..., Any]) -> Callable[..., Any]:
     @wraps(fn)
     async def wrapper(self: Any, model: ReadModel) -> Any:
         exception: BaseException | None = None
+        self.session.begin()
         with EventCollector() as events:
             try:
                 result = await should_await(fn(self, model))
@@ -155,7 +156,6 @@ class ProjectionBase(BaseOperation):
                             cls.__name__,
                             str(field_info.annotation),
                         )
-                    continue
 
 
 class ReadProjectionBase(ProjectionBase):

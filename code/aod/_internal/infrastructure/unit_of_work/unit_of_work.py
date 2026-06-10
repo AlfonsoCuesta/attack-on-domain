@@ -27,6 +27,10 @@ class UnitOfWork(AppUnitOfWork):
             if s.is_dirty():
                 s.rollback()
 
+    def begin(self) -> None:
+        for s in self.sessions:
+            s.begin()
+
 
 class AsyncUnitOfWork(AppAsyncUnitOfWork):
     sessions: set[Session | AsyncSession] = Field(default_factory=set)
@@ -44,3 +48,7 @@ class AsyncUnitOfWork(AppAsyncUnitOfWork):
         for s in self.sessions:
             if s.is_dirty():
                 await should_await(s.rollback())
+
+    async def begin(self) -> None:
+        for s in self.sessions:
+            await should_await(s.begin())

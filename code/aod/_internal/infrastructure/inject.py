@@ -1,7 +1,6 @@
 from __future__ import annotations
 
-from functools import partial
-from typing import Any, Callable, get_origin
+from typing import Any, get_origin
 
 from aod._internal.application.cache import AsyncCache, Cache
 from aod._internal.application.event_bus import AsyncEventBus, EventBus
@@ -15,7 +14,7 @@ from aod._internal.core.infrastructure_exception import PortNotFoundError
 from aod._internal.infrastructure.container import AdapterContainerBase
 from aod._internal.infrastructure.projection import ProjectionBase
 
-_SPECIAL_TYPES = (
+SPECIAL_TYPES = (
     UnitOfWork,
     AsyncLogger,
     Logger,
@@ -26,11 +25,11 @@ _SPECIAL_TYPES = (
 )
 
 
-def _is_special_type(tp: object) -> bool:
-    return isinstance(tp, type) and issubclass(tp, _SPECIAL_TYPES)
+def is_special_type(tp: object) -> bool:
+    return isinstance(tp, type) and issubclass(tp, SPECIAL_TYPES)
 
 
-def _extract_port_type(tp: object) -> type[Port] | None:
+def extract_port_type(tp: object) -> type[Port] | None:
     origin = get_origin(tp)
     if origin is not None:
         tp = origin
@@ -39,14 +38,14 @@ def _extract_port_type(tp: object) -> type[Port] | None:
     return None
 
 
-def _inject_use_case(
+def inject_use_case(
     container: AdapterContainerBase,
     operation_cls: type[UseCase | AsyncUseCase],
 ) -> dict[str, Any]:
     return {"uow": container.get_uow()}
 
 
-def _inject_ports(
+def inject_ports(
     container: AdapterContainerBase,
     operation_cls: type[BaseOperation],
     kwargs: dict[str, Any],
@@ -55,9 +54,9 @@ def _inject_ports(
         if field_name.startswith("_"):
             continue
         field_type = field_info.annotation
-        if field_type is None or _is_special_type(field_type):
+        if field_type is None or is_special_type(field_type):
             continue
-        port_type = _extract_port_type(field_type)
+        port_type = extract_port_type(field_type)
         if port_type is not None:
             port_value = container.get_port(port_type)
             if port_value is None:
@@ -80,11 +79,14 @@ def inject_projection(
     return {"session": container.get_session(session_type)}
 
 
+TOperationBases = UseCase | AsyncUseCase | ProjectionBase
+
+
 def inject_adapters(
     container: AdapterContainerBase,
-    operation_cls: type[UseCase] | type[AsyncUseCase] | type[ProjectionBase],
+    operation_cls: type[TOperationBases],
     **overrides: Any,
-) -> Callable:
+) -> TOperationBases:
     if overrides:
         container = container.copy(**overrides)
 
@@ -94,11 +96,10 @@ def inject_adapters(
         "cache": container.cache,
     }
 
+    inject_ports(container, operation_cls, kwargs)
     if issubclass(operation_cls, ProjectionBase):
         kwargs.update(inject_projection(container, operation_cls))
     elif issubclass(operation_cls, (UseCase, AsyncUseCase)):
-        kwargs.update(_inject_use_case(container, operation_cls))
+        kwargs.update(inject_use_case(container, operation_cls))
 
-    _inject_ports(container, operation_cls, kwargs)
-
-    return partial(operation_cls, **kwargs)
+    return operation_cls(**kwargs)

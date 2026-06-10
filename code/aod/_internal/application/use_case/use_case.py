@@ -32,6 +32,7 @@ class UseCase(BaseOperation):
         def wrapper(self: UseCase, *args: Any, **kwargs: Any) -> None:
             exception: BaseException | None = None
 
+            self.uow.begin()
             with EventCollector() as events:
                 try:
                     result = fn(self, *args, **kwargs)
@@ -82,6 +83,7 @@ class AsyncUseCase(BaseOperation):
         async def wrapper(self: AsyncUseCase, *args: Any, **kwargs: Any) -> None:
             exception: BaseException | None = None
 
+            await should_await(self.uow.begin())
             with EventCollector() as events:
                 try:
                     await should_await(fn(self, *args, **kwargs))

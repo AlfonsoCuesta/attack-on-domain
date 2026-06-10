@@ -12,6 +12,9 @@ class UnitOfWork(Port):
     @abstractmethod
     def rollback(self) -> None: ...
 
+    @abstractmethod
+    def begin(self) -> None: ...
+
 
 class AsyncUnitOfWork(Port):
     @abstractmethod
@@ -19,3 +22,6 @@ class AsyncUnitOfWork(Port):
 
     @abstractmethod
     async def rollback(self) -> None: ...
+
+    @abstractmethod
+    async def begin(self) -> None: ...
