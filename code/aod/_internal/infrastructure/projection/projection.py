@@ -2,8 +2,9 @@ from __future__ import annotations
 
 from abc import abstractmethod
 from functools import wraps
-from typing import Any, Callable, TypeVar, get_type_hints
+from typing import Any, Callable, TypeVar
 
+from aod._internal.application.handler.handler import HandlerProtocol
 from aod._internal.core.async_utils import should_await
 from aod._internal.core.base_operation import BaseOperation
 from aod._internal.core.event_emitter import EventCollector
@@ -98,31 +99,21 @@ def _make_projection_wrapper(
 
 class ProjectionBase(BaseOperation):
     __skip_port_check__ = True
+    __not_allowed_port_types__ = (HandlerProtocol,)
     session: Session | AsyncSession | None = None
 
     def __init_subclass__(cls, **kwargs: object) -> None:
         super().__init_subclass__(**kwargs)
-        if "__skip_port_check__" in cls.__dict__:
-            return
-        try:
-            hints = get_type_hints(cls)
-        except Exception:
-            hints = {}
-        own_annotations = getattr(cls, "__annotations__", {})
-        sessions: list[type] = []
-        for field_name in own_annotations:
-            if field_name.startswith("_"):
-                continue
-            tp = hints.get(field_name)
-            if tp is None or not isinstance(tp, type):
-                continue
-            if issubclass(tp, (Session, AsyncSession)):
-                sessions.append(tp)
-                if len(sessions) > 1:
-                    raise InvalidPortFieldError(
-                        field_name,
-                        str(tp),
-                    )
+        session_fields = [
+            name
+            for name, tp in getattr(cls, "__annotations__", {}).items()
+            if isinstance(tp, type) and issubclass(tp, (Session, AsyncSession))
+        ]
+        if len(session_fields) > 1:
+            raise InvalidPortFieldError(
+                session_fields[1],
+                str(cls.__annotations__[session_fields[1]]),
+            )
 
 
 class ReadProjectionBase(ProjectionBase):

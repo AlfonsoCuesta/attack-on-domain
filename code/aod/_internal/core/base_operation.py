@@ -25,20 +25,10 @@ def _resolve_port_class(tp: Any) -> type | None:
     return None
 
 
-def _is_valid_port_type(tp: Any) -> bool:
-    cls = _resolve_port_class(tp)
-    if cls is None:
-        return False
-    if not issubclass(cls, Port):
-        return False
-    if issubclass(cls, (BaseHandler, AsyncBaseHandler)):
-        return False
-    return True
-
-
 class BaseOperation(BaseBehaviour):
     __skip_method_wrapping__: ClassVar[bool] = True
     __skip_port_check__: ClassVar[bool] = True
+    __not_allowed_port_types__ = ()
     _event_emitter: EventEmitter = PrivateField(default_factory=EventEmitter)
     events: list[Event] = Field(default_factory=list, init=False)
     logger: Logger | AsyncLogger = Field(default_factory=NullLogger)
@@ -61,7 +51,15 @@ class BaseOperation(BaseBehaviour):
             if tp is None:
                 continue
             resolved = _resolve_port_class(tp)
-            if resolved is not None and issubclass(resolved, (BaseHandler, AsyncBaseHandler)):
+            if resolved is None or not issubclass(resolved, Port):
+                raise InvalidUseCasePortFieldError(
+                    field_name,
+                    cls.__name__,
+                    str(tp),
+                )
+            if issubclass(
+                resolved, (BaseHandler, AsyncBaseHandler, *cls.__not_allowed_port_types__)
+            ):
                 raise InvalidUseCasePortFieldError(
                     field_name,
                     cls.__name__,

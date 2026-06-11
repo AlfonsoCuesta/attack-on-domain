@@ -7,25 +7,21 @@ from aod._internal.core.domain_exception import MutationForbiddenException
 from aod._internal.core.event_emitter import EventCollector
 from aod._internal.core.fields.fields import PrivateField
 from aod.application import UseCase
+from aod.testing.doubles.application import SpyEventBus, SpyLogger, SpyUnitOfWork
 from tests.application._use_case_scenarios import (
+    _RUN_BODIES,
     SCENARIOS,
-    Scenario,
     Address,
+    Scenario,
     User,
     UserCreated,
     UserRenamed,
-    _RUN_BODIES,
 )
-from aod.testing.doubles.application import SpyEventBus, SpyLogger, SpyUnitOfWork
 
 
 class CreateUser(UseCase):
-    __skip_port_check__ = True
-    user_id: int
-    name: str
-
-    def run(self) -> None:
-        user = User(id=self.user_id, name=self.name)
+    def run(self, user_id: int, name: str) -> None:
+        user = User(id=user_id, name=name)
         user._event_emitter.emit(UserCreated(user_id=user.id, name=user.name))
 
 
@@ -43,30 +39,27 @@ def test_subclass_without_run_is_abstract() -> None:
 
 
 def test_subclass_with_run_can_be_instantiated() -> None:
-    CreateUser(user_id=1, name="Alice")
+    CreateUser()
 
 
 @pytest.mark.parametrize("scenario", SCENARIOS, ids=lambda s: s.name)
 def test_scenario(scenario: Scenario) -> None:
     body = _RUN_BODIES[scenario.name]
     ns = {
-        "__skip_port_check__": True,
-        "__annotations__": scenario.annotations.copy(),
-        "run": lambda self: body(self),
+        "run": lambda self, *args, **kwargs: body(self, *args, **kwargs),
     }
-    ns.update(scenario.defaults)
     cls = type(scenario.name, (UseCase,), ns)
-    uc = cls(**scenario.kwargs)
+    uc = cls()
     if scenario.expected_exception is not None:
         with pytest.raises(scenario.expected_exception):
-            uc.run()
+            uc.run(**scenario.kwargs)
     else:
-        uc.run()
+        uc.run(**scenario.kwargs)
     assert len(uc.events) == scenario.expected_events
 
 
 def test_events_is_empty_before_run() -> None:
-    uc = CreateUser(user_id=1, name="Alice")
+    uc = CreateUser()
     assert uc.events == []
 
 
@@ -80,8 +73,8 @@ def test_events_is_empty_after_init_even_without_call() -> None:
 
 
 def test_run_collects_events_from_entity() -> None:
-    uc = CreateUser(user_id=1, name="Alice")
-    uc.run()
+    uc = CreateUser()
+    uc.run(user_id=1, name="Alice")
     assert len(uc.events) == 1
     assert isinstance(uc.events[0], UserCreated)
     assert uc.events[0].user_id == 1
@@ -90,15 +83,13 @@ def test_run_collects_events_from_entity() -> None:
 
 def test_run_collects_multiple_events_from_entity() -> None:
     class MultiEmit(UseCase):
-        user_id: int
-
-        def run(self) -> None:
-            user = User(id=self.user_id, name="Alice")
+        def run(self, user_id: int) -> None:
+            user = User(id=user_id, name="Alice")
             user.rename("Bob")
             user.rename("Charlie")
 
-    uc = MultiEmit(user_id=1)
-    uc.run()
+    uc = MultiEmit()
+    uc.run(user_id=1)
     assert len(uc.events) == 2
     assert all(isinstance(e, UserRenamed) for e in uc.events)
     assert uc.events[0].new_name == "Bob"
@@ -106,10 +97,10 @@ def test_run_collects_multiple_events_from_entity() -> None:
 
 
 def test_run_replaces_previous_events() -> None:
-    uc = CreateUser(user_id=1, name="Alice")
-    uc.run()
+    uc = CreateUser()
+    uc.run(user_id=1, name="Alice")
     assert len(uc.events) == 1
-    uc.run()
+    uc.run(user_id=2, name="Bob")
     assert len(uc.events) == 1
 
 
@@ -123,64 +114,53 @@ def test_run_with_no_events_keeps_empty_list() -> None:
     assert uc.events == []
 
 
-def test_run_takes_no_parameters() -> None:
+def test_run_takes_parameters() -> None:
     captured: list[int] = []
 
     class Stateful(UseCase):
-        value: int
+        def run(self, value: int) -> None:
+            captured.append(value)
 
-        def run(self) -> None:
-            captured.append(self.value)
-
-    uc = Stateful(value=42)
-    uc.run()
+    uc = Stateful()
+    uc.run(value=42)
     assert captured == [42]
 
 
 def test_subclass_can_have_private_methods() -> None:
     class WithHelper(UseCase):
-        user_id: int
-
         def _double(self, n: int) -> int:
             return n * 2
 
-        def run(self) -> None:
-            assert self._double(self.user_id) == 4
+        def run(self, user_id: int) -> None:
+            assert self._double(user_id) == 4
 
-    WithHelper(user_id=2).run()
+    WithHelper().run(user_id=2)
 
 
 def test_subclass_with_complex_init_state() -> None:
     class Complex(UseCase):
-        user_id: int
-        address: Address
-
-        def run(self) -> None:
-            user = User(id=self.user_id, name="Alice", address=self.address)
+        def run(self, user_id: int, address: Address) -> None:
+            user = User(id=user_id, name="Alice", address=address)
             user._event_emitter.emit(UserCreated(user_id=user.id, name=user.name))
 
     addr = Address(street="Main St", city="Springfield")
-    uc = Complex(user_id=1, address=addr)
-    uc.run()
+    uc = Complex()
+    uc.run(user_id=1, address=addr)
     assert len(uc.events) == 1
 
 
 def test_run_is_wrapped_automatically() -> None:
     class MyUseCase(UseCase):
-        called: bool = False
-
         def run(self) -> None:
-            self.called = True
+            pass
 
     uc = MyUseCase()
-    assert uc.called is False
     uc.run()
-    assert uc.called is True
 
 
 def test_events_is_immutable_from_outside() -> None:
-    uc = CreateUser(user_id=1, name="Alice")
-    uc.run()
+    uc = CreateUser()
+    uc.run(user_id=1, name="Alice")
     assert len(uc.events) == 1
     with pytest.raises(MutationForbiddenException):
         uc.events.append(UserCreated(user_id=2, name="Bob"))
@@ -189,21 +169,21 @@ def test_events_is_immutable_from_outside() -> None:
 
 
 def test_events_is_iterable() -> None:
-    uc = CreateUser(user_id=1, name="Alice")
-    uc.run()
+    uc = CreateUser()
+    uc.run(user_id=1, name="Alice")
     events_list = [e for e in uc.events]
     assert len(events_list) == 1
 
 
 def test_events_supports_indexing() -> None:
-    uc = CreateUser(user_id=1, name="Alice")
-    uc.run()
+    uc = CreateUser()
+    uc.run(user_id=1, name="Alice")
     assert isinstance(uc.events[0], UserCreated)
 
 
 def test_events_supports_slicing() -> None:
-    uc = CreateUser(user_id=1, name="Alice")
-    uc.run()
+    uc = CreateUser()
+    uc.run(user_id=1, name="Alice")
     sliced = uc.events[0:1]
     assert len(sliced) == 1
     assert isinstance(sliced[0], UserCreated)
@@ -211,17 +191,15 @@ def test_events_supports_slicing() -> None:
 
 def test_run_exception_still_collects_emitted_events() -> None:
     class FailAfterEmit(UseCase):
-        user_id: int
-
-        def run(self) -> None:
-            user = User(id=self.user_id, name="Alice")
+        def run(self, user_id: int) -> None:
+            user = User(id=user_id, name="Alice")
             user._event_emitter.emit(UserCreated(user_id=user.id, name=user.name))
             msg = "boom"
             raise ValueError(msg)
 
-    uc = FailAfterEmit(user_id=1)
+    uc = FailAfterEmit()
     with pytest.raises(ValueError, match="boom"):
-        uc.run()
+        uc.run(user_id=1)
     assert len(uc.events) == 1
 
 
@@ -238,33 +216,31 @@ def test_run_exception_no_emit_keeps_events_empty() -> None:
 
 
 def test_events_not_shared_across_instances() -> None:
-    uc1 = CreateUser(user_id=1, name="Alice")
-    uc2 = CreateUser(user_id=2, name="Bob")
-    uc1.run()
+    uc1 = CreateUser()
+    uc2 = CreateUser()
+    uc1.run(user_id=1, name="Alice")
     assert len(uc1.events) == 1
     assert uc2.events == []
 
 
 def test_events_independent_after_separate_runs() -> None:
-    uc = CreateUser(user_id=1, name="Alice")
-    uc.run()
+    uc = CreateUser()
+    uc.run(user_id=1, name="Alice")
     first_events = list(uc.events)
-    uc.run()
+    uc.run(user_id=2, name="Bob")
     assert len(first_events) == 1
     assert len(uc.events) == 1
 
 
-def test_repr_includes_fields() -> None:
-    uc = CreateUser(user_id=1, name="Alice")
+def test_repr_includes_class_name() -> None:
+    uc = CreateUser()
     rep = repr(uc)
     assert "CreateUser" in rep
-    assert "user_id=1" in rep
-    assert "name=" in rep
 
 
 def test_repr_includes_events() -> None:
-    uc = CreateUser(user_id=1, name="Alice")
-    uc.run()
+    uc = CreateUser()
+    uc.run(user_id=1, name="Alice")
     rep = repr(uc)
     assert "events=" in rep
 
@@ -273,49 +249,41 @@ def test_post_init_runs_on_use_case() -> None:
     called: list[bool] = []
 
     class WithPostInit(UseCase):
-        user_id: int
-
         def __post_init__(self) -> None:
             called.append(True)
 
-        def run(self) -> None:
+        def run(self, user_id: int) -> None:
             pass
 
-    WithPostInit(user_id=1)
+    WithPostInit()
     assert called == [True]
 
 
 def test_post_init_can_setup_state() -> None:
     class WithPostInit(UseCase):
-        user_id: int
-        doubled: int = 0
+        _doubled: int = PrivateField(default=0)
 
         def __post_init__(self) -> None:
-            self.doubled = self.user_id * 2
+            self._doubled = 10
 
         def run(self) -> None:
             pass
 
-    uc = WithPostInit(user_id=5)
-    assert uc.doubled == 10
+    uc = WithPostInit()
+    assert uc._doubled == 10
 
 
 def test_post_init_does_not_run_on_use_case_without_override() -> None:
     class Simple(UseCase):
-        user_id: int
-
         def run(self) -> None:
             pass
 
-    uc = Simple(user_id=1)
-    assert uc.user_id == 1
+    uc = Simple()
+    uc.run()
 
 
 def test_inheritance_chain_with_intermediate_abstract() -> None:
     class BaseUseCase(UseCase):
-        __skip_port_check__ = True
-        base_field: str
-
         @abstractmethod
         def run(self) -> None: ...
 
@@ -323,9 +291,8 @@ def test_inheritance_chain_with_intermediate_abstract() -> None:
         def run(self) -> None:
             pass
 
-    c = Concrete(base_field="hello")
+    c = Concrete()
     c.run()
-    assert c.base_field == "hello"
 
 
 def test_inheritance_chain_deep() -> None:
@@ -346,18 +313,15 @@ def test_inheritance_chain_deep() -> None:
 
 def test_inheritance_chain_preserves_event_collection() -> None:
     class BaseOrder(UseCase):
-        __skip_port_check__ = True
-        order_id: int
-
-        def run(self) -> None:
-            user = User(id=self.order_id, name="order")
+        def run(self, order_id: int) -> None:
+            user = User(id=order_id, name="order")
             user._event_emitter.emit(UserCreated(user_id=user.id, name=user.name))
 
     class SpecificOrder(BaseOrder):
         pass
 
-    uc = SpecificOrder(order_id=99)
-    uc.run()
+    uc = SpecificOrder()
+    uc.run(order_id=99)
     assert len(uc.events) == 1
     assert uc.events[0].user_id == 99
 
@@ -374,37 +338,30 @@ def test_private_field_on_use_case() -> None:
 
 
 def test_event_collector_already_active_does_not_interfere() -> None:
-    uc = CreateUser(user_id=1, name="Alice")
+    uc = CreateUser()
     with EventCollector():
-        uc.run()
+        uc.run(user_id=1, name="Alice")
     assert len(uc.events) == 1
 
 
 def test_re_run_does_not_keep_old_events() -> None:
-    uc = CreateUser(user_id=1, name="First")
-    uc.run()
+    uc = CreateUser()
+    uc.run(user_id=1, name="First")
     assert len(uc.events) == 1
-    uc.run()
+    uc.run(user_id=2, name="Second")
     assert len(uc.events) == 1
 
 
-def test_cannot_set_arbitrary_fields_from_outside() -> None:
-    uc = CreateUser(user_id=1, name="Alice")
+def test_cannot_set_fields_from_outside() -> None:
+    uc = CreateUser()
     with pytest.raises(MutationForbiddenException):
-        uc.user_id = 99
-
-
-def test_cannot_set_arbitrary_fields_after_run() -> None:
-    uc = CreateUser(user_id=1, name="Alice")
-    uc.run()
-    with pytest.raises(MutationForbiddenException):
-        uc.user_id = 99
+        uc.uow = None  # type: ignore
 
 
 def test_cannot_del_fields() -> None:
-    uc = CreateUser(user_id=1, name="Alice")
+    uc = CreateUser()
     with pytest.raises(MutationForbiddenException):
-        del uc.user_id
+        del uc.uow
 
 
 def test_no_public_methods_exposed_besides_run() -> None:
@@ -413,16 +370,16 @@ def test_no_public_methods_exposed_besides_run() -> None:
 
 
 def test_double_wrapping_does_not_break() -> None:
-    uc = CreateUser(user_id=1, name="Alice")
-    uc.run()
-    uc.run()
+    uc = CreateUser()
+    uc.run(user_id=1, name="Alice")
+    uc.run(user_id=2, name="Bob")
     assert len(uc.events) == 1
 
 
 def test_many_runs() -> None:
-    uc = CreateUser(user_id=1, name="Alice")
-    for _ in range(10):
-        uc.run()
+    uc = CreateUser()
+    for i in range(10):
+        uc.run(user_id=i, name=f"User{i}")
     assert len(uc.events) == 1
 
 

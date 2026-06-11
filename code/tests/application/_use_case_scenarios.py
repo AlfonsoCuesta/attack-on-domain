@@ -33,28 +33,25 @@ class User(RootEntity):
         self._event_emitter.emit(UserRenamed(user_id=self.id, new_name=new_name))
 
 
-async def run_uc(uc: Any) -> None:
-    result = uc.run()
+async def run_uc(uc: Any, **kwargs: Any) -> None:
+    result = uc.run(**kwargs)
     if iscoroutine(result):
         await result
 
 
-_captured: list[int] = []
-
-
-def _create_user_body(self: Any) -> None:
-    user = User(id=self.user_id, name=self.name)
+def _create_user_body(self: Any, user_id: int, name: str) -> None:
+    user = User(id=user_id, name=name)
     user._event_emitter.emit(UserCreated(user_id=user.id, name=user.name))
 
 
-def _multi_emit_body(self: Any) -> None:
-    user = User(id=self.user_id, name="Alice")
+def _multi_emit_body(self: Any, user_id: int) -> None:
+    user = User(id=user_id, name="Alice")
     user.rename("Bob")
     user.rename("Charlie")
 
 
-def _fail_after_emit_body(self: Any) -> None:
-    user = User(id=self.user_id, name="Alice")
+def _fail_after_emit_body(self: Any, user_id: int) -> None:
+    user = User(id=user_id, name="Alice")
     user._event_emitter.emit(UserCreated(user_id=user.id, name=user.name))
     raise ValueError("boom")
 
@@ -71,24 +68,27 @@ def _noop_body(self: Any) -> None:
     pass
 
 
-def _stateful_body(self: Any) -> None:
-    _captured.append(self.value)
+_captured: list[int] = []
 
 
-def _complex_body(self: Any) -> None:
-    user = User(id=self.user_id, name="Alice", address=self.address)
+def _stateful_body(self: Any, value: int) -> None:
+    _captured.append(value)
+
+
+def _complex_body(self: Any, user_id: int, address: Address) -> None:
+    user = User(id=user_id, name="Alice", address=address)
     user._event_emitter.emit(UserCreated(user_id=user.id, name=user.name))
 
 
-def _my_uc_body(self: Any) -> None:
-    self.called = True
+def _my_uc_body(self: Any, called: bool) -> None:
+    self.called = called
 
 
-def _with_helper_body(self: Any) -> None:
-    assert self._double(self.user_id) == 4
+def _with_helper_body(self: Any, user_id: int) -> None:
+    assert self._double(user_id) == 4
 
 
-def _with_post_init_body(self: Any) -> None:
+def _with_post_init_body(self: Any, user_id: int) -> None:
     pass
 
 
@@ -119,8 +119,6 @@ def _make_private_helper(self: Any, n: int) -> int:
 @dataclass
 class Scenario:
     name: str
-    annotations: dict[str, Any] = field(default_factory=dict)
-    defaults: dict[str, Any] = field(default_factory=dict)
     kwargs: dict[str, Any] = field(default_factory=dict)
     expected_events: int = 0
     expected_exception: type[BaseException] | None = None
@@ -129,19 +127,16 @@ class Scenario:
 SCENARIOS: list[Scenario] = [
     Scenario(
         name="CreateUser",
-        annotations={"user_id": int, "name": str},
         kwargs={"user_id": 1, "name": "Alice"},
         expected_events=1,
     ),
     Scenario(
         name="MultiEmit",
-        annotations={"user_id": int},
         kwargs={"user_id": 1},
         expected_events=2,
     ),
     Scenario(
         name="FailAfterEmit",
-        annotations={"user_id": int},
         kwargs={"user_id": 1},
         expected_events=1,
         expected_exception=ValueError,
@@ -161,25 +156,24 @@ SCENARIOS: list[Scenario] = [
     ),
     Scenario(
         name="Stateful",
-        annotations={"value": int},
         kwargs={"value": 42},
         expected_events=0,
     ),
     Scenario(
         name="Complex",
-        annotations={"user_id": int, "address": Address},
-        kwargs={"user_id": 1, "address": Address(street="Main St", city="Springfield")},
+        kwargs={
+            "user_id": 1,
+            "address": Address(street="Main St", city="Springfield"),
+        },
         expected_events=1,
     ),
     Scenario(
         name="MyUseCase",
-        annotations={"called": bool},
-        defaults={"called": False},
+        kwargs={"called": True},
         expected_events=0,
     ),
     Scenario(
         name="WithPostInit",
-        annotations={"user_id": int},
         kwargs={"user_id": 1},
         expected_events=0,
     ),

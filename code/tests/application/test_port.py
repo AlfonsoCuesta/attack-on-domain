@@ -68,16 +68,15 @@ def test_port_custom_field_validation() -> None:
 def test_port_as_use_case_field() -> None:
     class ApiUseCase(UseCase):
         client: RealRestClient
-        results: list[str] = []
 
         def run(self) -> None:
-            r1 = self.client.get("/status")
-            r2 = self.client.post("/data", "x")
-            self.results = [r1, r2]
+            self.client.get("/status")
+            self.client.post("/data", "x")
 
-    uc = ApiUseCase(client=RealRestClient())
+    client = RealRestClient()
+    uc = ApiUseCase(client=client)
     uc.run()
-    assert uc.results == ["response for /status", "created /data"]
+    assert list(client.calls) == ["GET /status", "POST /data: x"]
 
 
 def test_logger_abstract() -> None:

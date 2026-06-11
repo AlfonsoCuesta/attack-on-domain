@@ -10,12 +10,14 @@ from aod._internal.core.async_utils import should_await
 from aod._internal.core.base_operation import BaseOperation
 from aod._internal.core.event_emitter import EventCollector
 from aod._internal.core.fields.fields import Field
+from aod._internal.infrastructure.session import AsyncSession, Session
 
 _USE_CASE_WRAPPED_KEY = "__aod_use_case_wrapped__"
 
 
 class UseCase(BaseOperation):
     __skip_port_check__ = True
+    __not_allowed_port_types__ = (Session, AsyncSession)
     uow: UnitOfWork = Field(default_factory=NullUnitOfWork)
 
     def __init_subclass__(cls, **kwargs: Any) -> None:

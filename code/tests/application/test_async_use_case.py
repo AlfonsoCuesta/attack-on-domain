@@ -26,11 +26,8 @@ from aod.testing.doubles.application.async_ import (
 
 
 class CreateUser(UseCase):
-    user_id: int
-    name: str
-
-    async def run(self) -> None:
-        user = User(id=self.user_id, name=self.name)
+    async def run(self, user_id: int, name: str) -> None:
+        user = User(id=user_id, name=name)
         user._event_emitter.emit(UserCreated(user_id=user.id, name=user.name))
 
 
@@ -48,26 +45,25 @@ async def test_subclass_without_run_is_abstract() -> None:
 
 
 async def test_subclass_with_run_can_be_instantiated() -> None:
-    CreateUser(user_id=1, name="Alice")
+    CreateUser()
 
 
 @pytest.mark.parametrize("scenario", SCENARIOS, ids=lambda s: s.name)
 async def test_scenario(scenario: Scenario) -> None:
     body = _RUN_BODIES[scenario.name]
-    ns = {"__annotations__": scenario.annotations.copy(), "run": lambda self: body(self)}
-    ns.update(scenario.defaults)
+    ns = {"run": lambda self, *args, **kwargs: body(self, *args, **kwargs)}
     cls = type(scenario.name, (UseCase,), ns)
-    uc = cls(**scenario.kwargs)
+    uc = cls()
     if scenario.expected_exception is not None:
         with pytest.raises(scenario.expected_exception):
-            await run_uc(uc)
+            await run_uc(uc, **scenario.kwargs)
     else:
-        await run_uc(uc)
+        await run_uc(uc, **scenario.kwargs)
     assert len(uc.events) == scenario.expected_events
 
 
 async def test_events_is_empty_before_run() -> None:
-    uc = CreateUser(user_id=1, name="Alice")
+    uc = CreateUser()
     assert uc.events == []
 
 
@@ -81,8 +77,8 @@ async def test_events_is_empty_after_init_even_without_call() -> None:
 
 
 async def test_run_collects_events_from_entity() -> None:
-    uc = CreateUser(user_id=1, name="Alice")
-    await uc.run()
+    uc = CreateUser()
+    await uc.run(user_id=1, name="Alice")
     assert len(uc.events) == 1
     assert isinstance(uc.events[0], UserCreated)
     assert uc.events[0].user_id == 1
@@ -91,15 +87,13 @@ async def test_run_collects_events_from_entity() -> None:
 
 async def test_run_collects_multiple_events_from_entity() -> None:
     class MultiEmit(UseCase):
-        user_id: int
-
-        async def run(self) -> None:
-            user = User(id=self.user_id, name="Alice")
+        async def run(self, user_id: int) -> None:
+            user = User(id=user_id, name="Alice")
             user.rename("Bob")
             user.rename("Charlie")
 
-    uc = MultiEmit(user_id=1)
-    await uc.run()
+    uc = MultiEmit()
+    await uc.run(user_id=1)
     assert len(uc.events) == 2
     assert all(isinstance(e, UserRenamed) for e in uc.events)
     assert uc.events[0].new_name == "Bob"
@@ -107,10 +101,10 @@ async def test_run_collects_multiple_events_from_entity() -> None:
 
 
 async def test_run_replaces_previous_events() -> None:
-    uc = CreateUser(user_id=1, name="Alice")
-    await uc.run()
+    uc = CreateUser()
+    await uc.run(user_id=1, name="Alice")
     assert len(uc.events) == 1
-    await uc.run()
+    await uc.run(user_id=2, name="Bob")
     assert len(uc.events) == 1
 
 
@@ -124,64 +118,53 @@ async def test_run_with_no_events_keeps_empty_list() -> None:
     assert uc.events == []
 
 
-async def test_run_takes_no_parameters() -> None:
+async def test_run_takes_parameters() -> None:
     captured: list[int] = []
 
     class Stateful(UseCase):
-        value: int
+        async def run(self, value: int) -> None:
+            captured.append(value)
 
-        async def run(self) -> None:
-            captured.append(self.value)
-
-    uc = Stateful(value=42)
-    await uc.run()
+    uc = Stateful()
+    await uc.run(value=42)
     assert captured == [42]
 
 
 async def test_subclass_can_have_private_methods() -> None:
     class WithHelper(UseCase):
-        user_id: int
-
         async def _double(self, n: int) -> int:
             return n * 2
 
-        async def run(self) -> None:
-            assert await self._double(self.user_id) == 4
+        async def run(self, user_id: int) -> None:
+            assert await self._double(user_id) == 4
 
-    await WithHelper(user_id=2).run()
+    await WithHelper().run(user_id=2)
 
 
 async def test_subclass_with_complex_init_state() -> None:
     class Complex(UseCase):
-        user_id: int
-        address: Address
-
-        async def run(self) -> None:
-            user = User(id=self.user_id, name="Alice", address=self.address)
+        async def run(self, user_id: int, address: Address) -> None:
+            user = User(id=user_id, name="Alice", address=address)
             user._event_emitter.emit(UserCreated(user_id=user.id, name=user.name))
 
     addr = Address(street="Main St", city="Springfield")
-    uc = Complex(user_id=1, address=addr)
-    await uc.run()
+    uc = Complex()
+    await uc.run(user_id=1, address=addr)
     assert len(uc.events) == 1
 
 
 async def test_run_is_wrapped_automatically() -> None:
     class MyUseCase(UseCase):
-        called: bool = False
-
         async def run(self) -> None:
-            self.called = True
+            pass
 
     uc = MyUseCase()
-    assert uc.called is False
     await uc.run()
-    assert uc.called is True
 
 
 async def test_events_is_immutable_from_outside() -> None:
-    uc = CreateUser(user_id=1, name="Alice")
-    await uc.run()
+    uc = CreateUser()
+    await uc.run(user_id=1, name="Alice")
     assert len(uc.events) == 1
     with pytest.raises(MutationForbiddenException):
         uc.events.append(UserCreated(user_id=2, name="Bob"))
@@ -191,17 +174,15 @@ async def test_events_is_immutable_from_outside() -> None:
 
 async def test_run_exception_still_collects_emitted_events() -> None:
     class FailAfterEmit(UseCase):
-        user_id: int
-
-        async def run(self) -> None:
-            user = User(id=self.user_id, name="Alice")
+        async def run(self, user_id: int) -> None:
+            user = User(id=user_id, name="Alice")
             user._event_emitter.emit(UserCreated(user_id=user.id, name=user.name))
             msg = "boom"
             raise ValueError(msg)
 
-    uc = FailAfterEmit(user_id=1)
+    uc = FailAfterEmit()
     with pytest.raises(ValueError, match="boom"):
-        await uc.run()
+        await uc.run(user_id=1)
     assert len(uc.events) == 1
 
 
@@ -218,9 +199,9 @@ async def test_run_exception_no_emit_keeps_events_empty() -> None:
 
 
 async def test_events_not_shared_across_instances() -> None:
-    uc1 = CreateUser(user_id=1, name="Alice")
-    uc2 = CreateUser(user_id=2, name="Bob")
-    await uc1.run()
+    uc1 = CreateUser()
+    uc2 = CreateUser()
+    await uc1.run(user_id=1, name="Alice")
     assert len(uc1.events) == 1
     assert uc2.events == []
 
@@ -317,15 +298,13 @@ async def test_post_init_runs_on_use_case() -> None:
     called: list[bool] = []
 
     class WithPostInit(UseCase):
-        user_id: int
-
         def __post_init__(self) -> None:
             called.append(True)
 
         async def run(self) -> None:
             pass
 
-    WithPostInit(user_id=1)
+    WithPostInit()
     assert called == [True]
 
 

@@ -11,7 +11,7 @@ from aod._internal.domain.entity import RootEntity
 from aod._internal.infrastructure.handlers import CommandHandler, QueryHandler
 from aod._internal.infrastructure.handlers.handlers import AsyncCommandHandler
 from aod._internal.infrastructure.projection.projection import ProjectionBase
-from aod._internal.infrastructure.session import Session
+from aod._internal.infrastructure.session import AsyncSession, Session
 
 
 class User(RootEntity):
@@ -98,16 +98,57 @@ class TestUseCaseFieldValidation:
                 def run(self) -> None:
                     pass
 
-    def test_non_port_fields_are_allowed(self) -> None:
+    def test_non_port_field_rejected(self) -> None:
+        with pytest.raises(InvalidUseCasePortFieldError, match="bad_field"):
+
+            class _MyUseCase(UseCase):
+                bad_field: str
+
+                def run(self) -> None:
+                    pass
+
+    def test_primitive_field_rejected(self) -> None:
+        with pytest.raises(InvalidUseCasePortFieldError, match="count"):
+
+            class _MyUseCase(UseCase):
+                count: int
+
+                def run(self) -> None:
+                    pass
+
+    def test_list_field_rejected(self) -> None:
+        with pytest.raises(InvalidUseCasePortFieldError, match="items"):
+
+            class _MyUseCase(UseCase):
+                items: list[str]
+
+                def run(self) -> None:
+                    pass
+
+    def test_field_without_type_hint_ignored(self) -> None:
         class _MyUseCase(UseCase):
-            bad_field: str
-            count: int
+            untyped = "value"
 
             def run(self) -> None:
                 pass
 
-        assert "bad_field" in _MyUseCase.__model_fields__
-        assert "count" in _MyUseCase.__model_fields__
+    def test_session_field_rejected(self) -> None:
+        with pytest.raises(InvalidUseCasePortFieldError, match="db"):
+
+            class _MyUseCase(UseCase):
+                db: Session
+
+                def run(self) -> None:
+                    pass
+
+    def test_async_session_field_rejected(self) -> None:
+        with pytest.raises(InvalidUseCasePortFieldError, match="db"):
+
+            class _MyUseCase(UseCase):
+                db: AsyncSession
+
+                def run(self) -> None:
+                    pass
 
 
 class TestProjectionFieldValidation:
@@ -123,8 +164,14 @@ class TestProjectionFieldValidation:
             class _MyProjection(ProjectionBase):
                 handler: InfraSaveHandler
 
-    def test_non_port_field_is_allowed(self) -> None:
-        class _MyProjection(ProjectionBase):
-            bad_field: int
+    def test_app_handler_field_rejected(self) -> None:
+        with pytest.raises(InvalidUseCasePortFieldError, match="handler"):
 
-        assert "bad_field" in _MyProjection.__model_fields__
+            class _MyProjection(ProjectionBase):
+                handler: AppCommandHandler[SaveUser]
+
+    def test_non_port_field_rejected(self) -> None:
+        with pytest.raises(InvalidUseCasePortFieldError, match="bad_field"):
+
+            class _MyProjection(ProjectionBase):
+                bad_field: int
