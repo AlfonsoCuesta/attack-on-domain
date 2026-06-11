@@ -1,6 +1,9 @@
-from aod._internal.testing.doubles.infrastructure import SpyAsyncSession, SpySession
+from aod._internal.testing.doubles.infrastructure import (
+    SpySession,
+    spy_adapter_container,
+)
 
 __all__ = [
-    "SpyAsyncSession",
     "SpySession",
+    "spy_adapter_container",
 ]
