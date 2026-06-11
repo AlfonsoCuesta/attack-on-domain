@@ -1,8 +1,8 @@
 from __future__ import annotations
 
 from aod._internal.core.fields.fields import PrivateField
-from aod.application import Logger
-from aod.application.async_ import Logger as AsyncLogger
+from aod._internal.application.logger.logger import Logger
+from aod._internal.application.logger.logger import AsyncLogger
 
 
 class LogEntry:

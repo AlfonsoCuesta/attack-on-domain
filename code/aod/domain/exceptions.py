@@ -1,25 +1,33 @@
 from aod._internal.core.domain_exception import (
     ClassExpectedError,
+    DomainException,
     DuplicateDomainTypeError,
+    InvalidCommandFieldTypeError,
     InvalidEntityTypeError,
     InvalidGenericTypeArgError,
     InvalidNestedTypeError,
+    InvalidQueryResultTypeError,
     InvalidRootEntityTypeError,
     InvalidServiceParameterError,
     InvalidServiceTypeError,
     InvarianceException,
+    ModelValidationError,
     MutationForbiddenException,
 )
 
 __all__ = [
     "ClassExpectedError",
+    "DomainException",
     "DuplicateDomainTypeError",
+    "InvalidCommandFieldTypeError",
     "InvalidEntityTypeError",
     "InvalidGenericTypeArgError",
     "InvalidNestedTypeError",
+    "InvalidQueryResultTypeError",
     "InvalidRootEntityTypeError",
     "InvalidServiceParameterError",
     "InvalidServiceTypeError",
     "InvarianceException",
+    "ModelValidationError",
     "MutationForbiddenException",
 ]

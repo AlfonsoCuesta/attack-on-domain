@@ -37,7 +37,7 @@ def test_mutating_context_status_returns_inherit_when_inherit_state_is_active() 
     assert ctx.status == MutatingState.INHERIT
 
 
-def test_mutating_context_status_anidated_inherit_states() -> None:
+def test_mutating_context_status_nested_inherit_states() -> None:
     ctx = MutatingContext()
     ctx.enter(MutatingState.INHERIT)
     assert ctx.status == MutatingState.INHERIT
@@ -49,7 +49,7 @@ def test_mutating_context_status_anidated_inherit_states() -> None:
     assert ctx.status == MutatingState.BLOCK
 
 
-def test_mutating_context_status_anidated_pass_states() -> None:
+def test_mutating_context_status_nested_pass_states() -> None:
     ctx = MutatingContext()
     ctx.enter(MutatingState.PASS)
     ctx.enter(MutatingState.INHERIT)

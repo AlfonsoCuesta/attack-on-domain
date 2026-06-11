@@ -12,7 +12,7 @@ type_checking/
 └── extractors.py     # extract_types_from_annotation
 
 type_handlers/
-├── __init__.py                    # Re-exports: BaseGuardedTypeHandler, ServiceTypeHandler, get_generic_arg_from_mro, get_generic_arg_from_orig_bases, validate_generic_arg_is_subclass, validate_handler_subclass
+├── __init__.py                    # Re-exports: BaseGuardedTypeHandler, ServiceTypeHandler, get_generic_arg_from_mro, get_generic_arg_from_orig_bases, get_last_generic_arg, validate_generic_arg_is_subclass, validate_handler_subclass
 ├── base_guarded_handler.py        # check_entity, check_root_entity, check_value_object, discover_types
 ├── generic_utils.py               # get_generic_arg_from_orig_bases, get_generic_arg_from_mro, get_last_generic_arg, validate_generic_arg_is_subclass, validate_handler_subclass
 └── service_handler.py             # check_service

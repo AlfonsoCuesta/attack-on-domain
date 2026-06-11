@@ -2,8 +2,8 @@ from __future__ import annotations
 
 from aod._internal.core.event_emitter import Event
 from aod._internal.core.fields.fields import PrivateField
-from aod.application import EventBus
-from aod.application.async_ import EventBus as AsyncEventBus
+from aod._internal.application.event_bus.event_bus import EventBus
+from aod._internal.application.event_bus.event_bus import AsyncEventBus
 
 
 class SpyEventBus(EventBus):

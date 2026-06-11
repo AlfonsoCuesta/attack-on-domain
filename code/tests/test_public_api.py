@@ -40,14 +40,18 @@ def test_aod_domain_exports_documented_api() -> None:
 def test_aod_domain_exceptions_documented_api() -> None:
     assert aod.domain.exceptions.__all__ == [
         "ClassExpectedError",
+        "DomainException",
         "DuplicateDomainTypeError",
+        "InvalidCommandFieldTypeError",
         "InvalidEntityTypeError",
         "InvalidGenericTypeArgError",
         "InvalidNestedTypeError",
+        "InvalidQueryResultTypeError",
         "InvalidRootEntityTypeError",
         "InvalidServiceParameterError",
         "InvalidServiceTypeError",
         "InvarianceException",
+        "ModelValidationError",
         "MutationForbiddenException",
     ]
 
@@ -85,7 +89,9 @@ def test_aod_application_exports_documented_api() -> None:
 
 def test_aod_application_exceptions_documented_api() -> None:
     assert aod.application.exceptions.__all__ == [
+        "ApplicationException",
         "CommitOutsideUnitOfWorkError",
+        "InvalidUseCasePortFieldError",
         "UnresolvableEntityError",
     ]
 
@@ -125,9 +131,13 @@ def test_aod_infrastructure_exports_documented_api() -> None:
 def test_aod_infrastructure_exceptions_documented_api() -> None:
     assert aod.infrastructure.exceptions.__all__ == [
         "DuplicateHandlerError",
+        "HandlerModelError",
         "HandlerNotFoundError",
         "HandlerResultTypeError",
+        "InfrastructureException",
         "InvalidPortFieldError",
+        "PortNotFoundError",
+        "SessionNotFoundError",
     ]
 
 
@@ -139,18 +149,25 @@ def test_aod_exceptions_documented_api() -> None:
         "DomainException",
         "DuplicateDomainTypeError",
         "DuplicateHandlerError",
+        "HandlerModelError",
         "HandlerNotFoundError",
         "HandlerResultTypeError",
         "InfrastructureException",
+        "InvalidCommandFieldTypeError",
         "InvalidEntityTypeError",
         "InvalidGenericTypeArgError",
         "InvalidNestedTypeError",
         "InvalidPortFieldError",
+        "InvalidQueryResultTypeError",
         "InvalidRootEntityTypeError",
         "InvalidServiceParameterError",
         "InvalidServiceTypeError",
+        "InvalidUseCasePortFieldError",
         "InvarianceException",
+        "ModelValidationError",
         "MutationForbiddenException",
+        "PortNotFoundError",
+        "SessionNotFoundError",
         "UnresolvableEntityError",
     ]
 

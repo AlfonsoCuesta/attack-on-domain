@@ -97,7 +97,9 @@ class TestReadModel:
 
     def test_is_immutable(self) -> None:
         m = UserReadModel(user_id=1)
-        with pytest.raises(Exception):
+        from aod._internal.core.domain_exception import MutationForbiddenException
+
+        with pytest.raises(MutationForbiddenException):
             m.user_id = 99
 
 
@@ -109,7 +111,9 @@ class TestWriteModel:
 
     def test_is_immutable(self) -> None:
         m = UserWriteModel(user_id=1, name="Alice")
-        with pytest.raises(Exception):
+        from aod._internal.core.domain_exception import MutationForbiddenException
+
+        with pytest.raises(MutationForbiddenException):
             m.name = "Bob"
 
 

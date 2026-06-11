@@ -19,7 +19,7 @@ class UseCase(BaseOperation):
     uow: UnitOfWork = Field(default_factory=NullUnitOfWork)
 
     def __init_subclass__(cls, **kwargs: Any) -> None:
-        original_run: Callable[..., None] | None = cls.__dict__.get("run")
+        original_run: Callable[..., Any] | None = cls.__dict__.get("run")
         if original_run is not None and not getattr(original_run, _USE_CASE_WRAPPED_KEY, False):
             wrapped = cls._wrap_run_with_collector(original_run)
             setattr(cls, "run", wrapped)
@@ -27,7 +27,7 @@ class UseCase(BaseOperation):
         super().__init_subclass__(**kwargs)
 
     @staticmethod
-    def _wrap_run_with_collector(fn: Callable[..., None]) -> Callable[..., None]:
+    def _wrap_run_with_collector(fn: Callable[..., Any]) -> Callable[..., Any]:
         @wraps(fn)
         def wrapper(self: UseCase, *args: Any, **kwargs: Any) -> None:
             exception: BaseException | None = None
@@ -35,7 +35,7 @@ class UseCase(BaseOperation):
             self.uow.begin()
             with EventCollector() as events:
                 try:
-                    result = fn(self, *args, **kwargs)
+                    fn(self, *args, **kwargs)
                 except BaseException as e:
                     exception = e
 
@@ -57,7 +57,6 @@ class UseCase(BaseOperation):
             self.cache.flush()
             self.event_bus.publish(*self.events)
             self.logger.info(f"{type(self).__name__} completed")
-            return result
 
         return wrapper
 
@@ -77,8 +76,8 @@ class AsyncUseCase(BaseOperation):
             setattr(wrapped, _USE_CASE_WRAPPED_KEY, True)
         super().__init_subclass__(**kwargs)
 
-    @classmethod
-    def _wrap_run_with_collector(cls, fn: Callable[..., Any]) -> Callable[..., Any]:
+    @staticmethod
+    def _wrap_run_with_collector(fn: Callable[..., Any]) -> Callable[..., Any]:
         @wraps(fn)
         async def wrapper(self: AsyncUseCase, *args: Any, **kwargs: Any) -> None:
             exception: BaseException | None = None

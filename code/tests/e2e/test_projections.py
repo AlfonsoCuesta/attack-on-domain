@@ -424,5 +424,7 @@ class TestProjectionInjection:
 
     def test_inject_without_session(self) -> None:
         container = ProjectionContainer()
-        with pytest.raises(Exception):
+        from aod._internal.core.infrastructure_exception import SessionNotFoundError
+
+        with pytest.raises(SessionNotFoundError):
             inject_adapters(container, GetUserProjection)

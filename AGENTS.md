@@ -304,9 +304,14 @@ The hierarchy:
 **`ApplicationException` subclasses:**
 - `UnresolvableEntityError` — cannot determine `RootEntity` from Command/Query
 - `CommitOutsideUnitOfWorkError` — commit attempted outside a `UnitOfWork` context
+- `InvalidUseCasePortFieldError` — UseCase field is not a `Port` subclass (renamed from `InvalidPortFieldError` in the application layer)
 
 **`InfrastructureException` subclasses:**
 - `HandlerResultTypeError` — handler returned wrong type
+- `HandlerModelError` — handler class is missing a required field
+- `PortNotFoundError` — no port of the requested type is registered on the container
+- `SessionNotFoundError` — no session of the requested type is registered on the container
+- `InvalidPortFieldError` — a field on an `AdapterContainerBase` subclass is not a Port type
 
 > For details on when each is raised, see `docs/core/exceptions.md`.
 
@@ -342,7 +347,7 @@ Public modules re-export from `_internal`; they contain no logic of their own. T
 
 Events emitted directly by the UseCase via `self._event_emitter.emit(...)` or by any entity touched during `run` are all captured and stored on the UseCase, replacing any events from previous runs.
 
-**Handler fields on UseCase**: Handler injection via UseCase fields is no longer supported. Handlers should be passed as `run()` parameters. UseCase fields are reserved for **Ports only** — validated at class creation by `BaseOperation.__init_subclass__` which raises `InvalidOperationFieldError` if any field is not a `Port` subclass (excluding `HandlerProtocol` subtypes). Framework base classes (`UseCase`, `AsyncUseCase`, `ProjectionBase`, etc.) set `__skip_port_check__ = True` to bypass this check.
+**Handler fields on UseCase**: Handler injection via UseCase fields is no longer supported. Handlers should be passed as `run()` parameters. UseCase fields are reserved for **Ports only** — validated at class creation by `BaseOperation.__init_subclass__` which raises `InvalidUseCasePortFieldError` if any field is not a `Port` subclass (excluding `HandlerProtocol` subtypes). Framework base classes (`UseCase`, `AsyncUseCase`, `ProjectionBase`, etc.) set `__skip_port_check__ = True` to bypass this check.
 
 **Infrastructure handler inheritance**: Infrastructure `CommandHandler`/`QueryHandler` types inherit from both `BaseHandler` and the application-layer `HandlerProtocol` (`Port`). This satisfies Pydantic `isinstance` checks when handlers are used in any context requiring the app-layer type.
 
@@ -359,7 +364,7 @@ Events emitted directly by the UseCase via `self._event_emitter.emit(...)` or by
 Built-in port types (all `aod.application`):
 - **`Logger`** / **`AsyncLogger`** — `debug(msg, **context)`, `info(msg, **context)`, `warning(msg, **context)`, `error(msg, **context)`
 - **`EventBus`** / **`AsyncEventBus`** — `publish(*events)` for publishing domain events
-- **`UnitOfWork`** / **`AsyncUnitOfWork`** — `commit()`, `rollback()`, `flush()` for transactional boundaries
+- **`UnitOfWork`** / **`AsyncUnitOfWork`** — `commit()`, `rollback()`, `begin()` for transactional boundaries
 - **`Cache`** / **`AsyncCache`** — `get(key)`, `set(key, value, ttl=None)`, `delete(key)`, `flush()`, `set_promise()`, `delete_promise()`
 
 Infrastructure implementations of these ports inherit from both `BaseGuarded` and the application `Port` type.
@@ -367,20 +372,6 @@ Infrastructure implementations of these ports inherit from both `BaseGuarded` an
 ### `HandlerProtocol`
 
 All application-layer handler types (`CommandHandler`, `QueryHandler`, `AsyncCommandHandler`, `AsyncQueryHandler`) inherit from `HandlerProtocol(Port)`. Infrastructure handler types inherit from both `BaseHandler` (mutation-guarded behaviour) and the corresponding app-layer `HandlerProtocol`.
-
-### `Port` Base Class
-
-`Port` (public via `aod.application`) is an abstract base class for defining dependency interfaces (ports/gateways) in the application layer. It extends `BaseGuarded`, so:
-- Concrete subclasses' public methods are auto-wrapped with mutation context (can mutate fields)
-- Mutations are blocked from outside
-- Supports `@abstractmethod` (skipped by `_wrap_public_methods`)
-- Subclasses declare fields and abstract methods that infrastructure will implement
-
-Built-in port types (all `aod.application`):
-- **`Logger`** — `debug(msg, **context)`, `info(msg, **context)`, `warning(msg, **context)`, `error(msg, **context)`
-- **`EventBus`** — `publish(*events)` for publishing domain events to external handlers
-- **`UnitOfWork`** — `commit()`, `rollback()`, `flush()` for transactional boundaries
-- **`Cache`** — `get(key)`, `set(key, value, ttl=None)`, `delete(key)`, `flush()`, `set_promise()`, `delete_promise()` for caching (sync + async). Application-level `Cache` is a `Protocol`; infrastructure provides `Cache(Port)` with promise/flush support.
 
 ### Contracts (`Command` / `Query`)
 
@@ -394,8 +385,8 @@ Contract validation lives in `aod._internal.application.contracts.contracts.py` 
 
 `aod.infrastructure` provides abstract handler bases with automatic result-type checking:
 
-- **`CommandHandler[C]`** / **`QueryHandler[Q]`** — abstract bases with `handle()` method
-- **`AsyncCommandHandler[C]`** / **`AsyncQueryHandler[Q]`** — async variants
+- **`CommandHandler[C]`** / **`QueryHandler[Q]`** — abstract bases with `handle(self, command: TCommand) -> object` method
+- **`AsyncCommandHandler[C]`** / **`AsyncQueryHandler[Q]`** — async variants with `async handle(self, command: TCommand) -> object`
 - **`BaseHandler`** — base class with `_wrap_handle()` that validates the `handle()` return type against the handler's generic parameter at runtime. Uses `get_last_generic_arg` from `generic_utils.py`.
 
 Zero `# type: ignore` in `handlers.py`.
@@ -515,13 +506,13 @@ uv run pytest code/tests -q
 
 ## Dependencies
 
-- **Runtime**: `pydantic>=2.12.4`, `polyfactory>=3.3.0`
+- **Runtime**: `pydantic>=2.12.4`, `polyfactory>=3.3.0`, `typing-inspect>=0.9.0`
 - **Dev**: `ruff`, `ty`, `pre-commit`, `pytest`, `pytest-cov`, `pytest-asyncio`
 - **Build**: `setuptools`, `wheel`
 
 ## Test Count
 
-740 tests
+785 tests
 
 ## At the end of a task
 

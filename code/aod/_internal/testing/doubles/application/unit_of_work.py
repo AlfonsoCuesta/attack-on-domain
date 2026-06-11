@@ -1,7 +1,7 @@
 from __future__ import annotations
 
+from aod._internal.application.unit_of_work.unit_of_work import AsyncUnitOfWork, UnitOfWork
 from aod._internal.core.fields.fields import PrivateField
-from aod._internal.infrastructure.unit_of_work import AsyncUnitOfWork, UnitOfWork
 
 
 class SpyUnitOfWork(UnitOfWork):
@@ -26,6 +26,8 @@ class SpyUnitOfWork(UnitOfWork):
 
     def rollback(self) -> None:
         self._rolled_back = True
+
+    def begin(self) -> None: ...
 
     def flush(self) -> None:
         self._flushed = True
@@ -53,6 +55,8 @@ class AsyncSpyUnitOfWork(AsyncUnitOfWork):
 
     async def rollback(self) -> None:
         self._rolled_back = True
+
+    async def begin(self) -> None: ...
 
     async def flush(self) -> None:
         self._flushed = True

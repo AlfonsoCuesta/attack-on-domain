@@ -1,5 +1,5 @@
 import types
-from typing import Type
+from typing import Any, Type
 
 from .wrapped_methods import get_wrapped_methods
 
@@ -20,10 +20,10 @@ def _copy_state(src: object, dst: object) -> None:
                 pass
 
 
-def _make_immutable_class(cls: Type, factory) -> type:
+def _make_immutable_class(cls: Type, factory: Any) -> type:
     model_fields = getattr(cls, "__model_fields__", None)
 
-    def __getattribute__(self, name):
+    def __getattribute__(self: Any, name: str) -> Any:
         if name.startswith("__") and name.endswith("__"):
             return object.__getattribute__(self, name)
         value = object.__getattribute__(self, name)
@@ -47,14 +47,14 @@ def _make_immutable_class(cls: Type, factory) -> type:
     return immutable_cls
 
 
-def _make_immutable_object(obj, factory) -> object:
+def _make_immutable_object(obj: Any, factory: Any) -> Any:
     cls = type(obj)
     if cls not in _immutable_cache:
         _immutable_cache[cls] = _make_immutable_class(cls, factory)
 
     immutable_cls = _immutable_cache[cls]
     try:
-        new_obj: object = immutable_cls.__new__(immutable_cls, obj)
+        new_obj: Any = immutable_cls.__new__(immutable_cls, obj)
     except TypeError:
         try:
             new_obj = object.__new__(immutable_cls)

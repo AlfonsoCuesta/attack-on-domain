@@ -99,7 +99,7 @@ class BaseValidator(metaclass=ValidationModelMeta):
             for k, v in private.items():
                 object.__setattr__(self, k, v)
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         fields = self.__validation_model__.model_fields.keys()
         args = ", ".join(f"{k}={getattr(self, k)!r}" for k in fields)
         return f"{self.__class__.__name__}({args})"

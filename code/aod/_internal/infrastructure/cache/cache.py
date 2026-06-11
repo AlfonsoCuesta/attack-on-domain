@@ -5,7 +5,7 @@ from dataclasses import dataclass
 from typing import Any
 
 from aod._internal.core.fields.fields import PrivateField
-from aod.application import Port
+from aod._internal.application.port import Port
 
 
 @dataclass

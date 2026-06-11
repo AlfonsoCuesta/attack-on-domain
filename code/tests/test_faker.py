@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import pytest
+
 from aod._internal.domain.entity import RootEntity
 from aod._internal.domain.service import Service
 from aod._internal.domain.value_object import ValueObject
@@ -108,23 +110,15 @@ class TestFakeDomainConstructor:
         class NotDomain:
             pass
 
-        try:
+        with pytest.raises(TypeError, match="Entity|ValueObject"):
             FakeDomain(NotDomain)
-            msg = "expected TypeError"
-            raise AssertionError(msg)
-        except TypeError as e:
-            assert "Entity" in str(e) or "ValueObject" in str(e)
 
     def test_service_raises(self) -> None:
         class MyService(Service):
             pass
 
-        try:
+        with pytest.raises(TypeError, match="Entity|ValueObject"):
             FakeDomain(MyService)
-            msg = "expected TypeError"
-            raise AssertionError(msg)
-        except TypeError as e:
-            assert "Entity" in str(e) or "ValueObject" in str(e)
 
 
 class TestFakeDomainBuild:

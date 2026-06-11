@@ -11,23 +11,6 @@ from aod._internal.core.base_sealed import BaseSealed
 from aod._internal.core.domain_exception import MutationForbiddenException
 
 
-def test_mutating_context_state_transitions() -> None:
-    ctx = MutatingContext()
-    assert ctx.status == MutatingState.BLOCK
-
-    ctx.enter(MutatingState.PASS)
-    assert ctx.status == MutatingState.PASS
-
-    ctx.enter(MutatingState.INHERIT)
-    assert ctx.status == MutatingState.INHERIT
-
-    ctx.exit(MutatingState.INHERIT)
-    assert ctx.status == MutatingState.PASS
-
-    ctx.exit(MutatingState.PASS)
-    assert ctx.status == MutatingState.BLOCK
-
-
 def test_base_guarded_uses_same_mutating_context_across_inheritance_levels() -> None:
     events = []
 

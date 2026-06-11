@@ -1,6 +1,14 @@
 from __future__ import annotations
 
 import typing
+from types import UnionType
+
+
+def unwrap_union(annotation: object) -> tuple[object, ...]:
+    origin = typing.get_origin(annotation)
+    if origin is UnionType or origin is typing.Union:
+        return tuple(a for a in typing.get_args(annotation) if a is not type(None))
+    return (annotation,)
 
 
 def type_name(annotation: object) -> str:

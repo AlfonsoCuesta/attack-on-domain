@@ -21,8 +21,6 @@ from aod._internal.infrastructure.session import AsyncSession, Session
 
 TCommand = TypeVar("TCommand", bound=Command)
 TQuery = TypeVar("TQuery", bound=Query)
-TEntity = TypeVar("TEntity")
-TResult = TypeVar("TResult")
 
 
 class BaseHandler(BaseBehaviour):
@@ -35,19 +33,19 @@ class AsyncBaseHandler(BaseHandler):
 
 class CommandHandler(BaseHandler, AppCommandHandler, Generic[TCommand]):
     @abstractmethod
-    def handle(self, command: Command[TEntity, TResult]) -> TResult: ...
+    def handle(self, command: TCommand) -> object: ...
 
 
 class QueryHandler(BaseHandler, AppQueryHandler, Generic[TQuery]):
     @abstractmethod
-    def handle(self, query: Query[TEntity, TResult]) -> TResult: ...
+    def handle(self, query: TQuery) -> object: ...
 
 
 class AsyncCommandHandler(AsyncBaseHandler, AppAsyncCommandHandler, Generic[TCommand]):
     @abstractmethod
-    async def handle(self, command: Command[TEntity, TResult]) -> TResult: ...
+    async def handle(self, command: TCommand) -> object: ...
 
 
 class AsyncQueryHandler(AsyncBaseHandler, AppAsyncQueryHandler, Generic[TQuery]):
     @abstractmethod
-    async def handle(self, query: Query[TEntity, TResult]) -> TResult: ...
+    async def handle(self, query: TQuery) -> object: ...

@@ -59,12 +59,3 @@ class Query(BaseSealed, Generic[TEntity, TResult]):
         validate_generic_arg_is_subclass(cls, Query, RootEntity, arg_name="TEntity")
         _validate_fields_no_entity(cls)
         _validate_result_contains_root_entity(cls, Query)
-
-
-class User(RootEntity):
-    id: int
-    name: str
-
-
-class GetUser(Query[User, User | None]):
-    user_id: int

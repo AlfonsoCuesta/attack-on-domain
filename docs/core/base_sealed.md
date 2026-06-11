@@ -33,5 +33,5 @@ BaseValidator (ValidationModelMeta)
 ## Used by
 - `Event(BaseSealed)` — events are immutable
 - `ValueObject(BaseSealed)` — DDD value objects are immutable
-- `Service(BaseSealed)` — DDD services are stateless and immutable
-- `UseCase(BaseSealed)` — application use cases (mutation only inside `run()` via `@inherit_context`, which uses `INHERIT` context and bypasses the seal)
+- `Service(BaseBehaviour)` — DDD services are stateless and immutable
+- `UseCase(BaseOperation)` — application use cases (mutation only inside `run()` via `@inherit_context`, which uses `INHERIT` context and bypasses the seal)

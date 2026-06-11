@@ -22,9 +22,9 @@ Source code is under `code/` (mapped as package root in `pyproject.toml`).
 | `from aod.domain import DomainException` | Domain base exception |
 | `from aod.domain.exceptions import MutationForbiddenException, InvalidEntityTypeError, InvarianceException, ModelValidationError, …` | Domain-specific exceptions |
 | `from aod.application import ApplicationException` | Application base exception |
-| `from aod.application.exceptions import UnresolvableEntityError, CommitOutsideUnitOfWorkError` | Application-specific exceptions |
+| `from aod.application.exceptions import UnresolvableEntityError, CommitOutsideUnitOfWorkError, InvalidUseCasePortFieldError` | Application-specific exceptions |
 | `from aod.infrastructure import InfrastructureException` | Infrastructure base exception |
-| `from aod.infrastructure.exceptions import DuplicateHandlerError, HandlerNotFoundError, HandlerResultTypeError, …` | Infrastructure-specific exceptions |
+| `from aod.infrastructure.exceptions import DuplicateHandlerError, HandlerNotFoundError, HandlerResultTypeError, HandlerModelError, PortNotFoundError, SessionNotFoundError, InvalidPortFieldError` | Infrastructure-specific exceptions |
 
 | `from aod.application import UseCase` | UseCase base class |
 | `from aod.application import Port` | Abstract port/gateway base class |
@@ -115,8 +115,8 @@ Source code is under `code/` (mapped as package root in `pyproject.toml`).
 Built-in port types (all `aod.application`):
 - **`Logger`** — `debug(msg, **context)`, `info(msg, **context)`, `warning(msg, **context)`, `error(msg, **context)`
 - **`EventBus`** — `publish(*events)` for publishing domain events to external handlers
-- **`UnitOfWork`** — `commit()`, `rollback()`, `flush()` for transactional boundaries (sync); `AsyncUnitOfWork` for async
-- **`Cache`** — `get(key)`, `set(key, value, ttl=None)`, `delete(key)`, `flush()`, `set_promise()`, `delete_promise()` for caching (sync); `AsyncCache` for async (application-level `Cache` is a `Protocol`; infrastructure provides `Cache(Port)` with promise/flush support)
+- **`UnitOfWork`** — `commit()`, `rollback()`, `begin()` for transactional boundaries (sync); `AsyncUnitOfWork` for async
+- **`Cache`** — `get(key)`, `set(key, value, ttl=None)`, `delete(key)`, `flush()`, `set_promise()`, `delete_promise()` for caching (sync); `AsyncCache` for async (application-level `Cache` inherits from `Port`; infrastructure provides `Cache(Port)` with promise/flush support)
 - **`Session`** — database abstraction (`execute`, `query`, `begin`, `commit`, `rollback`, `close`) — defined in `aod._internal.infrastructure.session`, not exported from `aod.application`
 
 ```python
@@ -143,8 +143,8 @@ Application-layer contracts at `from aod.application import Command, Query`:
 
 Abstract handler bases at `from aod.infrastructure import CommandHandler, QueryHandler`:
 
-- **`CommandHandler[C]`** / **`QueryHandler[Q]`** — abstract bases with `handle()` method; validate generic param at class creation
-- **`AsyncCommandHandler[C]`** / **`AsyncQueryHandler[Q]`** — async variants
+- **`CommandHandler[C]`** / **`QueryHandler[Q]`** — abstract bases with `handle(command: TCommand) -> object` method; generic type is the specific Command/Query subclass
+- **`AsyncCommandHandler[C]`** / **`AsyncQueryHandler[Q]`** — async variants with `async handle(command: TCommand) -> object`
 
 Handler type validation uses `get_last_generic_arg` from `type_handlers/generic_utils.py` — works in any scope, avoids `NameError` with locally-defined handlers.
 

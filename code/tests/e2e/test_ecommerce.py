@@ -228,7 +228,9 @@ class TestValueObjects:
 
     def test_money_immutability(self) -> None:
         m = Money(amount=100)
-        with pytest.raises(Exception):
+        from aod._internal.core.domain_exception import MutationForbiddenException
+
+        with pytest.raises(MutationForbiddenException):
             m.amount = 200
 
     def test_order_line_creation(self) -> None:
@@ -441,7 +443,9 @@ class TestUseCase:
         uc = PlaceOrderUseCase(email_sender=FakeEmailSender(), inventory=FakeInventoryClient())
         uc.run()
         assert len(uc.events) >= 1
-        with pytest.raises(Exception):
+        from aod._internal.core.domain_exception import MutationForbiddenException
+
+        with pytest.raises(MutationForbiddenException):
             uc.events = []
 
 

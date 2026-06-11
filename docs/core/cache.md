@@ -1,9 +1,9 @@
 # Cache
 
-`Cache` is a structural interface (Protocol) for key-value caching, available at `from aod.application import Cache`. Infrastructure implementations extend `Cache(Port)` from `aod.infrastructure`. Async at `from aod.application.async_ import Cache`.
+`Cache` is an abstract base class for key-value caching, available at `from aod.application import Cache`. It inherits from `Port`. Infrastructure implementations extend `Cache(Port)` from `aod.infrastructure`. Async at `from aod.application.async_ import Cache`.
 
 ```python
-class Cache(Protocol):
+class Cache(Port):
     def get(self, key: str) -> Any: ...
     def set(self, key: str, value: Any, ttl: float | None = None) -> None: ...
     def delete(self, key: str) -> None: ...
@@ -67,13 +67,11 @@ class RedisCache(Cache):
 ```python
 class GetUserUseCase(UseCase):
     cache: Cache
-    handler: QueryHandler[GetUserQuery, User]
 
     async def run(self) -> User:
         user = await self.cache.get(self.command.user_id)
         if user is not None:
             return user
-        user = await self.handler.handle(self.command)
         await self.cache.set(self.command.user_id, user, ttl=300)
         return user
 ```

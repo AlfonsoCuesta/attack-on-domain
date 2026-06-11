@@ -29,7 +29,7 @@ from aod._internal.infrastructure.handlers import (
 from aod._internal.infrastructure.handlers.handlers import AsyncBaseHandler
 from aod._internal.infrastructure.session import AsyncSession, Session
 from aod._internal.infrastructure.unit_of_work import AsyncUnitOfWork, UnitOfWork
-from aod.domain import Field, PrivateField
+from aod._internal.core.fields.fields import Field, PrivateField
 
 _SYNC_HANDLERS = CommandHandler | QueryHandler
 _ASYNC_HANDLERS = AsyncCommandHandler | AsyncQueryHandler

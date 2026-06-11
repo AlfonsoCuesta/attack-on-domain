@@ -2,14 +2,13 @@ from __future__ import annotations
 
 from abc import abstractmethod
 from functools import wraps
-from typing import Any, Callable, cast
+from typing import Any, Callable
 
-from aod._internal.core.application_exception import InvalidPortFieldError
 from aod._internal.core.async_utils import should_await
-from aod._internal.core.base_operation import BaseOperation
-from aod._internal.core.base_validator import BaseValidator
+from aod._internal.core.base_operation import BaseOperation, _iter_new_fields
 from aod._internal.core.event_emitter import EventCollector
 from aod._internal.core.fields.fields import Field
+from aod._internal.core.infrastructure_exception import InvalidPortFieldError
 from aod._internal.infrastructure.commit_context import _CommitContext
 from aod._internal.infrastructure.projection.models import ReadModel, WriteModel
 from aod._internal.infrastructure.session import AsyncSession, Session
@@ -17,33 +16,56 @@ from aod._internal.infrastructure.session import AsyncSession, Session
 _PROJECTION_WRAPPED_KEY = "__aod_projection_wrapped__"
 
 
-def _make_read_wrapper(fn: Callable[..., Any]) -> Callable[..., Any]:
-    @wraps(fn)
-    def wrapper(self: Any, model: ReadModel) -> Any:
-        exception: BaseException | None = None
-        with EventCollector() as events:
+def _make_projection_wrapper(
+    fn: Callable[..., Any],
+    *,
+    is_async: bool,
+    is_write: bool,
+    operation: str,
+) -> Callable[..., Any]:
+    if is_async:
+
+        @wraps(fn)
+        async def async_wrapper(self: Any, model: ReadModel | WriteModel) -> Any:
+            token = _CommitContext.set(True) if is_write else None
+            exception: BaseException | None = None
             try:
-                result = fn(self, model)
-            except BaseException as e:
-                exception = e
-                result = None
-            self.events = list(events)
-        if exception is not None:
-            self.logger.error(f"{type(self).__name__} read failed with exception: {exception}")
-            raise exception
-        self.logger.info(f"{type(self).__name__} read events", events=self.events)
-        self.cache.flush()
-        self.event_bus.publish(*self.events)
-        self.logger.info(f"{type(self).__name__} read completed")
-        return result
+                if is_write and self.session is not None:
+                    await should_await(self.session.begin())
+                with EventCollector() as events:
+                    try:
+                        result = await should_await(fn(self, model))
+                    except BaseException as e:
+                        exception = e
+                        result = None
+                    self.events = list(events)
+                if exception is not None:
+                    if is_write and self.session is not None:
+                        await should_await(self.session.rollback())
+                    await should_await(
+                        self.logger.error(
+                            f"{type(self).__name__} {operation} failed with exception: {exception}"
+                        )
+                    )
+                    raise exception
+                await should_await(
+                    self.logger.info(
+                        f"{type(self).__name__} {operation} events", events=self.events
+                    )
+                )
+                await should_await(self.cache.flush())
+                await should_await(self.event_bus.publish(*self.events))
+                await should_await(self.logger.info(f"{type(self).__name__} {operation} completed"))
+                return result
+            finally:
+                if token is not None:
+                    _CommitContext.reset(token)
 
-    return wrapper
+        return async_wrapper
 
-
-def _make_write_wrapper(fn: Callable[..., Any]) -> Callable[..., Any]:
     @wraps(fn)
-    def wrapper(self: Any, model: WriteModel) -> Any:
-        token = _CommitContext.set(True)
+    def sync_wrapper(self: Any, model: ReadModel | WriteModel) -> Any:
+        token = _CommitContext.set(True) if is_write else None
         exception: BaseException | None = None
         try:
             with EventCollector() as events:
@@ -54,83 +76,22 @@ def _make_write_wrapper(fn: Callable[..., Any]) -> Callable[..., Any]:
                     result = None
                 self.events = list(events)
             if exception is not None:
-                if self.session is not None and self.session.is_dirty():
+                if is_write and self.session is not None and self.session.is_dirty():
                     self.session.rollback()
-                self.logger.error(f"{type(self).__name__} write failed with exception: {exception}")
-                raise exception
-            self.logger.info(f"{type(self).__name__} write events", events=self.events)
-            self.cache.flush()
-            self.event_bus.publish(*self.events)
-            self.logger.info(f"{type(self).__name__} write completed")
-            return result
-        finally:
-            _CommitContext.reset(token)
-
-    return wrapper
-
-
-def _make_async_read_wrapper(fn: Callable[..., Any]) -> Callable[..., Any]:
-    @wraps(fn)
-    async def wrapper(self: Any, model: ReadModel) -> Any:
-        exception: BaseException | None = None
-        if self.session is not None:
-            await should_await(self.session.begin())
-        with EventCollector() as events:
-            try:
-                result = await should_await(fn(self, model))
-            except BaseException as e:
-                exception = e
-                result = None
-            self.events = list(events)
-        if exception is not None:
-            await should_await(
-                self.logger.error(f"{type(self).__name__} read failed with exception: {exception}")
-            )
-            raise exception
-        await should_await(
-            self.logger.info(f"{type(self).__name__} read events", events=self.events)
-        )
-        await should_await(self.cache.flush())
-        await should_await(self.event_bus.publish(*self.events))
-        await should_await(self.logger.info(f"{type(self).__name__} read completed"))
-        return result
-
-    return wrapper
-
-
-def _make_async_write_wrapper(fn: Callable[..., Any]) -> Callable[..., Any]:
-    @wraps(fn)
-    async def wrapper(self: Any, model: WriteModel) -> Any:
-        token = _CommitContext.set(True)
-        exception: BaseException | None = None
-        try:
-            with EventCollector() as events:
-                try:
-                    result = await should_await(fn(self, model))
-                except BaseException as e:
-                    exception = e
-                    result = None
-                self.events = list(events)
-            if exception is not None:
-                if self.session is not None:
-                    await should_await(self.session.rollback())
-                await should_await(
-                    self.logger.error(
-                        f"{type(self).__name__} write failed with exception: {exception}"
-                    )
+                self.logger.error(
+                    f"{type(self).__name__} {operation} failed with exception: {exception}"
                 )
                 raise exception
-            await should_await(
-                self.logger.info(f"{type(self).__name__} write events", events=self.events)
-            )
-            await should_await(self.cache.flush())
-            await should_await(self.event_bus.publish(*self.events))
-            await should_await(self.logger.info(f"{type(self).__name__} write completed"))
+            self.logger.info(f"{type(self).__name__} {operation} events", events=self.events)
+            self.cache.flush()
+            self.event_bus.publish(*self.events)
+            self.logger.info(f"{type(self).__name__} {operation} completed")
             return result
         finally:
-            _CommitContext.reset(token)
+            if token is not None:
+                _CommitContext.reset(token)
 
-    return wrapper
+    return sync_wrapper
 
 
 class ProjectionBase(BaseOperation):
@@ -140,23 +101,15 @@ class ProjectionBase(BaseOperation):
     def __init_subclass__(cls, **kwargs: object) -> None:
         super().__init_subclass__(**kwargs)
         sessions = []
-        for subcls in cls.__mro__:
-            if "__skip_port_check__" in subcls.__dict__:
-                return
-            subcls = cast(BaseValidator, subcls)
-            for field_name, field_info in subcls.__model_fields__.items():
-                if field_name not in cls.__annotations__:
-                    continue
-
-                tp = field_info.annotation
-                if isinstance(tp, type) and issubclass(tp, (Session, AsyncSession)):
-                    sessions.append(tp)
-                    if len(sessions) > 1:
-                        raise InvalidPortFieldError(
-                            field_name,
-                            cls.__name__,
-                            str(field_info.annotation),
-                        )
+        for field_name, field_info in _iter_new_fields(cls):
+            tp = field_info.annotation
+            if isinstance(tp, type) and issubclass(tp, (Session, AsyncSession)):
+                sessions.append(tp)
+                if len(sessions) > 1:
+                    raise InvalidPortFieldError(
+                        field_name,
+                        str(field_info.annotation),
+                    )
 
 
 class ReadProjectionBase(ProjectionBase):
@@ -165,7 +118,9 @@ class ReadProjectionBase(ProjectionBase):
     def __init_subclass__(cls, **kwargs: Any) -> None:
         original_read: Callable[..., Any] | None = cls.__dict__.get("read")
         if original_read is not None and not getattr(original_read, _PROJECTION_WRAPPED_KEY, False):
-            wrapped = _make_read_wrapper(original_read)
+            wrapped = _make_projection_wrapper(
+                original_read, is_async=False, is_write=False, operation="read"
+            )
             setattr(cls, "read", wrapped)
             setattr(wrapped, _PROJECTION_WRAPPED_KEY, True)
         super().__init_subclass__(**kwargs)
@@ -179,7 +134,9 @@ class WriteProjectionBase(ProjectionBase):
         if original_write is not None and not getattr(
             original_write, _PROJECTION_WRAPPED_KEY, False
         ):
-            wrapped = _make_write_wrapper(original_write)
+            wrapped = _make_projection_wrapper(
+                original_write, is_async=False, is_write=True, operation="write"
+            )
             setattr(cls, "write", wrapped)
             setattr(wrapped, _PROJECTION_WRAPPED_KEY, True)
         super().__init_subclass__(**kwargs)
@@ -191,7 +148,9 @@ class AsyncReadProjectionBase(ProjectionBase):
     def __init_subclass__(cls, **kwargs: Any) -> None:
         original_read: Callable[..., Any] | None = cls.__dict__.get("read")
         if original_read is not None and not getattr(original_read, _PROJECTION_WRAPPED_KEY, False):
-            wrapped = _make_async_read_wrapper(original_read)
+            wrapped = _make_projection_wrapper(
+                original_read, is_async=True, is_write=False, operation="read"
+            )
             setattr(cls, "read", wrapped)
             setattr(wrapped, _PROJECTION_WRAPPED_KEY, True)
         super().__init_subclass__(**kwargs)
@@ -205,7 +164,9 @@ class AsyncWriteProjectionBase(ProjectionBase):
         if original_write is not None and not getattr(
             original_write, _PROJECTION_WRAPPED_KEY, False
         ):
-            wrapped = _make_async_write_wrapper(original_write)
+            wrapped = _make_projection_wrapper(
+                original_write, is_async=True, is_write=True, operation="write"
+            )
             setattr(cls, "write", wrapped)
             setattr(wrapped, _PROJECTION_WRAPPED_KEY, True)
         super().__init_subclass__(**kwargs)
