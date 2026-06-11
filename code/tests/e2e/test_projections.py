@@ -236,11 +236,12 @@ class TestWriteProjection:
         p.write(UserWriteModel(user_id=1, name="test"))
 
     def test_write_rolls_back_on_error(self) -> None:
+        session = _TestSession()
+
         class FailingWrite(WriteProjection):
             def write(self, model: UserWriteModel) -> str:
                 raise ValueError("write failed")
 
-        session = _TestSession()
         p = FailingWrite(session=session)
         with pytest.raises(ValueError, match="write failed"):
             p.write(UserWriteModel(user_id=1, name="Alice"))
@@ -392,35 +393,31 @@ class TestAsyncFullProjection:
 
 class TestProjectionInjection:
     def test_inject_read_projection(self) -> None:
-        session = _TestSession()
-        container = ProjectionContainer(sessions={session})
-        partial = inject_adapters(container, GetUserProjection)
-        p = partial()
+        container = ProjectionContainer(sessions={_TestSession})
+        uc = inject_adapters(container, GetUserProjection)
+        p = uc
         assert isinstance(p.session, Session)
         assert p.logger is not None
         assert p.event_bus is not None
 
     def test_inject_write_projection(self) -> None:
-        session = _TestSession()
-        container = ProjectionContainer(sessions={session})
-        partial = inject_adapters(container, CreateUserProjection)
-        p = partial()
+        container = ProjectionContainer(sessions={_TestSession})
+        uc = inject_adapters(container, CreateUserProjection)
+        p = uc
         assert isinstance(p.session, Session)
 
     def test_inject_full_projection(self) -> None:
-        session = _TestSession()
-        container = ProjectionContainer(sessions={session})
-        partial = inject_adapters(container, FullUserProjection)
-        p = partial()
+        container = ProjectionContainer(sessions={_TestSession})
+        uc = inject_adapters(container, FullUserProjection)
+        p = uc
         assert isinstance(p.session, Session)
 
     def test_inject_with_logger_and_event_bus(self) -> None:
         logger = SpyLogger()
         bus = SpyEventBus()
-        session = _TestSession()
-        container = ProjectionContainer(sessions={session})
-        partial = inject_adapters(container, GetUserProjection, logger=logger, event_bus=bus)
-        p = partial()
+        container = ProjectionContainer(sessions={_TestSession})
+        uc = inject_adapters(container, GetUserProjection, logger=logger, event_bus=bus)
+        p = uc
         p.read(UserReadModel(user_id=1))
         completions = [e for e in logger.entries if "completed" in str(e.msg)]
         assert len(completions) >= 1

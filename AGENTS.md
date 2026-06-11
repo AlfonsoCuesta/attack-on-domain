@@ -342,7 +342,31 @@ Public modules re-export from `_internal`; they contain no logic of their own. T
 
 Events emitted directly by the UseCase via `self._event_emitter.emit(...)` or by any entity touched during `run` are all captured and stored on the UseCase, replacing any events from previous runs.
 
-**Handler fields on UseCase**: When a `UseCase` needs a `CommandHandler` or `QueryHandler`, the field must be declared with the **concrete infrastructure handler type** (e.g. `create_user: CreateUserHandler`), not the application-layer `Protocol`. This is because Pydantic cannot use `Protocol` as a field type (it raises `SchemaError`). The `inject_adapters` function resolves the correct handler from the container by matching the field's type against registered handlers. The **semantic dependency** is still against the application-layer `Protocol` — the `UseCase` never imports or knows the infrastructure implementation directly; it only declares the concrete type so Pydantic can validate the field.
+**Handler fields on UseCase**: Handler injection via UseCase fields is no longer supported. Handlers should be passed as `run()` parameters. UseCase fields are reserved for **Ports only** — validated at class creation by `BaseOperation.__init_subclass__` which raises `InvalidOperationFieldError` if any field is not a `Port` subclass (excluding `HandlerProtocol` subtypes). Framework base classes (`UseCase`, `AsyncUseCase`, `ProjectionBase`, etc.) set `__skip_port_check__ = True` to bypass this check.
+
+**Infrastructure handler inheritance**: Infrastructure `CommandHandler`/`QueryHandler` types inherit from both `BaseHandler` and the application-layer `HandlerProtocol` (`Port`). This satisfies Pydantic `isinstance` checks when handlers are used in any context requiring the app-layer type.
+
+**Container sessions**: `AdapterContainerBase.sessions` holds session **classes** (`type[Session] | type[AsyncSession]`), not instances. `get_session(session_cls)` instantiates the matching class, tracks the instance in `_sessions_needed`, and returns it. `get_uow()` checks session types and creates `UnitOfWork`/`AsyncUnitOfWork` with the needed instances.
+
+### `Port` Base Class
+
+`Port` (public via `aod.application`) is an abstract base class for defining dependency interfaces (ports/gateways) in the application layer. It extends `BaseGuarded`, so:
+- Concrete subclasses' public methods are auto-wrapped with mutation context (can mutate fields)
+- Mutations are blocked from outside
+- Supports `@abstractmethod` (skipped by `_wrap_public_methods`)
+- Subclasses declare fields and abstract methods that infrastructure will implement
+
+Built-in port types (all `aod.application`):
+- **`Logger`** / **`AsyncLogger`** — `debug(msg, **context)`, `info(msg, **context)`, `warning(msg, **context)`, `error(msg, **context)`
+- **`EventBus`** / **`AsyncEventBus`** — `publish(*events)` for publishing domain events
+- **`UnitOfWork`** / **`AsyncUnitOfWork`** — `commit()`, `rollback()`, `flush()` for transactional boundaries
+- **`Cache`** / **`AsyncCache`** — `get(key)`, `set(key, value, ttl=None)`, `delete(key)`, `flush()`, `set_promise()`, `delete_promise()`
+
+Infrastructure implementations of these ports inherit from both `BaseGuarded` and the application `Port` type.
+
+### `HandlerProtocol`
+
+All application-layer handler types (`CommandHandler`, `QueryHandler`, `AsyncCommandHandler`, `AsyncQueryHandler`) inherit from `HandlerProtocol(Port)`. Infrastructure handler types inherit from both `BaseHandler` (mutation-guarded behaviour) and the corresponding app-layer `HandlerProtocol`.
 
 ### `Port` Base Class
 
@@ -497,7 +521,7 @@ uv run pytest code/tests -q
 
 ## Test Count
 
-768 tests
+740 tests
 
 ## At the end of a task
 

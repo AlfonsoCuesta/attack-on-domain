@@ -100,14 +100,14 @@ def test_can_instantiate_with_defaults() -> None:
 
 
 def test_uow_with_sync_sessions() -> None:
-    container = AdapterContainerBase(sessions={_SyncSession()})
+    container = AdapterContainerBase(sessions={_SyncSession})
     uow = container.get_uow()
     assert isinstance(uow, UnitOfWork)
     assert not isinstance(uow, AsyncUnitOfWork)
 
 
 def test_uow_with_async_sessions() -> None:
-    container = AdapterContainerBase(sessions={_AsyncSession()})
+    container = AdapterContainerBase(sessions={_AsyncSession})
     uow = container.get_uow()
     assert isinstance(uow, AsyncUnitOfWork)
 
@@ -120,7 +120,7 @@ def test_uow_with_empty_sessions() -> None:
 
 def test_with_adapters_returns_copy() -> None:
     container = AdapterContainerBase()
-    copied = container.with_adapters(sessions={_SyncSession()})
+    copied = container.with_adapters(sessions={_SyncSession})
     assert copied is not container
     assert len(copied.sessions) == 1
     assert container.sessions == set()
@@ -128,9 +128,8 @@ def test_with_adapters_returns_copy() -> None:
 
 def test_copy_through_with_adapters() -> None:
     container = AdapterContainerBase()
-    session = _SyncSession()
-    copied = container.with_adapters(sessions={session})
-    assert session in copied.sessions
+    copied = container.with_adapters(sessions={_SyncSession})
+    assert _SyncSession in copied.sessions
 
 
 def test_subclass_with_port_field_works() -> None:
@@ -239,16 +238,14 @@ class TestFindHandler:
 
 class TestGetSession:
     def test_finds_sync_session(self) -> None:
-        session = _SyncSession()
-        container = AdapterContainerBase(sessions={session})
+        container = AdapterContainerBase(sessions={_SyncSession})
         result = container.get_session(Session)
-        assert result is session
+        assert isinstance(result, Session)
 
     def test_finds_async_session(self) -> None:
-        session = _AsyncSession()
-        container = AdapterContainerBase(sessions={session})
+        container = AdapterContainerBase(sessions={_AsyncSession})
         result = container.get_session(AsyncSession)
-        assert result is session
+        assert isinstance(result, AsyncSession)
 
     def test_raises_when_session_type_missing(self) -> None:
         container = AdapterContainerBase()
@@ -256,28 +253,24 @@ class TestGetSession:
             container.get_session(Session)
 
     def test_returns_first_match(self) -> None:
-        s1 = _SyncSession()
-        s2 = _SyncSession()
-        container = AdapterContainerBase(sessions={s1, s2})
+        container = AdapterContainerBase(sessions={_SyncSession})
         result = container.get_session(Session)
-        assert result in {s1, s2}
+        assert isinstance(result, Session)
 
 
 class TestGetHandler:
     def test_returns_handler_instance(self) -> None:
-        session = _SyncSession()
         container = AdapterContainerBase(
             handlers=[GetUserHandler],
-            sessions={session},
+            sessions={_SyncSession},
         )
         handler = container.get_handler(GetUser)
         assert isinstance(handler, GetUserHandler)
 
     def test_passes_session_to_handler(self) -> None:
-        session = _SyncSession()
         container = AdapterContainerBase(
             handlers=[GetUserHandler],
-            sessions={session},
+            sessions={_SyncSession},
         )
         handler = container.get_handler(GetUser)
         assert isinstance(handler.session, Session)
@@ -390,10 +383,9 @@ class TestGetHandler:
             def handle(self, command: CreateUser) -> User:
                 return User(id=1, name=command.name)
 
-        session = _SyncSession()
         container = AdapterContainerBase(
             handlers=[_ExactSessionHandler],
-            sessions={session},
+            sessions={_SyncSession},
         )
         handler = container.get_handler(CreateUser)
         assert isinstance(handler, _ExactSessionHandler)

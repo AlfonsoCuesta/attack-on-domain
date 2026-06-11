@@ -463,27 +463,23 @@ class TestContainerAndInjection:
             email_sender=email_sender,
             inventory=inventory,
         )
-        partial = inject_adapters(container, PlaceOrderUseCase)
-        uc = partial()
+        uc = inject_adapters(container, PlaceOrderUseCase)
         assert isinstance(uc.email_sender, FakeEmailSender)
         assert isinstance(uc.inventory, FakeInventoryClient)
 
     def test_inject_with_session(self) -> None:
-        session = _SyncSession()
         email_sender = FakeEmailSender()
         inventory = FakeInventoryClient()
         container = EcommerceContainer(
             email_sender=email_sender,
             inventory=inventory,
-            sessions={session},
+            sessions={_SyncSession},
         )
-        partial = inject_adapters(container, PlaceOrderUseCase)
-        uc = partial()
+        uc = inject_adapters(container, PlaceOrderUseCase)
         uc.run()
         assert len(uc.events) >= 1
 
     def test_full_integration_via_container(self) -> None:
-        session = _SyncSession()
         email_sender = FakeEmailSender()
         inventory = FakeInventoryClient()
         logger = SpyLogger()
@@ -491,15 +487,14 @@ class TestContainerAndInjection:
         container = EcommerceContainer(
             email_sender=email_sender,
             inventory=inventory,
-            sessions={session},
+            sessions={_SyncSession},
         )
-        partial = inject_adapters(
+        uc = inject_adapters(
             container,
             PlaceOrderUseCase,
             logger=logger,
             event_bus=bus,
         )
-        uc = partial()
         uc.run()
         assert len(inventory.reserved) == 1
         assert len(email_sender.sent) == 1

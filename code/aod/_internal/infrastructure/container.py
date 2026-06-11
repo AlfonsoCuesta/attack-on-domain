@@ -29,7 +29,7 @@ from aod._internal.infrastructure.handlers import (
 from aod._internal.infrastructure.handlers.handlers import AsyncBaseHandler
 from aod._internal.infrastructure.session import AsyncSession, Session
 from aod._internal.infrastructure.unit_of_work import AsyncUnitOfWork, UnitOfWork
-from aod.domain import Field
+from aod.domain import Field, PrivateField
 
 _SYNC_HANDLERS = CommandHandler | QueryHandler
 _ASYNC_HANDLERS = AsyncCommandHandler | AsyncQueryHandler
@@ -51,7 +51,9 @@ def _is_port_type(tp: object) -> bool:
 
 class AdapterContainerBase(BaseBehaviour):
     sessions: set[type[Session] | type[AsyncSession]] = Field(default_factory=set)
-    _sessions_needed: set[Session | AsyncSession] = Field(default_factory=set)
+    _sessions_needed: dict[type[Session] | type[AsyncSession], Session | AsyncSession] = (
+        PrivateField(default_factory=dict)
+    )
     logger: Logger | AsyncLogger = Field(default_factory=NullLogger)
     event_bus: EventBus | AsyncEventBus = Field(default_factory=NullEventBus)
     cache: Cache | AsyncCache = Field(default_factory=NullCache)
@@ -90,9 +92,13 @@ class AdapterContainerBase(BaseBehaviour):
             seen.add(contract)
 
     def get_uow(self) -> UnitOfWork | AsyncUnitOfWork:
-        if any(isinstance(session, AsyncSession) for session in self._sessions_needed):
-            return AsyncUnitOfWork(sessions=self._sessions_needed)
-        return UnitOfWork(sessions=cast(set[Session], self._sessions_needed))
+        sessions = set(self._sessions_needed.values())
+        has_async = any(issubclass(s, AsyncSession) for s in self.sessions) or any(
+            isinstance(s, AsyncSession) for s in self._sessions_needed
+        )
+        if has_async:
+            return AsyncUnitOfWork(sessions=sessions)
+        return UnitOfWork(sessions=cast(set[Session], sessions))
 
     def with_adapters(self, **overrides: Any) -> Self:
         return self.copy(**overrides)
@@ -143,9 +149,11 @@ class AdapterContainerBase(BaseBehaviour):
     def get_session(
         self, session_cls: type[Session] | type[AsyncSession]
     ) -> Session | AsyncSession:
+        if session_cls in self._sessions_needed:
+            return self._sessions_needed[session_cls]
         for s in self.sessions:
-            if isinstance(s, session_cls):
+            if isinstance(s, type) and issubclass(s, session_cls):
                 instance = s()
-                self._sessions_needed.add(instance)
+                self._sessions_needed[session_cls] = instance
                 return instance
         raise SessionNotFoundError(session_cls)

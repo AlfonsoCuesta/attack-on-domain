@@ -3,15 +3,11 @@ from __future__ import annotations
 import pytest
 from aod._internal.application.logger.null_logger import NullLogger
 from aod._internal.application.port import Port
-from aod._internal.core.infrastructure_exception import (
-    HandlerNotFoundError,
-    PortNotFoundError,
-    SessionNotFoundError,
-)
+from aod._internal.core.infrastructure_exception import PortNotFoundError
 from aod._internal.infrastructure.container import AdapterContainerBase
 from aod._internal.infrastructure.handlers import AsyncCommandHandler
 from aod._internal.infrastructure.inject import (
-    _extract_port_type,
+    extract_port_type,
     inject_adapters,
 )
 from aod._internal.infrastructure.projection import ReadModel, ReadProjection
@@ -86,13 +82,13 @@ class _CustomContainer(AdapterContainerBase):
 
 class TestExtractPortType:
     def test_returns_port_type(self) -> None:
-        assert _extract_port_type(_FakePort) is _FakePort
+        assert extract_port_type(_FakePort) is _FakePort
 
     def test_returns_none_for_non_port(self) -> None:
-        assert _extract_port_type(int) is None
+        assert extract_port_type(int) is None
 
     def test_returns_none_for_non_type(self) -> None:
-        assert _extract_port_type(42) is None
+        assert extract_port_type(42) is None
 
 
 class TestInjectAdapters:
@@ -101,8 +97,7 @@ class TestInjectAdapters:
             def run(self) -> None: ...
 
         container = _CustomContainer()
-        partial = inject_adapters(container, SimpleUseCase)
-        uc = partial()
+        uc = inject_adapters(container, SimpleUseCase)
         assert uc.uow is not None
         assert uc.logger is not None
         assert uc.event_bus is not None
@@ -116,8 +111,7 @@ class TestInjectAdapters:
 
         port = _FakePort()
         container = _CustomContainer(weather_client=port)
-        partial = inject_adapters(container, PortUseCase)
-        uc = partial()
+        uc = inject_adapters(container, PortUseCase)
         assert isinstance(uc.weather_client, _FakePort)
 
     def test_overrides_special_field(self) -> None:
@@ -125,8 +119,7 @@ class TestInjectAdapters:
             def run(self) -> None: ...
 
         container = _CustomContainer()
-        partial = inject_adapters(container, SimpleUseCase, logger=NullLogger())
-        uc = partial()
+        uc = inject_adapters(container, SimpleUseCase, logger=NullLogger())
         assert isinstance(uc.logger, NullLogger)
 
     def test_overrides_port_field(self) -> None:
@@ -138,8 +131,7 @@ class TestInjectAdapters:
         port = _FakePort()
         override_port = _FakePort()
         container = _CustomContainer(weather_client=port)
-        partial = inject_adapters(container, PortUseCase, weather_client=override_port)
-        uc = partial()
+        uc = inject_adapters(container, PortUseCase, weather_client=override_port)
         assert isinstance(uc.weather_client, _FakePort)
 
     def test_raises_when_port_not_found(self) -> None:
@@ -152,26 +144,6 @@ class TestInjectAdapters:
         with pytest.raises(PortNotFoundError, match="No port of type"):
             inject_adapters(container, PortUseCase)
 
-    def test_raises_when_handler_not_found(self) -> None:
-        class HandlerUseCase(UseCase):
-            create_user: CreateUserHandler
-
-            def run(self) -> None: ...
-
-        container = _CustomContainer()
-        with pytest.raises(HandlerNotFoundError, match="No handler handler registered for"):
-            inject_adapters(container, HandlerUseCase)
-
-    def test_raises_when_handler_session_not_found(self) -> None:
-        class HandlerUseCase(UseCase):
-            create_user: CreateUserHandler
-
-            def run(self) -> None: ...
-
-        container = _CustomContainer(handlers=[CreateUserHandler])
-        with pytest.raises(SessionNotFoundError, match="No session of type"):
-            inject_adapters(container, HandlerUseCase)
-
     def test_ignores_private_fields(self) -> None:
         class PrivateUseCase(UseCase):
             _internal: int = 42
@@ -179,8 +151,7 @@ class TestInjectAdapters:
             def run(self) -> None: ...
 
         container = _CustomContainer()
-        partial = inject_adapters(container, PrivateUseCase)
-        uc = partial()
+        uc = inject_adapters(container, PrivateUseCase)
         assert uc._internal == 42
 
     def test_ignores_fields_without_type_hints(self) -> None:
@@ -188,20 +159,8 @@ class TestInjectAdapters:
             def run(self) -> None: ...
 
         container = _CustomContainer()
-        partial = inject_adapters(container, NoHintUseCase)
-        uc = partial()
+        uc = inject_adapters(container, NoHintUseCase)
         assert uc.uow is not None
-
-    def test_ignores_non_port_non_handler_fields(self) -> None:
-        class OtherFieldUseCase(UseCase):
-            some_value: str = "default"
-
-            def run(self) -> None: ...
-
-        container = _CustomContainer()
-        partial = inject_adapters(container, OtherFieldUseCase)
-        uc = partial()
-        assert uc.some_value == "default"
 
     def test_works_with_async_use_case(self) -> None:
         class AsyncPortUseCase(AsyncUseCase):
@@ -211,35 +170,8 @@ class TestInjectAdapters:
 
         port = _FakePort()
         container = _CustomContainer(weather_client=port)
-        partial = inject_adapters(container, AsyncPortUseCase)
-        uc = partial()
+        uc = inject_adapters(container, AsyncPortUseCase)
         assert isinstance(uc.weather_client, _FakePort)
-
-    def test_works_with_async_use_case_handler(self) -> None:
-        class AsyncHandlerUseCase(AsyncUseCase):
-            create_user: AsyncCreateUserHandler
-
-            async def run(self) -> None: ...
-
-        session = _AsyncSession()
-        container = _CustomContainer(
-            handlers=[AsyncCreateUserHandler],
-            sessions={session},
-        )
-        partial = inject_adapters(container, AsyncHandlerUseCase)
-        uc = partial()
-        assert isinstance(uc.create_user, AsyncCreateUserHandler)
-        assert isinstance(uc.create_user.session, AsyncSession)
-
-    def test_raises_on_async_handler_without_session(self) -> None:
-        class AsyncHandlerUseCase(AsyncUseCase):
-            create_user: AsyncCreateUserHandler
-
-            async def run(self) -> None: ...
-
-        container = _CustomContainer(handlers=[AsyncCreateUserHandler])
-        with pytest.raises(SessionNotFoundError, match="No session of type"):
-            inject_adapters(container, AsyncHandlerUseCase)
 
 
 class TestInjectProjection:
@@ -248,10 +180,9 @@ class TestInjectProjection:
             def read(self, model: ReadModel) -> str:
                 return "ok"
 
-        session = _SyncSession()
-        container = _CustomContainer(sessions={session})
-        partial = inject_adapters(container, TestProjection)
-        p = partial()
+        container = _CustomContainer(sessions={_SyncSession})
+        uc = inject_adapters(container, TestProjection)
+        p = uc
         assert isinstance(p.session, Session)
         assert p.logger is not None
         assert p.event_bus is not None
@@ -262,10 +193,9 @@ class TestInjectProjection:
             def read(self, model: ReadModel) -> str:
                 return "ok"
 
-        session = _SyncSession()
-        container = _CustomContainer(sessions={session})
-        partial = inject_adapters(container, TestProjection)
-        p = partial()
+        container = _CustomContainer(sessions={_SyncSession})
+        uc = inject_adapters(container, TestProjection)
+        p = uc
         assert isinstance(p.session, Session)
 
     def test_session_is_none_when_no_sessions(self) -> None:
@@ -282,9 +212,8 @@ class TestInjectProjection:
             def read(self, model: ReadModel) -> str:
                 return "ok"
 
-        session = _SyncSession()
         override_session = _SyncSession()
-        container = _CustomContainer(sessions={session})
-        partial = inject_adapters(container, TestProjection, session=override_session)
-        p = partial()
+        container = _CustomContainer(sessions={_SyncSession})
+        uc = inject_adapters(container, TestProjection, session=override_session)
+        p = uc
         assert isinstance(p.session, Session)
