@@ -84,6 +84,7 @@ Source code is under `code/` (mapped as package root in `pyproject.toml`).
 - `run()` is abstract
 - `__init_subclass__` auto-wraps `run()` with an `EventCollector` and captures events into `self.events`
 - Events emitted via `self._event_emitter.emit(...)` inside `run()` are automatically collected in `self.events`
+- UseCase fields are validated at class creation — infra handler fields (`BaseHandler`/`AsyncBaseHandler` subclasses) raise `InvalidUseCasePortFieldError`. Application-layer handlers (`AppCommandHandler[T]`, `AppQueryHandler[T]`), Port subclasses, and non-Port fields (primitives, custom classes) are accepted.
 - Works with inheritance chains (UseCase → Abstract → Concrete)
 
 ### AsyncUseCase
@@ -275,6 +276,7 @@ Constructor only accepts `aggregate_roots` (RootEntity subclasses) and `services
 - `code/tests/infrastructure/test_projection_classes.py` — 52 tests covering ReadProjection, WriteProjection, Projection, async variants, event capture, commit context, rollback on error.
 - `code/tests/infrastructure/test_inject.py` — 34 tests covering inject_adapters for UseCase, AsyncUseCase, and Projection classes.
 - `code/tests/infrastructure/test_container.py` — 36 tests covering get_port, get_handler, get_uow, duplicate validation.
+- `code/tests/core/test_base_operation_port_check.py` — 8 tests covering UseCase/Projection field validation: infra handler rejection, app handler acceptance, non-Port fields allowed.
 
 ## Development Commands
 

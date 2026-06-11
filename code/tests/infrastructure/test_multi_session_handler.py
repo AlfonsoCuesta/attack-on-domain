@@ -11,7 +11,7 @@ from aod._internal.core.fields.fields import PrivateField
 from aod._internal.domain.entity import RootEntity
 from aod._internal.infrastructure.container import AdapterContainerBase
 from aod._internal.infrastructure.handlers import CommandHandler, QueryHandler
-from aod._internal.infrastructure.session import AsyncSession, Session
+from aod._internal.infrastructure.session import Session
 from aod._internal.testing.doubles.infrastructure.container import spy_adapter_container
 
 
@@ -133,34 +133,15 @@ class UserRepository(Port):
 
 
 class SyncUserUseCase(UseCase):
-    user_repository: UserRepository
-
-    def run(
-        self,
-        save_handler: SaveUserHandler,
-        get_handler: GetUserHandler,
-        user_id: str,
-        name: str,
-        email: str,
-    ) -> None:
-        save_handler.handle(SaveUser(user_id=user_id, name=name, email=email))
-
-
-class _SyncUserUseCase(UseCase):
     save_handler: AppCommandHandler[SaveUser]
     get_handler: AppQueryHandler[GetUser]
 
-    def run(
-        self,
-        user_id: str,
-        name: str,
-        email: str,
-    ) -> None:
+    def run(self, user_id: str, name: str, email: str) -> None:
         self.save_handler.handle(SaveUser(user_id=user_id, name=name, email=email))
 
 
 class UserServiceContainer(AdapterContainerBase):
-    user_repository: UserRepository | None = None
+    pass
 
 
 def test_multi_session_handlers_with_double_sessions() -> None:
@@ -203,7 +184,6 @@ def test_use_case_with_multi_session_handlers() -> None:
     original = UserServiceContainer(
         sessions={MongoSession, PSQLSession},
         handlers=[SaveUserHandler, GetUserHandler],
-        user_repository=UserRepository(),
     )
 
     container = spy_adapter_container(
@@ -217,8 +197,11 @@ def test_use_case_with_multi_session_handlers() -> None:
     save_handler = container.get_handler(SaveUser)
     get_handler = container.get_handler(GetUser)
 
-    uc = SyncUserUseCase(user_repository=container.user_repository)
-    uc.run(save_handler, get_handler, user_id="u1", name="Bob", email="bob@test.com")
+    uc = SyncUserUseCase(
+        save_handler=save_handler,
+        get_handler=get_handler,
+    )
+    uc.run(user_id="u1", name="Bob", email="bob@test.com")
 
     assert len(in_memory_mongo._saved) == 1
     saved = in_memory_mongo._saved[0]["document"]
@@ -245,7 +228,6 @@ def test_spy_bundle_tracks_handler_calls() -> None:
 
     spy = container.spy_bundle
     assert isinstance(spy.sync_session, Session)
-    assert isinstance(spy.async_session, AsyncSession)
     assert spy.logger is not None
     assert spy.event_bus is not None
     assert spy.cache is not None

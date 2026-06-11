@@ -108,6 +108,7 @@ code/
     ├── test_public_api.py
     ├── core/                         # Core framework tests
     │   ├── test_base_guarded.py
+    │   ├── test_base_operation_port_check.py
     │   ├── test_mutating_context.py
     │   ├── test_post_init.py
     │   ├── make_immutable/
@@ -347,7 +348,7 @@ Public modules re-export from `_internal`; they contain no logic of their own. T
 
 Events emitted directly by the UseCase via `self._event_emitter.emit(...)` or by any entity touched during `run` are all captured and stored on the UseCase, replacing any events from previous runs.
 
-**Handler fields on UseCase**: Handler injection via UseCase fields is no longer supported. Handlers should be passed as `run()` parameters. UseCase fields are reserved for **Ports only** — validated at class creation by `BaseOperation.__init_subclass__` which raises `InvalidUseCasePortFieldError` if any field is not a `Port` subclass (excluding `HandlerProtocol` subtypes). Framework base classes (`UseCase`, `AsyncUseCase`, `ProjectionBase`, etc.) set `__skip_port_check__ = True` to bypass this check.
+**Handler fields on UseCase**: UseCase fields are validated at class creation by `BaseOperation.__init_subclass__`. Fields resolving to `BaseHandler` or `AsyncBaseHandler` subclasses (infra handlers) raise `InvalidUseCasePortFieldError`. Application-layer generic handlers (`AppCommandHandler[T]`, `AppQueryHandler[T]`) and Port subclasses are accepted. Non-Port fields (primitives, custom classes) are allowed. The check uses `get_type_hints(cls)` + `cls.__annotations__` (own fields only) with `_resolve_port_class(tp)` to handle generic aliases. Framework base classes (`UseCase`, `AsyncUseCase`, `ProjectionBase`, etc.) set `__skip_port_check__ = True` to bypass this check.
 
 **Infrastructure handler inheritance**: Infrastructure `CommandHandler`/`QueryHandler` types inherit from both `BaseHandler` and the application-layer `HandlerProtocol` (`Port`). This satisfies Pydantic `isinstance` checks when handlers are used in any context requiring the app-layer type.
 
@@ -402,7 +403,7 @@ The projection system provides read and write projections with automatic event c
 
 #### Base Classes
 
-- **`ProjectionBase(BaseOperation)`** — no additional fields. Inherits `_event_emitter`, `events`, `logger`, `event_bus`, `cache` from `BaseOperation`.
+- **`ProjectionBase(BaseOperation)`** — no additional fields. Inherits `_event_emitter`, `events`, `logger`, `event_bus`, `cache` from `BaseOperation`. `ProjectionBase.__init_subclass__` checks own fields for at most one `Session` type using `get_type_hints(cls)` + `cls.__annotations__`, and skips framework classes via `__skip_port_check__` in `__dict__`.
 - **`ReadProjectionBase(ProjectionBase)`** — wraps `read()` with `EventCollector` + log + event_bus publish.
 - **`WriteProjectionBase(ProjectionBase)`** — wraps `write()` with `CommitContext` + `EventCollector` + log + rollback + event_bus publish.
 
@@ -500,6 +501,7 @@ uv run pytest code/tests -q
 - If you change the bounded context logic, update `bounded_context.py` and check `test_bounded_context.py`
 - If you change the projection layer, update `projection.py` (infrastructure/projection/) and verify `test_projection_classes.py`
 - If you change the handler layer, update `handlers.py` and/or `base_handler.py` and verify `test_async_handlers.py`
+- If you change `BaseOperation` field validation, update `base_operation.py` and verify `test_base_operation_port_check.py`
 - If you change the application layer, update `port.py` and/or `use_case.py` and verify `test_port.py` / `test_use_case.py`
 - If you change the UnitOfWork, update `unit_of_work.py` (sync + async) and verify `test_port.py` / `test_async_port.py` (includes `is_dirty` tests)
 - If you change async counterparts (aggregated in `aod.application.async_` / `aod.infrastructure.async_`), update both sync and async test files
@@ -517,7 +519,7 @@ uv run pytest code/tests -q
 
 ## Test Count
 
-785 tests
+815 tests
 
 ## At the end of a task
 

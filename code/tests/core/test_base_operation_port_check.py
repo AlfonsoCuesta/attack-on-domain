@@ -1,0 +1,130 @@
+from __future__ import annotations
+
+import pytest
+from aod._internal.application.contracts import Command, Query
+from aod._internal.application.handler import CommandHandler as AppCommandHandler
+from aod._internal.application.handler import QueryHandler as AppQueryHandler
+from aod._internal.application.port import Port
+from aod._internal.application.use_case import UseCase
+from aod._internal.core.application_exception import InvalidUseCasePortFieldError
+from aod._internal.domain.entity import RootEntity
+from aod._internal.infrastructure.handlers import CommandHandler, QueryHandler
+from aod._internal.infrastructure.handlers.handlers import AsyncCommandHandler
+from aod._internal.infrastructure.projection.projection import ProjectionBase
+from aod._internal.infrastructure.session import Session
+
+
+class User(RootEntity):
+    id: int
+    name: str
+
+
+class SaveUser(Command[User, None]):
+    user_id: str
+
+
+class GetUser(Query[User, User | None]):
+    user_id: str
+
+
+class InfraSaveHandler(CommandHandler[SaveUser]):
+    session: Session
+
+    def handle(self, command: SaveUser) -> None:
+        pass
+
+
+class InfraGetHandler(QueryHandler[GetUser]):
+    session: Session
+
+    def handle(self, query: GetUser) -> User | None:
+        return None
+
+
+class InfraAsyncSaveHandler(AsyncCommandHandler[SaveUser]):
+    session: Session
+
+    async def handle(self, command: SaveUser) -> None:
+        pass
+
+
+class FakePort(Port):
+    pass
+
+
+class TestUseCaseFieldValidation:
+    def test_custom_port_field_is_accepted(self) -> None:
+        class _MyUseCase(UseCase):
+            my_port: FakePort
+
+            def run(self) -> None:
+                pass
+
+        assert "my_port" in _MyUseCase.__model_fields__
+
+    def test_app_sync_handler_field_is_accepted(self) -> None:
+        class _MyUseCase(UseCase):
+            save_handler: AppCommandHandler[SaveUser]
+
+            def run(self) -> None:
+                pass
+
+        assert "save_handler" in _MyUseCase.__model_fields__
+
+    def test_app_query_handler_field_is_accepted(self) -> None:
+        class _MyUseCase(UseCase):
+            get_handler: AppQueryHandler[GetUser]
+
+            def run(self) -> None:
+                pass
+
+        assert "get_handler" in _MyUseCase.__model_fields__
+
+    def test_infra_sync_handler_field_rejected(self) -> None:
+        with pytest.raises(InvalidUseCasePortFieldError, match="save_handler"):
+
+            class _MyUseCase(UseCase):
+                save_handler: InfraSaveHandler
+
+                def run(self) -> None:
+                    pass
+
+    def test_infra_async_handler_field_rejected(self) -> None:
+        with pytest.raises(InvalidUseCasePortFieldError, match="save_handler"):
+
+            class _MyUseCase(UseCase):
+                save_handler: InfraAsyncSaveHandler
+
+                def run(self) -> None:
+                    pass
+
+    def test_non_port_fields_are_allowed(self) -> None:
+        class _MyUseCase(UseCase):
+            bad_field: str
+            count: int
+
+            def run(self) -> None:
+                pass
+
+        assert "bad_field" in _MyUseCase.__model_fields__
+        assert "count" in _MyUseCase.__model_fields__
+
+
+class TestProjectionFieldValidation:
+    def test_custom_port_field_is_accepted(self) -> None:
+        class _MyProjection(ProjectionBase):
+            my_port: FakePort
+
+        assert "my_port" in _MyProjection.__model_fields__
+
+    def test_infra_handler_field_rejected(self) -> None:
+        with pytest.raises(InvalidUseCasePortFieldError, match="handler"):
+
+            class _MyProjection(ProjectionBase):
+                handler: InfraSaveHandler
+
+    def test_non_port_field_is_allowed(self) -> None:
+        class _MyProjection(ProjectionBase):
+            bad_field: int
+
+        assert "bad_field" in _MyProjection.__model_fields__

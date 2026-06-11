@@ -1,33 +1,39 @@
 from __future__ import annotations
 
-from typing import Any, ClassVar, Generator, cast
+from typing import Any, ClassVar, get_origin, get_type_hints
 
 from aod._internal.application.cache import AsyncCache, Cache
 from aod._internal.application.cache.null_cache import NullCache
 from aod._internal.application.event_bus import AsyncEventBus, EventBus
 from aod._internal.application.event_bus.null_event_bus import NullEventBus
-from aod._internal.application.handler.handler import HandlerProtocol
 from aod._internal.application.logger import AsyncLogger, Logger
 from aod._internal.application.logger.null_logger import NullLogger
 from aod._internal.application.port import Port
 from aod._internal.core.application_exception import InvalidUseCasePortFieldError
 from aod._internal.core.base_behaviour import BaseBehaviour
-from aod._internal.core.base_validator import BaseValidator
 from aod._internal.core.event_emitter import Event, EventEmitter
 from aod._internal.core.fields.fields import Field, PrivateField
+from aod._internal.infrastructure.handlers.handlers import AsyncBaseHandler, BaseHandler
 
 
-def _iter_new_fields(cls: type) -> Generator[tuple[str, Any], None, None]:
-    for subcls in cls.__mro__:
-        if "__skip_port_check__" in subcls.__dict__:
-            return
-        subcls = cast(BaseValidator, subcls)
-        for field_name, field_info in subcls.__model_fields__.items():
-            if field_name.startswith("_"):
-                continue
-            if field_name not in cls.__annotations__:
-                continue
-            yield field_name, field_info
+def _resolve_port_class(tp: Any) -> type | None:
+    if isinstance(tp, type):
+        return tp
+    origin = get_origin(tp)
+    if isinstance(origin, type):
+        return origin
+    return None
+
+
+def _is_valid_port_type(tp: Any) -> bool:
+    cls = _resolve_port_class(tp)
+    if cls is None:
+        return False
+    if not issubclass(cls, Port):
+        return False
+    if issubclass(cls, (BaseHandler, AsyncBaseHandler)):
+        return False
+    return True
 
 
 class BaseOperation(BaseBehaviour):
@@ -41,17 +47,23 @@ class BaseOperation(BaseBehaviour):
 
     def __init_subclass__(cls, **kwargs: object) -> None:
         super().__init_subclass__(**kwargs)
-        for field_name, field_info in _iter_new_fields(cls):
-            tp = field_info.annotation
-            if (
-                isinstance(tp, type)
-                and issubclass(tp, Port)
-                and not issubclass(tp, HandlerProtocol)
-            ):
+        if cls.__dict__.get("__skip_port_check__"):
+            return
+        try:
+            hints = get_type_hints(cls)
+        except Exception:
+            hints = {}
+        own_annotations = getattr(cls, "__annotations__", {})
+        for field_name in own_annotations:
+            if field_name.startswith("_"):
                 continue
-
-            raise InvalidUseCasePortFieldError(
-                field_name,
-                cls.__name__,
-                str(field_info.annotation),
-            )
+            tp = hints.get(field_name)
+            if tp is None:
+                continue
+            resolved = _resolve_port_class(tp)
+            if resolved is not None and issubclass(resolved, (BaseHandler, AsyncBaseHandler)):
+                raise InvalidUseCasePortFieldError(
+                    field_name,
+                    cls.__name__,
+                    str(tp),
+                )

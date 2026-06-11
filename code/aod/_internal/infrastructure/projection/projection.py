@@ -2,10 +2,10 @@ from __future__ import annotations
 
 from abc import abstractmethod
 from functools import wraps
-from typing import Any, Callable, TypeVar
+from typing import Any, Callable, TypeVar, get_type_hints
 
 from aod._internal.core.async_utils import should_await
-from aod._internal.core.base_operation import BaseOperation, _iter_new_fields
+from aod._internal.core.base_operation import BaseOperation
 from aod._internal.core.event_emitter import EventCollector
 from aod._internal.core.fields.fields import Field
 from aod._internal.core.infrastructure_exception import InvalidPortFieldError
@@ -102,15 +102,26 @@ class ProjectionBase(BaseOperation):
 
     def __init_subclass__(cls, **kwargs: object) -> None:
         super().__init_subclass__(**kwargs)
-        sessions = []
-        for field_name, field_info in _iter_new_fields(cls):
-            tp = field_info.annotation
-            if isinstance(tp, type) and issubclass(tp, (Session, AsyncSession)):
+        if "__skip_port_check__" in cls.__dict__:
+            return
+        try:
+            hints = get_type_hints(cls)
+        except Exception:
+            hints = {}
+        own_annotations = getattr(cls, "__annotations__", {})
+        sessions: list[type] = []
+        for field_name in own_annotations:
+            if field_name.startswith("_"):
+                continue
+            tp = hints.get(field_name)
+            if tp is None or not isinstance(tp, type):
+                continue
+            if issubclass(tp, (Session, AsyncSession)):
                 sessions.append(tp)
                 if len(sessions) > 1:
                     raise InvalidPortFieldError(
                         field_name,
-                        str(field_info.annotation),
+                        str(tp),
                     )
 
 
