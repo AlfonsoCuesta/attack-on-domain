@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import pytest
-
 from aod._internal.core.domain_exception import MutationForbiddenException
 from aod._internal.core.event_emitter import Event, EventCollector
 from aod._internal.core.fields import PrivateField
@@ -71,7 +70,7 @@ class TestEntityConstruction:
         assert e.score == 0.0
 
     def test_entity_type_coercion(self) -> None:
-        e = SimpleEntity(id="42", value="test")
+        e = SimpleEntity(id="42", value="test")  # type: ignore
         assert e.id == 42
         assert isinstance(e.id, int)
 
@@ -79,7 +78,7 @@ class TestEntityConstruction:
         from aod._internal.core.domain_exception import ModelValidationError
 
         with pytest.raises(ModelValidationError):
-            SimpleEntity()
+            SimpleEntity()  # type: ignore
 
     def test_entity_with_private_field(self) -> None:
         e = EntityWithPrivate(id=1)

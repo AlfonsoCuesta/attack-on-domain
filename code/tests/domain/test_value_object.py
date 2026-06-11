@@ -2,10 +2,8 @@
 
 from __future__ import annotations
 
-
 import pytest
-
-from aod._internal.core.domain_exception import MutationForbiddenException, InvarianceException
+from aod._internal.core.domain_exception import InvarianceException, MutationForbiddenException
 from aod._internal.core.event_emitter import Event
 from aod._internal.core.fields import Field, PrivateField
 from aod._internal.domain.value_object import ValueObject
@@ -57,7 +55,7 @@ class TestValueObjectConstruction:
         assert m.currency == "USD"
 
     def test_type_coercion(self) -> None:
-        m = Money(amount="42")
+        m = Money(amount="42")  # type: ignore
         assert m.amount == 42
         assert isinstance(m.amount, int)
 
@@ -65,7 +63,7 @@ class TestValueObjectConstruction:
         from aod._internal.core.domain_exception import ModelValidationError
 
         with pytest.raises(ModelValidationError):
-            Money()
+            Money()  # type: ignore
 
     def test_field_constraints_enforced(self) -> None:
         from aod._internal.core.domain_exception import ModelValidationError

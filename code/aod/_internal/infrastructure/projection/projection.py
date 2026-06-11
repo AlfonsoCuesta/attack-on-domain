@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from abc import abstractmethod
 from functools import wraps
-from typing import Any, Callable
+from typing import Any, Callable, TypeVar
 
 from aod._internal.core.async_utils import should_await
 from aod._internal.core.base_operation import BaseOperation, _iter_new_fields
@@ -14,6 +14,8 @@ from aod._internal.infrastructure.projection.models import ReadModel, WriteModel
 from aod._internal.infrastructure.session import AsyncSession, Session
 
 _PROJECTION_WRAPPED_KEY = "__aod_projection_wrapped__"
+TReadModel = TypeVar("TReadModel", bound=ReadModel)
+TWriteModel = TypeVar("TWriteModel", bound=WriteModel)
 
 
 def _make_projection_wrapper(
@@ -177,7 +179,7 @@ class WriteProjection(WriteProjectionBase):
     session: Session | None = Field(default=None)
 
     @abstractmethod
-    def write(self, model: WriteModel) -> Any: ...
+    def write(self, model: TWriteModel) -> Any: ...
 
 
 class ReadProjection(ReadProjectionBase):
@@ -185,17 +187,17 @@ class ReadProjection(ReadProjectionBase):
     session: Session | None = Field(default=None)
 
     @abstractmethod
-    def read(self, model: ReadModel) -> Any: ...
+    def read(self, model: TReadModel) -> Any: ...
 
 
 class Projection(ReadProjection, WriteProjection):
     __skip_port_check__ = True
 
     @abstractmethod
-    def read(self, model: ReadModel) -> Any: ...
+    def read(self, model: TReadModel) -> Any: ...
 
     @abstractmethod
-    def write(self, model: WriteModel) -> Any: ...
+    def write(self, model: TWriteModel) -> Any: ...
 
 
 class AsyncReadProjection(AsyncReadProjectionBase):
@@ -203,7 +205,7 @@ class AsyncReadProjection(AsyncReadProjectionBase):
     session: Session | AsyncSession | None = Field(default=None)
 
     @abstractmethod
-    async def read(self, model: ReadModel) -> Any: ...
+    async def read(self, model: TReadModel) -> Any: ...
 
 
 class AsyncWriteProjection(AsyncWriteProjectionBase):
@@ -211,14 +213,14 @@ class AsyncWriteProjection(AsyncWriteProjectionBase):
     session: Session | AsyncSession | None = Field(default=None)
 
     @abstractmethod
-    async def write(self, model: WriteModel) -> Any: ...
+    async def write(self, model: TWriteModel) -> Any: ...
 
 
 class AsyncProjection(AsyncReadProjection, AsyncWriteProjection):
     __skip_port_check__ = True
 
     @abstractmethod
-    async def read(self, model: ReadModel) -> Any: ...
+    async def read(self, model: TReadModel) -> Any: ...
 
     @abstractmethod
-    async def write(self, model: WriteModel) -> Any: ...
+    async def write(self, model: TWriteModel) -> Any: ...

@@ -2,9 +2,7 @@
 
 from __future__ import annotations
 
-
 import pytest
-
 from aod._internal.core.base_sealed import BaseSealed
 from aod._internal.core.domain_exception import MutationForbiddenException
 from aod._internal.core.fields import PrivateField
@@ -43,7 +41,7 @@ class TestBaseSealedConstruction:
         assert s.label == "custom"
 
     def test_type_coercion(self) -> None:
-        s = SealedWithDefaults(name="test", count="42")
+        s = SealedWithDefaults(name="test", count="42")  # type: ignore
         assert s.count == 42
         assert isinstance(s.count, int)
 
