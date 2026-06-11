@@ -9,7 +9,7 @@ from .application import (
     SpyLogger,
     SpyUnitOfWork,
 )
-from .infrastructure import SpyAsyncSession, SpySession
+from .infrastructure import SpyAsyncSession, SpyBundle, SpySession, spy_adapter_container
 
 __all__ = [
     "AsyncSpyCache",
@@ -18,9 +18,11 @@ __all__ = [
     "AsyncSpyUnitOfWork",
     "LogEntry",
     "SpyAsyncSession",
+    "SpyBundle",
     "SpyCache",
     "SpyEventBus",
     "SpyLogger",
     "SpySession",
     "SpyUnitOfWork",
+    "spy_adapter_container",
 ]

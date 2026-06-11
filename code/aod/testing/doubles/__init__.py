@@ -9,7 +9,12 @@ from aod._internal.testing.doubles import (
     SpyLogger,
     SpyUnitOfWork,
 )
-from aod._internal.testing.doubles.infrastructure import SpyAsyncSession, SpySession
+from aod._internal.testing.doubles.infrastructure import (
+    SpyAsyncSession,
+    SpyBundle,
+    SpySession,
+    spy_adapter_container,
+)
 
 __all__ = [
     "AsyncSpyCache",
@@ -18,9 +23,11 @@ __all__ = [
     "AsyncSpyUnitOfWork",
     "LogEntry",
     "SpyAsyncSession",
+    "SpyBundle",
     "SpyCache",
     "SpyEventBus",
     "SpyLogger",
     "SpySession",
     "SpyUnitOfWork",
+    "spy_adapter_container",
 ]

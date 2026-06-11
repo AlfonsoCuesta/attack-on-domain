@@ -12,6 +12,7 @@ from aod._internal.application.logger import AsyncLogger, Logger
 from aod._internal.application.logger.null_logger import NullLogger
 from aod._internal.application.port import Port
 from aod._internal.core.base_behaviour import BaseBehaviour
+from aod._internal.core.fields.fields import Field, PrivateField
 from aod._internal.core.infrastructure_exception import (
     DuplicateHandlerError,
     HandlerModelError,
@@ -29,7 +30,6 @@ from aod._internal.infrastructure.handlers import (
 from aod._internal.infrastructure.handlers.handlers import AsyncBaseHandler
 from aod._internal.infrastructure.session import AsyncSession, Session
 from aod._internal.infrastructure.unit_of_work import AsyncUnitOfWork, UnitOfWork
-from aod._internal.core.fields.fields import Field, PrivateField
 
 _SYNC_HANDLERS = CommandHandler | QueryHandler
 _ASYNC_HANDLERS = AsyncCommandHandler | AsyncQueryHandler
@@ -146,6 +146,11 @@ class AdapterContainerBase(BaseBehaviour):
             return cast(_ASYNC_HANDLERS, handler(session=cast(AsyncSession | None, session)))
         return cast(_SYNC_HANDLERS, handler(session=cast(Session | None, session)))
 
+    def _instantiate_session(
+        self, session_cls: type[Session] | type[AsyncSession]
+    ) -> Session | AsyncSession:
+        return session_cls()
+
     def get_session(
         self, session_cls: type[Session] | type[AsyncSession]
     ) -> Session | AsyncSession:
@@ -153,7 +158,7 @@ class AdapterContainerBase(BaseBehaviour):
             return self._sessions_needed[session_cls]
         for s in self.sessions:
             if isinstance(s, type) and issubclass(s, session_cls):
-                instance = s()
+                instance = self._instantiate_session(s)
                 self._sessions_needed[session_cls] = instance
                 return instance
         raise SessionNotFoundError(session_cls)

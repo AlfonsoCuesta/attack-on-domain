@@ -64,6 +64,9 @@ class SpySession(Session):
     def is_dirty(self) -> bool:
         return self._dirty
 
+    def set_dirty(self, dirty: bool) -> None:
+        self._dirty = dirty
+
 
 class SpyAsyncSession(AsyncSession):
     _execute_calls: list[object] = PrivateField(default_factory=list)
@@ -122,3 +125,6 @@ class SpyAsyncSession(AsyncSession):
 
     def is_dirty(self) -> bool:
         return self._dirty
+
+    def set_dirty(self, dirty: bool) -> None:
+        self._dirty = dirty

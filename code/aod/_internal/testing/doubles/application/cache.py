@@ -2,12 +2,11 @@ from __future__ import annotations
 
 from typing import Any
 
+from aod._internal.application.cache import AsyncCache, Cache
 from aod._internal.core.fields.fields import PrivateField
-from aod._internal.infrastructure.cache.cache import AsyncCache as InfraAsyncCache
-from aod._internal.infrastructure.cache.cache import Cache as InfraCache
 
 
-class SpyCache(InfraCache):
+class SpyCache(Cache):
     _get_calls: list[str] = PrivateField(default_factory=list)
     _set_calls: list[tuple[str, Any, float | None]] = PrivateField(default_factory=list)
     _delete_calls: list[str] = PrivateField(default_factory=list)
@@ -54,18 +53,15 @@ class SpyCache(InfraCache):
 
     def set_promise(self, key: str, value: Any, ttl: float | None = None) -> None:
         self._set_promise_calls.append((key, value, ttl))
-        super().set_promise(key, value, ttl)
 
     def delete_promise(self, key: str) -> None:
         self._delete_promise_calls.append(key)
-        super().delete_promise(key)
 
     def flush(self) -> None:
         self._flush_calls.append(None)
-        super().flush()
 
 
-class AsyncSpyCache(InfraAsyncCache):
+class AsyncSpyCache(AsyncCache):
     _get_calls: list[str] = PrivateField(default_factory=list)
     _set_calls: list[tuple[str, Any, float | None]] = PrivateField(default_factory=list)
     _delete_calls: list[str] = PrivateField(default_factory=list)
@@ -112,12 +108,9 @@ class AsyncSpyCache(InfraAsyncCache):
 
     def set_promise(self, key: str, value: Any, ttl: float | None = None) -> None:
         self._set_promise_calls.append((key, value, ttl))
-        super().set_promise(key, value, ttl)
 
     def delete_promise(self, key: str) -> None:
         self._delete_promise_calls.append(key)
-        super().delete_promise(key)
 
     async def flush(self) -> None:
         self._flush_calls.append(None)
-        await super().flush()
