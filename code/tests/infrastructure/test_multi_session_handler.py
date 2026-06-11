@@ -127,12 +127,6 @@ class GetUserHandler(QueryHandler[GetUser]):
         return User(id=1, name=d["name"], email=d["email"])
 
 
-class UserRepository(Port):
-    def save(self, user: User) -> None: ...
-
-    def find(self, user_id: str) -> User | None: ...
-
-
 class SyncUserUseCase(UseCase):
     save_handler: AppCommandHandler[SaveUser]
     get_handler: AppQueryHandler[GetUser]

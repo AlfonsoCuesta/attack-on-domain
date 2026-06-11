@@ -81,11 +81,27 @@ Source code is under `code/` (mapped as package root in `pyproject.toml`).
   - `logger: Logger` — auto-logs completion (with event count) and failure; defaults to `_NullLogger` (no-op)
   - `event_bus: EventBus` — auto-publishes collected events after successful commit; defaults to `_NullEventBus` (no-op)
   - `cache: Cache` — auto-flushed after successful commit; defaults to `_NullCache` (no-op)
-- `run()` is abstract
+- **Fields are Ports only** — UseCase fields must be `Port` subclasses (dependencies). Values are passed as parameters to `run()`, not declared as fields.
+- **Blocked field types** — `Session` and `AsyncSession` are rejected via `__not_allowed_port_types__`. UseCases should not depend directly on sessions; use repository ports instead.
+- **`run()` signature** — `run()` receives values as parameters. The wrapper passes `*args, **kwargs` through to the original method.
 - `__init_subclass__` auto-wraps `run()` with an `EventCollector` and captures events into `self.events`
 - Events emitted via `self._event_emitter.emit(...)` inside `run()` are automatically collected in `self.events`
-- UseCase fields are validated at class creation — infra handler fields (`BaseHandler`/`AsyncBaseHandler` subclasses) raise `InvalidUseCasePortFieldError`. Application-layer handlers (`AppCommandHandler[T]`, `AppQueryHandler[T]`), Port subclasses, and non-Port fields (primitives, custom classes) are accepted.
 - Works with inheritance chains (UseCase → Abstract → Concrete)
+
+```python
+# Correct: Ports as fields, values in run()
+class CreateUser(UseCase):
+    user_client: UserRestClient  # Port dependency
+
+    def run(self, user_id: int, name: str) -> None:
+        user = User(id=user_id, name=name)
+        self.user_client.save(user)
+
+# Wrong: values as fields
+class CreateUser(UseCase):
+    user_id: int  # InvalidUseCasePortFieldError!
+    name: str     # InvalidUseCasePortFieldError!
+```
 
 ### AsyncUseCase
 - Same as UseCase but async: `uow: UnitOfWork | AsyncUnitOfWork`, `async run()`
@@ -95,10 +111,29 @@ Source code is under `code/` (mapped as package root in `pyproject.toml`).
 - Available at `from aod.infrastructure import ReadProjection, WriteProjection, Projection`
 - Also async variants: `from aod.infrastructure import AsyncReadProjection, AsyncWriteProjection, AsyncProjection`
 - **ReadModel(BaseSealed)** / **WriteModel(BaseSealed)** — data models for projection inputs
-- **ProjectionBase(BaseOperation)** — base with `_event_emitter`, `events`, `logger`, `event_bus`, `cache`
+- **ProjectionBase(BaseOperation)** — base with `_event_emitter`, `events`, `logger`, `event_bus`, `cache`. Fields must be `Port` subclasses. `HandlerProtocol` and its subclasses are rejected via `__not_allowed_port_types__`. At most one `Session` field is allowed.
 - **ReadProjection** — `session: Session | None`, abstract `read(model: ReadModel)`. Auto-wraps with EventCollector + log + event_bus publish
 - **WriteProjection** — `session: Session | None`, abstract `write(model: WriteModel)`. Auto-wraps with CommitContext + EventCollector + log + rollback + event_bus publish
 - **Projection** — both `read()` and `write()` methods
+
+```python
+# Correct: Port fields, max one Session
+class UserProjection(ReadProjection):
+    user_client: UserRestClient  # Port dependency
+    session: Session | None = None  # Optional session
+
+    def read(self, model: ReadModel) -> list[User]:
+        return self.user_client.find_all()
+
+# Wrong: Handler field
+class BadProjection(ReadProjection):
+    handler: CommandHandler[SaveUser]  # InvalidUseCasePortFieldError!
+
+# Wrong: Multiple sessions
+class BadProjection(ReadProjection):
+    session: Session | None = None
+    other_session: AsyncSession | None = None  # InvalidPortFieldError!
+```
 
 ### inject_adapters
 - `from aod.infrastructure import inject_adapters`
@@ -276,7 +311,7 @@ Constructor only accepts `aggregate_roots` (RootEntity subclasses) and `services
 - `code/tests/infrastructure/test_projection_classes.py` — 52 tests covering ReadProjection, WriteProjection, Projection, async variants, event capture, commit context, rollback on error.
 - `code/tests/infrastructure/test_inject.py` — 34 tests covering inject_adapters for UseCase, AsyncUseCase, and Projection classes.
 - `code/tests/infrastructure/test_container.py` — 36 tests covering get_port, get_handler, get_uow, duplicate validation.
-- `code/tests/core/test_base_operation_port_check.py` — 8 tests covering UseCase/Projection field validation: infra handler rejection, app handler acceptance, non-Port fields allowed.
+- `code/tests/core/test_base_operation_port_check.py` — 15 tests covering UseCase/Projection field validation: infra handler rejection, app handler acceptance, Session/AsyncSession rejection on UseCase, Handler rejection on Projection, non-Port fields rejection.
 
 ## Development Commands
 

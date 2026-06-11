@@ -330,7 +330,9 @@ Public modules re-export from `_internal`; they contain no logic of their own. T
 
 `UseCase` (public via `aod.application`) is the base for application-layer use cases. It extends `BaseOperation` (no `ReconstructMixin`) and provides a single abstract public method `run()` that subclasses must implement.
 
-- `run()` has no parameters — all dependencies are passed via `__init__` (declared as Pydantic fields on the subclass)
+- **Fields are Ports only** — UseCase fields must be `Port` subclasses (dependencies). Values are passed as parameters to `run()`, not declared as fields.
+- **Blocked field types** — `Session` and `AsyncSession` are rejected via `__not_allowed_port_types__ = (Session, AsyncSession)`. UseCases should not depend directly on sessions; use repository ports instead.
+- **`run()` signature** — `run()` receives values as parameters. The wrapper passes `*args, **kwargs` through to the original method.
 - The class has **no public methods** other than `run`; subclasses may add private helpers
 - `_event_emitter` is a `PrivateField(default_factory=EventEmitter)`, ready for direct event emission
 - Auto-wired fields with Null Object defaults (no `is not None` checks):
@@ -348,7 +350,22 @@ Public modules re-export from `_internal`; they contain no logic of their own. T
 
 Events emitted directly by the UseCase via `self._event_emitter.emit(...)` or by any entity touched during `run` are all captured and stored on the UseCase, replacing any events from previous runs.
 
-**Handler fields on UseCase**: UseCase fields are validated at class creation by `BaseOperation.__init_subclass__`. Fields resolving to `BaseHandler` or `AsyncBaseHandler` subclasses (infra handlers) raise `InvalidUseCasePortFieldError`. Application-layer generic handlers (`AppCommandHandler[T]`, `AppQueryHandler[T]`) and Port subclasses are accepted. Non-Port fields (primitives, custom classes) are allowed. The check uses `get_type_hints(cls)` + `cls.__annotations__` (own fields only) with `_resolve_port_class(tp)` to handle generic aliases. Framework base classes (`UseCase`, `AsyncUseCase`, `ProjectionBase`, etc.) set `__skip_port_check__ = True` to bypass this check.
+**Field validation**: UseCase fields are validated at class creation by `BaseOperation.__init_subclass__`. Only `Port` subclasses are allowed as fields. Infrastructure handlers (`BaseHandler`, `AsyncBaseHandler`) and `Session`/`AsyncSession` are rejected. Application-layer generic handlers (`AppCommandHandler[T]`, `AppQueryHandler[T]`) are accepted since they inherit from `HandlerProtocol(Port)`. Non-Port fields (primitives, custom classes) raise `InvalidUseCasePortFieldError`.
+
+```python
+# Correct: Ports as fields, values in run()
+class CreateUser(UseCase):
+    user_client: UserRestClient  # Port dependency
+
+    def run(self, user_id: int, name: str) -> None:
+        user = User(id=user_id, name=name)
+        self.user_client.save(user)
+
+# Wrong: values as fields
+class CreateUser(UseCase):
+    user_id: int  # InvalidUseCasePortFieldError!
+    name: str     # InvalidUseCasePortFieldError!
+```
 
 **Infrastructure handler inheritance**: Infrastructure `CommandHandler`/`QueryHandler` types inherit from both `BaseHandler` and the application-layer `HandlerProtocol` (`Port`). This satisfies Pydantic `isinstance` checks when handlers are used in any context requiring the app-layer type.
 
@@ -403,9 +420,28 @@ The projection system provides read and write projections with automatic event c
 
 #### Base Classes
 
-- **`ProjectionBase(BaseOperation)`** — no additional fields. Inherits `_event_emitter`, `events`, `logger`, `event_bus`, `cache` from `BaseOperation`. `ProjectionBase.__init_subclass__` checks own fields for at most one `Session` type using `get_type_hints(cls)` + `cls.__annotations__`, and skips framework classes via `__skip_port_check__` in `__dict__`.
+- **`ProjectionBase(BaseOperation)`** — inherits `_event_emitter`, `events`, `logger`, `event_bus`, `cache` from `BaseOperation`. Fields must be `Port` subclasses. `HandlerProtocol` and its subclasses are rejected via `__not_allowed_port_types__ = (HandlerProtocol,)`. At most one `Session` field is allowed (validated separately).
 - **`ReadProjectionBase(ProjectionBase)`** — wraps `read()` with `EventCollector` + log + event_bus publish.
 - **`WriteProjectionBase(ProjectionBase)`** — wraps `write()` with `CommitContext` + `EventCollector` + log + rollback + event_bus publish.
+
+```python
+# Correct: Port fields, max one Session
+class UserProjection(ReadProjection):
+    user_client: UserRestClient  # Port dependency
+    session: Session | None = None  # Optional session
+
+    def read(self, model: ReadModel) -> list[User]:
+        return self.user_client.find_all()
+
+# Wrong: Handler field
+class BadProjection(ReadProjection):
+    handler: CommandHandler[SaveUser]  # InvalidUseCasePortFieldError!
+
+# Wrong: Multiple sessions
+class BadProjection(ReadProjection):
+    session: Session | None = None
+    other_session: AsyncSession | None = None  # InvalidPortFieldError!
+```
 
 #### Concrete Classes
 
@@ -519,7 +555,7 @@ uv run pytest code/tests -q
 
 ## Test Count
 
-815 tests
+820 tests
 
 ## At the end of a task
 
