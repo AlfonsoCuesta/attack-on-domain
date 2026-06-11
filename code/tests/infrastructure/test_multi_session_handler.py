@@ -5,7 +5,6 @@ from typing import Any, cast
 from aod._internal.application.contracts import Command, Query
 from aod._internal.application.handler import CommandHandler as AppCommandHandler
 from aod._internal.application.handler import QueryHandler as AppQueryHandler
-from aod._internal.application.port import Port
 from aod._internal.application.use_case import UseCase
 from aod._internal.core.fields.fields import PrivateField
 from aod._internal.domain.entity import RootEntity
