@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, cast
 
 from aod._internal.application.contracts import Command, Query
 from aod._internal.application.handler import CommandHandler as AppCommandHandler
@@ -123,7 +123,8 @@ class GetUserHandler(QueryHandler[GetUser]):
         result = self.session.select("users", query.user_id)
         if result is None:
             return None
-        return User(id=1, name=result["name"], email=result["email"])
+        d = cast(dict[str, Any], result)
+        return User(id=1, name=d["name"], email=d["email"])
 
 
 class UserRepository(Port):
@@ -196,6 +197,8 @@ def test_use_case_with_multi_session_handlers() -> None:
 
     save_handler = container.get_handler(SaveUser)
     get_handler = container.get_handler(GetUser)
+    assert isinstance(save_handler, SaveUserHandler)
+    assert isinstance(get_handler, GetUserHandler)
 
     uc = SyncUserUseCase(
         save_handler=save_handler,

@@ -69,7 +69,7 @@ async def test_async_event_bus_publish() -> None:
 
 async def test_async_unit_of_work_is_abstract() -> None:
     with pytest.raises(TypeError):
-        UnitOfWork()  # type: ignore
+        UnitOfWork()
 
 
 async def test_async_unit_of_work_commit() -> None:

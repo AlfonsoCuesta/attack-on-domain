@@ -45,7 +45,7 @@ def spy_adapter_container(
     double_sessions: dict[type[Session] | type[AsyncSession], Session | AsyncSession] | None = None,
     double_handlers: dict[
         type[Command] | type[Query],
-        CommandHandler | AsyncCommandHandler | QueryHandler | AsyncQueryHandler,
+        type[CommandHandler] | type[AsyncCommandHandler] | type[QueryHandler] | type[AsyncQueryHandler],
     ]
     | None = None,
     **ports: Any,
@@ -91,7 +91,7 @@ def _create_spy_adapter(
     double_sessions: dict[type[Session] | type[AsyncSession], Session | AsyncSession] | None = None,
     double_handlers: dict[
         type[Command] | type[Query],
-        CommandHandler | AsyncCommandHandler | QueryHandler | AsyncQueryHandler,
+        type[CommandHandler] | type[AsyncCommandHandler] | type[QueryHandler] | type[AsyncQueryHandler],
     ]
     | None = None,
 ) -> type[T]:

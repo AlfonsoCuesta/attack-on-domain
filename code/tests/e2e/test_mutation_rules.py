@@ -138,11 +138,13 @@ class TestNestedMutation:
         child = MutableEntity(id="c1", name="Child")
         parent = ParentEntity(id="p1", child=child)
         parent.set_child_name("Renamed")
+        assert parent.child is not None
         assert parent.child.name == "Renamed"
 
     def test_nested_entity_mutation_blocked_from_outside(self) -> None:
         child = MutableEntity(id="c1", name="Child")
         parent = ParentEntity(id="p1", child=child)
+        assert parent.child is not None
         with pytest.raises(MutationForbiddenException):
             parent.child.name = "Hacked"
 
@@ -156,6 +158,7 @@ class TestNestedMutation:
         child = MutableEntity(id="c1", name="Child")
         parent = ParentEntity(id="p1", child=child)
         parent.set_child_name("NewName")
+        assert parent.child is not None
         assert parent.child.name == "NewName"
 
 

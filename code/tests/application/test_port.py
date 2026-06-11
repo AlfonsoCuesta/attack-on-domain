@@ -126,7 +126,7 @@ def test_event_bus_publish() -> None:
 
 def test_unit_of_work_abstract() -> None:
     with pytest.raises(TypeError):
-        UnitOfWork()  # type: ignore
+        UnitOfWork()
 
 
 def test_unit_of_work_commit() -> None:

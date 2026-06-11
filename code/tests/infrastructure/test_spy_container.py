@@ -119,7 +119,7 @@ def test_double_handler_is_used() -> None:
     )
     handler = container.get_handler(GetUser)
     result = handler.handle(GetUser(user_id=1))
-    assert result is not None
+    assert isinstance(result, User)
     assert result.id == 99
     assert result.name == "spy"
 
@@ -140,6 +140,7 @@ def test_with_adapters_preserves_spy_session() -> None:
     container = spy_adapter_container(original)
     copied = container.with_adapters(weather=_FakePort(value="new"))
     assert copied.get_session(Session) is container.spy_bundle.sync_session
+    assert copied.weather is not None
     assert copied.weather.value == "new"
 
 
@@ -176,6 +177,7 @@ def test_spy_event_bus_records_published_events() -> None:
 def test_port_overrides_are_applied() -> None:
     port = _FakePort(value="custom")
     container = spy_adapter_container(_MyContainer(), weather=port)
+    assert container.weather is not None
     assert container.weather.value == "custom"
 
 
