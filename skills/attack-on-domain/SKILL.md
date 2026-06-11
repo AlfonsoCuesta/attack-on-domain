@@ -46,8 +46,9 @@ Source code is under `code/` (mapped as package root in `pyproject.toml`).
 | `from aod.testing import events_of` | Extract events emitted by an entity/service/vo |
 | `from aod.testing import assert_event_emitted, assert_no_events` | Event assertions |
 | `from aod.testing import check_invariant` | Run a single invariant validator |
-| `from aod.testing.doubles.application import LogEntry, SpyLogger, SpyEventBus, SpyUnitOfWork` | Sync test doubles |
-| `from aod.testing.doubles.application.async_ import SpyLogger, SpyEventBus, SpyUnitOfWork` | Async test doubles (plain names) |
+| `from aod.testing.doubles.application import LogEntry, SpyLogger, SpyEventBus, SpyUnitOfWork, SpyCache` | Sync test doubles |
+| `from aod.testing.doubles import SpySession, SpyAsyncSession` | Session test doubles |
+| `from aod.testing.doubles.application.async_ import SpyLogger, SpyEventBus, SpyUnitOfWork, SpyCache` | Async test doubles (plain names) |
 
 ## Domain Primitives
 

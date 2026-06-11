@@ -436,15 +436,20 @@ Spy classes for testing application-layer ports, organized under `aod/_internal/
 
 ```
 aod/_internal/testing/
-├── __init__.py                     # Re-exports: DomainType, FakeDomain, build, helpers
+├── __init__.py                     # Re-exports all spies
 ├── helpers.py                      # build(), events_of(), assert_event_emitted()
 ├── doubles/
 │   ├── __init__.py                 # Re-exports all (sync + async)
-│   └── application/
+│   ├── async_/__init__.py          # Async spy re-exports
+│   ├── application/
+│   │   ├── __init__.py
+│   │   ├── cache.py                # SpyCache, AsyncSpyCache
+│   │   ├── logger.py               # LogEntry, SpyLogger, AsyncSpyLogger
+│   │   ├── event_bus.py            # SpyEventBus, AsyncSpyEventBus
+│   │   └── unit_of_work.py         # SpyUnitOfWork, AsyncSpyUnitOfWork
+│   └── infrastructure/
 │       ├── __init__.py
-│       ├── logger.py               # LogEntry, SpyLogger, AsyncSpyLogger
-│       ├── event_bus.py            # SpyEventBus, AsyncSpyEventBus
-│       └── unit_of_work.py         # SpyUnitOfWork, AsyncSpyUnitOfWork
+│       └── session.py              # SpySession, SpyAsyncSession
 └── faker/
     ├── __init__.py
     └── faker.py                    # DomainType, FakeDomain
@@ -452,8 +457,8 @@ aod/_internal/testing/
 
 Public re-exports live at `aod/testing/`:
 - `from aod.testing import FakeDomain, build, events_of, assert_event_emitted, assert_no_events, check_invariant`
-- `from aod.testing.doubles.application import LogEntry, SpyLogger, SpyEventBus, SpyUnitOfWork`
-- `from aod.testing.doubles.application.async_ import SpyLogger, SpyEventBus, SpyUnitOfWork` (async variants, plain names)
+- `from aod.testing.doubles import SpyLogger, SpyEventBus, SpyUnitOfWork, SpyCache, SpySession, SpyAsyncSession` (sync)
+- `from aod.testing.doubles.application.async_ import SpyLogger, SpyEventBus, SpyUnitOfWork, SpyCache` (async variants, plain names)
 
 ### Testing Utilities (`aod.testing`)
 
@@ -464,8 +469,8 @@ Public re-exports live at `aod/testing/`:
 | `from aod.testing import events_of` | Extract events emitted by an entity/service/vo |
 | `from aod.testing import assert_event_emitted, assert_no_events` | Event assertions |
 | `from aod.testing import check_invariant` | Run a single invariant validator |
-| `from aod.testing.doubles.application import LogEntry, SpyLogger, SpyEventBus, SpyUnitOfWork` | Sync test doubles |
-| `from aod.testing.doubles.application.async_ import SpyLogger, SpyEventBus, SpyUnitOfWork` | Async test doubles (same names) |
+| `from aod.testing.doubles import SpyLogger, SpyEventBus, SpyUnitOfWork, SpyCache, SpySession, SpyAsyncSession` | Sync test doubles |
+| `from aod.testing.doubles.application.async_ import SpyLogger, SpyEventBus, SpyUnitOfWork, SpyCache` | Async test doubles (same names) |
 
 ## Development Commands
 

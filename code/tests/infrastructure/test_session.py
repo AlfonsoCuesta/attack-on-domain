@@ -106,3 +106,43 @@ class TestAsyncSession:
         s = ConcreteAsyncSession()
         with pytest.raises(CommitOutsideUnitOfWorkError):
             await s.commit()
+
+
+class TestSpySession:
+    def test_commit_outside_uow_raises(self) -> None:
+        from aod._internal.testing.doubles.infrastructure.session import SpySession
+
+        s = SpySession()
+        with pytest.raises(CommitOutsideUnitOfWorkError):
+            s.commit()
+
+    def test_commit_inside_uow_works(self) -> None:
+        from aod._internal.testing.doubles.infrastructure.session import SpySession
+
+        s = SpySession()
+        token = _CommitContext.set(True)
+        try:
+            s.commit()
+        finally:
+            _CommitContext.reset(token)
+        assert len(s.commit_calls) == 1
+
+
+class TestSpyAsyncSession:
+    async def test_commit_outside_uow_raises(self) -> None:
+        from aod._internal.testing.doubles.infrastructure.session import SpyAsyncSession
+
+        s = SpyAsyncSession()
+        with pytest.raises(CommitOutsideUnitOfWorkError):
+            await s.commit()
+
+    async def test_commit_inside_uow_works(self) -> None:
+        from aod._internal.testing.doubles.infrastructure.session import SpyAsyncSession
+
+        s = SpyAsyncSession()
+        token = _CommitContext.set(True)
+        try:
+            await s.commit()
+        finally:
+            _CommitContext.reset(token)
+        assert len(s.commit_calls) == 1
