@@ -6,6 +6,64 @@
 
 **Source code is under `code/`** — this directory is mapped as the package root in `pyproject.toml`.
 
+## Documentation Site
+
+The documentation site is built with **zensical** (a mkdocs-material-compatible static site generator). Config is in `zensical.toml` at the project root. The style is FastAPI-like:
+
+- **Fixed header** with navigation tabs (Getting Started, Domain, Application, Infrastructure, Testing, API Reference)
+- **No left sidebar** — the sidebar only shows the Table of Contents for the current page (right side)
+- Navigation uses `navigation.tabs` and `navigation.tabs.sticky` features
+- Custom CSS in `docs/stylesheets/extra.css`
+- Custom template override in `docs/overrides/main.html` (hides primary sidebar)
+
+**Build command:** `uv run zensical build --clean`
+**Output:** `site/` directory (gitignored)
+
+## Docs Structure
+
+```
+docs/
+├── index.md                          # Home page with hero, features, architecture diagram
+├── stylesheets/extra.css             # Custom CSS for FastAPI-like look
+├── overrides/main.html               # Template override (hides left sidebar)
+├── getting-started/
+│   ├── installation.md               # pip/uv install, requirements, dependencies
+│   ├── quickstart.md                 # 5-minute guide: VOs, Entities, Ports, UseCase, DI
+│   └── concepts.md                   # DDD theory: VOs, Entities, Aggregates, Services, Events
+├── domain/
+│   ├── entities.md                   # Entity, RootEntity: constructors, mutation, reconstruct
+│   ├── value-objects.md              # ValueObject: immutability, equality, validation
+│   ├── services.md                   # Service: stateless ops, event emission, type constraints
+│   ├── events.md                     # Event: emission, collection, EventCollector, assertions
+│   ├── bounded-context.md            # BoundedContext: constructor, discovery, type checks
+│   └── validation.md                 # Validation: AfterValidator, field_invariance, invariance
+├── application/
+│   ├── use-cases.md                  # UseCase, AsyncUseCase: run(), auto-wired fields
+│   ├── ports.md                      # Port, Logger, EventBus, UnitOfWork, Cache (sync + async)
+│   ├── contracts.md                  # Command, Query: type params, field validation
+│   └── handlers.md                   # CommandHandler, QueryHandler, async variants
+├── infrastructure/
+│   ├── sessions.md                   # Session, AsyncSession: transactions, dirty tracking
+│   ├── projections.md                # ReadProjection, WriteProjection, async variants
+│   ├── container.md                  # AdapterContainerBase: sessions, handlers, ports
+│   └── injection.md                  # inject_adapters: wiring dependencies
+├── testing/
+│   └── index.md                      # build, events_of, assert_*, spy classes, FakeDomain
+└── api/
+    └── index.md                      # Full API reference for all public classes
+```
+
+## Writing Docs Conventions
+
+1. **No emojis** in source files
+2. **No comments** in code examples
+3. **Python 3.14+ syntax** (type | None, etc.)
+4. **Parameter-by-parameter docs** for every function/class constructor — use markdown tables
+5. **Every page ends with "## Next Steps"** with bullet links to related pages
+6. **Relative links only** (no `/absolute/paths`)
+7. **Code blocks** use ```python
+8. All links assume the Markdown file extension (.md) — zensical resolves them
+
 ## Project Structure
 
 ```

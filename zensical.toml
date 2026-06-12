@@ -1,0 +1,67 @@
+site_name = "attack-on-domain"
+site_url = "https://alfonsocuestar.github.io/attack-on-domain/"
+site_description = "DDD building blocks for Python: entities, value objects, bounded contexts, and validation helpers."
+repo_url = "https://github.com/AlfonsoCuesta/attack-on-domain"
+repo_name = "attack-on-domain"
+edit_uri = "edit/master/docs/"
+extra_css = ["stylesheets/extra.css"]
+
+nav = [
+    {"Home" = "index.md"},
+    {"Getting Started" = [
+        "getting-started/installation.md",
+        "getting-started/quickstart.md",
+        "getting-started/concepts.md",
+    ]},
+    {"Domain" = [
+        "domain/entities.md",
+        "domain/value-objects.md",
+        "domain/services.md",
+        "domain/events.md",
+        "domain/bounded-context.md",
+        "domain/validation.md",
+    ]},
+    {"Application" = [
+        "application/use-cases.md",
+        "application/ports.md",
+        "application/contracts.md",
+        "application/handlers.md",
+    ]},
+    {"Infrastructure" = [
+        "infrastructure/sessions.md",
+        "infrastructure/projections.md",
+        "infrastructure/container.md",
+        "infrastructure/injection.md",
+    ]},
+    {"Testing" = "testing/index.md"},
+    {"API Reference" = "api/index.md"},
+]
+
+[theme]
+name = "material"
+variant = "classic"
+palette = [
+    {scheme = "default", primary = "blue", accent = "blue", toggle = {icon = "material/brightness-7", name = "Switch to light mode"}},
+    {scheme = "slate", primary = "blue", accent = "blue", toggle = {icon = "material/brightness-4", name = "Switch to dark mode"}},
+]
+features = [
+    "navigation.tabs",
+    "navigation.tabs.sticky",
+    "navigation.top",
+    "search.suggest",
+    "search.highlight",
+    "content.code.copy",
+    "content.tabs.link",
+]
+font = {text = "Roboto", code = "Roboto Mono"}
+custom_dir = "docs/overrides"
+logo = "img/logo.png"
+favicon = "img/logo.png"
+icon = {repo = "fontawesome/brands/github"}
+language = "en"
+
+[plugins]
+search = {}
+
+[markdown]
+toc = {permalink = true, title = "On this page"}

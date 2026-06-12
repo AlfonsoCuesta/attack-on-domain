@@ -1,0 +1,302 @@
+# Handlers
+
+Handlers process commands and queries. They bridge the gap between contracts and the application layer, executing business logic against infrastructure.
+
+## Import
+
+```python
+from aod.infrastructure import CommandHandler, QueryHandler
+```
+
+For async operations:
+
+```python
+from aod.infrastructure import AsyncCommandHandler, AsyncQueryHandler
+```
+
+## Basic Usage
+
+Subclass `CommandHandler` or `QueryHandler` parameterized by your contract type, and implement the `handle()` method:
+
+```python
+from aod.infrastructure import CommandHandler, QueryHandler
+from aod.infrastructure import Session
+
+class CreateUserHandler(CommandHandler[CreateUser]):
+    session: Session
+
+    def handle(self, command: CreateUser) -> None:
+        user = User(id=command.user_id, name=command.name, email=command.email)
+        self.session.execute(user)
+
+class GetUserHandler(QueryHandler[GetUser]):
+    session: Session
+
+    def handle(self, query: GetUser) -> User | None:
+        return self.session.query(f"SELECT * FROM users WHERE id = {query.user_id}")
+```
+
+## Class Reference
+
+### `BaseHandler`
+
+Base class for all handlers. Inherits from `BaseBehaviour`.
+
+**Fields:**
+
+| Field | Type | Default | Description |
+|-------|------|---------|-------------|
+| `session` | `Session \| None` | `None` | Database session, injected by the container |
+
+**Constructor parameters:**
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `session` | `Session \| None` | Optional session instance (injected by container) |
+| `*port_fields` | Any | Any additional Port fields declared on the handler subclass |
+
+### `AsyncBaseHandler`
+
+Async variant of `BaseHandler`. Inherits from `BaseBehaviour`.
+
+**Fields:**
+
+| Field | Type | Default | Description |
+|-------|------|---------|-------------|
+| `session` | `AsyncSession \| None` | `None` | Async database session, injected by the container |
+
+**Constructor parameters:** Same as `BaseHandler`, but `session` accepts `AsyncSession \| None`.
+
+### `CommandHandler[TCommand]`
+
+Sync command handler. Inherits from `BaseHandler`, `AppCommandHandler` (which is `HandlerProtocol(Port)`), and `Generic[TCommand]`.
+
+**Type Parameters:**
+
+| Parameter | Constraint | Description |
+|-----------|------------|-------------|
+| `TCommand` | Must be a `Command` subclass | The command type this handler processes |
+
+**Fields:**
+
+| Field | Type | Default | Description |
+|-------|------|---------|-------------|
+| `session` | `Session \| None` | `None` | Database session for executing operations |
+
+#### `handle(self, command: TCommand) -> object`
+
+Abstract method. Implement to process a command.
+
+**Parameters:**
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `command` | `TCommand` | The command instance to process |
+
+**Returns:** Any object. The return type is validated at runtime against the handler's generic parameter.
+
+### `QueryHandler[TQuery]`
+
+Sync query handler. Inherits from `BaseHandler`, `AppQueryHandler` (which is `HandlerProtocol(Port)`), and `Generic[TQuery]`.
+
+**Type Parameters:**
+
+| Parameter | Constraint | Description |
+|-----------|------------|-------------|
+| `TQuery` | Must be a `Query` subclass | The query type this handler processes |
+
+**Fields:**
+
+| Field | Type | Default | Description |
+|-------|------|---------|-------------|
+| `session` | `Session \| None` | `None` | Database session for querying |
+
+#### `handle(self, query: TQuery) -> object`
+
+Abstract method. Implement to process a query.
+
+**Parameters:**
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `query` | `TQuery` | The query instance to process |
+
+**Returns:** Any object. The return type is validated at runtime against the query's `TResult`.
+
+### `AsyncCommandHandler[TCommand]`
+
+Async command handler. Inherits from `AsyncBaseHandler`, `AppAsyncCommandHandler` (which is `HandlerProtocol(Port)`), and `Generic[TCommand]`.
+
+**Fields:**
+
+| Field | Type | Default | Description |
+|-------|------|---------|-------------|
+| `session` | `AsyncSession \| None` | `None` | Async database session |
+
+#### `async handle(self, command: TCommand) -> object`
+
+Async abstract method. Implement to process a command asynchronously.
+
+### `AsyncQueryHandler[TQuery]`
+
+Async query handler. Inherits from `AsyncBaseHandler`, `AppAsyncQueryHandler` (which is `HandlerProtocol(Port)`), and `Generic[TQuery]`.
+
+**Fields:**
+
+| Field | Type | Default | Description |
+|-------|------|---------|-------------|
+| `session` | `AsyncSession \| None` | `None` | Async database session |
+
+#### `async handle(self, query: TQuery) -> object`
+
+Async abstract method. Implement to process a query asynchronously.
+
+## Generic Type Binding
+
+Handlers are generic over their contract type. The generic argument is used at runtime for return type validation:
+
+```python
+class CreateUserHandler(CommandHandler[CreateUser]):
+    session: Session
+
+    def handle(self, command: CreateUser) -> None:
+        pass  # This handler only accepts CreateUser commands
+```
+
+## Session Field
+
+Handlers include a `session` field for database access:
+
+```python
+class CreateUserHandler(CommandHandler[CreateUser]):
+    session: Session  # Injected by the container
+
+    def handle(self, command: CreateUser) -> None:
+        self.session.execute(...)
+```
+
+## Return Type Validation
+
+Handler return types are validated at runtime via `_wrap_handle()`. If the return value does not match the expected type (derived from the generic parameter), `HandlerResultTypeError` is raised:
+
+```python
+from aod.infrastructure import QueryHandler
+
+class GetUserHandler(QueryHandler[GetUser]):
+    session: Session
+
+    def handle(self, query: GetUser) -> User | None:
+        return self.session.query(...)  # Must return User | None
+```
+
+## Async Handlers
+
+```python
+from aod.infrastructure import AsyncCommandHandler, AsyncQueryHandler
+
+class AsyncCreateUserHandler(AsyncCommandHandler[CreateUser]):
+    session: AsyncSession
+
+    async def handle(self, command: CreateUser) -> None:
+        user = User(id=command.user_id, name=command.name)
+        await self.session.execute(user)
+
+class AsyncGetUserHandler(AsyncQueryHandler[GetUser]):
+    session: AsyncSession
+
+    async def handle(self, query: GetUser) -> User | None:
+        return await self.session.query(...)
+```
+
+## Handler Registration
+
+Handlers are registered in `AdapterContainerBase`:
+
+```python
+from aod.infrastructure import AdapterContainerBase
+
+class AppContainer(AdapterContainerBase):
+    sessions: set = {PostgresSession}
+    handlers: list = [CreateUserHandler, GetUserHandler]
+```
+
+## Handler Discovery
+
+The container discovers and instantiates handlers by contract type:
+
+```python
+container = AppContainer()
+handler = container.get_handler(CreateUser)  # Returns CreateUserHandler instance
+result = handler.handle(CreateUser(...))
+```
+
+## Testing
+
+Use `SpySession` for handler testing:
+
+```python
+from aod.testing.doubles import SpySession
+
+session = SpySession()
+handler = CreateUserHandler(session=session)
+
+handler.handle(CreateUser(user_id="1", name="Alice"))
+
+assert len(session.execute_calls) == 1
+```
+
+## Common Patterns
+
+### Command Handler
+
+```python
+class PlaceOrderHandler(CommandHandler[PlaceOrder]):
+    session: Session
+
+    def handle(self, command: PlaceOrder) -> None:
+        order = Order(id=command.order_id, total=command.total)
+        self.session.execute(order)
+```
+
+### Query Handler
+
+```python
+class GetUserHandler(QueryHandler[GetUser]):
+    session: Session
+
+    def handle(self, query: GetUser) -> User | None:
+        return self.session.query(f"SELECT * FROM users WHERE id = {query.user_id}")
+```
+
+### Handler with Validation
+
+```python
+class CreateUserHandler(CommandHandler[CreateUser]):
+    session: Session
+
+    def handle(self, command: CreateUser) -> None:
+        if not command.name:
+            raise ValueError("Name is required")
+        user = User(id=command.user_id, name=command.name)
+        self.session.execute(user)
+```
+
+### Handler with Multiple Dependencies
+
+```python
+class CreateUserHandler(CommandHandler[CreateUser]):
+    session: Session
+    validator: UserValidator
+
+    def handle(self, command: CreateUser) -> None:
+        self.validator.validate(command)
+        user = User(id=command.user_id, name=command.name)
+        self.session.execute(user)
+```
+
+## Next Steps
+
+- [UseCase](use-cases.md) — Learn how use cases orchestrate domain logic
+- [Contracts](contracts.md) — Learn about commands and queries
+- [Container](../infrastructure/container.md) — Learn about handler registration
+- [Injection](../infrastructure/injection.md) — Learn about dependency injection
