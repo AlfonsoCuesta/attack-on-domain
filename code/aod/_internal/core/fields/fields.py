@@ -28,6 +28,7 @@ def Field(
     allow_inf_nan: bool | None = ...,
     max_digits: int | None = ...,
     decimal_places: int | None = ...,
+    description: str | None = ...,
     init: bool = True,
 ) -> Any: ...
 
@@ -48,6 +49,7 @@ def Field(
     allow_inf_nan: bool | None = ...,
     max_digits: int | None = ...,
     decimal_places: int | None = ...,
+    description: str | None = ...,
     init: bool = True,
 ) -> Any: ...
 
@@ -67,6 +69,7 @@ def Field(
     allow_inf_nan: bool | None = ...,
     max_digits: int | None = ...,
     decimal_places: int | None = ...,
+    description: str | None = ...,
     init: bool = True,
 ) -> Any: ...
 
