@@ -8,34 +8,60 @@ def _slug(name: str) -> str:
 
 
 def generate_zensical_toml(apps: list[AppDoc]) -> str:
-    lines: list[str] = []
-    lines.append("[site]")
-    if apps:
-        lines.append(f'name = "{apps[0].name} Documentation"')
-    else:
-        lines.append('name = "Documentation"')
-    lines.append('site_url = ""')
-    lines.append("")
-    lines.append("[nav]")
-    lines.append('"Home" = "index.md"')
-    lines.append('"Getting Started" = "getting-started/"')
-    lines.append('"Domain" = "domain/"')
-    lines.append('"Application" = "application/"')
-    lines.append('"Infrastructure" = "infrastructure/"')
-    lines.append('"Exceptions" = "exceptions.md"')
-    lines.append('"API Reference" = "api/"')
-    lines.append("")
-    lines.append("[theme]")
-    lines.append('name = "material"')
-    lines.append('variant = "classic"')
-    lines.append('palette = [{ scheme = "default", primary = "indigo", accent = "indigo", toggle = { icon = "material/brightness-7", name = "Switch to dark mode" } }, { scheme = "slate", primary = "indigo", accent = "indigo", toggle = { icon = "material/brightness-4", name = "Switch to light mode" } }]')
-    lines.append('features = ["navigation.tabs", "navigation.tabs.sticky", "navigation.indexes"]')
-    lines.append("")
-    lines.append("[markdown_extensions]")
-    lines.append("pymdownx.highlight = { anchor_linenums = true }")
-    lines.append("pymdownx.superfences = {}")
-    lines.append("pymdownx.tabbed = { alternate_style = true }")
-    lines.append("")
-    lines.append("[plugins]")
-    lines.append("search = {}")
-    return "\n".join(lines)
+    app = apps[0] if apps else None
+    site_name = f"{app.name} Documentation" if app else "Documentation"
+    nav_items: list[str] = []
+    nav_items.append('    {"Home" = "index.md"},')
+    for a in apps:
+        slug = _slug(a.name)
+        nav_items.append(f'    {{"{a.name}" = [')
+        nav_items.append(f'        "{slug}/index.md",')
+        nav_items.append(f'        "{slug}/domain/index.md",')
+        nav_items.append(f'        "{slug}/domain/entities.md",')
+        nav_items.append(f'        "{slug}/domain/value-objects.md",')
+        nav_items.append(f'        "{slug}/domain/services.md",')
+        nav_items.append(f'        "{slug}/domain/events.md",')
+        nav_items.append(f'        "{slug}/application/index.md",')
+        nav_items.append(f'        "{slug}/application/use-cases.md",')
+        nav_items.append(f'        "{slug}/application/commands.md",')
+        nav_items.append(f'        "{slug}/application/queries.md",')
+        nav_items.append(f'        "{slug}/application/ports.md",')
+        nav_items.append(f'        "{slug}/infrastructure/index.md",')
+        nav_items.append(f'        "{slug}/infrastructure/handlers.md",')
+        nav_items.append(f'        "{slug}/infrastructure/projections.md",')
+        nav_items.append(f'        "{slug}/infrastructure/implementations.md",')
+        nav_items.append(f'        "{slug}/exceptions.md",')
+        nav_items.append('    ]},')
+    nav_items.append('    {"API Reference" = "api/index.md"},')
+    nav_str = "\n".join(nav_items)
+    return f"""site_name = "{site_name}"
+site_description = "DDD Documentation"
+
+[theme]
+name = "material"
+variant = "classic"
+palette = [
+    {{scheme = "default", primary = "blue", accent = "blue", toggle = {{icon = "material/brightness-7", name = "Switch to light mode"}}}},
+    {{scheme = "slate", primary = "blue", accent = "blue", toggle = {{icon = "material/brightness-4", name = "Switch to dark mode"}}}},
+]
+features = [
+    "navigation.tabs",
+    "navigation.tabs.sticky",
+    "navigation.top",
+    "search.suggest",
+    "search.highlight",
+    "content.code.copy",
+]
+font = {{text = "Roboto", code = "Roboto Mono"}}
+language = "en"
+
+[plugins]
+search = {{}}
+
+[markdown]
+toc = {{permalink = true, title = "On this page"}}
+
+nav = [
+{nav_str}
+]
+"""

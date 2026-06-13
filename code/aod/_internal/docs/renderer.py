@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+
 from .model import (
     AppDoc,
     ContractDoc,
@@ -18,6 +19,10 @@ from .model import (
     UseCaseDoc,
     ValueObjectDoc,
 )
+
+
+def _escape_code(text: str) -> str:
+    return text.replace("[", "\\[").replace("]", "\\]")
 
 
 def _field_row(f: FieldDoc) -> str:
@@ -43,9 +48,11 @@ def _methods_section(methods: list[MethodDoc], skip: set[str] | None = None) -> 
     for m in methods:
         if m.name in skip:
             continue
-        parts.append(f"### `{m.name}{m.signature}`\n")
+        sig = _escape_code(m.signature)
+        parts.append(f"### `{m.name}{sig}`\n")
         if m.doc:
-            parts.append(f"{m.doc}\n")
+            doc = _escape_code(m.doc)
+            parts.append(f"{doc}\n")
         if m.params:
             parts.append("| Parameter | Type |")
             parts.append("| --- | --- |")
@@ -444,11 +451,6 @@ def render_infrastructure_index(app: AppDoc) -> str:
         for proj in app.projections:
             lines.append(f"- [{proj.name}]({_slug(proj.name)}.md)")
         lines.append("")
-    if app.sessions:
-        lines.append("## Sessions\n")
-        for s in app.sessions:
-            lines.append(f"- [{s.name}]({_slug(s.name)}.md)")
-        lines.append("")
     if app.port_impls:
         lines.append("## Port Implementations\n")
         for pi in app.port_impls:
@@ -492,22 +494,23 @@ def render_exceptions(app: AppDoc) -> str:
 def render_api_index(apps: list[AppDoc]) -> str:
     lines = ["# API Reference\n"]
     for app in apps:
+        slug = _slug(app.name)
         lines.append(f"## {app.name}\n")
         lines.append(f"Version: {app.version}\n")
         if app.contexts:
             lines.append("### Domain\n")
             for ctx in app.contexts:
-                lines.append(f"- [{ctx.name}](domain/{_slug(ctx.name)}.md)")
+                lines.append(f"- [{ctx.name}](../{slug}/domain/{_slug(ctx.name)}.md)")
             lines.append("")
         if app.use_cases:
             lines.append("### Application\n")
             for uc in app.use_cases:
-                lines.append(f"- [{uc.name}](application/{_slug(uc.name)}.md)")
+                lines.append(f"- [{uc.name}](../{slug}/application/{_slug(uc.name)}.md)")
             lines.append("")
         if app.handlers:
             lines.append("### Infrastructure\n")
             for h in app.handlers:
-                lines.append(f"- [{h.name}](infrastructure/{_slug(h.name)}.md)")
+                lines.append(f"- [{h.name}](../{slug}/infrastructure/{_slug(h.name)}.md)")
             lines.append("")
         if app.exceptions:
             lines.append("### Exceptions\n")
@@ -521,6 +524,7 @@ def render_api_index(apps: list[AppDoc]) -> str:
 def render_home(apps: list[AppDoc]) -> str:
     lines = ["# API Documentation\n"]
     for app in apps:
+        slug = _slug(app.name)
         lines.append(f"## {app.name}\n")
         lines.append(f"{app.description}\n")
         lines.append(f"**Version:** {app.version}\n")
@@ -529,12 +533,32 @@ def render_home(apps: list[AppDoc]) -> str:
         if app.contexts:
             lines.append("### Bounded Contexts\n")
             for ctx in app.contexts:
-                lines.append(f"- [{ctx.name}](domain/{_slug(ctx.name)}.md)")
+                lines.append(f"- [{ctx.name}]({slug}/domain/{_slug(ctx.name)}.md)")
             lines.append("")
-        lines.append("- [Domain](domain/index.md)")
-        lines.append("- [Application](application/index.md)")
-        lines.append("- [Infrastructure](infrastructure/index.md)")
-        lines.append("- [Exceptions](exceptions.md)")
+        lines.append(f"- [Domain]({slug}/domain/index.md)")
+        lines.append(f"- [Application]({slug}/application/index.md)")
+        lines.append(f"- [Infrastructure]({slug}/infrastructure/index.md)")
+        lines.append(f"- [Exceptions]({slug}/exceptions.md)")
         lines.append("- [API Reference](api/index.md)")
         lines.append("")
+    return "\n".join(lines)
+
+
+def render_app_home(app: AppDoc) -> str:
+    lines = [f"# {app.name}\n"]
+    lines.append(f"{app.description}\n")
+    lines.append(f"**Version:** {app.version}\n")
+    if app.repo_url:
+        lines.append(f"**Repository:** {app.repo_url}\n")
+    if app.contexts:
+        lines.append("## Bounded Contexts\n")
+        for ctx in app.contexts:
+            lines.append(f"- [{ctx.name}](domain/{_slug(ctx.name)}.md)")
+        lines.append("")
+    lines.append("- [Domain](domain/index.md)")
+    lines.append("- [Application](application/index.md)")
+    lines.append("- [Infrastructure](infrastructure/index.md)")
+    lines.append("- [Exceptions](exceptions.md)")
+    lines.append("- [API Reference](../api/index.md)")
+    lines.append("")
     return "\n".join(lines)

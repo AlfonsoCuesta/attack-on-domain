@@ -105,11 +105,24 @@ def _extract_methods(cls: type) -> list[MethodDoc]:
     return result
 
 
+def _get_own_doc(cls: type) -> str:
+    doc = cls.__doc__ or ""
+    if not doc:
+        return ""
+    for base in cls.__mro__[1:]:
+        if base.__doc__ == doc:
+            continue
+        return doc
+    if cls.__doc__ and cls.__doc__ != cls.__mro__[1].__doc__ if len(cls.__mro__) > 1 else True:
+        return doc
+    return ""
+
+
 def _make_type_doc(cls: type, stereotype: str) -> TypeDoc:
     return TypeDoc(
         name=cls.__name__,
         stereotype=stereotype,
-        doc=inspect.getdoc(cls) or "",
+        doc=_get_own_doc(cls),
         fields=_extract_fields(cls),
         methods=_extract_methods(cls),
     )

@@ -43,8 +43,7 @@ from .renderer import (
     render_application_ports,
     render_application_queries,
     render_application_use_cases,
-    render_command,
-    render_context,
+    render_app_home,
     render_domain_entities,
     render_domain_events,
     render_domain_index,
@@ -61,9 +60,11 @@ from .renderer import (
     render_port,
     render_projection,
     render_query,
+    render_command,
     render_service,
     render_use_case,
     render_value_object,
+    render_context,
 )
 from .zensical import generate_zensical_toml
 
@@ -215,7 +216,7 @@ def generate_docs(apps: list[DocApp], output_dir: str = "site-docs") -> Path:
         app_slug = _slug(app_doc.name)
         app_dir = docs / app_slug
 
-        _write_file(app_dir / "index.md", render_home([app_doc]))
+        _write_file(app_dir / "index.md", render_app_home(app_doc))
         _write_file(app_dir / "domain" / "index.md", render_domain_index(app_doc))
         _write_file(app_dir / "domain" / "entities.md", render_domain_entities(app_doc))
         _write_file(app_dir / "domain" / "value-objects.md", render_domain_value_objects(app_doc))
