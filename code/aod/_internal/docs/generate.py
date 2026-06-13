@@ -86,11 +86,18 @@ def _collect_events_from_types(
     seen: set[str] = set()
     result: list[EventDoc] = []
     for ctx in contexts:
-        all_types = list(ctx.aggregate_roots) + list(ctx.entities) + list(ctx.value_objects) + list(ctx.services)
+        all_types = (
+            list(ctx.aggregate_roots)
+            + list(ctx.entities)
+            + list(ctx.value_objects)
+            + list(ctx.services)
+        )
         for cls in all_types:
             hints: dict[str, Any] = {}
             try:
-                hints = {k: v for k, v in typing.get_type_hints(cls).items() if not k.startswith("_")}
+                hints = {
+                    k: v for k, v in typing.get_type_hints(cls).items() if not k.startswith("_")
+                }
             except Exception:
                 pass
             for field_name, field_type in hints.items():
@@ -99,10 +106,18 @@ def _collect_events_from_types(
                 if origin is not None:
                     args = typing.get_args(resolved)
                     for arg in args:
-                        if isinstance(arg, type) and issubclass(arg, Event) and arg.__name__ not in seen:
+                        if (
+                            isinstance(arg, type)
+                            and issubclass(arg, Event)
+                            and arg.__name__ not in seen
+                        ):
                             seen.add(arg.__name__)
                             result.append(introspect_event(arg))
-                elif isinstance(resolved, type) and issubclass(resolved, Event) and resolved.__name__ not in seen:
+                elif (
+                    isinstance(resolved, type)
+                    and issubclass(resolved, Event)
+                    and resolved.__name__ not in seen
+                ):
                     seen.add(resolved.__name__)
                     result.append(introspect_event(resolved))
     return result
@@ -227,11 +242,7 @@ def generate_docs(apps: list[DocApp], output_dir: str = "site-docs") -> Path:
             ctx_slug = _slug(ctx.name)
             _write_file(app_dir / "domain" / f"{ctx_slug}.md", render_context(ctx))
 
-        for entity in [
-            e
-            for ctx in app_doc.contexts
-            for e in ctx.aggregate_roots + ctx.entities
-        ]:
+        for entity in [e for ctx in app_doc.contexts for e in ctx.aggregate_roots + ctx.entities]:
             _write_file(app_dir / "domain" / f"{_slug(entity.name)}.md", render_entity(entity))
 
         for vo in [v for ctx in app_doc.contexts for v in ctx.value_objects]:
@@ -259,7 +270,9 @@ def generate_docs(apps: list[DocApp], output_dir: str = "site-docs") -> Path:
             _write_file(app_dir / "application" / f"{_slug(p.name)}.md", render_port(p))
 
         _write_file(app_dir / "infrastructure" / "index.md", render_infrastructure_index(app_doc))
-        _write_file(app_dir / "infrastructure" / "handlers.md", render_infrastructure_handlers(app_doc))
+        _write_file(
+            app_dir / "infrastructure" / "handlers.md", render_infrastructure_handlers(app_doc)
+        )
         _write_file(
             app_dir / "infrastructure" / "projections.md",
             render_infrastructure_projections(app_doc),
@@ -273,7 +286,9 @@ def generate_docs(apps: list[DocApp], output_dir: str = "site-docs") -> Path:
             _write_file(app_dir / "infrastructure" / f"{_slug(h.name)}.md", render_handler(h))
 
         for proj in app_doc.projections:
-            _write_file(app_dir / "infrastructure" / f"{_slug(proj.name)}.md", render_projection(proj))
+            _write_file(
+                app_dir / "infrastructure" / f"{_slug(proj.name)}.md", render_projection(proj)
+            )
 
         for pi in app_doc.port_impls:
             _write_file(app_dir / "infrastructure" / f"{_slug(pi.name)}.md", render_port(pi))

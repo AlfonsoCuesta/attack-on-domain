@@ -12,10 +12,9 @@ from .model import (
     HandlerDoc,
     MethodDoc,
     ParamDoc,
-    PortDoc,
     ProjectionDoc,
     ServiceDoc,
-    SessionDoc,
+    TypeDoc,
     UseCaseDoc,
     ValueObjectDoc,
 )
@@ -123,7 +122,7 @@ def render_event(ev: EventDoc) -> str:
     return "\n".join(lines)
 
 
-def render_port(p: PortDoc) -> str:
+def render_port(p: TypeDoc) -> str:
     lines = [f"# {p.name}\n"]
     if p.doc:
         lines.append(f"{p.doc}\n")
@@ -255,7 +254,7 @@ def render_projection(proj: ProjectionDoc) -> str:
     return "\n".join(lines)
 
 
-def render_session(s: SessionDoc) -> str:
+def render_session(s: TypeDoc) -> str:
     lines = [f"# {s.name}\n"]
     if s.doc:
         lines.append(f"{s.doc}\n")
@@ -373,7 +372,12 @@ def render_domain_services(app: AppDoc) -> str:
 def render_domain_events(app: AppDoc) -> str:
     lines = ["# Domain Events\n"]
     for ctx in app.contexts:
-        all_types = list(ctx.aggregate_roots) + list(ctx.entities) + list(ctx.value_objects) + list(ctx.services)
+        all_types = (
+            list(ctx.aggregate_roots)
+            + list(ctx.entities)
+            + list(ctx.value_objects)
+            + list(ctx.services)
+        )
         for td in all_types:
             for method in td.methods:
                 if method.name == "emit":

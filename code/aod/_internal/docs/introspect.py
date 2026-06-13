@@ -67,7 +67,7 @@ def _extract_fields(cls: type) -> list[FieldDoc]:
 def _extract_params(func: Any) -> tuple[list[ParamDoc], str]:
     try:
         sig = inspect.signature(func)
-    except (ValueError, TypeError):
+    except ValueError, TypeError:
         return [], ""
     params: list[ParamDoc] = []
     for pname, p in sig.parameters.items():
@@ -94,7 +94,7 @@ def _extract_methods(cls: type) -> list[MethodDoc]:
         try:
             sig_str = str(inspect.signature(val))
             params, returns = _extract_params(val)
-        except (ValueError, TypeError):
+        except ValueError, TypeError:
             sig_str = "(...)"
             params = []
             returns = ""

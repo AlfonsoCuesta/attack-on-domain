@@ -31,7 +31,7 @@ def generate_zensical_toml(apps: list[AppDoc]) -> str:
         nav_items.append(f'        "{slug}/infrastructure/projections.md",')
         nav_items.append(f'        "{slug}/infrastructure/implementations.md",')
         nav_items.append(f'        "{slug}/exceptions.md",')
-        nav_items.append('    ]},')
+        nav_items.append("    ]},")
     nav_items.append('    {"API Reference" = "api/index.md"},')
     nav_str = "\n".join(nav_items)
     return f"""site_name = "{site_name}"

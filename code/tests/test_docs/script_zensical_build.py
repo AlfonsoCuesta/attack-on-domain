@@ -1,10 +1,11 @@
 #!/usr/bin/env python3
 """Test script to generate docs and verify zensical site works."""
+
 from pathlib import Path
 import subprocess
 import sys
 
-from aod.domain import RootEntity, ValueObject, Service, Field as AodField, BoundedContext
+from aod.domain import RootEntity, ValueObject, Field as AodField, BoundedContext
 from aod.events import Event
 from aod.application import UseCase, Port, Command, Query
 from aod._internal.infrastructure.session import Session
