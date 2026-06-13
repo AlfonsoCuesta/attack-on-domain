@@ -1,6 +1,6 @@
 ---
 name: attack-on-domain
-description: "Use ONLY when the user is building a Domain-Driven Design system with this library. Covers entities, value objects, bounded contexts, domain events, the dual-model Pydantic validation system."
+description: "Use ONLY when the user is building a Domain-Driven Design system with this library. Covers entities, value objects, bounded contexts, domain events, and the Pydantic validation system."
 ---
 
 # attack-on-domain — Domain-Driven Design Library
@@ -8,6 +8,109 @@ description: "Use ONLY when the user is building a Domain-Driven Design system w
 Python 3.14+ DDD building blocks with Pydantic v2 under the hood.
 
 Source code is under `code/` (mapped as package root in `pyproject.toml`).
+
+## Workflow
+
+The correct order for building a DDD system with this library:
+
+### Step 1: Domain Layer
+
+Create ValueObjects, Events, and the RootEntity that serves as the aggregate root. All other entities in the aggregate are nested inside the RootEntity's fields.
+
+```python
+from aod.domain import RootEntity, ValueObject, Field
+from aod.events import Event
+
+class OrderId(ValueObject):
+    value: str
+
+class OrderLine(ValueObject):
+    product_id: str
+    quantity: int = Field(ge=1)
+    price: float = Field(ge=0)
+
+class OrderPlaced(Event):
+    order_id: str
+    total: float
+
+class Order(RootEntity):
+    id: OrderId
+    lines: list[OrderLine] = Field(default_factory=list)
+    total: float = 0.0
+
+    def add_line(self, product_id: str, quantity: int, price: float) -> None:
+        line = OrderLine(product_id=product_id, quantity=quantity, price=price)
+        self.lines.append(line)
+        self.total += quantity * price
+        self._event_emitter.emit(OrderPlaced(order_id=self.id.value, total=self.total))
+```
+
+### Step 2: Application Layer — UseCases, Commands/Queries, Handlers (APPLICATION)
+
+Create Commands, Queries, and UseCases. UseCases depend on `CommandHandler[Command]` and `QueryHandler[Query]` from `aod.application` — NOT on repositories or custom ports for database access. All database communication goes through handlers.
+
+```python
+from aod.application import UseCase, Command, Query, CommandHandler, QueryHandler
+
+class PlaceOrder(Command[Order, None]):
+    order_id: str
+    product_id: str
+    quantity: int
+    price: float
+
+class GetOrder(Query[Order, Order | None]):
+    order_id: str
+
+class PlaceOrderUseCase(UseCase):
+    place_order: CommandHandler[PlaceOrder]
+    get_order: QueryHandler[GetOrder]
+
+    def run(self, order_id: str, product_id: str, quantity: int, price: float) -> None:
+        order = Order(id=OrderId(value=order_id))
+        order.add_line(product_id, quantity, price)
+        self.place_order.handle(PlaceOrder(
+            order_id=order_id,
+            product_id=product_id,
+            quantity=quantity,
+            price=price,
+        ))
+```
+
+### Step 3: Infrastructure Layer — Implementations
+
+Create the concrete Handler implementations and Sessions.
+
+```python
+from aod.infrastructure import CommandHandler, QueryHandler, Session
+
+class PlaceOrderHandler(CommandHandler[PlaceOrder]):
+    session: Session
+    def handle(self, command: PlaceOrder) -> None:
+        # Save order to database
+        ...
+
+class GetOrderHandler(QueryHandler[GetOrder]):
+    session: Session
+    def handle(self, query: GetOrder) -> Order | None:
+        # Load order from database
+        ...
+```
+
+### Step 4: Container and Injection
+
+Wire everything together with the AdapterContainer and inject dependencies.
+
+```python
+from aod.infrastructure import AdapterContainerBase, inject_adapters
+
+class AppContainer(AdapterContainerBase):
+    sessions: set = {SqlSession}
+    handlers: list = [PlaceOrderHandler, GetOrderHandler]
+
+container = AppContainer()
+place_order = inject_adapters(container, PlaceOrderUseCase)
+place_order.run(order_id="1", product_id="p1", quantity=2, price=9.99)
+```
 
 ## Public API
 
@@ -42,7 +145,7 @@ Source code is under `code/` (mapped as package root in `pyproject.toml`).
 | Import | What |
 |--------|------|
 | `from aod.testing import FakeDomain` | Factory for domain objects with auto-generated fake data |
-| `from aod.testing import build` | Construct domain objects skipping validation (raw model) |
+| `from aod.testing import build` | Construct domain objects skipping validation |
 | `from aod.testing import events_of` | Extract events emitted by an entity/service/vo |
 | `from aod.testing import assert_event_emitted, assert_no_events` | Event assertions |
 | `from aod.testing import check_invariant` | Run a single invariant validator |
@@ -81,26 +184,36 @@ Source code is under `code/` (mapped as package root in `pyproject.toml`).
   - `logger: Logger` — auto-logs completion (with event count) and failure; defaults to `_NullLogger` (no-op)
   - `event_bus: EventBus` — auto-publishes collected events after successful commit; defaults to `_NullEventBus` (no-op)
   - `cache: Cache` — auto-flushed after successful commit; defaults to `_NullCache` (no-op)
-- **Fields are Ports only** — UseCase fields must be `Port` subclasses (dependencies). Values are passed as parameters to `run()`, not declared as fields.
-- **Blocked field types** — `Session` and `AsyncSession` are rejected via `__not_allowed_port_types__`. UseCases should not depend directly on sessions; use repository ports instead.
+- **Fields are Handlers and Ports** — UseCase fields must be `CommandHandler`, `QueryHandler` subclasses or other `Port` subclasses. Values are passed as parameters to `run()`, not declared as fields.
+- **Blocked field types** — `Session` and `AsyncSession` are rejected via `__not_allowed_port_types__`. UseCases should not depend directly on sessions.
+- **Database access through Handlers** — UseCases communicate with the database ONLY through `CommandHandler[Command]` and `QueryHandler[Query]` from `aod.application`. Do NOT create repository ports or custom ports for database access. The handlers are injected automatically by the container.
 - **`run()` signature** — `run()` receives values as parameters. The wrapper passes `*args, **kwargs` through to the original method.
 - `__init_subclass__` auto-wraps `run()` with an `EventCollector` and captures events into `self.events`
 - Events emitted via `self._event_emitter.emit(...)` inside `run()` are automatically collected in `self.events`
 - Works with inheritance chains (UseCase → Abstract → Concrete)
 
 ```python
-# Correct: Ports as fields, values in run()
-class CreateUser(UseCase):
-    user_client: UserRestClient  # Port dependency
+# Correct: CommandHandler/QueryHandler as fields
+class PlaceOrderUseCase(UseCase):
+    place_order: CommandHandler[PlaceOrder]
+    get_order: QueryHandler[GetOrder]
 
-    def run(self, user_id: int, name: str) -> None:
-        user = User(id=user_id, name=name)
-        self.user_client.save(user)
+    def run(self, order_id: str, product_id: str, quantity: int, price: float) -> None:
+        order = Order(id=OrderId(value=order_id))
+        order.add_line(product_id, quantity, price)
+        self.place_order.handle(PlaceOrder(
+            order_id=order_id,
+            product_id=product_id,
+            quantity=quantity,
+            price=price,
+        ))
 
-# Wrong: values as fields
-class CreateUser(UseCase):
-    user_id: int  # InvalidUseCasePortFieldError!
-    name: str     # InvalidUseCasePortFieldError!
+# Wrong: repository port for database access
+class PlaceOrderUseCase(UseCase):
+    order_client: OrderClient  # No! Use CommandHandler instead
+
+    def run(self, order_id: str, ...) -> None:
+        self.order_client.save(order)  # No! Use self.place_order.handle(PlaceOrder(...))
 ```
 
 ### AsyncUseCase
@@ -185,13 +298,13 @@ Abstract handler bases at `from aod.infrastructure import CommandHandler, QueryH
 
 Handler type validation uses `get_last_generic_arg` from `type_handlers/generic_utils.py` — works in any scope, avoids `NameError` with locally-defined handlers.
 
-## Dual-Model Validation
+## Validation System
 
-Each user class gets **two** Pydantic models at class creation:
-- `__validation_model__` — includes all field constraints, `@field_invariance` validators, `@invariance` model validators
-- `__raw_model__` — strips all validators
+Each user class gets two Pydantic models at class creation:
+- **Validation model** (`__validation_model__`): includes all field constraints, `@field_invariance` validators, and `@invariance` model validators
+- **Raw model** (`__raw_model__`): strips all validators for reconstruction
 
-`__init__` uses the validation model. `ReconstructMixin.reconstruct()` uses the raw model (bypasses re-validation). Only classes that mix in `ReconstructMixin` (`Entity`, `ValueObject`, `RootEntity`) have `reconstruct()` — `Service` and `UseCase` do not.
+`__init__` uses the validation model by default. `ReconstructMixin.reconstruct()` uses the raw model (bypasses re-validation). Only classes that mix in `ReconstructMixin` (`Entity`, `ValueObject`, `RootEntity`) have `reconstruct()` — `Service` and `UseCase` do not.
 
 If Pydantic raises `ValidationError` during `__init__`, it is caught and:
 - If the underlying cause is an `InvarianceException`, that exception is re-raised directly

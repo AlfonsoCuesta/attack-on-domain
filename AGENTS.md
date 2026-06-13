@@ -2,9 +2,112 @@
 
 ## Overview
 
-`attack-on-domain` is a Python 3.14+ library providing Domain-Driven Design building blocks using Pydantic v2 under the hood. It implements entities, value objects, bounded contexts, domain events, and a dual-model validation system.
+`attack-on-domain` is a Python 3.14+ library providing Domain-Driven Design building blocks using Pydantic v2 under the hood. It implements entities, value objects, bounded contexts, domain events, and a validation system.
 
 **Source code is under `code/`** — this directory is mapped as the package root in `pyproject.toml`.
+
+## Workflow
+
+The correct order for building a DDD system with this library:
+
+### Step 1: Domain Layer
+
+Create ValueObjects, Events, and the RootEntity that serves as the aggregate root. All other entities in the aggregate are nested inside the RootEntity's fields.
+
+```python
+from aod.domain import RootEntity, ValueObject, Field
+from aod.events import Event
+
+class OrderId(ValueObject):
+    value: str
+
+class OrderLine(ValueObject):
+    product_id: str
+    quantity: int = Field(ge=1)
+    price: float = Field(ge=0)
+
+class OrderPlaced(Event):
+    order_id: str
+    total: float
+
+class Order(RootEntity):
+    id: OrderId
+    lines: list[OrderLine] = Field(default_factory=list)
+    total: float = 0.0
+
+    def add_line(self, product_id: str, quantity: int, price: float) -> None:
+        line = OrderLine(product_id=product_id, quantity=quantity, price=price)
+        self.lines.append(line)
+        self.total += quantity * price
+        self._event_emitter.emit(OrderPlaced(order_id=self.id.value, total=self.total))
+```
+
+### Step 2: Application Layer — UseCases, Commands/Queries, Handlers (APPLICATION)
+
+Create Commands, Queries, and UseCases. UseCases depend on `CommandHandler[Command]` and `QueryHandler[Query]` from `aod.application` — NOT on repositories or custom ports for database access. All database communication goes through handlers.
+
+```python
+from aod.application import UseCase, Command, Query, CommandHandler, QueryHandler
+
+class PlaceOrder(Command[Order, None]):
+    order_id: str
+    product_id: str
+    quantity: int
+    price: float
+
+class GetOrder(Query[Order, Order | None]):
+    order_id: str
+
+class PlaceOrderUseCase(UseCase):
+    place_order: CommandHandler[PlaceOrder]
+    get_order: QueryHandler[GetOrder]
+
+    def run(self, order_id: str, product_id: str, quantity: int, price: float) -> None:
+        order = Order(id=OrderId(value=order_id))
+        order.add_line(product_id, quantity, price)
+        self.place_order.handle(PlaceOrder(
+            order_id=order_id,
+            product_id=product_id,
+            quantity=quantity,
+            price=price,
+        ))
+```
+
+### Step 3: Infrastructure Layer — Implementations
+
+Create the concrete Handler implementations and Sessions.
+
+```python
+from aod.infrastructure import CommandHandler, QueryHandler, Session
+
+class PlaceOrderHandler(CommandHandler[PlaceOrder]):
+    session: Session
+    def handle(self, command: PlaceOrder) -> None:
+        # Save order to database
+        ...
+
+class GetOrderHandler(QueryHandler[GetOrder]):
+    session: Session
+    def handle(self, query: GetOrder) -> Order | None:
+        # Load order from database
+        ...
+```
+
+### Step 4: Container and Injection
+
+Wire everything together with the AdapterContainer and inject dependencies.
+
+```python
+from aod.infrastructure import AdapterContainerBase, inject_adapters
+
+class AppContainer(AdapterContainerBase):
+    sessions: set = {SqlSession}
+    handlers: list = [PlaceOrderHandler, GetOrderHandler]
+
+container = AppContainer()
+place_order = inject_adapters(container, PlaceOrderUseCase)
+place_order.run(order_id="1", product_id="p1", quantity=2, price=9.99)
+```
 
 ## Documentation Site
 
@@ -241,7 +344,7 @@ The old `GuardedBaseMeta` and `EntityMeta` metaclasses were eliminated:
 - **Root entity flag** uses `issubclass(cls, RootEntity)` — no flag variable needed
 - `ValidationModelMeta.__new__` accepts `**kwargs` and forwards them to `type.__new__` for `__init_subclass__` compatibility
 
-### Dual-Model Validation
+### Validation System
 Each user class gets two Pydantic models at class creation time:
 - **Validation model** (`__validation_model__`): includes all field constraints, `@field_invariance` validators, and `@invariance` model validators
 - **Raw model** (`__raw_model__`): strips all validators from annotations, excludes `@field_invariance` and `@invariance`
@@ -560,7 +663,7 @@ Public re-exports live at `aod/testing/`:
 | Import | What |
 |--------|------|
 | `from aod.testing import FakeDomain` | Factory for domain objects with auto-generated fake data |
-| `from aod.testing import build` | Construct domain objects skipping validation (raw model) |
+| `from aod.testing import build` | Construct domain objects skipping validation |
 | `from aod.testing import events_of` | Extract events emitted by an entity/service/vo |
 | `from aod.testing import assert_event_emitted, assert_no_events` | Event assertions |
 | `from aod.testing import check_invariant` | Run a single invariant validator |
@@ -586,7 +689,7 @@ uv run pytest code/tests -q
 
 ## When Modifying This Code
 
-- If you change the dual-model system, update `model_maker.py` and verify `test_base_validator.py`
+- If you change the validation model system, update `model_maker.py` and verify `test_base_validator.py`
 - If you change the mutation system, update `base_guarded.py` (including `_wrap_public_methods`) and verify `test_base_guarded.py` + `test_make_immutable.py`
 - If you change `__post_init__`, update `base_validator.py` (definition and trigger), and verify `test_post_init.py`
 - If you change `reconstruct()`, update `reconstructable.py` and verify `test_post_init.py` + `test_base_validator.py`
