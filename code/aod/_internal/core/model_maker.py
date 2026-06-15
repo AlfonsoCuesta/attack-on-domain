@@ -7,6 +7,7 @@ from .invariances import is_validator
 
 VALIDATION_MODEL_KEY = "__validation_model__"
 RAW_MODEL_KEY = "__raw_model__"
+CONSTRAINED_MODEL_KEY = "__constrained_model__"
 
 
 def get_parent_models(bases: tuple[Type[Any], ...], key: str) -> tuple[Type[Any], ...]:
@@ -68,3 +69,24 @@ def make_raw_model(
 
     parent_models = get_parent_models(bases, RAW_MODEL_KEY)
     return type(name + "RawModel", parent_models, ns)
+
+
+def make_constrained_model(
+    cls: Type[Any],
+    name: str,
+    bases: tuple[Type[Any], ...],
+) -> Type[BaseModel]:
+    full_ns = {
+        "model_config": get_model_config(cls),
+        "__module__": cls.__module__,
+        "__qualname__": f"{cls.__qualname__}.{name}",
+        "__annotations__": cls.__annotations__,
+        **{k: getattr(cls, k) for k in cls.__annotations__ if hasattr(cls, k)},
+    }
+    for k, v in cls.__dict__.copy().items():
+        if validator_info := is_validator(v):
+            if not validator_info.is_invariance:
+                full_ns[k] = validator_info(v)
+
+    parent_models = get_parent_models(bases, CONSTRAINED_MODEL_KEY)
+    return type(name, parent_models, full_ns)

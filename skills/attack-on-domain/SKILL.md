@@ -187,6 +187,8 @@ class Order(RootEntity):         # RootEntity: the aggregate root, used in UseCa
 
 Immutable identity-less values. Cannot be changed after creation.
 
+**DO NOT define `__init__`** — the framework generates it automatically from your field annotations.
+
 ```python
 from aod.domain import ValueObject
 
@@ -202,24 +204,35 @@ price.amount = 20.0  # MutationForbiddenException!
 
 Mutable objects with identity. Can mutate fields inside public methods. NOT used directly in UseCases — only RootEntity is.
 
+**DO NOT define `__init__`** — the framework generates it automatically from your field annotations. Just declare fields as class attributes.
+
 ```python
-from aod.domain import Entity
+from aod.domain import Entity, Field
+from uuid import UUID, uuid4
 
+# Correct: fields as annotations, no __init__
 class User(Entity):
-    id: str
+    id: UUID
     name: str
+    email: str
 
-    def rename(self, new_name: str) -> None:
-        self.name = new_name  # Allowed inside methods
+# Wrong: defining __init__ manually
+class User(Entity):
+    id: UUID
+    name: str
+    email: str
 
-user = User(id="1", name="Alice")
-user.rename("Bob")
-user.name = "Charlie"  # MutationForbiddenException!
+    def __init__(self, name: str, email: str, id: UUID | None = None) -> None:  # NO!
+        self.id = id or uuid4()
+        self.name = name
+        self.email = email
 ```
 
 ### RootEntity
 
 Aggregate root. The entry point for all operations. UseCases, Commands, and Queries work ONLY with RootEntity.
+
+**DO NOT define `__init__`** — the framework generates it automatically from your field annotations.
 
 ```python
 from aod.domain import RootEntity
@@ -514,6 +527,104 @@ inventory = BoundedContext(
 - Only `Service` subclasses as `services`
 - Discovers entities and value objects recursively from field type hints
 - No duplicate domain types across contexts
+
+## Common Mistakes
+
+### WRONG: Using repositories
+
+```python
+# WRONG — repositories are not part of this library
+class AppointmentRepository(ABC):
+    @abstractmethod
+    async def save(self, appointment: Appointment) -> Appointment: ...
+
+# WRONG — UseCase should not depend on repositories
+class BookAppointmentUseCase(UseCase):
+    appointment_repo: AppointmentRepository  # NO!
+
+    async def run(self, command: BookAppointmentCommand) -> None:
+        await self.appointment_repo.save(appointment)
+```
+
+```python
+# CORRECT — use CommandHandler/QueryHandler
+class BookAppointmentUseCase(UseCase):
+    save_appointment: CommandHandler[SaveAppointment]
+    get_appointment: QueryHandler[GetAppointment]
+
+    def run(self, professional_id: str, start_time: datetime) -> None:
+        appointment = Appointment(...)
+        self.save_appointment.handle(SaveAppointment(...))
+```
+
+### WRONG: Using Pydantic BaseModel for commands
+
+```python
+# WRONG — BaseModel is not a Command
+from pydantic import BaseModel
+
+class BookAppointmentCommand(BaseModel):  # NO!
+    professional_id: UUID
+    start_time: datetime
+```
+
+```python
+# CORRECT — use Command from aod.application
+from aod.application import Command
+
+class BookAppointment(Command[Appointment, None]):
+    professional_id: str
+    start_time: datetime
+```
+
+### WRONG: Creating handlers without UseCase
+
+```python
+# WRONG — plain class with __init__ and handle
+class BookAppointmentHandler:
+    def __init__(self, appointment_repo, professional_repo, event_bus):
+        self._appointment_repo = appointment_repo
+        self._professional_repo = professional_repo
+        self._event_bus = event_bus
+
+    async def handle(self, command: BookAppointmentCommand) -> Appointment:
+        ...
+```
+
+```python
+# CORRECT — inherit from UseCase
+class BookAppointmentUseCase(UseCase):
+    save_appointment: CommandHandler[SaveAppointment]
+    get_professional: QueryHandler[GetProfessional]
+
+    def run(self, professional_id: str, start_time: datetime) -> None:
+        professional = self.get_professional.handle(GetProfessional(id=professional_id))
+        appointment = Appointment(professional_id=professional_id, start_time=start_time)
+        self.save_appointment.handle(SaveAppointment(...))
+```
+
+### WRONG: Defining __init__ manually
+
+```python
+# WRONG — don't define __init__
+class User(Entity):
+    id: UUID
+    name: str
+
+    def __init__(self, name: str, id: UUID | None = None) -> None:  # NO!
+        self.id = id or uuid4()
+        self.name = name
+```
+
+```python
+# CORRECT — just declare fields
+class User(Entity):
+    id: UUID
+    name: str
+
+# Framework generates __init__ automatically
+user = User(id=uuid4(), name="Alice")
+```
 
 ## Conventions
 

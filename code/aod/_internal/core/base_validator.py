@@ -9,8 +9,10 @@ from .domain_exception import InvarianceException, ModelValidationError
 from .fields import Field
 from .invariances import is_validator
 from .model_maker import (
+    CONSTRAINED_MODEL_KEY,
     RAW_MODEL_KEY,
     VALIDATION_MODEL_KEY,
+    make_constrained_model,
     make_raw_model,
     make_validation_model,
 )
@@ -28,9 +30,11 @@ class ValidationModelMeta(ABCMeta):
 
         validation_model = make_validation_model(cls, name, bases)
         raw_model = make_raw_model(cls, name, bases)
+        constrained_model = make_constrained_model(cls, name, bases)
 
         setattr(cls, VALIDATION_MODEL_KEY, validation_model)
         setattr(cls, RAW_MODEL_KEY, raw_model)
+        setattr(cls, CONSTRAINED_MODEL_KEY, constrained_model)
         setattr(cls, "__model_fields__", validation_model.model_fields)
 
         setattr(cls.__init__, "__signature__", inspect.signature(validation_model))
@@ -58,6 +62,7 @@ class ValidationModelMeta(ABCMeta):
 class BaseValidator(metaclass=ValidationModelMeta):
     __validation_model__: ClassVar[Type[BaseModel]]
     __raw_model__: ClassVar[Type[BaseModel]]
+    __constrained_model__: ClassVar[Type[BaseModel]]
     __model_fields__: ClassVar[dict[str, Any]]
     __validator_registry__: ClassVar[dict[str, Callable[..., Any]]]
 
@@ -103,3 +108,38 @@ class BaseValidator(metaclass=ValidationModelMeta):
         fields = self.__validation_model__.model_fields.keys()
         args = ", ".join(f"{k}={getattr(self, k)!r}" for k in fields)
         return f"{self.__class__.__name__}({args})"
+
+
+def make_base_model(cls: Type[BaseValidator]) -> Type[BaseModel]:
+    """Extract a pure Pydantic model with field constraints but no invariance validators.
+
+    If any field type is another BaseValidation subclass, its model is also extracted recursively.
+    """
+    if not issubclass(cls, BaseValidator):
+        raise TypeError(f"{cls.__name__} is not a BaseValidation subclass")
+
+    constrained = cls.__constrained_model__
+    new_fields = {}
+    for field_name, field_info in constrained.model_fields.items():
+        annotation = field_info.annotation
+        if (
+            annotation is not None
+            and isinstance(annotation, type)
+            and issubclass(annotation, BaseValidator)
+        ):
+            new_fields[field_name] = (make_base_model(annotation), field_info)
+        else:
+            new_fields[field_name] = (annotation, field_info)
+
+    if not new_fields:
+        return constrained
+
+    return type(
+        f"{cls.__name__}Pydantic",
+        (BaseModel,),
+        {
+            "__module__": cls.__module__,
+            "__annotations__": {k: v[0] for k, v in new_fields.items()},
+            **{k: v[1] for k, v in new_fields.items()},
+        },
+    )

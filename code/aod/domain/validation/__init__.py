@@ -1,4 +1,5 @@
 from aod._internal.core.base_guarded import inherit_context
+from aod._internal.core.base_validator import make_base_model
 from aod._internal.core.invariances import (
     AfterValidator,
     BeforeValidator,
@@ -12,4 +13,5 @@ __all__ = [
     "field_invariance",
     "invariance",
     "inherit_context",
+    "make_base_model",
 ]

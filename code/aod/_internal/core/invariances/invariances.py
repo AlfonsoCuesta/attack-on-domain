@@ -14,11 +14,19 @@ VALIDATOR_KEY = "__field_validator_info__"
 
 
 class ValidatorInfo:
-    def __init__(self, *args, validation: Callable, name: str | None = None, **kwargs):
+    def __init__(
+        self,
+        *args,
+        validation: Callable,
+        name: str | None = None,
+        is_invariance: bool = False,
+        **kwargs,
+    ):
         self.args = args
         self.kwargs = kwargs
         self.validation = validation
         self.name = name
+        self.is_invariance = is_invariance
 
     def __call__(self, fn):
         return self.validation(*self.args, **self.kwargs)(fn)
@@ -55,6 +63,7 @@ def field_invariance(
                 mode=mode,
                 check_fields=check_fields,
                 name=name,
+                is_invariance=True,
             ),
         )
         return wrapped_cm
@@ -78,6 +87,7 @@ def invariance(fn=None, *, name: str | None = None):
         validation=pydantic_model_validator,
         mode="after",
         name=name,
+        is_invariance=True,
     )
     setattr(wrapper, VALIDATOR_KEY, validator_info)
     return wrapper
