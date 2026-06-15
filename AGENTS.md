@@ -75,18 +75,18 @@ class PlaceOrderUseCase(UseCase):
 
 ### Step 3: Infrastructure Layer — Implementations
 
-Create the concrete Handler implementations and Sessions.
+Create the concrete Handler implementations and Sessions. Rename infrastructure handlers to avoid confusion with application protocols.
 
 ```python
-from aod.infrastructure import CommandHandler, QueryHandler, Session
+from aod.infrastructure import CommandHandler as InfraCommandHandler, QueryHandler as InfraQueryHandler, Session
 
-class PlaceOrderHandler(CommandHandler[PlaceOrder]):
+class PlaceOrderHandler(InfraCommandHandler[PlaceOrder]):
     session: Session
     def handle(self, command: PlaceOrder) -> None:
         # Save order to database
         ...
 
-class GetOrderHandler(QueryHandler[GetOrder]):
+class GetOrderHandler(InfraQueryHandler[GetOrder]):
     session: Session
     def handle(self, query: GetOrder) -> Order | None:
         # Load order from database

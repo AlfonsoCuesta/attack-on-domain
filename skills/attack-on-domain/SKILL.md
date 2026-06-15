@@ -78,18 +78,18 @@ class PlaceOrderUseCase(UseCase):
 
 ### Step 3: Infrastructure Layer — Implementations
 
-Create the concrete Handler implementations and Sessions.
+Create the concrete Handler implementations and Sessions. Rename infrastructure handlers to avoid confusion with application protocols.
 
 ```python
-from aod.infrastructure import CommandHandler, QueryHandler, Session
+from aod.infrastructure import CommandHandler as InfraCommandHandler, QueryHandler as InfraQueryHandler, Session
 
-class PlaceOrderHandler(CommandHandler[PlaceOrder]):
+class PlaceOrderHandler(InfraCommandHandler[PlaceOrder]):
     session: Session
     def handle(self, command: PlaceOrder) -> None:
         # Save order to database
         ...
 
-class GetOrderHandler(QueryHandler[GetOrder]):
+class GetOrderHandler(InfraQueryHandler[GetOrder]):
     session: Session
     def handle(self, query: GetOrder) -> Order | None:
         # Load order from database
@@ -122,83 +122,161 @@ place_order.run(order_id="1", product_id="p1", quantity=2, price=9.99)
 | `from aod.events import EventCollector` | Cross-aggregate event capture |
 | `from aod.domain.validation import field_invariance, invariance, inherit_context` | Validation decorators |
 | `from aod.domain.validation import AfterValidator, BeforeValidator` | Pydantic validators |
-| `from aod.domain import DomainException` | Domain base exception |
-| `from aod.domain.exceptions import MutationForbiddenException, InvalidEntityTypeError, InvarianceException, ModelValidationError, …` | Domain-specific exceptions |
-| `from aod.application import ApplicationException` | Application base exception |
-| `from aod.application.exceptions import UnresolvableEntityError, CommitOutsideUnitOfWorkError, InvalidUseCasePortFieldError` | Application-specific exceptions |
-| `from aod.infrastructure import InfrastructureException` | Infrastructure base exception |
-| `from aod.infrastructure.exceptions import DuplicateHandlerError, HandlerNotFoundError, HandlerResultTypeError, HandlerModelError, PortNotFoundError, SessionNotFoundError, InvalidPortFieldError` | Infrastructure-specific exceptions |
-
 | `from aod.application import UseCase` | UseCase base class |
 | `from aod.application import Port` | Abstract port/gateway base class |
 | `from aod.application import Logger, EventBus, UnitOfWork, Cache` | Built-in port types (sync) |
-| `from aod.application.async_ import Cache, EventBus, Logger, UnitOfWork` | Async versions (methods are coroutines) |
+| `from aod.application.async_ import Cache, EventBus, Logger, UnitOfWork` | Async versions |
 | `from aod.application import Command, Query` | Application contracts |
-| `from aod.infrastructure import CommandHandler, QueryHandler` | Infrastructure handlers |
+| `from aod.application import CommandHandler, QueryHandler` | Application handler protocols |
+| `from aod.infrastructure import CommandHandler, QueryHandler` | Infrastructure handler implementations |
 | `from aod.infrastructure import ReadProjection, WriteProjection, Projection` | Projection base classes |
 | `from aod.infrastructure import AsyncReadProjection, AsyncWriteProjection, AsyncProjection` | Async projection classes |
 | `from aod.infrastructure import ReadModel, WriteModel` | Projection data models |
 | `from aod.infrastructure import inject_adapters` | Dependency injection for UseCases and Projections |
+| `from aod.domain import DomainException` | Domain base exception |
+| `from aod.application import ApplicationException` | Application base exception |
+| `from aod.infrastructure import InfrastructureException` | Infrastructure base exception |
 
 ## Testing Utilities
 
 | Import | What |
 |--------|------|
-| `from aod.testing import FakeDomain` | Factory for domain objects with auto-generated fake data |
 | `from aod.testing import build` | Construct domain objects skipping validation |
 | `from aod.testing import events_of` | Extract events emitted by an entity/service/vo |
 | `from aod.testing import assert_event_emitted, assert_no_events` | Event assertions |
 | `from aod.testing import check_invariant` | Run a single invariant validator |
-| `from aod.testing.doubles.application import LogEntry, SpyLogger, SpyEventBus, SpyUnitOfWork, SpyCache` | Sync test doubles |
+| `from aod.testing.doubles.application import SpyLogger, SpyEventBus, SpyUnitOfWork, SpyCache` | Sync test doubles |
 | `from aod.testing.doubles import SpySession, SpyAsyncSession` | Session test doubles |
-| `from aod.testing.doubles.application.async_ import SpyLogger, SpyEventBus, SpyUnitOfWork, SpyCache` | Async test doubles (plain names) |
+| `from aod.testing.doubles.application.async_ import SpyLogger, SpyEventBus, SpyUnitOfWork, SpyCache` | Async test doubles |
 
 ## Domain Primitives
 
-### ValueObject
-- **Immutable** — inherits `BaseSealed`, blocks all mutation (`__setattr__`, `__delattr__`, etc.)
-- For identity-less values: money, addresses, quantities
+### ValueObject vs Entity vs RootEntity
 
-### Entity
-- **Mutable** — inherits `BaseGuarded`, auto-wraps public methods with mutation context
-- Has identity (typically an `id` field)
-- Mutation blocked outside public methods; reads return immutable proxies
+| | ValueObject | Entity | RootEntity |
+|---|---|---|---|
+| **Identity** | No identity | Has identity | Has identity |
+| **Mutable** | No | Yes (inside methods) | Yes (inside methods) |
+| **Use in UseCase** | No | No | Yes |
+| **Example** | Money, Email, Address | OrderLine, Address | Order, User, Product |
 
-### RootEntity
-- `class MyRoot(RootEntity):` — subclass of `Entity`, detected via `issubclass(cls, RootEntity)`
-- Cannot be nested inside other entities (enforced at `BoundedContext` construction)
+**ValueObject** — Immutable, no identity. Two `Money(amount=10, currency="USD")` are equal. Used as fields inside other objects.
 
-### Service
-- **Behaviour** — inherits `BaseBehaviour`, allows mutation inside public methods
-- `_event_emitter` via `PrivateField(default_factory=EventEmitter)`, same as Entity/ValueObject
-- Methods must not accept or return non-root `Entity` types (enforced at `BoundedContext` construction)
-- Mutation blocked from outside (reads return immutable proxies)
+**Entity** — Mutable, has identity. Two `User(id="1", name="Alice")` are different objects (different identity). Cannot be used directly in UseCases.
 
-### UseCase
-- `UseCase` is the base for application-layer use cases, available at `from aod.application import UseCase`
-- Extends `BaseOperation` (which extends `BaseBehaviour`) — mutation allowed inside methods
-- Declares `_event_emitter` as `PrivateField(default_factory=EventEmitter)` for direct event emission
-- Declares `events: list[Event] = Field(default_factory=list, init=False)` for collected events
-- Auto-wired fields with Null Object defaults (no `is not None` checks):
-  - `uow: UnitOfWork` — commits on success, rolls back on failure; defaults to `_NullUnitOfWork` (no-op)
-  - `logger: Logger` — auto-logs completion (with event count) and failure; defaults to `_NullLogger` (no-op)
-  - `event_bus: EventBus` — auto-publishes collected events after successful commit; defaults to `_NullEventBus` (no-op)
-  - `cache: Cache` — auto-flushed after successful commit; defaults to `_NullCache` (no-op)
-- **Fields are Handlers and Ports** — UseCase fields must be `CommandHandler`, `QueryHandler` subclasses or other `Port` subclasses. Values are passed as parameters to `run()`, not declared as fields.
-- **Blocked field types** — `Session` and `AsyncSession` are rejected via `__not_allowed_port_types__`. UseCases should not depend directly on sessions.
-- **Database access through Handlers** — UseCases communicate with the database ONLY through `CommandHandler[Command]` and `QueryHandler[Query]` from `aod.application`. Do NOT create repository ports or custom ports for database access. The handlers are injected automatically by the container.
-- **`run()` signature** — `run()` receives values as parameters. The wrapper passes `*args, **kwargs` through to the original method.
-- `__init_subclass__` auto-wraps `run()` with an `EventCollector` and captures events into `self.events`
-- Events emitted via `self._event_emitter.emit(...)` inside `run()` are automatically collected in `self.events`
-- Works with inheritance chains (UseCase → Abstract → Concrete)
+**RootEntity** — The aggregate root. Entry point for all operations. This is what UseCases, Commands, and Queries work with. All other entities in the aggregate are nested inside the RootEntity's fields.
 
 ```python
-# Correct: CommandHandler/QueryHandler as fields
+from aod.domain import RootEntity, ValueObject, Entity, Field
+
+class OrderId(ValueObject):      # ValueObject: no identity, immutable
+    value: str
+
+class OrderLine(Entity):         # Entity: has identity, mutable, but NOT used in UseCases
+    id: str
+    product_id: str
+    quantity: int
+
+class Order(RootEntity):         # RootEntity: the aggregate root, used in UseCases
+    id: OrderId
+    lines: list[OrderLine] = Field(default_factory=list)
+    total: float = 0.0
+```
+
+### ValueObject
+
+Immutable identity-less values. Cannot be changed after creation.
+
+```python
+from aod.domain import ValueObject
+
+class Money(ValueObject):
+    amount: float
+    currency: str
+
+price = Money(amount=10.0, currency="USD")
+price.amount = 20.0  # MutationForbiddenException!
+```
+
+### Entity
+
+Mutable objects with identity. Can mutate fields inside public methods. NOT used directly in UseCases — only RootEntity is.
+
+```python
+from aod.domain import Entity
+
+class User(Entity):
+    id: str
+    name: str
+
+    def rename(self, new_name: str) -> None:
+        self.name = new_name  # Allowed inside methods
+
+user = User(id="1", name="Alice")
+user.rename("Bob")
+user.name = "Charlie"  # MutationForbiddenException!
+```
+
+### RootEntity
+
+Aggregate root. The entry point for all operations. UseCases, Commands, and Queries work ONLY with RootEntity.
+
+```python
+from aod.domain import RootEntity
+
+class Order(RootEntity):
+    id: str
+    total: float
+
+class OrderLine(RootEntity):
+    product_id: str
+    quantity: int
+
+# Wrong: RootEntity nested in another
+class Order(RootEntity):
+    id: str
+    line: OrderLine  # InvalidNestedTypeError!
+
+# Correct: reference by ID
+class Order(RootEntity):
+    id: str
+    line_id: str
+```
+
+### Service
+
+Stateless domain operations. Methods cannot accept or return non-root Entity types.
+
+```python
+from aod.domain import Service
+
+class TaxCalculator(Service):
+    def calculate(self, amount: float, rate: float) -> float:
+        return amount * rate
+```
+
+## Application Layer
+
+### UseCase
+
+Application operations that orchestrate domain logic through handlers.
+
+**IMPORTANT**: 
+- UseCases work ONLY with `RootEntity` — not `Entity` or `ValueObject` directly
+- UseCases communicate with the database ONLY through `CommandHandler[Command]` and `QueryHandler[Query]`. Do NOT create repository ports or custom ports for database access.
+
+```python
+from aod.application import UseCase, CommandHandler, QueryHandler
+
 class PlaceOrderUseCase(UseCase):
     place_order: CommandHandler[PlaceOrder]
     get_order: QueryHandler[GetOrder]
 
     def run(self, order_id: str, product_id: str, quantity: int, price: float) -> None:
+        # Query existing order
+        existing = self.get_order.handle(GetOrder(order_id=order_id))
+
+        # Create and save
         order = Order(id=OrderId(value=order_id))
         order.add_line(product_id, quantity, price)
         self.place_order.handle(PlaceOrder(
@@ -207,70 +285,69 @@ class PlaceOrderUseCase(UseCase):
             quantity=quantity,
             price=price,
         ))
-
-# Wrong: repository port for database access
-class PlaceOrderUseCase(UseCase):
-    order_client: OrderClient  # No! Use CommandHandler instead
-
-    def run(self, order_id: str, ...) -> None:
-        self.order_client.save(order)  # No! Use self.place_order.handle(PlaceOrder(...))
 ```
 
-### AsyncUseCase
-- Same as UseCase but async: `uow: UnitOfWork | AsyncUnitOfWork`, `async run()`
-- Uses `should_await` for logger/event_bus/cache calls
+**Rules**:
+- Fields must be `CommandHandler[Command]`, `QueryHandler[Query]`, or `Port` subclasses
+- Values are passed as parameters to `run()`, not declared as fields
+- `Session` and `AsyncSession` are NOT allowed as fields
+- Events emitted via `self._event_emitter.emit(...)` are auto-collected in `self.events`
 
-### Projection System
-- Available at `from aod.infrastructure import ReadProjection, WriteProjection, Projection`
-- Also async variants: `from aod.infrastructure import AsyncReadProjection, AsyncWriteProjection, AsyncProjection`
-- **ReadModel(BaseSealed)** / **WriteModel(BaseSealed)** — data models for projection inputs
-- **ProjectionBase(BaseOperation)** — base with `_event_emitter`, `events`, `logger`, `event_bus`, `cache`. Fields must be `Port` subclasses. `HandlerProtocol` and its subclasses are rejected via `__not_allowed_port_types__`. At most one `Session` field is allowed.
-- **ReadProjection** — `session: Session | None`, abstract `read(model: ReadModel)`. Auto-wraps with EventCollector + log + event_bus publish
-- **WriteProjection** — `session: Session | None`, abstract `write(model: WriteModel)`. Auto-wraps with CommitContext + EventCollector + log + rollback + event_bus publish
-- **Projection** — both `read()` and `write()` methods
+### Command / Query
+
+Immutable contracts for writes and reads.
 
 ```python
-# Correct: Port fields, max one Session
-class UserProjection(ReadProjection):
-    user_client: UserRestClient  # Port dependency
-    session: Session | None = None  # Optional session
+from aod.application import Command, Query
 
-    def read(self, model: ReadModel) -> list[User]:
-        return self.user_client.find_all()
+class PlaceOrder(Command[Order, None]):
+    order_id: str
+    product_id: str
+    quantity: int
+    price: float
 
-# Wrong: Handler field
-class BadProjection(ReadProjection):
-    handler: CommandHandler[SaveUser]  # InvalidUseCasePortFieldError!
-
-# Wrong: Multiple sessions
-class BadProjection(ReadProjection):
-    session: Session | None = None
-    other_session: AsyncSession | None = None  # InvalidPortFieldError!
+class GetOrder(Query[Order, Order | None]):
+    order_id: str
 ```
 
-### inject_adapters
-- `from aod.infrastructure import inject_adapters`
-- Unified injection for UseCase, AsyncUseCase, and Projection classes
-- Auto-detects type and injects: `uow` (UseCase), `session` (Projection), plus `logger`, `event_bus`, `cache`
-- Supports `**overrides` for custom values
-- For UseCase also injects user-defined Ports and Handlers from the container
+**Rules**:
+- `Command[TEntity, TResult]` — TEntity must be a RootEntity subclass
+- `Query[TEntity, TResult]` — same, and TResult must contain a RootEntity
+- Fields cannot reference non-root Entity types
+
+### CommandHandler / QueryHandler
+
+**Application layer** (`aod.application`): Protocol definitions for handlers.
+
+**Infrastructure layer** (`aod.infrastructure`): Concrete implementations with session injection.
+
+```python
+# Application layer — protocol (what the UseCase depends on)
+from aod.application import CommandHandler, QueryHandler
+
+# Infrastructure layer — implementation (rename to avoid confusion)
+from aod.infrastructure import CommandHandler as InfraCommandHandler, QueryHandler as InfraQueryHandler, Session
+
+class PlaceOrderHandler(InfraCommandHandler[PlaceOrder]):
+    session: Session
+    def handle(self, command: PlaceOrder) -> None:
+        # Database operations here
+        ...
+
+class GetOrderHandler(InfraQueryHandler[GetOrder]):
+    session: Session
+    def handle(self, query: GetOrder) -> Order | None:
+        # Database operations here
+        ...
+```
 
 ### Port
-- `Port` is the base for defining dependency interfaces (ports/gateways), available at `from aod.application import Port`
-- Extends `BaseGuarded` — mutable from inside public methods
-- Supports `@abstractmethod` (these are skipped by `_wrap_public_methods`, so concrete subclasses must provide implementations)
-- Subclasses declare fields and abstract methods; infrastructure provides concrete implementations
-- Concrete public methods are auto-wrapped with mutation context (PASS state)
 
-Built-in port types (all `aod.application`):
-- **`Logger`** — `debug(msg, **context)`, `info(msg, **context)`, `warning(msg, **context)`, `error(msg, **context)`
-- **`EventBus`** — `publish(*events)` for publishing domain events to external handlers
-- **`UnitOfWork`** — `commit()`, `rollback()`, `begin()` for transactional boundaries (sync); `AsyncUnitOfWork` for async
-- **`Cache`** — `get(key)`, `set(key, value, ttl=None)`, `delete(key)`, `flush()`, `set_promise()`, `delete_promise()` for caching (sync); `AsyncCache` for async (application-level `Cache` inherits from `Port`; infrastructure provides `Cache(Port)` with promise/flush support)
-- **`Session`** — database abstraction (`execute`, `query`, `begin`, `commit`, `rollback`, `close`) — defined in `aod._internal.infrastructure.session`, not exported from `aod.application`
+Interfaces for external dependencies (NOT for database access).
 
 ```python
-from aod.application import Port, UseCase
+from aod.application import Port
+from abc import abstractmethod
 
 class EmailGateway(Port):
     @abstractmethod
@@ -283,36 +360,79 @@ class SendEmailUseCase(UseCase):
         self.email.send("user@example.com", "Hello", "World")
 ```
 
-### Contracts
+### Projection
 
-Application-layer contracts at `from aod.application import Command, Query`:
-
-- **`Command[TEntity, TResult]`** / **`Query[TEntity, TResult]`** — immutable data classes for writes/reads; validate `TEntity` is a `RootEntity` subclass. Fields are checked — non-root `Entity` types are forbidden (including nested types like `list[Entity]`). `Query` additionally requires `TResult` to contain a `RootEntity` (e.g. `Query[User, tuple[int, User | None]]` is valid, `Query[User, int]` is not)
-
-### CommandHandler / QueryHandler
-
-Abstract handler bases at `from aod.infrastructure import CommandHandler, QueryHandler`:
-
-- **`CommandHandler[C]`** / **`QueryHandler[Q]`** — abstract bases with `handle(command: TCommand) -> object` method; generic type is the specific Command/Query subclass
-- **`AsyncCommandHandler[C]`** / **`AsyncQueryHandler[Q]`** — async variants with `async handle(command: TCommand) -> object`
-
-Handler type validation uses `get_last_generic_arg` from `type_handlers/generic_utils.py` — works in any scope, avoids `NameError` with locally-defined handlers.
-
-## Validation System
-
-Each user class gets two Pydantic models at class creation:
-- **Validation model** (`__validation_model__`): includes all field constraints, `@field_invariance` validators, and `@invariance` model validators
-- **Raw model** (`__raw_model__`): strips all validators for reconstruction
-
-`__init__` uses the validation model by default. `ReconstructMixin.reconstruct()` uses the raw model (bypasses re-validation). Only classes that mix in `ReconstructMixin` (`Entity`, `ValueObject`, `RootEntity`) have `reconstruct()` — `Service` and `UseCase` do not.
-
-If Pydantic raises `ValidationError` during `__init__`, it is caught and:
-- If the underlying cause is an `InvarianceException`, that exception is re-raised directly
-- Otherwise, a `ModelValidationError(DomainException)` is raised wrapping the original error
-
-## Validation Decorators
+Read and write data efficiently.
 
 ```python
+from aod.infrastructure import ReadProjection, WriteProjection, Projection, ReadModel, WriteModel
+
+class UserReadModel(ReadModel):
+    user_id: str
+
+class UserListProjection(ReadProjection):
+    session: MongoSession  # Always called 'session', with specific type
+
+    def read(self, model: ReadModel) -> list[User]:
+        raw = self.session.query("SELECT * FROM users")
+        return [User(**item) for item in raw]
+
+class UserWriteModel(WriteModel):
+    user_id: str
+    name: str
+
+class UserUpdateProjection(WriteProjection):
+    session: MongoSession  # Always called 'session', with specific type
+
+    def write(self, model: UserWriteModel) -> None:
+        self.session.execute(f"UPDATE users SET name = '{model.name}' WHERE id = '{model.user_id}'")
+```
+
+**Rules**:
+- The field MUST be named `session` with a specific type (e.g., `MongoSession`, `SqlSession`)
+- If the projection doesn't need a session, simply don't declare one
+- Fields must be `Port` subclasses (no `HandlerProtocol`)
+- `ReadModel` / `WriteModel` are input data classes
+- `read()` must return the actual domain objects (e.g., `list[User]`), not raw data
+
+## Infrastructure Layer
+
+### Container and Injection
+
+Wire dependencies together.
+
+```python
+from aod.infrastructure import AdapterContainerBase, inject_adapters
+
+class AppContainer(AdapterContainerBase):
+    sessions: set = {SqlSession}
+    handlers: list = [PlaceOrderHandler, GetOrderHandler]
+
+container = AppContainer()
+place_order = inject_adapters(container, PlaceOrderUseCase)
+place_order.run(order_id="1", product_id="p1", quantity=2, price=9.99)
+```
+
+## Validation
+
+### Field Validation
+
+Use Pydantic's `Field` with constraints:
+
+```python
+from aod.domain import ValueObject, Field
+
+class Money(ValueObject):
+    amount: float = Field(ge=0)
+    currency: str = Field(min_length=3)
+```
+
+### Invariance Validators
+
+Validate business rules across fields:
+
+```python
+from aod.domain import ValueObject
 from aod.domain.validation import field_invariance, invariance
 
 class Money(ValueObject):
@@ -333,57 +453,38 @@ class Money(ValueObject):
         return data
 ```
 
-- `@field_invariance` is a `field_validator` — runs only in validation model
-- `@invariance` is a `model_validator(mode="after")` — runs only in validation model. Do NOT return self (the wrapper does it).
-
-## Mutation System
-
-- `BaseGuarded.__setattr__` and `__delattr__` enforce mutation state:
-  - `BLOCK` — no mutation (default after `__init__`)
-  - `PASS` — mutation allowed (entered automatically by public method wrappers via `_wrap_public_methods`)
-  - `INHERIT` — bypasses `_can_mutate()` and `_mutation_status` (entered by `@inherit_context` or during `__init__`)
-- `__getattribute__` returns `make_immutable(value)` when mutation is blocked:
-  - `list` → `ImmutableList` (blocks append, extend, __setitem__, etc.)
-  - `dict` → `ImmutableDict`
-  - `set` → `ImmutableSet`
-  - Custom objects → dynamically created `Immutable{ClassName}` subclass
-- `BaseSealed._mutation_status` returns `INHERIT` during init, `BLOCK` otherwise (even for PASS) — truly sealed
-- `BaseBehaviour._mutation_status` returns `INHERIT` for any non-BLOCK state — allows mutation inside methods
-- `@inherit_context` on a method causes `_wrap_public_methods` to wrap it with `INHERIT` context (via `super_attrs` lookup)
-- During `__init__`, `BaseGuarded` enters `INHERIT` context, allowing temporary mutation for `__post_init__`
-
-## Event System
+## Events
 
 ```python
 from aod.events import Event
 
 class OrderPlaced(Event):
     order_id: str
+    total: float
 
-# Inside an Entity, RootEntity, or ValueObject:
-self._event_emitter.emit(OrderPlaced(order_id="..."))
+# Emit from Entity, RootEntity, or ValueObject:
+self._event_emitter.emit(OrderPlaced(order_id="1", total=100.0))
+
+# Events are auto-collected by UseCases
+# Access after run(): use_case.events
 ```
-
-Events are immutable (`BaseSealed`). The `emitted_at` field is auto-set at construction.
 
 ### `__post_init__` Hook
 
-Defined on `BaseValidator` (empty), called from `BaseValidator.__init__`. Only runs on **normal `__init__`**, never on `reconstruct` (check via `_use_raw_model` ContextVar).
+Run code after construction (works for Entity, RootEntity, ValueObject, Service, UseCase):
 
 ```python
 class User(RootEntity):
     id: int
+    name: str
 
-    def __post_init__(self):
-        self._event_emitter.emit(UserCreatedEvent(user_id=self.id))
+    def __post_init__(self) -> None:
+        self._event_emitter.emit(UserCreated(user_id=self.id))
 ```
-
-Works for `Entity`, `RootEntity`, `ValueObject`, `Service`, `UseCase`, and `Projection` classes. For `BaseGuarded` subclasses, `__mutating_context__` exists before `super().__init__()` (created in `BaseGuarded.__init__`), so public methods and field mutation work during the hook (INHERIT context active).
 
 ### EventCollector
 
-Capture events across aggregate boundaries (for testing or for
-flushing to an outbox at the end of a use case):
+Capture events across aggregate boundaries:
 
 ```python
 from aod.events import EventCollector
@@ -394,13 +495,9 @@ with EventCollector() as events:
 # events contains OrderPlaced and OrderShipped
 ```
 
-`__enter__` returns the list of captured events (not the collector
-itself). State is held in a `ContextVar`, so it's per-task isolated
-but doesn't support nested collectors. When a UseCase calls `run()`,
-it opens its own `EventCollector` which replaces any outer one during
-execution. See `docs/core/event_emitter.md` for details.
-
 ## BoundedContext
+
+Organize your domain into type-safe boundaries:
 
 ```python
 from aod.domain import BoundedContext
@@ -412,31 +509,15 @@ inventory = BoundedContext(
 )
 ```
 
-Constructor only accepts `aggregate_roots` (RootEntity subclasses) and `services` (Service subclasses). Discovers `entities` and `value_objects` recursively from field type hints. Runs type checks at construction:
-- `check_root_entity` — forbids RootEntity references in fields
-- `check_value_object` — forbids Entity references in ValueObject fields
-- `check_service` — forbids non-root Entity in service method params/returns
-### Tests
-- `code/tests/core/test_post_init.py` — 22 tests covering `__post_init__` for Entity, RootEntity, ValueObject, inheritance, event emission, public method calls, and reconstruct suppression.
-- `code/tests/application/test_use_case.py` — 57 tests covering UseCase instantiation, event collection, immutability, exceptions, inheritance, `__post_init__`, `__repr__`, multiple runs, UoW auto-commit/rollback, logger auto-log, and edge cases.
-- `code/tests/domain/test_service.py` — 17 tests covering Service instantiation, event emission, mutability via methods, `__post_init__`, inheritance, private methods, collection, and event isolation.
-- `code/tests/application/test_port.py` — 16 tests covering Port instantiation, abstract enforcement, method wrapping, mutation blocking, and built-in port types (Logger, EventBus, UnitOfWork).
-- `code/tests/infrastructure/test_projection_classes.py` — 52 tests covering ReadProjection, WriteProjection, Projection, async variants, event capture, commit context, rollback on error.
-- `code/tests/infrastructure/test_inject.py` — 34 tests covering inject_adapters for UseCase, AsyncUseCase, and Projection classes.
-- `code/tests/infrastructure/test_container.py` — 36 tests covering get_port, get_handler, get_uow, duplicate validation.
-- `code/tests/core/test_base_operation_port_check.py` — 15 tests covering UseCase/Projection field validation: infra handler rejection, app handler acceptance, Session/AsyncSession rejection on UseCase, Handler rejection on Projection, non-Port fields rejection.
-
-## Development Commands
-
-```bash
-uv run pytest code/tests -q
-uv run ruff check code/ && uv run ruff format --check code/  # Lint + format check
-ty check                           # Type check
-```
+**Rules**:
+- Only `RootEntity` subclasses as `aggregate_roots`
+- Only `Service` subclasses as `services`
+- Discovers entities and value objects recursively from field type hints
+- No duplicate domain types across contexts
 
 ## Conventions
 
 - Python 3.14+ — use `|` for unions, `type[X]`, `Self`, etc.
-- Keyword-only arguments everywhere
-- No comments in source code
-- Tests mirror source structure under `code/tests/`
+- No repositories — use `CommandHandler`/`QueryHandler` for database access
+- Application handlers (`aod.application`) = protocols
+- Infrastructure handlers (`aod.infrastructure`) = implementations with session injection
