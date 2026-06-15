@@ -334,6 +334,8 @@ class GetOrder(Query[Order, Order | None]):
 
 **Infrastructure layer** (`aod.infrastructure`): Concrete implementations with session injection.
 
+**Runtime type checking**: Handlers verify that the command/query passed to `handle()` matches the generic type parameter. If not, raises `TypeError`.
+
 ```python
 # Application layer — protocol (what the UseCase depends on)
 from aod.application import CommandHandler, QueryHandler
@@ -352,6 +354,11 @@ class GetOrderHandler(InfraQueryHandler[GetOrder]):
     def handle(self, query: GetOrder) -> Order | None:
         # Database operations here
         ...
+
+# Type checking works automatically
+handler = PlaceOrderHandler()
+handler.handle(PlaceOrder(...))  # OK
+handler.handle(OtherCommand(...))  # TypeError: Expected PlaceOrder, got OtherCommand
 ```
 
 ### Port

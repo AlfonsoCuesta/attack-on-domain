@@ -17,7 +17,7 @@ wheels = [
 
 [[package]]
 name = "attack-on-domain"
-version = "0.0.12"
+version = "0.0.13"
 source = { editable = "." }
 dependencies = [
     { name = "polyfactory" },

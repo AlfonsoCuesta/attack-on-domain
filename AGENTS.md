@@ -568,6 +568,17 @@ Contract validation lives in `aod._internal.application.contracts.contracts.py` 
 - **`AsyncCommandHandler[C]`** / **`AsyncQueryHandler[Q]`** — async variants with `async handle(self, command: TCommand) -> object`
 - **`BaseHandler`** — base class with `_wrap_handle()` that validates the `handle()` return type against the handler's generic parameter at runtime. Uses `get_last_generic_arg` from `generic_utils.py`.
 
+**Runtime type checking**: `HandlerProtocol.__init_subclass__` wraps `handle()` with a type checker that verifies the command/query passed to `handle()` matches the generic type parameter. If not, raises `TypeError`.
+
+```python
+class CreatePetHandler(CommandHandler[CreatePet]):
+    def handle(self, command: CreatePet) -> None: ...
+
+handler = CreatePetHandler()
+handler.handle(CreatePet(...))  # OK
+handler.handle(OtherCommand(...))  # TypeError: Expected CreatePet, got OtherCommand
+```
+
 Zero `# type: ignore` in `handlers.py`.
 
 ### Projection System (`aod.infrastructure.projection`)
