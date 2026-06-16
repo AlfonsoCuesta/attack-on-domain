@@ -1,7 +1,7 @@
 from aod._internal.application.cache import Cache
 from aod._internal.application.contracts import Command, Query
 from aod._internal.application.event_bus import EventBus
-from aod._internal.application.handler import CommandHandler, QueryHandler
+from aod._internal.application.handler import CommandPort, QueryPort
 from aod._internal.application.logger import Logger
 from aod._internal.application.port import Port
 from aod._internal.application.unit_of_work import UnitOfWork
@@ -12,12 +12,12 @@ __all__ = [
     "ApplicationException",
     "Cache",
     "Command",
-    "CommandHandler",
+    "CommandPort",
     "EventBus",
     "Logger",
     "Port",
     "Query",
-    "QueryHandler",
+    "QueryPort",
     "UnitOfWork",
     "UseCase",
 ]

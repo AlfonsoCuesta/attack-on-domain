@@ -61,12 +61,12 @@ def test_aod_application_exports_documented_api() -> None:
         "ApplicationException",
         "Cache",
         "Command",
-        "CommandHandler",
+        "CommandPort",
         "EventBus",
         "Logger",
         "Port",
         "Query",
-        "QueryHandler",
+        "QueryPort",
         "UnitOfWork",
         "UseCase",
     ]
@@ -78,10 +78,10 @@ def test_aod_application_exports_documented_api() -> None:
 
     assert aod.application.async_.__all__ == [
         "Cache",
-        "CommandHandler",
+        "CommandPort",
         "EventBus",
         "Logger",
-        "QueryHandler",
+        "QueryPort",
         "UnitOfWork",
         "UseCase",
     ]

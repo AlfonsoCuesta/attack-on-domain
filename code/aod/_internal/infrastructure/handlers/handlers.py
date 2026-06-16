@@ -5,16 +5,10 @@ from typing import Generic, TypeVar
 
 from aod._internal.application.contracts import Command, Query
 from aod._internal.application.handler import (
-    AsyncCommandHandler as AppAsyncCommandHandler,
-)
-from aod._internal.application.handler import (
-    AsyncQueryHandler as AppAsyncQueryHandler,
-)
-from aod._internal.application.handler import (
-    CommandHandler as AppCommandHandler,
-)
-from aod._internal.application.handler import (
-    QueryHandler as AppQueryHandler,
+    AsyncCommandPort,
+    AsyncQueryPort,
+    CommandPort,
+    QueryPort,
 )
 from aod._internal.core.base_behaviour import BaseBehaviour
 from aod._internal.infrastructure.session import AsyncSession, Session
@@ -31,21 +25,21 @@ class AsyncBaseHandler(BaseHandler):
     session: AsyncSession | None = None
 
 
-class CommandHandler(BaseHandler, AppCommandHandler, Generic[TCommand]):
+class CommandHandler(BaseHandler, CommandPort, Generic[TCommand]):
     @abstractmethod
     def handle(self, command: TCommand) -> object: ...
 
 
-class QueryHandler(BaseHandler, AppQueryHandler, Generic[TQuery]):
+class QueryHandler(BaseHandler, QueryPort, Generic[TQuery]):
     @abstractmethod
     def handle(self, query: TQuery) -> object: ...
 
 
-class AsyncCommandHandler(AsyncBaseHandler, AppAsyncCommandHandler, Generic[TCommand]):
+class AsyncCommandHandler(AsyncBaseHandler, AsyncCommandPort, Generic[TCommand]):
     @abstractmethod
     async def handle(self, command: TCommand) -> object: ...
 
 
-class AsyncQueryHandler(AsyncBaseHandler, AppAsyncQueryHandler, Generic[TQuery]):
+class AsyncQueryHandler(AsyncBaseHandler, AsyncQueryPort, Generic[TQuery]):
     @abstractmethod
     async def handle(self, query: TQuery) -> object: ...

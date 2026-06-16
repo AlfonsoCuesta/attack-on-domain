@@ -41,6 +41,10 @@ def _extract_expected_type(cls: type) -> type | None:
             continue
         origin_name = getattr(origin, "__name__", "")
         if origin_name in (
+            "CommandPort",
+            "QueryPort",
+            "AsyncCommandPort",
+            "AsyncQueryPort",
             "CommandHandler",
             "QueryHandler",
             "AsyncCommandHandler",
@@ -50,21 +54,21 @@ def _extract_expected_type(cls: type) -> type | None:
     return None
 
 
-class CommandHandler(HandlerProtocol, Generic[TCommand]):
+class CommandPort(HandlerProtocol, Generic[TCommand]):
     @abstractmethod
     def handle(self, command: Command[TEntity, TResult]) -> TResult: ...
 
 
-class QueryHandler(HandlerProtocol, Generic[TQuery]):
+class QueryPort(HandlerProtocol, Generic[TQuery]):
     @abstractmethod
     def handle(self, query: Query[TEntity, TResult]) -> TResult: ...
 
 
-class AsyncCommandHandler(HandlerProtocol, Generic[TCommand]):
+class AsyncCommandPort(HandlerProtocol, Generic[TCommand]):
     @abstractmethod
     async def handle(self, command: Command[TEntity, TResult]) -> TResult: ...
 
 
-class AsyncQueryHandler(HandlerProtocol, Generic[TQuery]):
+class AsyncQueryPort(HandlerProtocol, Generic[TQuery]):
     @abstractmethod
     async def handle(self, query: Query[TEntity, TResult]) -> TResult: ...

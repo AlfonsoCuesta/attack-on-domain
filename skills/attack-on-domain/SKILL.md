@@ -47,7 +47,7 @@ class Order(RootEntity):
 
 ### Step 2: Application Layer — UseCases, Commands/Queries, Handlers (APPLICATION)
 
-Create Commands, Queries, and UseCases. UseCases depend on `CommandHandler[Command]` and `QueryHandler[Query]` from `aod.application` — NOT on repositories or custom ports for database access. All database communication goes through handlers.
+Create Commands, Queries, and UseCases. UseCases depend on `CommandPort[Command]` and `QueryPort[Query]` from `aod.application` — NOT on repositories or custom ports for database access. All database communication goes through handlers.
 
 ```python
 from aod.application import UseCase, Command, Query, CommandHandler, QueryHandler
@@ -62,8 +62,8 @@ class GetOrder(Query[Order, Order | None]):
     order_id: str
 
 class PlaceOrderUseCase(UseCase):
-    place_order: CommandHandler[PlaceOrder]
-    get_order: QueryHandler[GetOrder]
+    place_order: CommandPort[PlaceOrder]
+    get_order: QueryPort[GetOrder]
 
     def run(self, order_id: str, product_id: str, quantity: int, price: float) -> None:
         order = Order(id=OrderId(value=order_id))
@@ -83,13 +83,13 @@ Create the concrete Handler implementations and Sessions. Rename infrastructure 
 ```python
 from aod.infrastructure import CommandHandler as InfraCommandHandler, QueryHandler as InfraQueryHandler, Session
 
-class PlaceOrderHandler(InfraCommandHandler[PlaceOrder]):
+class PlaceOrderHandler(InfraCommandPort[PlaceOrder]):
     session: Session
     def handle(self, command: PlaceOrder) -> None:
         # Save order to database
         ...
 
-class GetOrderHandler(InfraQueryHandler[GetOrder]):
+class GetOrderHandler(InfraQueryPort[GetOrder]):
     session: Session
     def handle(self, query: GetOrder) -> Order | None:
         # Load order from database
@@ -117,7 +117,8 @@ place_order.run(order_id="1", product_id="p1", quantity=2, price=9.99)
 | Import | What |
 |--------|------|
 | `from aod.domain import BoundedContext, Entity, RootEntity, ValueObject, Service` | Domain primitives |
-| `from aod.domain import Field, PrivateField` | Field wrappers |
+| `from aod.domain import Field` | Field wrapper with constraints |
+| `from aod.domain import PrivateField` | Private fields for internal state |
 | `from aod.events import Event` | Event base class |
 | `from aod.events import EventCollector` | Cross-aggregate event capture |
 | `from aod.domain.validation import field_invariance, invariance, inherit_context` | Validation decorators |
@@ -127,8 +128,9 @@ place_order.run(order_id="1", product_id="p1", quantity=2, price=9.99)
 | `from aod.application import Logger, EventBus, UnitOfWork, Cache` | Built-in port types (sync) |
 | `from aod.application.async_ import Cache, EventBus, Logger, UnitOfWork` | Async versions |
 | `from aod.application import Command, Query` | Application contracts |
-| `from aod.application import CommandHandler, QueryHandler` | Application handler protocols |
+| `from aod.application import CommandPort, QueryPort` | Application handler protocols |
 | `from aod.infrastructure import CommandHandler, QueryHandler` | Infrastructure handler implementations |
+| `from aod.infrastructure import Session` | Database abstraction base |
 | `from aod.infrastructure import ReadProjection, WriteProjection, Projection` | Projection base classes |
 | `from aod.infrastructure import AsyncReadProjection, AsyncWriteProjection, AsyncProjection` | Async projection classes |
 | `from aod.infrastructure import ReadModel, WriteModel` | Projection data models |
@@ -276,14 +278,14 @@ Application operations that orchestrate domain logic through handlers.
 
 **IMPORTANT**: 
 - UseCases work ONLY with `RootEntity` — not `Entity` or `ValueObject` directly
-- UseCases communicate with the database ONLY through `CommandHandler[Command]` and `QueryHandler[Query]`. Do NOT create repository ports or custom ports for database access.
+- UseCases communicate with the database ONLY through `CommandPort[Command]` and `QueryPort[Query]`. Do NOT create repository ports or custom ports for database access.
 
 ```python
 from aod.application import UseCase, CommandHandler, QueryHandler
 
 class PlaceOrderUseCase(UseCase):
-    place_order: CommandHandler[PlaceOrder]
-    get_order: QueryHandler[GetOrder]
+    place_order: CommandPort[PlaceOrder]
+    get_order: QueryPort[GetOrder]
 
     def run(self, order_id: str, product_id: str, quantity: int, price: float) -> None:
         # Query existing order
@@ -301,7 +303,7 @@ class PlaceOrderUseCase(UseCase):
 ```
 
 **Rules**:
-- Fields must be `CommandHandler[Command]`, `QueryHandler[Query]`, or `Port` subclasses
+- Fields must be `CommandPort[Command]`, `QueryPort[Query]`, or `Port` subclasses
 - Values are passed as parameters to `run()`, not declared as fields
 - `Session` and `AsyncSession` are NOT allowed as fields
 - Events emitted via `self._event_emitter.emit(...)` are auto-collected in `self.events`
@@ -336,24 +338,53 @@ class GetOrder(Query[Order, Order | None]):
 
 **Runtime type checking**: Handlers verify that the command/query passed to `handle()` matches the generic type parameter. If not, raises `TypeError`.
 
+**Session**: The database abstraction. No repositories or stores — Session IS the data access layer.
+
 ```python
 # Application layer — protocol (what the UseCase depends on)
-from aod.application import CommandHandler, QueryHandler
+from aod.application import CommandPort, QueryPort
 
 # Infrastructure layer — implementation (rename to avoid confusion)
 from aod.infrastructure import CommandHandler as InfraCommandHandler, QueryHandler as InfraQueryHandler, Session
+from aod.domain import PrivateField
 
-class PlaceOrderHandler(InfraCommandHandler[PlaceOrder]):
-    session: Session
+# Create your Session subclass
+class MemorySession(Session):
+    _data: dict = PrivateField(default_factory=dict)
+
+    def execute(self, operation: object) -> object:
+        # Write operations
+        ...
+
+    def query(self, operation: object) -> object:
+        # Read operations
+        ...
+
+    def begin(self) -> None:
+        ...
+
+    def commit(self) -> None:
+        ...
+
+    def rollback(self) -> None:
+        ...
+
+    def close(self) -> None:
+        ...
+
+    def is_dirty(self) -> bool:
+        return False
+
+# Handlers use YOUR session type, not abstract Session
+class PlaceOrderHandler(InfraCommandPort[PlaceOrder]):
+    session: MemorySession  # Concrete type — injected by container
     def handle(self, command: PlaceOrder) -> None:
-        # Database operations here
-        ...
+        self.session.execute(...)
 
-class GetOrderHandler(InfraQueryHandler[GetOrder]):
-    session: Session
+class GetOrderHandler(InfraQueryPort[GetOrder]):
+    session: MemorySession  # Concrete type — injected by container
     def handle(self, query: GetOrder) -> Order | None:
-        # Database operations here
-        ...
+        return self.session.query(...)
 
 # Type checking works automatically
 handler = PlaceOrderHandler()
@@ -517,11 +548,12 @@ with EventCollector() as events:
 
 ## BoundedContext
 
-Organize your domain into type-safe boundaries:
+Organize your domain into type-safe boundaries. Use in the **entry point** of your app (container), not in `domain/__init__.py`.
 
 ```python
 from aod.domain import BoundedContext
 
+# Use in your container/entry point, not in domain/__init__.py
 sales = BoundedContext(aggregate_roots=[Product, Customer, Order])
 inventory = BoundedContext(
     aggregate_roots=[Product, Warehouse],
@@ -631,6 +663,32 @@ class User(Entity):
 
 # Framework generates __init__ automatically
 user = User(id=uuid4(), name="Alice")
+```
+
+### WRONG: Creating store/repository classes
+
+```python
+# WRONG — stores and repositories are not part of this library
+class AppointmentStore:
+    def save(self, appointment: Appointment) -> None: ...
+    def find(self, id: UUID) -> Appointment | None: ...
+
+class ProfessionalRepository:
+    def find_by_id(self, id: UUID) -> Professional | None: ...
+```
+
+```python
+# CORRECT — Session IS the data access abstraction
+class MemorySession(Session):
+    _data: dict = PrivateField(default_factory=dict)
+    def execute(self, operation: object) -> object: ...
+    def query(self, operation: object) -> object: ...
+
+# Handlers use Session directly
+class GetAppointmentHandler(QueryHandler[GetAppointment]):
+    session: MemorySession  # Session replaces repositories
+    def handle(self, query: GetAppointment) -> Appointment | None:
+        return self.session.query(...)
 ```
 
 ## Conventions

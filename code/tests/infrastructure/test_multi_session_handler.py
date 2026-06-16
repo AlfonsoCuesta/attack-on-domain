@@ -3,8 +3,8 @@ from __future__ import annotations
 from typing import Any, cast
 
 from aod._internal.application.contracts import Command, Query
-from aod._internal.application.handler import CommandHandler as AppCommandHandler
-from aod._internal.application.handler import QueryHandler as AppQueryHandler
+from aod._internal.application.handler import CommandPort as AppCommandPort
+from aod._internal.application.handler import QueryPort as AppQueryPort
 from aod._internal.application.use_case import UseCase
 from aod._internal.core.fields.fields import PrivateField
 from aod._internal.domain.entity import RootEntity
@@ -127,8 +127,8 @@ class GetUserHandler(QueryHandler[GetUser]):
 
 
 class SyncUserUseCase(UseCase):
-    save_handler: AppCommandHandler[SaveUser]
-    get_handler: AppQueryHandler[GetUser]
+    save_handler: AppCommandPort[SaveUser]
+    get_handler: AppQueryPort[GetUser]
 
     def run(self, user_id: str, name: str, email: str) -> None:
         self.save_handler.handle(SaveUser(user_id=user_id, name=name, email=email))

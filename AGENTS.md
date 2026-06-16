@@ -44,7 +44,7 @@ class Order(RootEntity):
 
 ### Step 2: Application Layer — UseCases, Commands/Queries, Handlers (APPLICATION)
 
-Create Commands, Queries, and UseCases. UseCases depend on `CommandHandler[Command]` and `QueryHandler[Query]` from `aod.application` — NOT on repositories or custom ports for database access. All database communication goes through handlers.
+Create Commands, Queries, and UseCases. UseCases depend on `CommandPort[Command]` and `QueryPort[Query]` from `aod.application` — NOT on repositories or custom ports for database access. All database communication goes through handlers.
 
 ```python
 from aod.application import UseCase, Command, Query, CommandHandler, QueryHandler
@@ -59,8 +59,8 @@ class GetOrder(Query[Order, Order | None]):
     order_id: str
 
 class PlaceOrderUseCase(UseCase):
-    place_order: CommandHandler[PlaceOrder]
-    get_order: QueryHandler[GetOrder]
+    place_order: CommandPort[PlaceOrder]
+    get_order: QueryPort[GetOrder]
 
     def run(self, order_id: str, product_id: str, quantity: int, price: float) -> None:
         order = Order(id=OrderId(value=order_id))
@@ -75,22 +75,40 @@ class PlaceOrderUseCase(UseCase):
 
 ### Step 3: Infrastructure Layer — Implementations
 
-Create the concrete Handler implementations and Sessions. Rename infrastructure handlers to avoid confusion with application protocols.
+Create the concrete Handler implementations and Sessions. Rename infrastructure handlers to avoid confusion with application protocols. Session IS the data access abstraction — no repositories or stores.
 
 ```python
 from aod.infrastructure import CommandHandler as InfraCommandHandler, QueryHandler as InfraQueryHandler, Session
+from aod.domain import PrivateField
 
-class PlaceOrderHandler(InfraCommandHandler[PlaceOrder]):
-    session: Session
+# Create your Session subclass
+class SqlSession(Session):
+    _connection: object = PrivateField(default_factory=dict)
+
+    def execute(self, operation: object) -> object:
+        # Write operations
+        ...
+
+    def query(self, operation: object) -> object:
+        # Read operations
+        ...
+
+    def begin(self) -> None: ...
+    def commit(self) -> None: ...
+    def rollback(self) -> None: ...
+    def close(self) -> None: ...
+    def is_dirty(self) -> bool: return False
+
+# Handlers use YOUR session type
+class PlaceOrderHandler(InfraCommandPort[PlaceOrder]):
+    session: SqlSession  # Concrete type — injected by container
     def handle(self, command: PlaceOrder) -> None:
-        # Save order to database
-        ...
+        self.session.execute(...)
 
-class GetOrderHandler(InfraQueryHandler[GetOrder]):
-    session: Session
+class GetOrderHandler(InfraQueryPort[GetOrder]):
+    session: SqlSession  # Concrete type — injected by container
     def handle(self, query: GetOrder) -> Order | None:
-        # Load order from database
-        ...
+        return self.session.query(...)
 ```
 
 ### Step 4: Container and Injection
@@ -416,6 +434,9 @@ Iterates all public methods via `inspect.getmembers`. For each method:
 **Forbidden in services**: non-root `Entity`
 
 ### BoundedContext Constructor
+
+Use in the **entry point** of your app (container), not in `domain/__init__.py`.
+
 ```python
 class BoundedContext:
     def __init__(
@@ -491,8 +512,9 @@ Public modules re-export from `_internal`; they contain no logic of their own. T
 
 `UseCase` (public via `aod.application`) is the base for application-layer use cases. It extends `BaseOperation` (no `ReconstructMixin`) and provides a single abstract public method `run()` that subclasses must implement.
 
-- **Fields are Ports only** — UseCase fields must be `Port` subclasses (dependencies). Values are passed as parameters to `run()`, not declared as fields.
-- **Blocked field types** — `Session` and `AsyncSession` are rejected via `__not_allowed_port_types__ = (Session, AsyncSession)`. UseCases should not depend directly on sessions; use repository ports instead.
+- **Fields are Handlers and Ports only** — UseCase fields must be `CommandHandler`, `QueryHandler`, or `Port` subclasses. Values are passed as parameters to `run()`, not declared as fields.
+- **Blocked field types** — `Session` and `AsyncSession` are rejected via `__not_allowed_port_types__`. UseCases should NOT depend on sessions directly; use handlers instead.
+- **Database access through Handlers** — UseCases communicate with the database ONLY through `CommandPort[Command]` and `QueryPort[Query]`. Do NOT create repository ports or custom ports for database access. The handlers are injected automatically by the container.
 - **`run()` signature** — `run()` receives values as parameters. The wrapper passes `*args, **kwargs` through to the original method.
 - The class has **no public methods** other than `run`; subclasses may add private helpers
 - `_event_emitter` is a `PrivateField(default_factory=EventEmitter)`, ready for direct event emission
@@ -551,6 +573,17 @@ Infrastructure implementations of these ports inherit from both `BaseGuarded` an
 ### `HandlerProtocol`
 
 All application-layer handler types (`CommandHandler`, `QueryHandler`, `AsyncCommandHandler`, `AsyncQueryHandler`) inherit from `HandlerProtocol(Port)`. Infrastructure handler types inherit from both `BaseHandler` (mutation-guarded behaviour) and the corresponding app-layer `HandlerProtocol`.
+
+**Runtime type checking**: `HandlerProtocol.__init_subclass__` wraps `handle()` with a type checker that verifies the command/query passed to `handle()` matches the generic type parameter. If not, raises `TypeError`.
+
+```python
+class CreatePetHandler(CommandHandler[CreatePet]):
+    def handle(self, command: CreatePet) -> None: ...
+
+handler = CreatePetHandler()
+handler.handle(CreatePet(...))  # OK
+handler.handle(OtherCommand(...))  # TypeError: Expected CreatePet, got OtherCommand
+```
 
 ### Contracts (`Command` / `Query`)
 

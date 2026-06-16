@@ -2,8 +2,8 @@ from __future__ import annotations
 
 import pytest
 from aod._internal.application.contracts import Command, Query
-from aod._internal.application.handler import CommandHandler as AppCommandHandler
-from aod._internal.application.handler import QueryHandler as AppQueryHandler
+from aod._internal.application.handler import CommandPort as AppCommandPort
+from aod._internal.application.handler import QueryPort as AppQueryPort
 from aod._internal.application.port import Port
 from aod._internal.application.use_case import UseCase
 from aod._internal.core.application_exception import InvalidUseCasePortFieldError
@@ -64,7 +64,7 @@ class TestUseCaseFieldValidation:
 
     def test_app_sync_handler_field_is_accepted(self) -> None:
         class _MyUseCase(UseCase):
-            save_handler: AppCommandHandler[SaveUser]
+            save_handler: AppCommandPort[SaveUser]
 
             def run(self) -> None:
                 pass
@@ -73,7 +73,7 @@ class TestUseCaseFieldValidation:
 
     def test_app_query_handler_field_is_accepted(self) -> None:
         class _MyUseCase(UseCase):
-            get_handler: AppQueryHandler[GetUser]
+            get_handler: AppQueryPort[GetUser]
 
             def run(self) -> None:
                 pass
@@ -168,7 +168,7 @@ class TestProjectionFieldValidation:
         with pytest.raises(InvalidUseCasePortFieldError, match="handler"):
 
             class _MyProjection(ProjectionBase):
-                handler: AppCommandHandler[SaveUser]
+                handler: AppCommandPort[SaveUser]
 
     def test_non_port_field_rejected(self) -> None:
         with pytest.raises(InvalidUseCasePortFieldError, match="bad_field"):
