@@ -36,12 +36,6 @@ class Session(Port):
         cls.commit: Callable[..., None] = check_commit_context(cls.commit)
 
     @abstractmethod
-    def execute(self, operation: object) -> object: ...
-
-    @abstractmethod
-    def query(self, operation: object) -> object: ...
-
-    @abstractmethod
     def begin(self) -> None: ...
 
     @abstractmethod
@@ -63,12 +57,6 @@ class AsyncSession(Port):
         cls.commit: Callable[..., Coroutine[Any, Any, None]] = check_async_commit_context(
             cls.commit
         )
-
-    @abstractmethod
-    async def execute(self, operation: object) -> object: ...
-
-    @abstractmethod
-    async def query(self, operation: object) -> object: ...
 
     @abstractmethod
     async def begin(self) -> None: ...
