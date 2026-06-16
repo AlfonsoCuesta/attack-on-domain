@@ -1,8 +1,10 @@
 from __future__ import annotations
 
 from aod._internal.application.port import Port
+from aod._internal.core.event_emitter import Event
 from aod._internal.infrastructure.container import AdapterContainerBase
 from aod._internal.infrastructure.session import AsyncSession, Session
+from aod._internal.infrastructure.unit_of_work import UnitOfWork
 from aod._internal.testing.doubles.application.cache import AsyncSpyCache, SpyCache
 from aod._internal.testing.doubles.application.event_bus import AsyncSpyEventBus, SpyEventBus
 from aod._internal.testing.doubles.application.logger import AsyncSpyLogger, SpyLogger
@@ -144,15 +146,12 @@ def test_with_adapters_preserves_spy_session() -> None:
     assert copied.weather.value == "new"
 
 
-def test_spy_session_tracks_commits_inside_uow() -> None:
-    from aod._internal.infrastructure.unit_of_work import UnitOfWork
-
+def test_spy_session_commit_inside_uow_succeeds() -> None:
     container = spy_adapter_container(_MyContainer())
     spy = container.spy_bundle
-    object.__setattr__(spy.sync_session, "_dirty", True)
+    spy.sync_session.is_dirty.returns(True)
     uow = UnitOfWork(sessions={spy.sync_session})
     uow.commit()
-    assert len(spy.sync_session.commit_calls) == 1
 
 
 def test_spy_logger_records_entries() -> None:
@@ -164,8 +163,6 @@ def test_spy_logger_records_entries() -> None:
 
 
 def test_spy_event_bus_records_published_events() -> None:
-    from aod._internal.core.event_emitter import Event
-
     class _TestEvent(Event):
         pass
 

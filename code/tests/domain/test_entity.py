@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import pytest
-from aod._internal.core.domain_exception import MutationForbiddenException
+from aod._internal.core.domain_exception import ModelValidationError, MutationForbiddenException
 from aod._internal.core.event_emitter import Event, EventCollector
 from aod._internal.core.fields import PrivateField
 from aod._internal.domain.entity import Entity, RootEntity
@@ -75,8 +75,6 @@ class TestEntityConstruction:
         assert isinstance(e.id, int)
 
     def test_entity_missing_required_field_raises(self) -> None:
-        from aod._internal.core.domain_exception import ModelValidationError
-
         with pytest.raises(ModelValidationError):
             SimpleEntity()  # type: ignore
 

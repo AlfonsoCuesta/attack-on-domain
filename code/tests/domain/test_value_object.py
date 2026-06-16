@@ -3,7 +3,11 @@
 from __future__ import annotations
 
 import pytest
-from aod._internal.core.domain_exception import InvarianceException, MutationForbiddenException
+from aod._internal.core.domain_exception import (
+    InvarianceException,
+    ModelValidationError,
+    MutationForbiddenException,
+)
 from aod._internal.core.event_emitter import Event
 from aod._internal.core.fields import Field, PrivateField
 from aod._internal.domain.value_object import ValueObject
@@ -60,14 +64,10 @@ class TestValueObjectConstruction:
         assert isinstance(m.amount, int)
 
     def test_missing_required_field_raises(self) -> None:
-        from aod._internal.core.domain_exception import ModelValidationError
-
         with pytest.raises(ModelValidationError):
             Money()  # type: ignore
 
     def test_field_constraints_enforced(self) -> None:
-        from aod._internal.core.domain_exception import ModelValidationError
-
         with pytest.raises(ModelValidationError):
             Point(x=200, y=50)
 

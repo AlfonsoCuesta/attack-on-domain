@@ -9,6 +9,7 @@ from aod._internal.core.domain_exception import (
     MutationForbiddenException,
 )
 from aod._internal.core.reconstructable import ReconstructMixin
+from aod._internal.core.base_sealed import BaseSealed
 from aod._internal.core.fields import Field, PrivateField
 from aod._internal.core.fields.fields import Unset
 from aod._internal.core.invariances import (
@@ -276,8 +277,6 @@ def test_copy_runs_validation() -> None:
 
 
 def test_copy_preserves_immutability() -> None:
-    from aod._internal.core.base_sealed import BaseSealed
-
     class _SealedCopy(BaseSealed):
         name: str
 

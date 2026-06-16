@@ -3,7 +3,7 @@ from __future__ import annotations
 import pytest
 from aod._internal.application.logger.null_logger import NullLogger
 from aod._internal.application.port import Port
-from aod._internal.core.infrastructure_exception import PortNotFoundError
+from aod._internal.core.infrastructure_exception import PortNotFoundError, SessionNotFoundError
 from aod._internal.infrastructure.container import AdapterContainerBase
 from aod._internal.infrastructure.handlers import AsyncCommandHandler
 from aod._internal.infrastructure.inject import (
@@ -204,7 +204,6 @@ class TestInjectProjection:
                 return "ok"
 
         container = _CustomContainer()
-        from aod._internal.core.infrastructure_exception import SessionNotFoundError
 
         with pytest.raises(SessionNotFoundError):
             inject_adapters(container, TestProjection)

@@ -4,6 +4,7 @@ import pytest
 from aod._internal.application.contracts import Command, Query
 from aod._internal.application.port import Port
 from aod._internal.application.use_case import UseCase
+from aod._internal.core.domain_exception import MutationForbiddenException
 from aod._internal.core.event_emitter import Event
 from aod._internal.core.fields.fields import PrivateField
 from aod._internal.domain.app import App
@@ -228,7 +229,6 @@ class TestValueObjects:
 
     def test_money_immutability(self) -> None:
         m = Money(amount=100)
-        from aod._internal.core.domain_exception import MutationForbiddenException
 
         with pytest.raises(MutationForbiddenException):
             m.amount = 200
@@ -443,7 +443,6 @@ class TestUseCase:
         uc = PlaceOrderUseCase(email_sender=FakeEmailSender(), inventory=FakeInventoryClient())
         uc.run()
         assert len(uc.events) >= 1
-        from aod._internal.core.domain_exception import MutationForbiddenException
 
         with pytest.raises(MutationForbiddenException):
             uc.events = []

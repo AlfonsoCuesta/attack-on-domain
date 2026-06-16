@@ -1,6 +1,7 @@
 from pathlib import Path
 
 from aod._internal.docs.generate import _build_app_doc, _slug, generate_docs
+from aod._internal.docs.zensical import generate_zensical_toml
 from aod._internal.docs.introspect import (
     _extract_description,
     _extract_fields,
@@ -364,7 +365,7 @@ def test_introspect_projection_write() -> None:
 
 def test_introspect_session() -> None:
     doc = introspect_session(SpySession)
-    assert doc.name == "SpySession"
+    assert doc.name == "StubSession"
     assert doc.stereotype == "Session"
 
 
@@ -1242,8 +1243,6 @@ def test_render_home_with_contexts() -> None:
 
 
 def test_zensical_empty_apps() -> None:
-    from aod._internal.docs.zensical import generate_zensical_toml
-
     toml = generate_zensical_toml([])
     assert "Documentation" in toml
 

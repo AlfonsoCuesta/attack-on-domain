@@ -1,8 +1,8 @@
-from aod._internal.testing.doubles.infrastructure.session import SpySession
-from aod.testing.doubles import make_stub
+from aod._internal.infrastructure.session import Session
+from aod._internal.testing.doubles.infrastructure.session import session_stub
 
 
-class SqlSession:
+class SqlSession(Session):
     def execute(self, query: str) -> list[dict]:
         return []
 
@@ -27,38 +27,37 @@ class SqlSession:
 
 class TestSpySession:
     def test_spy_session_inherits_from_user_session(self) -> None:
-        MySpySession = make_stub(SqlSession)
+        MySpySession = session_stub(SqlSession)
         session = MySpySession()
         assert isinstance(session, SqlSession)
-        assert isinstance(session, SpySession)
 
     def test_method_returns_configured_values(self) -> None:
-        session = make_stub(SqlSession)()
+        session = session_stub(SqlSession)()
         session.find.returns({"id": "1"}, {"id": "2"})
         assert session.find("1") == {"id": "1"}
         assert session.find("2") == {"id": "2"}
 
     def test_method_returns_none_when_exhausted(self) -> None:
-        session = make_stub(SqlSession)()
+        session = session_stub(SqlSession)()
         session.find.returns({"id": "1"})
         session.find("1")
         assert session.find("2") is None
 
     def test_method_tracks_calls(self) -> None:
-        session = make_stub(SqlSession)()
+        session = session_stub(SqlSession)()
         session.find("1")
         session.find("2")
         assert session.find.call_count == 2
         assert session.find.calls == [["1"], ["2"]]
 
     def test_method_called_property(self) -> None:
-        session = make_stub(SqlSession)()
+        session = session_stub(SqlSession)()
         assert not session.find.called
         session.find("1")
         assert session.find.called
 
     def test_multiple_methods(self) -> None:
-        session = make_stub(SqlSession)()
+        session = session_stub(SqlSession)()
         session.find.returns({"id": "1"})
         session.execute.returns([{"id": "1"}])
         assert session.find("1") == {"id": "1"}

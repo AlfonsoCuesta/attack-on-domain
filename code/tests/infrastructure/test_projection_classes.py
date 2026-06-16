@@ -4,6 +4,7 @@ from __future__ import annotations
 from typing import cast
 
 import pytest
+from aod._internal.core.domain_exception import MutationForbiddenException
 from aod._internal.core.event_emitter import Event
 from aod._internal.infrastructure.commit_context import _CommitContext
 from aod._internal.infrastructure.projection import (
@@ -97,7 +98,6 @@ class TestReadModel:
 
     def test_is_immutable(self) -> None:
         m = UserReadModel(user_id=1)
-        from aod._internal.core.domain_exception import MutationForbiddenException
 
         with pytest.raises(MutationForbiddenException):
             m.user_id = 99
@@ -111,7 +111,6 @@ class TestWriteModel:
 
     def test_is_immutable(self) -> None:
         m = UserWriteModel(user_id=1, name="Alice")
-        from aod._internal.core.domain_exception import MutationForbiddenException
 
         with pytest.raises(MutationForbiddenException):
             m.name = "Bob"

@@ -21,7 +21,6 @@ __all__ = [
     "AsyncSpyUnitOfWork",
     "LogEntry",
     "MethodStub",
-    "SpyAsyncSession",
     "SpyBundle",
     "SpyCache",
     "SpyEventBus",

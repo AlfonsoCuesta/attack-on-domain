@@ -6,6 +6,7 @@ from aod._internal.core.event_emitter import Event
 from aod._internal.infrastructure.commit_context import _CommitContext
 from aod._internal.infrastructure.container import AdapterContainerBase
 from aod._internal.infrastructure.inject import inject_adapters
+from aod._internal.core.infrastructure_exception import SessionNotFoundError
 from aod._internal.infrastructure.projection import (
     AsyncProjection,
     AsyncReadProjection,
@@ -424,7 +425,6 @@ class TestProjectionInjection:
 
     def test_inject_without_session(self) -> None:
         container = ProjectionContainer()
-        from aod._internal.core.infrastructure_exception import SessionNotFoundError
 
         with pytest.raises(SessionNotFoundError):
             inject_adapters(container, GetUserProjection)

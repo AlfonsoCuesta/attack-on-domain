@@ -11,7 +11,9 @@ import aod.exceptions
 import aod.infrastructure
 import aod.infrastructure.async_
 import aod.infrastructure.exceptions
+from aod._internal.core.application_exception import UnresolvableEntityError
 from aod._internal.core.event_emitter import Event
+from aod._internal.core.infrastructure_exception import HandlerResultTypeError
 
 
 def test_aod_domain_exports_documented_api() -> None:
@@ -192,14 +194,10 @@ def test_aod_domain_validation_documented_api() -> None:
 
 
 def test_handler_result_type_error() -> None:
-    from aod._internal.core.infrastructure_exception import HandlerResultTypeError
-
     exc = HandlerResultTypeError("TestHandler", "str", "int")
     assert "TestHandler" in str(exc)
 
 
 def test_unresolvable_entity_error() -> None:
-    from aod._internal.core.application_exception import UnresolvableEntityError
-
     exc = UnresolvableEntityError("Command", "TestCommand")
     assert "TestCommand" in str(exc)
