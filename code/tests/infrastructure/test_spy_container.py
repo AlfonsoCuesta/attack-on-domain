@@ -1,15 +1,15 @@
 from __future__ import annotations
 
+from typing import Any, cast
+
+from aod._internal.application.event_bus import EventBus
+from aod._internal.application.logger import Logger
 from aod._internal.application.port import Port
 from aod._internal.core.event_emitter import Event
 from aod._internal.infrastructure.container import AdapterContainerBase
 from aod._internal.infrastructure.session import AsyncSession, Session
 from aod._internal.infrastructure.unit_of_work import UnitOfWork
-from aod._internal.testing.doubles.application.cache import AsyncSpyCache, SpyCache
-from aod._internal.testing.doubles.application.event_bus import AsyncSpyEventBus, SpyEventBus
-from aod._internal.testing.doubles.application.logger import AsyncSpyLogger, SpyLogger
 from aod._internal.testing.doubles.infrastructure.container import spy_adapter_container
-from aod._internal.testing.doubles.infrastructure.session import SpyAsyncSession, SpySession
 from aod.application import Command, Query
 from aod.domain import RootEntity
 from aod.infrastructure import CommandHandler, QueryHandler
@@ -38,142 +38,100 @@ class CreateUserHandler(CommandHandler[CreateUser]):
         return User(id=1, name=command.name)
 
 
-class _SpyGetUserHandler(QueryHandler[GetUser]):
-    def handle(self, query: GetUser) -> User | None:
-        return User(id=99, name="spy")
-
-
 class _FakePort(Port):
     value: str = "default"
 
 
 class _MyContainer(AdapterContainerBase):
-    weather: _FakePort | None = None
-
-
-class _InMemorySession(Session):
-    def execute(self, operation: object) -> object:
-        return None
-
-    def query(self, operation: object) -> object:
-        return None
-
-    def begin(self) -> None:
-        pass
-
-    def commit(self) -> None:
-        pass
-
-    def rollback(self) -> None:
-        pass
-
-    def close(self) -> None:
-        pass
-
-    def is_dirty(self) -> bool:
-        return False
+    weather: _FakePort
 
 
 def test_returns_instance_of_original_class() -> None:
-    container = spy_adapter_container(_MyContainer())
+    container = spy_adapter_container(_MyContainer(weather=_FakePort()))
     assert isinstance(container, _MyContainer)
 
 
-def test_spy_bundle_has_spy_types() -> None:
-    container = spy_adapter_container(_MyContainer())
-    spy = container.spy_bundle
-    assert isinstance(spy.sync_session, SpySession)
-    assert isinstance(spy.async_session, SpyAsyncSession)
-    assert isinstance(spy.logger, SpyLogger)
-    assert isinstance(spy.async_logger, AsyncSpyLogger)
-    assert isinstance(spy.event_bus, SpyEventBus)
-    assert isinstance(spy.async_event_bus, AsyncSpyEventBus)
-    assert isinstance(spy.cache, SpyCache)
-    assert isinstance(spy.async_cache, AsyncSpyCache)
+def test_spy_bundle_provides_port_and_session_stubs() -> None:
+    container = spy_adapter_container(_MyContainer(weather=_FakePort()))
+    assert container.get_port_stub(Logger) is not None
+    assert container.get_session_stub(Session) is not None
 
 
-def test_get_session_returns_spy_instance() -> None:
-    original = _MyContainer(sessions={Session})
+def test_get_session_stub() -> None:
+    container = spy_adapter_container(_MyContainer(weather=_FakePort()))
+    session = container.get_session_stub(Session)
+    assert session is not None
+
+
+def test_get_port_stub() -> None:
+    container = spy_adapter_container(_MyContainer(weather=_FakePort()))
+    stub = container.get_port_stub(Logger)
+    assert stub is not None
+
+
+def test_get_session_returns_stub_instance() -> None:
+    original = _MyContainer(sessions={Session}, weather=_FakePort())
     container = spy_adapter_container(original)
-    session = container.get_session(Session)
-    assert session is container.spy_bundle.sync_session
+    session = cast(Any, container.get_session(Session))
+    session.is_dirty.returns(True)
+    assert session.is_dirty() is True
 
 
-def test_get_async_session_returns_spy_instance() -> None:
-    original = _MyContainer(sessions={AsyncSession})
+def test_get_async_session_returns_stub_instance() -> None:
+    original = _MyContainer(sessions={AsyncSession}, weather=_FakePort())
     container = spy_adapter_container(original)
-    session = container.get_session(AsyncSession)
-    assert session is container.spy_bundle.async_session
+    session = cast(Any, container.get_session(AsyncSession))
+    session.is_dirty.returns(True)
+    assert session.is_dirty() is True
 
 
-def test_handler_receives_spy_session() -> None:
-    original = _MyContainer(sessions={Session}, handlers=[GetUserHandler])
+def test_handler_receives_stub_session() -> None:
+    original = _MyContainer(sessions={Session}, handlers=[GetUserHandler], weather=_FakePort())
     container = spy_adapter_container(original)
+    container.get_session_stub(Session).is_dirty.returns(True)
     handler = container.get_handler(GetUser)
-    assert isinstance(handler.session, SpySession)
+    assert cast(Any, handler.session).is_dirty() is True
 
 
-def test_double_handler_is_used() -> None:
-    original = _MyContainer(sessions={Session}, handlers=[GetUserHandler])
-    container = spy_adapter_container(
-        original,
-        double_handlers={GetUser: _SpyGetUserHandler},
-    )
-    handler = container.get_handler(GetUser)
-    result = handler.handle(GetUser(user_id=1))
-    assert isinstance(result, User)
-    assert result.id == 99
-    assert result.name == "spy"
-
-
-def test_double_session_is_used() -> None:
-    in_memory = _InMemorySession()
-    original = _MyContainer(sessions={Session}, handlers=[GetUserHandler])
-    container = spy_adapter_container(
-        original,
-        double_sessions={Session: in_memory},
-    )
-    handler = container.get_handler(GetUser)
-    assert isinstance(handler.session, _InMemorySession)
-
-
-def test_with_adapters_preserves_spy_session() -> None:
-    original = _MyContainer(sessions={Session})
+def test_with_adapters_preserves_session_stub() -> None:
+    original = _MyContainer(sessions={Session}, weather=_FakePort())
     container = spy_adapter_container(original)
+    container.get_session_stub(Session).is_dirty.returns(True)
     copied = container.with_adapters(weather=_FakePort(value="new"))
-    assert copied.get_session(Session) is container.spy_bundle.sync_session
+    assert cast(Any, copied.get_session(Session)).is_dirty() is True
     assert copied.weather is not None
     assert copied.weather.value == "new"
 
 
 def test_spy_session_commit_inside_uow_succeeds() -> None:
-    container = spy_adapter_container(_MyContainer())
-    spy = container.spy_bundle
-    spy.sync_session.is_dirty.returns(True)
-    uow = UnitOfWork(sessions={spy.sync_session})
+    container = spy_adapter_container(_MyContainer(weather=_FakePort()))
+    session = container.get_session_stub(Session)
+    session.is_dirty.returns(True)
+    uow = UnitOfWork(sessions={session})
     uow.commit()
 
 
-def test_spy_logger_records_entries() -> None:
-    container = spy_adapter_container(_MyContainer())
-    container.spy_bundle.logger.info("test message")
-    assert len(container.spy_bundle.logger.entries) == 1
-    assert container.spy_bundle.logger.entries[0].msg == "test message"
-    assert container.spy_bundle.logger.entries[0].level == "info"
+def test_spy_logger_records_calls() -> None:
+    container = spy_adapter_container(_MyContainer(weather=_FakePort()))
+    logger_stub = container.get_port_stub(Logger)
+    logger_stub.info("test message")
+    assert logger_stub.info.call_count == 1
+    assert logger_stub.info.calls[0] == ["test message"]
 
 
-def test_spy_event_bus_records_published_events() -> None:
+def test_spy_event_bus_records_calls() -> None:
     class _TestEvent(Event):
         pass
 
-    container = spy_adapter_container(_MyContainer())
-    container.spy_bundle.event_bus.publish(_TestEvent())
-    assert len(container.spy_bundle.event_bus.published) == 1
+    container = spy_adapter_container(_MyContainer(weather=_FakePort()))
+    event_bus_stub = container.get_port_stub(EventBus)
+    event_bus_stub.publish(_TestEvent())
+    assert event_bus_stub.publish.call_count == 1
 
 
 def test_port_overrides_are_applied() -> None:
     port = _FakePort(value="custom")
-    container = spy_adapter_container(_MyContainer(), weather=port)
+    container = spy_adapter_container(_MyContainer(weather=port))
     assert container.weather is not None
     assert container.weather.value == "custom"
 
@@ -201,6 +159,6 @@ def test_original_sessions_are_preserved() -> None:
         def is_dirty(self) -> bool:
             return False
 
-    original = _MyContainer(sessions={_MySession})
+    original = _MyContainer(sessions={_MySession}, weather=_FakePort())
     container = spy_adapter_container(original)
     assert _MySession in container.sessions

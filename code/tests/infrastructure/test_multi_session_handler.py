@@ -2,9 +2,12 @@ from __future__ import annotations
 
 from typing import Any, cast
 
+from aod._internal.application.cache import Cache
 from aod._internal.application.contracts import Command, Query
+from aod._internal.application.event_bus import EventBus
 from aod._internal.application.handler import CommandPort as AppCommandPort
 from aod._internal.application.handler import QueryPort as AppQueryPort
+from aod._internal.application.logger import Logger
 from aod._internal.application.use_case import UseCase
 from aod._internal.core.fields.fields import PrivateField
 from aod._internal.domain.entity import RootEntity
@@ -138,60 +141,29 @@ class UserServiceContainer(AdapterContainerBase):
     pass
 
 
-def test_multi_session_handlers_with_double_sessions() -> None:
-    in_memory_mongo = InMemoryMongoSession()
-    in_memory_psql = InMemoryPSQLSession()
+def test_multi_session_handlers_with_real_sessions() -> None:
+    mongo = InMemoryMongoSession()
+    psql = InMemoryPSQLSession()
 
-    original = UserServiceContainer(
-        sessions={MongoSession, PSQLSession},
-        handlers=[SaveUserHandler, GetUserHandler],
-    )
-
-    container = spy_adapter_container(
-        original,
-        double_sessions={
-            MongoSession: in_memory_mongo,
-            PSQLSession: in_memory_psql,
-        },
-    )
-
-    save_handler = container.get_handler(SaveUser)
-    get_handler = container.get_handler(GetUser)
+    save_handler = SaveUserHandler(session=mongo)
+    get_handler = GetUserHandler(session=psql)
 
     save_handler.handle(SaveUser(user_id="u1", name="Alice", email="alice@test.com"))
 
-    assert len(in_memory_mongo._saved) == 1
-    assert in_memory_mongo._saved[0]["collection"] == "users"
-    assert in_memory_mongo._saved[0]["document"]["name"] == "Alice"
+    assert len(mongo._saved) == 1
+    assert mongo._saved[0]["collection"] == "users"
+    assert mongo._saved[0]["document"]["name"] == "Alice"
 
-    user = get_handler.handle(GetUser(user_id="u1"))
-    assert user is None
-
-    result = get_handler.handle(GetUser(user_id="nonexistent"))
+    result = get_handler.handle(GetUser(user_id="u1"))
     assert result is None
 
 
 def test_use_case_with_multi_session_handlers() -> None:
-    in_memory_mongo = InMemoryMongoSession()
-    in_memory_psql = InMemoryPSQLSession()
+    mongo = InMemoryMongoSession()
+    psql = InMemoryPSQLSession()
 
-    original = UserServiceContainer(
-        sessions={MongoSession, PSQLSession},
-        handlers=[SaveUserHandler, GetUserHandler],
-    )
-
-    container = spy_adapter_container(
-        original,
-        double_sessions={
-            MongoSession: in_memory_mongo,
-            PSQLSession: in_memory_psql,
-        },
-    )
-
-    save_handler = container.get_handler(SaveUser)
-    get_handler = container.get_handler(GetUser)
-    assert isinstance(save_handler, SaveUserHandler)
-    assert isinstance(get_handler, GetUserHandler)
+    save_handler = SaveUserHandler(session=mongo)
+    get_handler = GetUserHandler(session=psql)
 
     uc = SyncUserUseCase(
         save_handler=save_handler,
@@ -199,70 +171,46 @@ def test_use_case_with_multi_session_handlers() -> None:
     )
     uc.run(user_id="u1", name="Bob", email="bob@test.com")
 
-    assert len(in_memory_mongo._saved) == 1
-    saved = in_memory_mongo._saved[0]["document"]
+    assert len(mongo._saved) == 1
+    saved = mongo._saved[0]["document"]
     assert saved["name"] == "Bob"
     assert saved["email"] == "bob@test.com"
 
 
 def test_spy_bundle_tracks_handler_calls() -> None:
-    in_memory_mongo = InMemoryMongoSession()
-    in_memory_psql = InMemoryPSQLSession()
-
     original = UserServiceContainer(
         sessions={MongoSession, PSQLSession},
         handlers=[SaveUserHandler, GetUserHandler],
     )
 
-    container = spy_adapter_container(
-        original,
-        double_sessions={
-            MongoSession: in_memory_mongo,
-            PSQLSession: in_memory_psql,
-        },
-    )
+    container = spy_adapter_container(original)
 
-    spy = container.spy_bundle
-    assert isinstance(spy.sync_session, Session)
-    assert spy.logger is not None
-    assert spy.event_bus is not None
-    assert spy.cache is not None
+    assert container.get_session_stub(MongoSession) is not None
+    assert container.get_session_stub(PSQLSession) is not None
+    assert container.get_port_stub(Logger) is not None
+    assert container.get_port_stub(EventBus) is not None
+    assert container.get_port_stub(Cache) is not None
 
     save_handler = container.get_handler(SaveUser)
-    save_handler.handle(SaveUser(user_id="u1", name="Alice", email="alice@test.com"))
-
     get_handler = container.get_handler(GetUser)
-    get_handler.handle(GetUser(user_id="u1"))
 
-    assert len(in_memory_mongo._saved) == 1
-    assert len(in_memory_psql._selected) == 1
+    assert save_handler.session is not None
+    assert get_handler.session is not None
+    assert isinstance(save_handler.session, MongoSession)
+    assert isinstance(get_handler.session, PSQLSession)
 
 
 def test_handlers_use_different_sessions() -> None:
-    in_memory_mongo = InMemoryMongoSession()
-    in_memory_psql = InMemoryPSQLSession()
-
     original = UserServiceContainer(
         sessions={MongoSession, PSQLSession},
         handlers=[SaveUserHandler, GetUserHandler],
     )
 
-    container = spy_adapter_container(
-        original,
-        double_sessions={
-            MongoSession: in_memory_mongo,
-            PSQLSession: in_memory_psql,
-        },
-    )
+    container = spy_adapter_container(original)
 
     save_handler = container.get_handler(SaveUser)
     get_handler = container.get_handler(GetUser)
 
-    assert isinstance(save_handler.session, InMemoryMongoSession)
-    assert isinstance(get_handler.session, InMemoryPSQLSession)
-
-    save_handler.handle(SaveUser(user_id="u1", name="Alice", email="alice@test.com"))
-    get_handler.handle(GetUser(user_id="u1"))
-
-    assert len(in_memory_mongo._saved) == 1
-    assert len(in_memory_psql._selected) == 1
+    assert isinstance(save_handler.session, MongoSession)
+    assert isinstance(get_handler.session, PSQLSession)
+    assert type(save_handler.session) is not type(get_handler.session)

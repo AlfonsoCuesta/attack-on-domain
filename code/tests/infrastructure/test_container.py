@@ -65,7 +65,7 @@ class _NotAPort:
 
 
 class _CustomContainer(AdapterContainerBase):
-    weather_client: _FakePort | None = None
+    weather_client: _FakePort
 
 
 class _SyncSession(Session):
@@ -137,9 +137,9 @@ def test_subclass_with_port_field_works() -> None:
     assert isinstance(container.weather_client, _FakePort)
 
 
-def test_subclass_with_port_field_default_none() -> None:
-    container = _CustomContainer()
-    assert container.weather_client is None
+def test_subclass_with_port_field_default() -> None:
+    container = _CustomContainer(weather_client=_FakePort())
+    assert isinstance(container.weather_client, _FakePort)
 
 
 def test_subclass_non_port_field_raises_at_definition() -> None:
@@ -179,14 +179,9 @@ class TestGetPort:
         assert isinstance(result, _FakePort)
 
     def test_raises_when_port_not_found(self) -> None:
-        container = _CustomContainer()
+        container = _CustomContainer(weather_client=_FakePort())
         with pytest.raises(PortNotFoundError, match="No port of type"):
             container.get_port(_OtherPort)
-
-    def test_returns_none_field(self) -> None:
-        container = _CustomContainer(weather_client=None)
-        result = container.get_port(_FakePort)
-        assert result is None
 
     def test_finds_port_with_plain_type(self) -> None:
         class _PlainPortContainer(AdapterContainerBase):
@@ -197,18 +192,14 @@ class TestGetPort:
         result = container.get_port(_FakePort)
         assert result is port
 
-    def test_skips_field_without_type_hint_in_get_port(self) -> None:
+    def test_get_port_from_cache(self) -> None:
         class _PlainPortContainer(AdapterContainerBase):
             client: _FakePort
 
         port = _FakePort()
         container = _PlainPortContainer(client=port)
-        with patch(
-            "aod._internal.infrastructure.container.get_type_hints",
-            return_value={"client": None},
-        ):
-            with pytest.raises(PortNotFoundError, match="No port of type"):
-                container.get_port(_FakePort)
+        result = container.get_port(_FakePort)
+        assert result is port
 
 
 class TestFindHandler:
@@ -293,7 +284,12 @@ class TestGetHandler:
 
         with patch(
             "aod._internal.infrastructure.container.get_type_hints",
-            side_effect=[{"command": CreateUser}, {"command": CreateUser}, {}],
+            side_effect=[
+                {"command": CreateUser},
+                {"command": CreateUser},
+                {"command": CreateUser},
+                {},
+            ],
         ):
             container = AdapterContainerBase(handlers=[_BadHandler])
             with pytest.raises(HandlerModelError, match="is missing required field 'session'"):

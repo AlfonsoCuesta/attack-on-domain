@@ -9,7 +9,7 @@ from .application import (
     SpyLogger,
     SpyUnitOfWork,
 )
-from .infrastructure import SpyAsyncSession, SpyBundle, SpySession, spy_adapter_container
+from .infrastructure import SpySession, spy_adapter_container
 from .infrastructure.session import session_stub
 from .stubs import AsyncMethodStub, MethodStub, port_stub
 
@@ -21,7 +21,6 @@ __all__ = [
     "AsyncSpyUnitOfWork",
     "LogEntry",
     "MethodStub",
-    "SpyBundle",
     "SpyCache",
     "SpyEventBus",
     "SpyLogger",

@@ -212,8 +212,8 @@ class _SyncSession(Session):
 
 
 class EcommerceContainer(AdapterContainerBase):
-    email_sender: FakeEmailSender | None = None
-    inventory: FakeInventoryClient | None = None
+    email_sender: FakeEmailSender
+    inventory: FakeInventoryClient
 
 
 # ===========================================================================
