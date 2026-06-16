@@ -131,6 +131,7 @@ place_order.run(order_id="1", product_id="p1", quantity=2, price=9.99)
 | `from aod.application import CommandPort, QueryPort` | Application handler protocols |
 | `from aod.infrastructure import CommandHandler, QueryHandler` | Infrastructure handler implementations |
 | `from aod.infrastructure import Session` | Database abstraction base |
+| `from aod.infrastructure.async_ import Session` | Async database abstraction |
 | `from aod.infrastructure import ReadProjection, WriteProjection, Projection` | Projection base classes |
 | `from aod.infrastructure import AsyncReadProjection, AsyncWriteProjection, AsyncProjection` | Async projection classes |
 | `from aod.infrastructure import ReadModel, WriteModel` | Projection data models |
