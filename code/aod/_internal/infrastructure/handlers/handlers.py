@@ -27,19 +27,19 @@ class AsyncBaseHandler(BaseHandler):
 
 class CommandHandler(BaseHandler, CommandPort, Generic[TCommand]):
     @abstractmethod
-    def handle(self, command: TCommand) -> object: ...
+    def handle(self, command: TCommand) -> object: ...  # ty:ignore[invalid-method-override]
 
 
 class QueryHandler(BaseHandler, QueryPort, Generic[TQuery]):
     @abstractmethod
-    def handle(self, query: TQuery) -> object: ...
+    def handle(self, query: TQuery) -> object: ...  # ty:ignore[invalid-method-override]
 
 
 class AsyncCommandHandler(AsyncBaseHandler, AsyncCommandPort, Generic[TCommand]):
     @abstractmethod
-    async def handle(self, command: TCommand) -> object: ...
+    async def handle(self, command: TCommand) -> object: ...  # ty:ignore[invalid-method-override]
 
 
 class AsyncQueryHandler(AsyncBaseHandler, AsyncQueryPort, Generic[TQuery]):
     @abstractmethod
-    async def handle(self, query: TQuery) -> object: ...
+    async def handle(self, query: TQuery) -> object: ...  # ty:ignore[invalid-method-override]
