@@ -45,10 +45,10 @@ def _create_spy_adapter(container_cls: type[T]) -> type[T]:
         return self.get_session_stub(session_cls)
 
     def get_port_instance(self: Any, port: type[Port]) -> Port | None:
-        port_instance = self._get_port_instance(port)
-        if port_instance is None:
-            return None
-        return self.get_port_stub(port)()
+        for tp in self._ports_by_type:
+            if isinstance(tp, type) and issubclass(tp, port):
+                return self.get_port_stub(port)
+        return None
 
     spy_cls = cast(
         type[T],

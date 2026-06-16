@@ -115,7 +115,10 @@ class AdapterContainerBase(BaseBehaviour):
         raise PortNotFoundError(port)
 
     def _get_port_instance(self, port: type[Port]) -> Port | None:
-        return self._ports_by_type.get(port, None)
+        for tp, instance in self._ports_by_type.items():
+            if isinstance(tp, type) and issubclass(tp, port):
+                return instance
+        return None
 
     def _find_handler(self, contract: type[Command] | type[Query]) -> AnyHandler:
         for h_cls in self.handlers:
