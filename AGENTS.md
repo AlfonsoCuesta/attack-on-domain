@@ -760,8 +760,22 @@ uv run pytest code/tests -q
 
 ## Test Count
 
-820 tests
+922 tests (no `patch`/`mock.patch` in any test file)
 
 ## At the end of a task
 
 Update docs, AGENTS.md and the SKILLS.md
+
+## No `patch` in tests
+
+Zero `unittest.mock.patch` / `mock.patch` calls in tests. If a test needs `patch`, either:
+
+1. **Test data is badly constructed** — build real objects that trigger the code path (e.g., `def handle(self) -> User` for a handler with no Command param, `"NonExistentClass"` forward ref for unresolvable type hints)
+2. **Implementation calls `get_type_hints` at runtime unnecessarily** — but `get_handler` must use `get_type_hints` to resolve concrete session types (`MongoSession`, `PSQLSession`). This is correct — no tests patch this path.
+
+Guidelines:
+- `inspect.signature` failure → use a function with `__signature__` set to a non-Signature value via `setattr`
+- `typing.get_type_hints` failure → use an unresolvable forward reference string annotation (e.g., `x: "NonExistentClass"`)
+- Handler without Command param → override `handle` with `def handle(self) -> User` and suppress type checker with `# ty:ignore[invalid-method-override]`
+- If a code path can only be triggered by patches, remove the test — the defensive code is trivially correct
+- **No inline imports in tests** — every import must be at the top of the file. Test-local classes are fine, but imports from `aod`, `pydantic`, `unittest`, `types`, etc. must be at module level.

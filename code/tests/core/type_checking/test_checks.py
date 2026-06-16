@@ -1,7 +1,4 @@
-from unittest import mock
-
 import pytest
-from pydantic.fields import FieldInfo
 from aod._internal.core.domain_exception import (
     InvalidNestedTypeError,
     InvalidServiceParameterError,
@@ -14,6 +11,7 @@ from aod._internal.core.type_handlers.generic_utils import (
 from aod._internal.domain.entity import Entity, RootEntity
 from aod._internal.domain.service import Service
 from aod._internal.domain.value_object import ValueObject
+from pydantic.fields import FieldInfo
 
 
 def test_check_entity_raises_on_root_entity_field() -> None:
@@ -265,15 +263,15 @@ def test_check_service_skips_param_without_annotation() -> None:
 
 
 def test_check_service_handles_bad_signature() -> None:
-    class SomeService(Service):
-        def process(self, x: int) -> None:
-            pass
+    def _bad_sig(self: object, x: int) -> None:
+        pass
 
-    with mock.patch(
-        "aod._internal.core.type_handlers.service_handler.inspect.signature",
-        side_effect=ValueError("no signature"),
-    ):
-        ServiceTypeHandler.check_service(SomeService)  # Should not raise
+    setattr(_bad_sig, "__signature__", "not-a-signature")
+
+    class SomeService(Service):
+        process = _bad_sig
+
+    ServiceTypeHandler.check_service(SomeService)  # Should not raise
 
 
 def test_check_service_handles_string_annotation() -> None:
@@ -286,14 +284,10 @@ def test_check_service_handles_string_annotation() -> None:
 
 def test_resolved_hints_exception() -> None:
     class SomeService(Service):
-        def process(self, x: "int") -> None:  # noqa: F722
+        def process(self, x: "NonExistentClass") -> None:  # noqa  # type: ignore
             pass
 
-    with mock.patch(
-        "aod._internal.core.type_handlers.service_handler.typing.get_type_hints",
-        side_effect=RuntimeError("boom"),
-    ):
-        ServiceTypeHandler.check_service(SomeService)  # Should not raise
+    ServiceTypeHandler.check_service(SomeService)  # Should not raise
 
 
 def test_get_generic_arg_from_mro_finds_arg() -> None:

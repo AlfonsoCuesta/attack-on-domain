@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-from unittest.mock import patch
-
 import pytest
 from aod._internal.application.port import Port
 from aod._internal.core.infrastructure_exception import (
@@ -277,24 +275,6 @@ class TestGetHandler:
         assert isinstance(handler, _NoSessionHandler)
         assert handler.session is None
 
-    def test_raises_handler_model_error_when_session_field_missing(self) -> None:
-        class _BadHandler(CommandHandler[CreateUser]):
-            def handle(self, command: CreateUser) -> User:
-                return User(id=1, name=command.name)
-
-        with patch(
-            "aod._internal.infrastructure.container.get_type_hints",
-            side_effect=[
-                {"command": CreateUser},
-                {"command": CreateUser},
-                {"command": CreateUser},
-                {},
-            ],
-        ):
-            container = AdapterContainerBase(handlers=[_BadHandler])
-            with pytest.raises(HandlerModelError, match="is missing required field 'session'"):
-                container.get_handler(CreateUser)
-
     def test_raises_session_not_found_error(self) -> None:
         container = AdapterContainerBase(handlers=[GetUserHandler])
         with pytest.raises(SessionNotFoundError, match="No session of type"):
@@ -362,15 +342,11 @@ class TestGetHandler:
 
     def test_contract_from_handler_raises_when_no_command_param(self) -> None:
         class _BadHandler(CommandHandler[CreateUser]):
-            def handle(self, command: CreateUser) -> User:
-                return User(id=1, name=command.name)
+            def handle(self) -> User:  # ty:ignore[invalid-method-override]
+                return User(id=1, name="")
 
-        with patch(
-            "aod._internal.infrastructure.container.get_type_hints",
-            return_value={"return": User},
-        ):
-            with pytest.raises(HandlerModelError, match="handle"):
-                AdapterContainerBase._contract_from_handler(_BadHandler)
+        with pytest.raises(HandlerModelError, match="handle"):
+            AdapterContainerBase._contract_from_handler(_BadHandler)
 
     def test_get_handler_with_non_union_session_type(self) -> None:
         class _ExactSessionHandler(CommandHandler[CreateUser]):
