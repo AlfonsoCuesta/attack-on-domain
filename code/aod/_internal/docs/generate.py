@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import typing
 from pathlib import Path
 from typing import Any
 
@@ -81,8 +82,6 @@ def _write_file(path: Path, content: str) -> None:
 def _collect_events_from_types(
     contexts: list[BoundedContext],
 ) -> list[EventDoc]:
-    import typing
-
     seen: set[str] = set()
     result: list[EventDoc] = []
     for ctx in contexts:

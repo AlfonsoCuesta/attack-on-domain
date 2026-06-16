@@ -15,6 +15,7 @@ from aod._internal.testing.doubles.infrastructure import (
     SpySession,
     spy_adapter_container,
 )
+from aod._internal.testing.doubles.stubs import make_stub
 
 __all__ = [
     "AsyncSpyCache",
@@ -29,5 +30,6 @@ __all__ = [
     "SpyLogger",
     "SpySession",
     "SpyUnitOfWork",
+    "make_stub",
     "spy_adapter_container",
 ]
