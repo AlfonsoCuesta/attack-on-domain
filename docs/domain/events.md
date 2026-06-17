@@ -4,7 +4,7 @@ Domain Events record something that happened in your domain. They are immutable,
 
 ## Event
 
-`Event` is an immutable base class for all domain events. It inherits from `BaseSealed`, which permanently blocks mutation after construction.
+`Event` is an immutable base class for all domain events. Events cannot be changed after construction.
 
 ### Class Definition
 
@@ -82,7 +82,7 @@ assert e1 == e2  # True — same attributes
 
 ### `EventEmitter`
 
-Every domain object that inherits from `BaseGuarded` (Entity, RootEntity, ValueObject, Service) has a `_event_emitter` instance as a `PrivateField(default_factory=EventEmitter)`.
+Every domain object (Entity, RootEntity, ValueObject, Service) has a `_event_emitter` instance for emitting events.
 
 ```python
 class EventEmitter:
@@ -97,7 +97,7 @@ class EventEmitter:
 |-----------|------|-------------|
 | `event` | `Event` | The event instance to record |
 
-Appends the event to the emitter's internal list. If an `EventCollector` context is active (via ContextVar), also appends to the collector's list.
+Appends the event to the emitter's internal list. If an `EventCollector` context is active, also appends to the collector's list.
 
 #### `poll_events()`
 
@@ -166,18 +166,20 @@ class OrderService(Service):
 Use cases automatically collect events from all domain objects touched during `run()`. The collected events are available via `self.events` after execution.
 
 ```python
-from aod.application import UseCase
+from aod.application import UseCase, CommandPort
 
 
-class PlaceOrder(UseCase):
-    order_client: OrderClient
+class PlaceOrderUseCase(UseCase):
+    place_order: CommandPort[PlaceOrder]
 
     def run(self, order_id: str, total: float) -> None:
         order = Order(id=order_id, total=total)
         order.place()
-        self.order_client.save(order)
+        self.place_order.handle(PlaceOrder(
+            order_id=order_id, total=total,
+        ))
 
-uc = PlaceOrder(order_client=client)
+uc = PlaceOrderUseCase(place_order=handler)
 uc.run(order_id="1", total=99.99)
 assert len(uc.events) == 1
 assert isinstance(uc.events[0], OrderPlaced)
@@ -219,7 +221,7 @@ Returns `list[Event]` — the same list that events will be appended to while th
 |-----------|------|-------------|
 | `*args` | `object` | Standard context manager exit arguments |
 
-Resets the context variable so subsequent events are no longer collected.
+Stops event collection so subsequent events are no longer captured.
 
 ## Event Assertions
 
@@ -238,7 +240,7 @@ assert len(events) == 2
 
 | Parameter | Type | Description |
 |-----------|------|-------------|
-| `obj` | `BaseGuarded` | The domain object to extract events from |
+| `obj` | `Entity \| ValueObject \| Service` | The domain object to extract events from |
 
 Returns `list[Event]`.
 

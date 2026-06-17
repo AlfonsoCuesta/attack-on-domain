@@ -1,6 +1,6 @@
 # Container
 
-`AdapterContainerBase` wires dependencies for the application and infrastructure layers. It manages sessions, handlers, ports, and unit-of-work instances.
+`AdapterContainerBase` wires dependencies for the application and infrastructure layers. It manages sessions, handlers (`CommandHandler[C]`, `QueryHandler[Q]`), ports, and unit-of-work instances. Handlers implement `CommandPort[C]` / `QueryPort[Q]` and are injected into UseCase fields automatically.
 
 ## AdapterContainerBase
 
@@ -8,7 +8,7 @@
 from aod.infrastructure import AdapterContainerBase
 ```
 
-`AdapterContainerBase(BaseBehaviour)` is the base class for dependency injection containers.
+`AdapterContainerBase` is the base class for dependency injection containers.
 
 ### Constructor
 
@@ -114,22 +114,23 @@ Once a session is instantiated via `get_session()`, the same instance is returne
 
 The container supports both sync and async sessions simultaneously. `get_uow()` automatically detects the session type and returns the appropriate `UnitOfWork` or `AsyncUnitOfWork`.
 
-## Testing with Spy Classes
+## Testing with Spy Container
+
+Use `spy_adapter_container` to create a test container with stubbed sessions:
 
 ```python
-from aod.testing.doubles import SpySession, SpyLogger, SpyEventBus, SpyUnitOfWork
+from aod.testing.doubles import spy_adapter_container
 
 class MyContainer(AdapterContainerBase):
-    pass
+    sessions: set = {MySession}
+    handlers: list = [CreateUserHandler]
 
-container = MyContainer(
-    sessions={SpySession},
-    logger=SpyLogger(),
-    event_bus=SpyEventBus(),
-)
+container = spy_adapter_container(MyContainer())
 
-session = container.get_session(SpySession)
-uow = container.get_uow()
+session = container.get_session_stub(MySession)
+session.is_dirty.returns(True)
+
+handler = container.get_handler(CreateUser)
 ```
 
 ## Next Steps

@@ -7,6 +7,7 @@ The infrastructure layer provides concrete implementations of ports and handles 
 | Block | Description | Purpose |
 |-------|-------------|---------|
 | [Session](sessions.md) | Database abstraction | Handle connections and transactions |
+| [Handler](handlers.md) | Command/Query processor | Implement `CommandPort` / `QueryPort` |
 | [Projection](projections.md) | Read/write models | Query data efficiently |
 | [Container](container.md) | Dependency injection | Wire ports to implementations |
 | [Injection](injection.md) | Dependency injection | Inject dependencies into use cases |
@@ -49,6 +50,15 @@ class PostgresSession(Session):
     def close(self) -> None: ...
     def is_dirty(self) -> bool: ...
 
+class RedisSession(Session):
+    def get(self, key: str) -> object: ...
+    def set(self, key: str, value: object) -> None: ...
+    def begin(self) -> None: ...
+    def commit(self) -> None: ...
+    def rollback(self) -> None: ...
+    def close(self) -> None: ...
+    def is_dirty(self) -> bool: ...
+
 # Define a handler
 class CreateUserHandler(CommandHandler[CreateUser]):
     session: PostgresSession
@@ -70,49 +80,58 @@ use_case = inject_adapters(container, PlaceOrderUseCase)
 
 ### Sessions
 
-Sessions abstract database operations:
+Sessions abstract database operations. The base class defines five abstract lifecycle methods (`begin`, `commit`, `rollback`, `close`, `is_dirty`). Subclasses add the methods their database needs:
 
 ```python
 from aod.infrastructure import Session
 
 class PostgresSession(Session):
     def execute(self, operation: object) -> object:
-        # Execute a write operation
         pass
 
     def query(self, operation: object) -> object:
-        # Execute a read operation
         pass
 
     def begin(self) -> None:
-        # Begin a transaction
         pass
 
     def commit(self) -> None:
-        # Commit the transaction
         pass
 
     def rollback(self) -> None:
-        # Rollback the transaction
         pass
 
     def close(self) -> None:
-        # Close the connection
         pass
 
     def is_dirty(self) -> bool:
-        # Check if there are uncommitted changes
         return False
 ```
 
+Each subclass defines its own data interface — `RedisSession` exposes `get`/`set`, `PostgresSession` exposes `execute`/`query`, etc.
+
 ### Projections
 
-Projections read and write data:
+Projections read and write data. Declare a concrete session type:
 
 ```python
 from aod.infrastructure import ReadProjection, ReadModel
+from aod.infrastructure import Session
+
+# Define your session first
+class PostgresSession(Session):
+    def execute(self, operation: object) -> object: ...
+    def query(self, operation: object) -> object: ...
+    def begin(self) -> None: ...
+    def commit(self) -> None: ...
+    def rollback(self) -> None: ...
+    def close(self) -> None: ...
+    def is_dirty(self) -> bool: ...
+
 
 class UserListProjection(ReadProjection):
+    session: PostgresSession
+
     def read(self, model: ReadModel) -> list[User]:
         return self.session.query("SELECT * FROM users")
 ```
@@ -143,6 +162,7 @@ use_case = inject_adapters(container, CreateUserUseCase)
 ## Next Steps
 
 - [Session](sessions.md) — Learn about database sessions
+- [Handler](handlers.md) — Learn about command/query handlers
 - [Projection](projections.md) — Learn about read/write projections
 - [Container](container.md) — Learn about dependency injection
 - [Injection](injection.md) — Learn about dependency injection

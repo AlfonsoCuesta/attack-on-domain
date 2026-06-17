@@ -112,20 +112,17 @@ use_case = inject_adapters(container, CreateUser)
 use_case.run(user_id=42, name="Alice")
 ```
 
-### Testing with Overrides
+### Testing with Spy Container
 
 ```python
-from aod.testing.doubles import SpyLogger, SpyEventBus, SpyUnitOfWork
+from aod.testing.doubles import spy_adapter_container
 
-container = MyContainer()
+container = spy_adapter_container(MyContainer())
 
-use_case = inject_adapters(
-    container,
-    CreateUser,
-    logger=SpyLogger(),
-    event_bus=SpyEventBus(),
-    uow=SpyUnitOfWork(),
-)
+use_case = inject_adapters(container, CreateUserUseCase)
+use_case.run(user_id=42, name="Alice")
+
+assert container.get_handler(CreateUser).handle.called
 
 use_case.run(user_id=42, name="Alice")
 assert use_case.uow.committed

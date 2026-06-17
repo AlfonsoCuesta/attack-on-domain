@@ -2,12 +2,12 @@
 
 This guide walks through building a user registration system with `attack-on-domain` in 5 steps.
 
-## 1. Define Value Objects and Events
+## 1. Define Value Objects, Events, and Root Entity
 
-Value Objects are immutable, identity-less types. Events record what happened in the domain.
+Value Objects are immutable, identity-less types. Events record what happened. Root Entities have identity and enforce invariants.
 
 ```python
-from aod.domain import ValueObject
+from aod.domain import ValueObject, RootEntity
 from aod.events import Event
 
 
@@ -15,22 +15,9 @@ class Email(ValueObject):
     value: str
 
 
-class Money(ValueObject):
-    amount: float
-    currency: str
-
-
 class UserRegistered(Event):
     user_id: str
     email: str
-```
-
-## 2. Define a Root Entity
-
-Root Entities are mutable objects with identity. Public methods can mutate fields and emit events via `_event_emitter`.
-
-```python
-from aod.domain import RootEntity
 
 
 class User(RootEntity):
@@ -44,29 +31,41 @@ class User(RootEntity):
         )
 ```
 
-## 3. Define a Port
+## 2. Define a Command and its Handler
 
-Ports are abstract interfaces the application layer depends on. Infrastructure provides concrete implementations.
+Commands are immutable requests to change state. Handlers contain the infrastructure logic to execute them.
 
 ```python
-from aod.application import Port
+from aod.application import Command
+from aod.infrastructure import CommandHandler
 
 
-class UserClient(Port):
-    def save(self, user: User) -> None: ...
-    def find(self, user_id: str) -> User | None: ...
+class RegisterUser(Command[User, None]):
+    user_id: str
+    email: str
+    name: str
+
+
+class RegisterUserHandler(CommandHandler[RegisterUser]):
+    def handle(self, command: RegisterUser) -> None:
+        user = User(
+            id=command.user_id,
+            email=Email(value=command.email),
+            name=command.name,
+        )
+        self.session.execute(user)
 ```
 
-## 4. Create a Use Case
+## 3. Create a Use Case with CommandPort
 
-Use Cases orchestrate domain objects. Fields must be Port subclasses. Values flow through `run()` parameters.
+Use Cases orchestrate domain logic. They depend on `CommandPort[Command]` and `QueryPort[Query]` — NOT custom repository ports. Values flow through `run()` parameters.
 
 ```python
-from aod.application import UseCase
+from aod.application import UseCase, CommandPort
 
 
-class RegisterUser(UseCase):
-    user_client: UserClient
+class RegisterUserUseCase(UseCase):
+    save_user: CommandPort[RegisterUser]
 
     def run(self, user_id: str, email: str, name: str) -> None:
         user = User(
@@ -75,16 +74,36 @@ class RegisterUser(UseCase):
             name=name,
         )
         user.register()
-        self.user_client.save(user)
+        self.save_user.handle(RegisterUser(
+            user_id=user_id, email=email, name=name,
+        ))
+```
+
+## 4. Wire It Together
+
+Use `AdapterContainerBase` and `inject_adapters`. The container discovers handlers and auto-wires them into the use case.
+
+```python
+from aod.infrastructure import AdapterContainerBase, inject_adapters
+
+
+class AppContainer(AdapterContainerBase):
+    handlers: list = [RegisterUserHandler]
+
+
+container = AppContainer()
+use_case = inject_adapters(container, RegisterUserUseCase)
+
+use_case.run(user_id="2", email="alice@example.com", name="Alice")
 ```
 
 ## 5. Test It
 
-Use `build()` to construct objects without validation, `events_of()` to inspect emitted events, and `assert_event_emitted()` for assertions.
+Use `build()` to construct objects without validation, `events_of()` to inspect emitted events, `assert_event_emitted()` for assertions, and `SpySession` for handler testing.
 
 ```python
 from aod.testing import build, events_of, assert_event_emitted
-from aod.testing.doubles import SpyLogger
+from aod.testing.doubles import SpyLogger, SpySession
 
 
 user = build(User, id="1", email=Email(value="test@example.com"), name="Test")
@@ -94,34 +113,10 @@ user.register()
 assert len(events_of(user)) == 1
 assert_event_emitted(user, UserRegistered)
 
-container = AppContainer(user_client=user_client_instance)
-use_case = inject_adapters(container, RegisterUser)
-
-use_case.run(user_id="2", email="alice@example.com", name="Alice")
-```
-
-To wire ports to implementations, use `AdapterContainerBase` and `inject_adapters`:
-
-```python
-from aod.infrastructure import AdapterContainerBase, inject_adapters
-
-
-class RealUserClient(UserClient):
-    def save(self, user: User) -> None:
-        print(f"Saving user {user.id}")
-
-    def find(self, user_id: str) -> User | None:
-        return None
-
-
-class AppContainer(AdapterContainerBase):
-    user_client: UserClient
-
-
-container = AppContainer(user_client=RealUserClient())
-use_case = inject_adapters(container, RegisterUser)
-
-use_case.run(user_id="2", email="alice@example.com", name="Alice")
+# Test handler with SpySession
+handler = RegisterUserHandler(session=SpySession())
+handler.handle(RegisterUser(user_id="2", email="alice@example.com", name="Alice"))
+assert handler.handle.called
 ```
 
 ## Next Steps

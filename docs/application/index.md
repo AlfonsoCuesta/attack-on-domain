@@ -10,7 +10,7 @@ The application layer orchestrates domain objects through use cases. It defines 
 | [Port](ports.md) | Interface definition | Abstract infrastructure |
 | [Command](contracts.md) | Write operation | Request to change state |
 | [Query](contracts.md) | Read operation | Request to read state |
-| [Handler](handlers.md) | Command/Query processor | Execute contracts |
+| [Handler](../infrastructure/handlers.md) | Command/Query processor | Execute contracts |
 
 ## Imports
 
@@ -21,6 +21,8 @@ from aod.application import (
     Port,
     Command,
     Query,
+    CommandPort,
+    QueryPort,
     Logger,
     EventBus,
     UnitOfWork,
@@ -28,49 +30,79 @@ from aod.application import (
 )
 ```
 
-## Quick Example
+## Quick Example — CQRS
 
 ```python
-from aod.application import UseCase, Port
+from aod.application import UseCase, Command, CommandPort
 
-# Define a port (interface)
-class UserClient(Port):
-    def save(self, user: User) -> None: ...
-    def find(self, user_id: str) -> User | None: ...
+# Define a command (immutable write request)
+class CreateUser(Command[User, None]):
+    user_id: str
+    name: str
+    email: str
 
-# Define a use case
-class CreateUser(UseCase):
-    user_client: UserClient
+# Define a use case with a CommandPort
+class CreateUserUseCase(UseCase):
+    save_user: CommandPort[CreateUser]
 
     def run(self, user_id: str, name: str, email: str) -> None:
         user = User(id=user_id, name=name, email=email)
-        self.user_client.save(user)
+        self.save_user.handle(CreateUser(
+            user_id=user_id, name=name, email=email,
+        ))
         self._event_emitter.emit(UserCreated(user_id=user_id))
 
-# Use the use case
-uc = CreateUser(user_client=RealUserClient())
+# The container injects the matching CommandHandler
+uc = inject_adapters(container, CreateUserUseCase)
 uc.run(user_id="1", name="Alice", email="alice@example.com")
 ```
 
 ## Key Concepts
 
-### Ports as Dependencies
+### Port Types
 
-Use case fields must be `Port` subclasses. Values are passed as parameters to `run()`:
+Use case fields must be `Port` subclasses. The framework provides two kinds:
+
+| Kind | Purpose | Examples |
+|------|---------|----------|
+| **Handler ports** | Database operations | `CommandPort[T]`, `QueryPort[T]` |
+| **Service ports** | External concerns | Custom `Port` subclasses |
+
+### CommandPort / QueryPort for Database Operations
 
 ```python
-# Correct: Ports as fields, values in run()
-class CreateUser(UseCase):
-    user_client: UserClient  # Port dependency
+# Correct: CommandPort as field, values in run()
+class CreateUserUseCase(UseCase):
+    save_user: CommandPort[CreateUser]
 
     def run(self, user_id: int, name: str) -> None:
         user = User(id=user_id, name=name)
-        self.user_client.save(user)
+        self.save_user.handle(CreateUser(user_id=user_id, name=name))
 
 # Wrong: values as fields
-class CreateUser(UseCase):
+class CreateUserUseCase(UseCase):
     user_id: int  # InvalidUseCasePortFieldError!
     name: str     # InvalidUseCasePortFieldError!
+```
+
+### Custom Service Port for External Concerns
+
+For non-database dependencies (API clients, notification services, etc.), create custom `Port` subclasses:
+
+```python
+from aod.application import Port, UseCase
+
+
+class NotificationClient(Port):
+    def send_email(self, to: str, subject: str, body: str) -> None: ...
+
+
+class NotifyUser(UseCase):
+    notification: NotificationClient
+
+    def run(self, user_id: str, message: str) -> None:
+        user = User(id=user_id)
+        self.notification.send_email(to=user.email, subject="Alert", body=message)
 ```
 
 ### Blocked Field Types
@@ -80,21 +112,25 @@ class CreateUser(UseCase):
 ```python
 from aod.infrastructure import Session
 
-class CreateUser(UseCase):
+class CreateUserUseCase(UseCase):
     session: Session  # InvalidUseCasePortFieldError!
 
     def run(self) -> None:
         pass
 ```
 
-Instead, use a repository port:
+Instead, use `CommandPort[Command]` or `QueryPort[Query]`:
 
 ```python
-class UserRepository(Port):
-    def save(self, user: User) -> None: ...
+from aod.application import CommandPort, Command
 
-class CreateUser(UseCase):
-    user_repo: UserRepository  # OK — it's a Port
+class CreateUser(Command[User, None]):
+    user_id: str
+    name: str
+    email: str
+
+class CreateUserUseCase(UseCase):
+    save_user: CommandPort[CreateUser]
 
     def run(self) -> None:
         pass
@@ -121,15 +157,15 @@ class CreateUser(UseCase):
 Events emitted during `run()` are automatically collected:
 
 ```python
-class CreateUser(UseCase):
-    user_client: UserClient
+class CreateUserUseCase(UseCase):
+    save_user: CommandPort[CreateUser]
 
     def run(self, user_id: str, name: str) -> None:
         user = User(id=user_id, name=name)
-        self.user_client.save(user)
+        self.save_user.handle(CreateUser(user_id=user_id, name=name, email=""))
         self._event_emitter.emit(UserCreated(user_id=user_id))
 
-uc = CreateUser(user_client=client)
+uc = CreateUserUseCase(save_user=handler)
 uc.run(user_id="1", name="Alice")
 assert len(uc.events) == 1
 ```
@@ -139,4 +175,4 @@ assert len(uc.events) == 1
 - [UseCase](use-cases.md) — Detailed UseCase API
 - [Port](ports.md) — Learn about ports
 - [Contracts](contracts.md) — Learn about commands and queries
-- [Handlers](handlers.md) — Learn about command/query handlers
+- [Handlers](../infrastructure/handlers.md) — Learn about command/query handlers

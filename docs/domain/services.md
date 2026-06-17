@@ -4,7 +4,7 @@ Services are stateless domain operations that encapsulate business logic that do
 
 ## Class Definition
 
-`Service` inherits from `BaseBehaviour`, which extends `BaseGuarded`. This means services can have state (fields) and mutate them inside public methods, but mutation from outside is blocked.
+Services can have state (fields) and mutate them inside public methods, but mutation from outside is blocked.
 
 ```python
 from aod.domain import Service
@@ -61,11 +61,9 @@ assert counter.get_count() == 1
 
 ### Mutation Rules
 
-Same as `BaseGuarded`:
-
-- **Inside public methods**: Mutation is allowed (PASS state)
-- **Outside methods**: Mutation is blocked. `MutationForbiddenException` is raised
-- **During `__init__`**: Mutation is allowed (INHERIT state)
+- **Inside public methods**: Fields can be assigned.
+- **Outside methods**: Mutation is blocked. `MutationForbiddenException` is raised.
+- **During `__init__`**: Mutation is allowed.
 
 ```python
 counter.count = 5  # MutationForbiddenException!
@@ -73,7 +71,7 @@ counter.count = 5  # MutationForbiddenException!
 
 ## Event Emission
 
-Services can emit domain events via `_event_emitter`. This is a `PrivateField(default_factory=EventEmitter)` available on every `Service` instance.
+Services can emit domain events via `_event_emitter`.
 
 ```python
 from aod.events import Event
@@ -106,7 +104,7 @@ Returns `list[Event]`.
 
 ## Service Method Type Constraints
 
-When a `Service` is registered in a `BoundedContext`, its public methods are inspected. The type checker (`ServiceTypeHandler.check_service`) validates that:
+When a `Service` is registered in a `BoundedContext`, its public methods are inspected to enforce DDD constraints:
 
 - **Allowed** parameter/return types: custom classes, `RootEntity`, `ValueObject`, primitives
 - **Forbidden** parameter/return types: non-root `Entity` (raises `InvalidServiceParameterError`)
@@ -198,7 +196,7 @@ assert len(events) == 1
 
 | Parameter | Type | Description |
 |-----------|------|-------------|
-| `obj` | `BaseGuarded` | The service to extract events from |
+| `obj` | `Service` | The service to extract events from |
 
 Returns `list[Event]`.
 

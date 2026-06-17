@@ -122,7 +122,7 @@ After construction, a `BoundedContext` exposes these read-only attributes:
 
 When constructed, `BoundedContext` recursively discovers all domain types referenced by the aggregate roots:
 
-1. **Type extraction**: For each aggregate root, `typing.get_type_hints()` extracts all field types
+1. **Type extraction**: For each aggregate root, all field types are extracted from type annotations
 2. **Recursive traversal**: For each discovered Entity or ValueObject type, its fields are also inspected
 3. **Type categorisation**: Discovered types are split into entities and value objects and stored in `self.entities` and `self.value_objects`
 

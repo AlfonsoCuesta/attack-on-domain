@@ -11,7 +11,7 @@ The domain layer is the heart of your application. It contains the business logi
 | [ValueObject](value-objects.md) | Immutable, identity-less object | Immutable |
 | [Service](services.md) | Stateless domain operation | Stateless |
 | [Event](events.md) | Record of something that happened | Immutable |
-| [Validation](validation.md) | Type hints and validators | - |
+| [Invariants](validation.md) | Business rules enforced at construction (`@field_invariance`, `@invariance`) | - |
 
 ## Imports
 
@@ -87,6 +87,28 @@ user = User(id="1", tags=["admin", "user"])
 user.tags.append("super")  # MutationForbiddenException!
 ```
 
+### Business Invariants
+
+Enforce domain rules at construction time with `@field_invariance` (field-level) and `@invariance` (model-level). Violations raise `InvarianceException`, a domain exception.
+
+```python
+from aod.domain.validation import field_invariance
+
+
+class Money(ValueObject):
+    amount: float
+    currency: str
+
+    @field_invariance("amount")
+    def amount_must_be_positive(cls, v: float) -> float:
+        if v < 0:
+            raise ValueError("Amount must be positive")
+        return v
+
+
+Money(amount=-5.0, currency="USD")  # InvarianceException!
+```
+
 ### Event Collection
 
 Events are automatically collected across aggregate boundaries:
@@ -107,4 +129,4 @@ with EventCollector() as events:
 - [Service](services.md) — Learn about stateless domain operations
 - [Event System](events.md) — Learn about domain events
 - [Bounded Context](bounded-context.md) — Learn about organizing your domain
-- [Validation](validation.md) — Learn about type hints and validators
+- [Invariants](validation.md) — Learn about business rules and validation

@@ -1,6 +1,8 @@
 # Handlers
 
-Handlers process commands and queries. They bridge the gap between contracts and the application layer, executing business logic against infrastructure.
+Handlers process commands and queries. They bridge the gap between the application and infrastructure layers, implementing `CommandPort[T]` and `QueryPort[T]` from the application layer.
+
+UseCases declare `CommandPort[Command]` / `QueryPort[Query]` as fields; infrastructure handlers provide the concrete implementation that is injected by the container.
 
 ## Import
 
@@ -40,7 +42,7 @@ class GetUserHandler(QueryHandler[GetUser]):
 
 ### `BaseHandler`
 
-Base class for all handlers. Inherits from `BaseBehaviour`.
+Base class for all handlers.
 
 **Fields:**
 
@@ -57,7 +59,7 @@ Base class for all handlers. Inherits from `BaseBehaviour`.
 
 ### `AsyncBaseHandler`
 
-Async variant of `BaseHandler`. Inherits from `BaseBehaviour`.
+Async variant of `BaseHandler`.
 
 **Fields:**
 
@@ -242,7 +244,7 @@ handler = CreateUserHandler(session=session)
 
 handler.handle(CreateUser(user_id="1", name="Alice"))
 
-assert len(session.execute_calls) == 1
+assert handler.handle.called
 ```
 
 ## Common Patterns
@@ -270,14 +272,14 @@ class GetUserHandler(QueryHandler[GetUser]):
 
 ### Handler with Validation
 
+Validation belongs in the domain, not the handler. The handler delegates to domain objects that enforce their own constraints:
+
 ```python
 class CreateUserHandler(CommandHandler[CreateUser]):
     session: Session
 
     def handle(self, command: CreateUser) -> None:
-        if not command.name:
-            raise ValueError("Name is required")
-        user = User(id=command.user_id, name=command.name)
+        user = User(id=command.user_id, name=command.name, email=command.email)
         self.session.execute(user)
 ```
 
@@ -296,7 +298,7 @@ class CreateUserHandler(CommandHandler[CreateUser]):
 
 ## Next Steps
 
-- [UseCase](use-cases.md) — Learn how use cases orchestrate domain logic
-- [Contracts](contracts.md) — Learn about commands and queries
-- [Container](../infrastructure/container.md) — Learn about handler registration
-- [Injection](../infrastructure/injection.md) — Learn about dependency injection
+- [UseCase](../application/use-cases.md) — Learn how use cases orchestrate domain logic
+- [Contracts](../application/contracts.md) — Learn about commands and queries
+- [Container](container.md) — Learn about handler registration
+- [Injection](injection.md) — Learn about dependency injection

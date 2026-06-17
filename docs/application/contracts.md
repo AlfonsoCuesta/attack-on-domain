@@ -12,7 +12,7 @@ from aod.application import Command, Query
 
 ### `Command[TEntity, TResult]`
 
-Represents a request to change state. Inherits from `BaseSealed` and `Generic[TEntity, TResult]`.
+Represents a request to change state. Always immutable.
 
 **Type Parameters:**
 
@@ -53,7 +53,7 @@ cmd.name = "Bob"  # MutationForbiddenException!
 
 ### `Query[TEntity, TResult]`
 
-Represents a request to read state. Inherits from `BaseSealed` and `Generic[TEntity, TResult]`.
+Represents a request to read state. Always immutable.
 
 **Type Parameters:**
 
@@ -173,7 +173,7 @@ class FindUserOrOrder(Query[User, User | Order]):
 
 ## Immutability
 
-Both `Command` and `Query` are `BaseSealed` subclasses — they are always immutable. Any attempt to modify a field raises `MutationForbiddenException`:
+Both `Command` and `Query` are always immutable. Any attempt to modify a field raises `MutationForbiddenException`:
 
 ```python
 cmd = CreateUser(user_id="1", name="Alice", email="alice@example.com")
@@ -250,6 +250,6 @@ class CancelOrder(Command[Order, None]):
 ## Next Steps
 
 - [UseCase](use-cases.md) — Learn how use cases handle contracts
-- [Handlers](handlers.md) — Learn about command/query handlers
+- [Handlers](../infrastructure/handlers.md) — Learn about command/query handlers
 - [Port](ports.md) — Learn about ports
 - [Container](../infrastructure/container.md) — Learn about handler registration

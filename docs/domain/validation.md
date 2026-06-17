@@ -1,6 +1,6 @@
-# Validation
+# Invariants
 
-`attack-on-domain` provides validation tools built on top of Pydantic v2, with additional decorators for field invariants, model invariants, and mutation context management.
+Invariants enforce domain rules at construction time. The framework provides `@field_invariance` for field-level rules and `@invariance` for model-level rules. Violations raise `InvarianceException`.
 
 ## Imports
 
@@ -16,7 +16,7 @@ from aod.domain.validation import (
 
 ## AfterValidator
 
-`AfterValidator` is re-exported from Pydantic's `pydantic.AfterValidator`. It validates a value after Pydantic has processed it (e.g., after type coercion).
+`AfterValidator` validates a value after type coercion (e.g., after strings are converted to numbers).
 
 ```python
 from aod.domain.validation import AfterValidator
@@ -40,7 +40,7 @@ The function receives the value after Pydantic's built-in type coercion and vali
 
 ## BeforeValidator
 
-`BeforeValidator` is re-exported from Pydantic's `pydantic.BeforeValidator`. It validates a value before Pydantic processes it (e.g., before type coercion).
+`BeforeValidator` validates a value before type coercion (e.g., trimming whitespace before string validation).
 
 ```python
 from aod.domain.validation import BeforeValidator
@@ -64,7 +64,7 @@ Useful for normalising input (trimming whitespace, lowercasing, etc.) before typ
 
 ## field_invariance
 
-`field_invariance` is a decorator that registers a classmethod as a field-level invariant. It wraps Pydantic's `field_validator` and converts `ValueError` / `AssertionError` into `InvarianceException`.
+`field_invariance` registers a field-level invariant. It converts `ValueError` and `AssertionError` raised by the decorated method into `InvarianceException`.
 
 ```python
 from aod.domain.validation import field_invariance
@@ -75,7 +75,6 @@ class Money(ValueObject):
     currency: str
 
     @field_invariance("amount")
-    @classmethod
     def amount_must_be_positive(cls, v: float) -> float:
         if v < 0:
             raise ValueError("amount must be positive")
@@ -102,7 +101,7 @@ def field_invariance(
 
 ### The decorated method
 
-The decorated method must be a `@classmethod` that receives the field value and returns the (possibly transformed) value:
+The decorated method receives the field value and returns the (possibly transformed) value:
 
 | Parameter | Type | Description |
 |-----------|------|-------------|
@@ -111,17 +110,11 @@ The decorated method must be a `@classmethod` that receives the field value and 
 
 Should return the value (or a transformed version) or raise `ValueError` / `AssertionError` to reject.
 
-### Difference from Pydantic validators
-
-`field_invariance` wraps Pydantic's `field_validator` but catches `ValueError` and `AssertionError` and re-raises them as `InvarianceException(DomainException, ValueError)`. This means:
-
-- Invariant violations are domain exceptions, not generic validation errors
-- `ModelValidationError` wraps Pydantic's `ValidationError` but if the cause is an `InvarianceException`, it is re-raised directly
-- `reconstruct()` bypasses all validators including `field_invariance`
+Invariant violations become `InvarianceException` (a `DomainException`), not generic validation errors. The `reconstruct()` classmethod bypasses all invariants.
 
 ## invariance
 
-`invariance` is a decorator that registers a classmethod as a model-level invariant. It wraps Pydantic's `model_validator(mode="after")` and converts `ValueError` / `AssertionError` into `InvarianceException`.
+`invariance` registers a model-level invariant. It receives the full model data as a dict and can validate relationships between fields. It converts `ValueError` and `AssertionError` into `InvarianceException`.
 
 ```python
 from datetime import datetime
@@ -134,7 +127,6 @@ class DateRange(ValueObject):
     end: datetime
 
     @invariance
-    @classmethod
     def end_after_start(cls, data: dict) -> dict:
         if data["end"] <= data["start"]:
             raise ValueError("end must be after start")
@@ -158,11 +150,10 @@ def invariance(
 
 ### The decorated method
 
-The decorated method must be a `@classmethod` that receives the model instance and returns it (or raises).
+The decorated method receives the model data dict and returns it (or raises).
 
 ```python
 @invariance
-@classmethod
 def end_after_start(cls, data: dict) -> dict:
     if data["end"] <= data["start"]:
         raise ValueError("end must be after start")
@@ -176,9 +167,7 @@ def end_after_start(cls, data: dict) -> dict:
 
 Must return the model data dictionary (or any dict) or raise `ValueError` / `AssertionError`.
 
-### Difference from Pydantic model_validator
-
-Same as `field_invariance`: catches `ValueError`/`AssertionError` and re-raises as `InvarianceException`. Bypassed by `reconstruct()`.
+Same as `field_invariance`: violations raise `InvarianceException` and are bypassed by `reconstruct()`.
 
 ## inherit_context
 
@@ -207,11 +196,7 @@ def inherit_context(fn: Callable) -> Callable: ...
 |-----------|------|-------------|
 | `fn` | `Callable` | The method to wrap with INHERIT mutation context |
 
-The decorated method will use `MutatingState.INHERIT` instead of `MutatingState.PASS`, meaning it propagates the caller's mutation permission rather than setting its own PASS state. This is needed for:
-
-- Methods called from `__post_init__` that need to mutate fields
-- Methods called from outside as part of a batch operation
-- The internal `_can_mutate()` method on `BaseGuarded`
+This is needed for methods called from `__post_init__` that need to mutate fields.
 
 ## Testing
 
@@ -280,7 +265,6 @@ class Money(ValueObject):
     currency: str
 
     @field_invariance("amount")
-    @classmethod
     def amount_must_be_positive(cls, v: float) -> float:
         if v < 0:
             raise ValueError("amount must be positive")
@@ -295,7 +279,6 @@ class DateRange(ValueObject):
     end: datetime
 
     @invariance
-    @classmethod
     def end_after_start(cls, data: dict) -> dict:
         if data["end"] <= data["start"]:
             raise ValueError("end must be after start")
@@ -307,7 +290,7 @@ class DateRange(ValueObject):
 | Exception | Raised When |
 |-----------|-------------|
 | `InvarianceException(DomainException, ValueError)` | A `field_invariance` or `invariance` validator rejects the value |
-| `ModelValidationError(DomainException)` | Pydantic validation fails during `__init__` (wraps `ValidationError`) |
+| `ModelValidationError(DomainException)` | Validation fails during `__init__` |
 
 ## Next Steps
 

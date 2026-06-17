@@ -29,8 +29,8 @@ Entities, Value Objects, Bounded Contexts, Domain Events — all with full type 
 </div>
 
 <div class="feature-card">
-<h3>Bounded Context</h3>
-<p>Organise your domain into type-safe boundaries with automatic entity/value object discovery.</p>
+<h3>CQRS</h3>
+<p>CQRS-based architecture with easy-to-implement commands, queries, and handlers.</p>
 </div>
 
 <div class="feature-card">
@@ -45,11 +45,12 @@ Entities, Value Objects, Bounded Contexts, Domain Events — all with full type 
 
 </div>
 
-## Quick Example
+## Quick Example — Use Case with CQRS and Dependency Injection
 
 ```python
 from aod.domain import RootEntity, ValueObject, Event
-from aod.application import UseCase, Port
+from aod.application import UseCase, Command, CommandPort
+from aod.infrastructure import CommandHandler, AdapterContainerBase, inject_adapters
 
 class OrderId(ValueObject):
     value: str
@@ -62,27 +63,42 @@ class OrderPlaced(Event):
     order_id: str
     total: float
 
-class OrderClient(Port):
-    def save(self, order: Order) -> None: ...
+class PlaceOrder(Command[Order, None]):
+    order_id: str
+    total: float
 
-class PlaceOrder(UseCase):
-    order_client: OrderClient
+class PlaceOrderHandler(CommandHandler[PlaceOrder]):
+    def handle(self, command: PlaceOrder) -> None:
+        order = Order(id=OrderId(value=command.order_id), total=command.total)
+        self.session.execute(order)
+
+class PlaceOrderUseCase(UseCase):
+    place_order: CommandPort[PlaceOrder]
 
     def run(self, order_id: str, total: float) -> None:
         order = Order(id=OrderId(value=order_id), total=total)
-        self.order_client.save(order)
-        self._event_emitter.emit(OrderPlaced(order_id=order_id, total=total))
+        order.place()
+        self.place_order.handle(PlaceOrder(
+            order_id=order_id, total=total,
+        ))
+
+class AppContainer(AdapterContainerBase):
+    handlers: list = [PlaceOrderHandler]
+
+container = AppContainer()
+use_case = inject_adapters(container, PlaceOrderUseCase)
+use_case.run(order_id="1", total=99.99)
 ```
 
 ## Architecture
 
-The library follows a layered DDD architecture:
+The library follows **hexagonal architecture** (ports and adapters) combined with DDD layers:
 
 | Layer | Components | Depends On |
 |-------|-----------|------------|
-| **Infrastructure** | Projections, Sessions, Container | Application |
-| **Application** | UseCase, Ports, Contracts | Domain |
-| **Domain** | Entity, ValueObject, Service | - (pure business logic) |
+| **Infrastructure** | Handlers, Session, Container, Projection | Application |
+| **Application** | UseCase, Port, Command, Query | Domain |
+| **Domain** | Entity, ValueObject, Service, Event | None - (pure business logic) |
 
 Each layer depends only on the layer below it:
 

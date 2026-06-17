@@ -10,7 +10,7 @@ from aod.infrastructure import ReadModel, WriteModel
 
 ### ReadModel
 
-`ReadModel(BaseSealed)` — An immutable input model for read projections. Fields can reference any type.
+`ReadModel` — An immutable input model for read projections. Fields can reference any type.
 
 #### Constructor
 
@@ -22,7 +22,7 @@ from aod.infrastructure import ReadModel, WriteModel
 
 ### WriteModel
 
-`WriteModel(BaseSealed)` — An immutable input model for write projections. Fields can reference any type.
+`WriteModel` — An immutable input model for write projections. Fields can reference any type.
 
 #### Constructor
 
@@ -178,7 +178,7 @@ class MyReadProjection(ReadProjection):
 
 proj = MyReadProjection(session=SpySession())
 result = proj.read(ReadModel())
-assert len(proj.session.query_calls) > 0
+assert proj.session.is_dirty.called
 ```
 
 ## Next Steps

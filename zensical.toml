@@ -13,7 +13,8 @@ nav = [
         "getting-started/quickstart.md",
         "getting-started/concepts.md",
     ]},
-    {"Domain" = [
+    {    "Domain" = [
+        "domain/index.md",
         "domain/entities.md",
         "domain/value-objects.md",
         "domain/services.md",
@@ -22,17 +23,20 @@ nav = [
         "domain/validation.md",
     ]},
     {"Application" = [
+        "application/index.md",
         "application/use-cases.md",
         "application/ports.md",
         "application/contracts.md",
-        "application/handlers.md",
     ]},
     {"Infrastructure" = [
+        "infrastructure/index.md",
         "infrastructure/sessions.md",
+        "infrastructure/handlers.md",
         "infrastructure/projections.md",
         "infrastructure/container.md",
         "infrastructure/injection.md",
     ]},
+    {"DDD to AoD" = "getting-started/mapping.md"},
     {"Testing" = "testing/index.md"},
     {"API Reference" = "api/index.md"},
 ]
@@ -47,6 +51,7 @@ palette = [
 features = [
     "navigation.tabs",
     "navigation.tabs.sticky",
+    "navigation.indexes",
     "navigation.top",
     "search.suggest",
     "search.highlight",

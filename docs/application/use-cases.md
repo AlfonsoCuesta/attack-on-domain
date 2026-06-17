@@ -16,21 +16,24 @@ from aod.application.async_ import UseCase
 
 ## Basic Usage
 
-Subclass `UseCase`, define your Port fields, and implement the `run()` method. Values are passed as parameters to `run()`, not as fields:
+Subclass `UseCase`, define `CommandPort[Command]` and `QueryPort[Query]` fields, and implement the `run()` method. Values are passed as parameters to `run()`, not as fields:
 
 ```python
-from aod.application import UseCase, Port
+from aod.application import UseCase, CommandPort, Command
 
-class UserClient(Port):
-    def save(self, user: User) -> None: ...
-    def find(self, user_id: str) -> User | None: ...
+class CreateUser(Command[User, None]):
+    user_id: str
+    name: str
+    email: str
 
-class CreateUser(UseCase):
-    user_client: UserClient
+class CreateUserUseCase(UseCase):
+    save_user: CommandPort[CreateUser]
 
     def run(self, user_id: str, name: str, email: str) -> None:
         user = User(id=user_id, name=name, email=email)
-        self.user_client.save(user)
+        self.save_user.handle(CreateUser(
+            user_id=user_id, name=name, email=email,
+        ))
         self._event_emitter.emit(UserCreated(user_id=user_id))
 ```
 
@@ -115,18 +118,21 @@ Blocked field types (rejected even if they are Port-like):
 | `BaseHandler` | Handlers belong in infrastructure |
 | `AsyncBaseHandler` | Handlers belong in infrastructure |
 
-Use repository ports instead:
+Use `CommandPort[Command]` or `QueryPort[Query]` instead:
 
 ```python
-class UserRepository(Port):
-    def save(self, user: User) -> None: ...
+from aod.application import CommandPort, Command
 
-class CreateUser(UseCase):
-    user_repo: UserRepository  # Correct: Port dependency
+class CreateUser(Command[User, None]):
+    user_id: str
+    name: str
+
+class CreateUserUseCase(UseCase):
+    save_user: CommandPort[CreateUser]
 
     def run(self, user_id: str, name: str) -> None:
         user = User(id=user_id, name=name)
-        self.user_repo.save(user)
+        self.save_user.handle(CreateUser(user_id=user_id, name=name))
 ```
 
 ## Event Collection
@@ -134,15 +140,15 @@ class CreateUser(UseCase):
 Events emitted during `run()` are automatically collected in `self.events`:
 
 ```python
-class CreateUser(UseCase):
-    user_client: UserClient
+class CreateUserUseCase(UseCase):
+    save_user: CommandPort[CreateUser]
 
     def run(self, user_id: str) -> None:
         user = User(id=user_id)
-        self.user_client.save(user)
+        self.save_user.handle(CreateUser(user_id=user_id, name="", email=""))
         self._event_emitter.emit(UserCreated(user_id=user_id))
 
-uc = CreateUser(user_client=client)
+uc = CreateUserUseCase(save_user=handler)
 uc.run(user_id="1")
 assert len(uc.events) == 1
 ```
@@ -154,8 +160,8 @@ Events emitted directly by the UseCase via `self._event_emitter.emit(...)` or by
 UseCases can have private helper methods:
 
 ```python
-class CreateUser(UseCase):
-    user_client: UserClient
+class CreateUserUseCase(UseCase):
+    save_user: CommandPort[CreateUser]
 
     def _validate(self, name: str) -> bool:
         return len(name) > 0
@@ -164,7 +170,7 @@ class CreateUser(UseCase):
         if not self._validate(name):
             raise ValueError("Invalid name")
         user = User(id=user_id, name=name)
-        self.user_client.save(user)
+        self.save_user.handle(CreateUser(user_id=user_id, name=name, email=""))
 ```
 
 ## Error Handling
@@ -175,13 +181,13 @@ The auto-wrapper handles errors:
 2. If `commit()` fails: UoW is rolled back, error is logged, exception is re-raised
 
 ```python
-class CreateUser(UseCase):
-    user_client: UserClient
+class CreateUserUseCase(UseCase):
+    save_user: CommandPort[CreateUser]
 
     def run(self) -> None:
         raise ValueError("Something went wrong")
 
-uc = CreateUser(user_client=client)
+uc = CreateUserUseCase(save_user=handler)
 try:
     uc.run()
 except ValueError:
@@ -192,20 +198,22 @@ assert uc.events == []  # Events cleared on failure
 
 ## Testing
 
-Use spy classes from `aod.testing.doubles`:
+Use `spy_adapter_container` for testing use cases instead of mocking ports manually:
 
 ```python
-from aod.testing.doubles import SpyLogger, SpyEventBus, SpyUnitOfWork
+from aod.testing.doubles import spy_adapter_container
 
-logger = SpyLogger()
-uow = SpyUnitOfWork()
-uc = CreateUser(user_client=client, logger=logger, uow=uow)
+class MyContainer(AdapterContainerBase):
+    sessions: set = {MySession}
+    handlers: list = [CreateUserHandler]
 
-uc.run(user_id="1", name="Alice")
+container = spy_adapter_container(MyContainer())
+use_case = inject_adapters(container, CreateUserUseCase)
 
-assert len(logger.entries) > 0
-assert uow.committed
-assert len(uc.events) == 1
+use_case.run(user_id="1", name="Alice")
+
+assert use_case.events
+assert container.get_handler(CreateUser).handle.called
 ```
 
 ## Common Patterns
@@ -213,43 +221,82 @@ assert len(uc.events) == 1
 ### Command Use Case
 
 ```python
-class PlaceOrder(UseCase):
-    order_client: OrderClient
+class PlaceOrderUseCase(UseCase):
+    place_order: CommandPort[PlaceOrder]
 
     def run(self, order_id: str, total: float) -> None:
         order = Order(id=order_id, total=total)
-        self.order_client.save(order)
+        self.place_order.handle(PlaceOrder(order_id=order_id, total=total))
         self._event_emitter.emit(OrderPlaced(order_id=order_id))
 ```
 
 ### Query Use Case
 
 ```python
-class GetUser(UseCase):
-    user_client: UserClient
+class GetUserUseCase(UseCase):
+    get_user: QueryPort[GetUser]
 
     def run(self, user_id: str) -> User | None:
-        return self.user_client.find(user_id)
+        return self.get_user.handle(GetUser(user_id=user_id))
+```
+
+### Use Case with Custom Service Port
+
+For non-database dependencies (API clients, notifications), use a custom `Port` subclass:
+
+```python
+from aod.application import Port
+
+
+class NotificationClient(Port):
+    def send_email(self, to: str, subject: str, body: str) -> None: ...
+
+
+class NotifyUser(UseCase):
+    notification: NotificationClient
+
+    def run(self, user_id: str, message: str) -> None:
+        user = User(id=user_id)
+        self.notification.send_email(to=user.email, subject="Alert", body=message)
 ```
 
 ### Use Case with Validation
 
+Validation belongs in the domain, not the use case. Define constraints on the entity and let Pydantic enforce them:
+
 ```python
-class CreateUser(UseCase):
-    user_client: UserClient
+from aod.domain.validation import field_invariance
+
+
+class User(RootEntity):
+    id: str
+    name: str
+    email: str
+
+    @field_invariance("name")
+    def name_required(cls, v: str) -> str:
+        if not v:
+            raise ValueError("Name is required")
+        return v
+
+    @field_invariance("email")
+    def email_valid(cls, v: str) -> str:
+        if "@" not in v:
+            raise ValueError("Invalid email")
+        return v
+
+
+class CreateUserUseCase(UseCase):
+    save_user: CommandPort[CreateUser]
 
     def run(self, user_id: str, name: str, email: str) -> None:
-        if not name:
-            raise ValueError("Name is required")
-        if "@" not in email:
-            raise ValueError("Invalid email")
         user = User(id=user_id, name=name, email=email)
-        self.user_client.save(user)
+        self.save_user.handle(CreateUser(user_id=user_id, name=name, email=email))
 ```
 
 ## Next Steps
 
 - [Port](ports.md) — Learn how ports define interfaces
 - [Contracts](contracts.md) — Learn about commands and queries
-- [Handlers](handlers.md) — Learn about command/query handlers
+- [Handlers](../infrastructure/handlers.md) — Learn about command/query handlers
 - [Injection](../infrastructure/injection.md) — Learn how dependencies are injected

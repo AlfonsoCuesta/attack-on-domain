@@ -140,6 +140,16 @@ The documentation site is built with **zensical** (a mkdocs-material-compatible 
 **Build command:** `uv run zensical build --clean`
 **Output:** `site/` directory (gitignored)
 
+## CQRS-First Documentation
+
+All docs now use the CQRS pattern as the primary example. Key tenets:
+
+- UseCases declare `CommandPort[Command]` and `QueryPort[Query]` fields, NOT custom repository ports
+- Custom `Port` subclasses are only for non-database concerns (API clients, notifications, etc.)
+- Infrastructure handlers (`CommandHandler[C]`, `QueryHandler[Q]`) implement the handler ports
+- The container auto-wires handlers into UseCases via `inject_adapters()`
+- Updated pages: index.md, getting-started/*, application/*, domain/events.md
+
 ## Docs Structure
 
 ```
@@ -751,6 +761,9 @@ uv run pytest code/tests -q
 - Always run all tests before committing
 - `Event.emitted_at` is the timestamp field.
 - **No inline imports in tests** — every import must be at the top of the file. Test-local classes are fine, but imports from `aod`, `pydantic`, `unittest`, `types`, etc. must be at module level.
+- **`@field_validator` without `@classmethod`** — Pydantic v2 field validators use `def name(cls, v)` without the `@classmethod` decorator. The `cls` parameter is passed automatically.
+- **`@field_invariance` and `@invariance` also without `@classmethod`** — Same rule applies: `@classmethod` is never used in decorator stacks.
+- **No direct Pydantic imports** — Never import `from pydantic import field_validator`. Use `from aod.domain.validation import field_invariance` instead, which wraps Pydantic's validator and raises `InvarianceException` on failure.
 
 ## Dependencies
 

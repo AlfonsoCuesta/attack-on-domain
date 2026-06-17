@@ -264,8 +264,10 @@ from aod.domain.validation import field_invariance, invariance, AfterValidator, 
 
 ```python
 from aod.application import UseCase, Port, Logger, EventBus, UnitOfWork, Cache, Command, Query
+from aod.application import CommandPort, QueryPort
 from aod.application import ApplicationException
 from aod.application.async_ import UseCase, Logger, EventBus, UnitOfWork, Cache
+from aod.application.async_ import CommandPort, QueryPort
 ```
 
 ### UseCase
@@ -317,6 +319,7 @@ When `run()` is called:
 #### Field Validation
 
 - Fields must be `Port` subclasses.
+- Recommended field types: `Commandport[TCommand]` and `QueryPort[TQuery]`.
 - `Session` and `AsyncSession` are not allowed (raise `InvalidUseCasePortFieldError`).
 - `BaseHandler` and `AsyncBaseHandler` are also rejected.
 
@@ -354,6 +357,50 @@ Abstract base class for defining dependency interfaces.
 - No constructor parameters.
 - Subclasses declare abstract methods and fields.
 - Public methods are auto-wrapped with mutation context.
+
+### CommandPort
+
+```python
+class CommandPort(HandlerProtocol, Generic[TCommand])
+```
+
+Application-layer handler port for write operations. UseCases declare `CommandPort[Command]` as fields.
+
+#### Methods
+
+| Method | Signature | Description |
+|--------|-----------|-------------|
+| `handle` | `abstractmethod handle(self, command: TCommand) -> TResult` | Execute the command. |
+
+#### Type Parameters
+
+| Parameter | Constraint | Description |
+|-----------|------------|-------------|
+| `TCommand` | Must be a `Command` subclass | The command type this port handles. |
+
+Infrastructure provides concrete implementations via `CommandHandler[C]`.
+
+### QueryPort
+
+```python
+class QueryPort(HandlerProtocol, Generic[TQuery])
+```
+
+Application-layer handler port for read operations. UseCases declare `QueryPort[Query]` as fields.
+
+#### Methods
+
+| Method | Signature | Description |
+|--------|-----------|-------------|
+| `handle` | `abstractmethod handle(self, query: TQuery) -> TResult` | Execute the query. |
+
+#### Type Parameters
+
+| Parameter | Constraint | Description |
+|-----------|------------|-------------|
+| `TQuery` | Must be a `Query` subclass | The query type this port handles. |
+
+Infrastructure provides concrete implementations via `QueryHandler[Q]`.
 
 ### Logger
 
@@ -828,8 +875,11 @@ Wire dependencies from a container into a use case or projection.
 ```python
 from aod.testing import build, events_of, assert_event_emitted, assert_no_events, check_invariant
 from aod.testing import FakeDomain
-from aod.testing.doubles import SpyLogger, SpyEventBus, SpyUnitOfWork, SpyCache, SpySession, SpyAsyncSession
-from aod.testing.doubles.application.async_ import SpyLogger, SpyEventBus, SpyUnitOfWork, SpyCache
+from aod.testing.doubles import (
+    SpyLogger, SpyEventBus, SpyCache, SpySession, SpyAsyncSession,
+    port_stub, spy_adapter_container,
+)
+from aod.testing.doubles.application.async_ import SpyLogger, SpyEventBus, SpyCache
 ```
 
 ### build
@@ -934,15 +984,6 @@ Methods: `debug(msg, **context)`, `info(msg, **context)`, `warning(msg, **contex
 
 Method: `publish(*events)`.
 
-### SpyUnitOfWork
-
-| Property | Type | Description |
-|----------|------|-------------|
-| `committed` | `bool` | Whether commit was called. |
-| `rolled_back` | `bool` | Whether rollback was called. |
-
-Methods: `begin()`, `commit()`, `rollback()`.
-
 ### SpyCache
 
 | Properties | Type | Description |
@@ -954,27 +995,61 @@ Methods: `begin()`, `commit()`, `rollback()`.
 
 Methods: `get(key)`, `set(key, value, ttl=None)`, `delete(key)`, `flush()`, `set_promise(key, value, ttl=None)`, `delete_promise(key)`.
 
-### SpySession
+### SpySession / SpyAsyncSession
 
-| Properties | Type | Description |
-|------------|------|-------------|
-| `execute_calls` | `list[object]` | Operations passed to `execute()`. |
-| `query_calls` | `list[object]` | Operations passed to `query()`. |
-| `begin_calls`, `commit_calls`, `rollback_calls`, `close_calls` | `list[None]` | Lifecycle call tracking. |
+Each required lifecycle method records calls and lets you configure return values:
 
-Methods: `execute(operation)`, `query(operation)`, `begin()`, `commit()`, `rollback()`, `close()`, `is_dirty()`, `set_dirty(dirty)`.
+| Property | Type | Description |
+|----------|------|-------------|
+| `begin` | stub | Use `.called`, `.calls`, `.returns()`, `.always_returns()` |
+| `commit` | stub | Use `.called`, `.calls`, `.returns()`, `.always_returns()` |
+| `rollback` | stub | Use `.called`, `.calls`, `.returns()`, `.always_returns()` |
+| `close` | stub | Use `.called`, `.calls`, `.returns()`, `.always_returns()` |
+| `is_dirty` | stub | Pre-configured to `returns(False)`. Use `.returns()`, `.always_returns()` |
 
-### SpyAsyncSession
-
-Same as `SpySession` but `execute`, `query`, `begin`, `commit`, `rollback`, `close` are async. `is_dirty()` and `set_dirty()` are sync.
+SpyAsyncSession mirrors SpySession with async lifecycle methods.
 
 ### Async Spy Classes
 
 ```python
-from aod.testing.doubles.application.async_ import SpyLogger, SpyEventBus, SpyUnitOfWork, SpyCache
+from aod.testing.doubles.application.async_ import SpyLogger, SpyEventBus, SpyCache
 ```
 
 Same names as sync variants. All methods that perform I/O are async.
+
+### `spy_adapter_container`
+
+```
+spy_adapter_container(container: AdapterContainerBase) -> AdapterContainerBase
+```
+
+Create a version of a container where sessions and ports are replaced with stubs.
+
+| Method | Signature | Description |
+|--------|-----------|-------------|
+| `get_session_stub` | `get_session_stub(session_cls) -> Any` | Returns a stub for the given session class |
+| `get_port_stub` | `get_port_stub(port_cls) -> Any` | Returns a stub for the given port class |
+| `get_handler` | `get_handler(contract) -> Any` | Returns the handler for a contract (handle is a stub) |
+
+### `port_stub`
+
+```
+port_stub(port_cls: type[Port]) -> type
+```
+
+Create a stub class from any `Port` subclass. Every public method records calls and lets you configure return values.
+
+### Stub Control
+
+Every stub method provides:
+
+| Property / Method | Description |
+|-------------------|-------------|
+| `.returns(*values)` | Set sequential return values |
+| `.always_returns(value)` | Set a constant return value |
+| `.called` | Whether the method was called |
+| `.call_count` | Number of calls |
+| `.calls` | List of argument lists per call |
 
 ---
 

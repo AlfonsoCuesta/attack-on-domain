@@ -4,7 +4,7 @@ Value Objects are immutable, identity-less domain objects. They are defined by t
 
 ## Class Definition
 
-`ValueObject` inherits from `ReconstructMixin` and `BaseSealed`. `BaseSealed` permanently blocks all mutation — there is no way to change a value object after construction.
+`ValueObject` is always immutable — there is no way to change a value object after construction.
 
 ```python
 from aod.domain import ValueObject
@@ -52,7 +52,7 @@ Value objects cannot be changed after creation. Any attempt to set an attribute 
 price.amount = 10.0  # MutationForbiddenException!
 ```
 
-Unlike entities (which allow mutation inside public methods), `ValueObject` extends `BaseSealed` which blocks mutation unconditionally:
+Unlike entities (which allow mutation inside public methods), value objects block mutation unconditionally:
 
 ```python
 class Address(ValueObject):
@@ -152,24 +152,23 @@ class AuditInfo(ValueObject):
 
 ## Validation with Pydantic
 
-Value objects can use Pydantic's `field_validator` for field-level validation:
+Value objects can use `@field_invariance` for field-level validation:
 
 ```python
-from pydantic import field_validator
+from aod.domain.validation import field_invariance
 
 
 class Money(ValueObject):
     amount: float
     currency: str
 
-    @field_validator("amount")
-    @classmethod
+    @field_invariance("amount")
     def amount_must_be_positive(cls, v: float) -> float:
         if v < 0:
             raise ValueError("amount must be positive")
         return v
 
-price = Money(amount=-10.0, currency="USD")  # ModelValidationError!
+price = Money(amount=-10.0, currency="USD")  # InvarianceException!
 ```
 
 ## Reconstruct
@@ -223,7 +222,7 @@ events = events_of(money)
 
 | Parameter | Type | Description |
 |-----------|------|-------------|
-| `obj` | `BaseGuarded` | The value object to extract events from |
+| `obj` | `ValueObject` | The value object to extract events from |
 
 Returns `list[Event]`.
 
@@ -248,8 +247,7 @@ class Money(ValueObject):
 class Email(ValueObject):
     value: str
 
-    @field_validator("value")
-    @classmethod
+    @field_invariance("value")
     def validate_email(cls, v: str) -> str:
         if "@" not in v:
             raise ValueError("Invalid email")
@@ -260,18 +258,18 @@ class Email(ValueObject):
 
 ```python
 from datetime import datetime
+from aod.domain.validation import invariance
 
 
 class DateRange(ValueObject):
     start: datetime
     end: datetime
 
-    @field_validator("end")
-    @classmethod
-    def end_after_start(cls, v: datetime, info) -> datetime:
-        if "start" in info.data and v <= info.data["start"]:
+    @invariance
+    def end_after_start(cls, data: dict) -> dict:
+        if data["end"] <= data["start"]:
             raise ValueError("end must be after start")
-        return v
+        return data
 ```
 
 ## Exceptions

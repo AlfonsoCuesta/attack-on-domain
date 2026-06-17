@@ -1,19 +1,21 @@
 # Testing Utilities
 
-The framework provides testing utilities for building domain objects, inspecting events, and using spy doubles for ports and infrastructure.
+The framework provides testing utilities for building domain objects, inspecting events, and creating stub containers for integration testing.
 
 ## Imports
 
 ```python
 from aod.testing import build, events_of, assert_event_emitted, assert_no_events, check_invariant
 from aod.testing import FakeDomain
-from aod.testing.doubles import SpyLogger, SpyEventBus, SpyUnitOfWork, SpyCache, SpySession, SpyAsyncSession
-```
-
-Async spies use plain names from a separate module:
-
-```python
-from aod.testing.doubles.application.async_ import SpyLogger, SpyEventBus, SpyUnitOfWork, SpyCache
+from aod.testing.doubles import (
+    SpySession,
+    SpyAsyncSession,
+    SpyLogger,
+    SpyEventBus,
+    SpyCache,
+    port_stub,
+    spy_adapter_container,
+)
 ```
 
 ## Helper Functions
@@ -30,7 +32,7 @@ Create an instance of a domain class skipping validation.
 
 | Parameter | Type | Description |
 |-----------|------|-------------|
-| `cls` | `type[T]` | The class to instantiate. Must be an `Entity`, `RootEntity`, `ValueObject`, or any `BaseValidator` subclass. |
+| `cls` | `type[T]` | The class to instantiate. Must be an `Entity`, `RootEntity`, `ValueObject`, or any domain object subclass. |
 | `**kwargs` | `Any` | Field values to set on the instance. |
 
 #### Returns
@@ -44,7 +46,7 @@ user = build(User, id=1, name="Alice")
 ### `events_of`
 
 ```python
-def events_of(obj: BaseGuarded) -> list[Event]
+def events_of(obj: object) -> list[Event]
 ```
 
 Extract all events emitted by a domain object via its `_event_emitter`.
@@ -53,7 +55,7 @@ Extract all events emitted by a domain object via its `_event_emitter`.
 
 | Parameter | Type | Description |
 |-----------|------|-------------|
-| `obj` | `BaseGuarded` | The domain object (`Entity`, `ValueObject`, `Service`, etc.). |
+| `obj` | `object` | The domain object (`Entity`, `ValueObject`, `Service`, etc.). |
 
 #### Returns
 
@@ -83,10 +85,6 @@ Assert that a specific event type was emitted with matching field values.
 
 `Event` — The matching event instance.
 
-#### Raises
-
-`AssertionError` — If no matching event is found.
-
 ```python
 events = events_of(user)
 assert_event_emitted(events, UserCreatedEvent, user_id=1)
@@ -100,16 +98,6 @@ def assert_no_events(events: Sequence[Event]) -> None
 
 Assert that no events were emitted.
 
-#### Parameters
-
-| Parameter | Type | Description |
-|-----------|------|-------------|
-| `events` | `Sequence[Event]` | The list of events to check. |
-
-#### Raises
-
-`AssertionError` — If any events exist.
-
 ```python
 assert_no_events(events_of(service))
 ```
@@ -117,33 +105,113 @@ assert_no_events(events_of(service))
 ### `check_invariant`
 
 ```python
-def check_invariant(
-    cls: type,
-    invariant_name: str,
-    data: dict[str, Any] | None = None,
-    **kwargs: Any,
-) -> None
+def check_invariant(cls: type, invariant_name: str, data: dict[str, Any] | None = None, **kwargs: Any) -> None
 ```
 
 Run a single invariant validator against an instance created via `build()`.
 
-#### Parameters
-
-| Parameter | Type | Description |
-|-----------|------|-------------|
-| `cls` | `type` | The class that defines the invariant. |
-| `invariant_name` | `str` | The name of the invariant validator function. |
-| `data` | `dict[str, Any] \| None` | Optional dictionary of field values. |
-| `**kwargs` | `Any` | Additional field values (merged with `data`). |
-
-#### Raises
-
-- `ValueError` — If no invariant with that name exists on the class.
-- `InvarianceException` — If the invariant validation fails.
-
 ```python
 check_invariant(User, "valid_email", email="not-an-email")
 ```
+
+## Container Testing with `spy_adapter_container`
+
+The recommended approach for testing use cases is to create a spy version of your container. This replaces sessions and ports with stubs that record calls and let you configure return values.
+
+```python
+from aod.testing.doubles import spy_adapter_container
+
+class AppContainer(AdapterContainerBase):
+    sessions: set = {MySession}
+    handlers: list = [CreateUserHandler, GetUserHandler]
+
+# Create a spy container (all sessions become stubs)
+container = spy_adapter_container(AppContainer())
+
+# Configure session behavior
+container.get_session_stub(MySession).is_dirty.returns(True)
+container.get_session_stub(MySession).begin.always_returns(None)
+
+# Configure port behavior (optional)
+container.get_port_stub(Logger).info.always_returns(None)
+
+# Inject and run
+use_case = inject_adapters(container, CreateUserUseCase)
+use_case.run(user_id=1, name="Alice")
+
+# Assert handler was called
+handler = container.get_handler(CreateUser)
+assert handler.handle.called
+```
+
+### `get_session_stub`
+
+Access the stub for a given session class. Each stub method records calls and lets you configure return values:
+
+```python
+stub = container.get_session_stub(MySession)
+stub.is_dirty.returns(True)           # next call returns True
+stub.is_dirty.always_returns(False)   # always returns False
+stub.is_dirty.called                  # True if called at least once
+stub.is_dirty.call_count              # number of calls
+stub.is_dirty.calls                   # list of call argument lists
+stub.begin.called                     # tracks begin() too
+stub.commit.called                    # commit is called by the UseCase wrapper
+```
+
+### `get_port_stub`
+
+Access the stub for a given port class. Works with any `Port` subclass:
+
+```python
+stub = container.get_port_stub(Logger)
+stub.info.always_returns(None)
+stub.info.called
+stub.info.calls
+```
+
+### `get_handler`
+
+Retrieve the handler for a given contract. Handler methods are also stubbed:
+
+```python
+handler = container.get_handler(CreateUser)
+assert handler.handle.called
+```
+
+## `port_stub`
+
+For testing ports outside a container context, create stubs directly:
+
+```python
+from aod.testing.doubles import port_stub
+
+StubLogger = port_stub(Logger)
+logger = StubLogger()
+logger.info("test")
+assert logger.info.called
+```
+
+Every public method on the port records calls and lets you configure return values:
+
+```python
+logger.info("message", user_id=1)
+assert logger.info.called
+assert logger.info.call_count == 1
+entry = logger.info.calls[0]  # ["message", 1]
+```
+
+## Stub Control
+
+Every stub method provides the same control interface:
+
+| Method / Property | Signature | Description |
+|-------------------|-----------|-------------|
+| `returns` | `returns(*values: Any) -> None` | Set sequential return values (consumed FIFO) |
+| `always_returns` | `always_returns(value: Any) -> None` | Set a constant return value for all calls |
+| `called` | `property -> bool` | Whether the method was called at least once |
+| `call_count` | `property -> int` | Number of times the method was called |
+| `calls` | `property -> list[list[Any]]` | All recorded call arguments |
 
 ## Spy Classes
 
@@ -153,26 +221,13 @@ check_invariant(User, "valid_email", email="not-an-email")
 from aod.testing.doubles import SpyLogger
 ```
 
-| Method | Signature | Description |
-|--------|-----------|-------------|
-| `debug` | `debug(self, msg: str, **context: object)` | Log a debug message. |
-| `info` | `info(self, msg: str, **context: object)` | Log an info message. |
-| `warning` | `warning(self, msg: str, **context: object)` | Log a warning message. |
-| `error` | `error(self, msg: str, **context: object)` | Log an error message. |
+`SpyLogger` is a ready-made implementation of `Logger(Port)`:
 
-#### Parameters
-
-| Parameter | Type | Description |
-|-----------|------|-------------|
-| `msg` | `str` | The log message. |
-| `**context` | `object` | Additional context key-value pairs. |
-
-#### Property
-
-- `entries: list[LogEntry]` — All logged entries. Each `LogEntry` has:
-  - `.level: str` — The log level ("debug", "info", "warning", "error").
-  - `.msg: str` — The log message.
-  - `.context: dict[str, object]` — The context key-value pairs.
+```python
+logger = SpyLogger()
+logger.info("order placed", order_id=1)
+assert logger.info.called
+```
 
 ### SpyEventBus
 
@@ -180,36 +235,11 @@ from aod.testing.doubles import SpyLogger
 from aod.testing.doubles import SpyEventBus
 ```
 
-| Method | Signature | Description |
-|--------|-----------|-------------|
-| `publish` | `publish(self, *events: Event)` | Record published events. |
-
-#### Parameters
-
-| Parameter | Type | Description |
-|-----------|------|-------------|
-| `*events` | `Event` | One or more events to publish. |
-
-#### Property
-
-- `published: list[Event]` — All events that have been published.
-
-### SpyUnitOfWork
-
 ```python
-from aod.testing.doubles import SpyUnitOfWork
+bus = SpyEventBus()
+bus.publish(OrderPlaced(order_id=1))
+assert bus.publish.called
 ```
-
-| Method | Signature | Description |
-|--------|-----------|-------------|
-| `begin` | `begin(self)` | No-op. |
-| `commit` | `commit(self)` | Set `committed = True`. |
-| `rollback` | `rollback(self)` | Set `rolled_back = True`. |
-
-#### Properties
-
-- `committed: bool` — Whether `commit()` was called.
-- `rolled_back: bool` — Whether `rollback()` was called.
 
 ### SpyCache
 
@@ -217,71 +247,28 @@ from aod.testing.doubles import SpyUnitOfWork
 from aod.testing.doubles import SpyCache
 ```
 
-| Method | Signature | Description |
-|--------|-----------|-------------|
-| `get` | `get(self, key: str) -> Any` | Retrieve a value by key from the in-memory store. |
-| `set` | `set(self, key: str, value: Any, ttl: float \| None = None)` | Store a value by key. |
-| `delete` | `delete(self, key: str)` | Remove a value by key. |
-| `flush` | `flush(self)` | Clear the in-memory store. |
-| `set_promise` | `set_promise(self, key: str, value: Any, ttl: float \| None = None)` | Record a set-promise call. |
-| `delete_promise` | `delete_promise(self, key: str)` | Record a delete-promise call. |
-
-#### Properties
-
-- `get_calls: list[str]` — Keys passed to `get()`.
-- `set_calls: list[tuple[str, Any, float | None]]` — Arguments passed to `set()`.
-- `delete_calls: list[str]` — Keys passed to `delete()`.
-- `flush_calls: list[None]` — Records each `flush()` call.
-
-### SpySession
-
 ```python
-from aod.testing.doubles import SpySession
+cache = SpyCache()
+cache.get("key")
+assert cache.get.called
 ```
 
-| Method | Signature | Description |
-|--------|-----------|-------------|
-| `execute` | `execute(self, operation: object) -> object` | Record the operation and return `_execute_result`. |
-| `query` | `query(self, operation: object) -> object` | Record the operation and return `_query_result`. |
-| `begin` | `begin(self)` | Record a begin call. |
-| `commit` | `commit(self)` | Record a commit call. |
-| `rollback` | `rollback(self)` | Record a rollback call. |
-| `close` | `close(self)` | Record a close call. |
-| `is_dirty` | `is_dirty(self) -> bool` | Return the `_dirty` flag. |
-| `set_dirty` | `set_dirty(self, dirty: bool)` | Set the dirty flag. |
-
-#### Properties
-
-- `execute_calls: list[object]` — Operations passed to `execute()`.
-- `query_calls: list[object]` — Operations passed to `query()`.
-- `begin_calls`, `commit_calls`, `rollback_calls`, `close_calls: list[None]` — Lifecycle call tracking.
-
-### SpyAsyncSession
+### SpySession / SpyAsyncSession
 
 ```python
-from aod.testing.doubles import SpyAsyncSession
+from aod.testing.doubles import SpySession, SpyAsyncSession
 ```
 
-Same methods as `SpySession` but `execute`, `query`, `begin`, `commit`, `rollback`, and `close` are async. `is_dirty()` and `set_dirty()` remain sync.
-
-## Async Spies
-
-Import async spy variants from the dedicated module using plain names:
+`SpySession` is a stub implementation of `Session` that records lifecycle calls:
 
 ```python
-from aod.testing.doubles.application.async_ import SpyLogger, SpyEventBus, SpyUnitOfWork, SpyCache
+session = SpySession()
+session.is_dirty.always_returns(False)
+session.begin()
+session.commit()
+assert session.begin.called
+assert session.commit.called
 ```
-
-Each variant mirrors the sync API but with async methods:
-
-| Class | Async Methods |
-|-------|---------------|
-| `SpyLogger` | `debug`, `info`, `warning`, `error` |
-| `SpyEventBus` | `publish` |
-| `SpyUnitOfWork` | `begin`, `commit`, `rollback` |
-| `SpyCache` | `get`, `set`, `delete`, `flush` |
-
-`set_promise()` and `delete_promise()` remain sync on `AsyncSpyCache`.
 
 ## FakeDomain
 
@@ -289,7 +276,7 @@ Each variant mirrors the sync API but with async methods:
 from aod.testing import FakeDomain
 ```
 
-`FakeDomain(Generic[T])` generates test data for domain objects.
+`FakeDomain(Generic[T])` generates test data for domain objects using `polyfactory`.
 
 ### Constructor
 
@@ -308,13 +295,10 @@ def __call__(self, **overrides: Any) -> T
 
 Build an instance with auto-generated fields for any not provided.
 
-| Parameter | Type | Description |
-|-----------|------|-------------|
-| `**overrides` | `Any` | Field values to override. |
-
-#### Returns
-
-`T` — An instance of the domain class built via `reconstruct()`.
+```python
+users = FakeDomain(User)
+alice = users(name="Alice")  # auto-generates other fields
+```
 
 ### `batch`
 
@@ -324,40 +308,27 @@ def batch(self, count: int, overrides_list: list[dict[str, Any]] | None = None) 
 
 Build multiple instances.
 
-| Parameter | Type | Description |
-|-----------|------|-------------|
-| `count` | `int` | Number of instances to build. |
-| `overrides_list` | `list[dict[str, Any]] \| None` | Optional list of per-instance overrides. |
-
 ```python
-users = FakeDomain(User)
-alice = users(name="Alice")  # auto-generates other fields
-batch = users.batch(5)       # 5 users with auto-generated fields
+batch = users.batch(5)  # 5 users with auto-generated fields
 ```
 
 ## Common Testing Patterns
 
-### Testing Use Cases
+### Testing Use Cases with Spy Container
 
 ```python
-from aod.testing.doubles import SpyUnitOfWork, SpyEventBus, SpyLogger
-from aod.infrastructure import inject_adapters
+from aod.testing.doubles import spy_adapter_container
 
-class MyContainer(AdapterContainerBase):
-    pass
+class AppContainer(AdapterContainerBase):
+    sessions: set = {MySession}
+    handlers: list = [CreateUserHandler, GetUserHandler]
 
-container = MyContainer()
-use_case = inject_adapters(
-    container,
-    CreateUser,
-    uow=SpyUnitOfWork(),
-    event_bus=SpyEventBus(),
-    logger=SpyLogger(),
-)
+container = spy_adapter_container(AppContainer())
+use_case = inject_adapters(container, CreateUserUseCase)
 use_case.run(user_id=1, name="Alice")
 
-assert use_case.uow.committed
 assert_event_emitted(use_case.events, UserCreatedEvent, user_id=1)
+assert container.get_handler(CreateUser).handle.called
 ```
 
 ### Testing Entities

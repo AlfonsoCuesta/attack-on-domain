@@ -1,239 +1,188 @@
 # Domain-Driven Design Concepts
 
-This page explains the core DDD concepts implemented in `attack-on-domain`.
+This page explains the core DDD concepts — pure theory with no framework specifics.
 
 ## What Is DDD?
 
 Domain-Driven Design (DDD) is an approach to software development that focuses on:
 
-1. **Putting the business domain first** — the code reflects how the business works
-2. **Using a shared language** — developers and domain experts speak the same language (Ubiquitous Language)
-3. **Creating clear boundaries** — different parts of the system map to distinct business subdomains
+1. **Putting the business domain first** — the code reflects how the business works, not the technology
+2. **Using a shared language** — developers and domain experts speak the same language (Ubiquitous Language), with terms defined in code
+3. **Creating clear boundaries** — different parts of the system map to distinct business subdomains, each with its own model
+
+The goal is software that remains understandable and maintainable as business complexity grows.
 
 ## The Building Blocks
 
-### Value Objects
+### Value Object
 
-Immutable objects defined by their attributes, not their identity.
+Immutable object defined by its attributes, not its identity.
 
+**Characteristics:**
 - No identity field
 - Compared by value (all fields must match)
 - Cannot be mutated after creation
+- Can contain other Value Objects
+- Examples: Money, Email, Address, DateRange
 
-```python
-from aod.domain import ValueObject
+**Best practices:**
+- Make them immutable — any "change" produces a new instance
+- Keep them small and self-validating
+- Use them to wrap primitive types that have business meaning (e.g. `Email` instead of `str`)
 
+### Entity
 
-class Money(ValueObject):
-    amount: float
-    currency: str
+Mutable object with a distinct identity that persists over time.
 
-
-m1 = Money(amount=10.0, currency="USD")
-m2 = Money(amount=10.0, currency="USD")
-assert m1 == m2
-```
-
-### Entities
-
-Mutable objects with a distinct identity that persists over time.
-
-- Have an identity field (typically `id`)
+**Characteristics:**
+- Has an identity field (typically `id`)
 - Can change state through public methods
-- Compared by identity, not by value
+- Compared by identity, not by value — two entities with the same `id` are the same entity regardless of other attributes
+- Lives across multiple transactions
 
-```python
-from aod.domain import Entity
+**Best practices:**
+- Protect invariants inside public methods — validate before mutating
+- Expose behaviour, not data (tell an entity what to do, don't ask for its data and do it externally)
+- Keep identity simple (string, UUID, or a dedicated Value Object)
 
+### Aggregate and Aggregate Root
 
-class User(Entity):
-    id: str
-    name: str
+An **aggregate** is a cluster of associated objects treated as a single unit for data changes. The **aggregate root** is the only object that external code references directly.
 
+**Characteristics:**
+- The aggregate root is an Entity
+- External objects reference the aggregate by its root's identity, never by object reference
+- All invariants are enforced by the root
+- Child entities exist only inside the aggregate boundary
 
-u1 = User(id="1", name="Alice")
-u2 = User(id="1", name="Bob")
-assert u1 == u2  # Same identity
-```
+**Best practices:**
+- Keep aggregates small — only include what must be consistent together
+- Reference other aggregates by identity, not by object reference
+- One transaction = one aggregate (don't modify multiple aggregates in a single transaction)
+- Load the entire aggregate when you need to modify it
 
-### Root Entities (Aggregates)
+### Domain Service
 
-Entities that serve as the consistency boundary for a cluster of associated objects.
+Stateless operation that does not naturally belong to an Entity or Value Object.
 
-- Subclass `RootEntity` (not plain `Entity`)
-- Cannot be nested inside other entities
-- Enforce invariants across the aggregate
+**When to use:**
+- The operation involves multiple aggregates
+- The operation requires external data (pricing from an API, tax rates from a database)
+- The logic does not fit naturally inside a single entity
 
-```python
-from aod.domain import RootEntity
+**Best practices:**
+- Keep services stateless — all dependencies are passed in or injected
+- Name them after the business activity they perform
+- A service should not replace what should be an entity method
 
+### Domain Event
 
-class Order(RootEntity):
-    id: str
-    total: float
+A record of something significant that happened in the domain.
 
-    def apply_discount(self, percent: float) -> None:
-        self.total *= 1 - percent
-```
+**Characteristics:**
+- Immutable and timestamped
+- Named in the past tense (e.g. `OrderPlaced`, `UserRegistered`)
+- Represents a fact that other parts of the system can react to
 
-### Services
+**Best practices:**
+- Events decouple aggregates — one aggregate emits, another reacts
+- Store events for audit trails and event sourcing
+- Keep events small — include only what happened, not why
 
-Stateless operations that do not naturally belong to any entity or value object.
+### Domain Invariant
 
-- No identity or state
-- Can depend on other services and entities
-- Can emit domain events
+A business rule that must always be true for the model to be consistent.
 
-```python
-from aod.domain import Service
+**Examples:**
+- An order total cannot be negative
+- A booking cannot overlap with another booking for the same resource
+- An email address must be valid format
 
+**Best practices:**
+- Enforce invariants at construction time and on every state change
+- Put invariants closest to the data they protect (in the Entity or Value Object that owns the data)
+- Throw meaningful exceptions when invariants are violated
 
-class TaxCalculator(Service):
-    def calculate(self, amount: float, rate: float) -> float:
-        return amount * rate
-```
+### Bounded Context
 
-### Domain Events
+A boundary within which a particular domain model is defined and consistent.
 
-Records of something significant that happened in the domain.
+**Characteristics:**
+- Each context has its own Ubiquitous Language
+- The same term can mean different things in different contexts
+- Contexts communicate through events or anti-corruption layers
 
-- Immutable and auto-timestamped (`emitted_at`)
-- Emitted by entities and services via `_event_emitter`
-- Automatically collected by use cases
+**Best practices:**
+- Define context boundaries based on business subdomains, not technical layers
+- A typical application has 3-7 bounded contexts
+- Keep the model pure inside a context — don't import models from other contexts
 
-```python
-from aod.events import Event
+## Architectural Patterns
 
+### Layered Architecture
 
-class OrderPlaced(Event):
-    order_id: str
-    total: float
-```
+DDD organises code into concentric layers where each layer depends only on the one below it:
 
-## Application Layer
+| Layer | Responsibility | Depends On |
+|-------|---------------|------------|
+| **Infrastructure** | Technical concerns: databases, APIs, message queues | Application |
+| **Application** | Orchestration, transactions, security | Domain |
+| **Domain** | Business logic, rules, models | None (pure) |
 
-### Use Cases
+The **Domain layer** contains only business logic with no framework or infrastructure dependencies. The **Application layer** coordinates domain objects and defines ports. The **Infrastructure layer** implements those ports for databases, APIs, and other external systems.
 
-Application operations that orchestrate domain objects.
+### Ports and Adapters (Hexagonal Architecture)
 
-- Depend on Ports (interfaces), not concrete implementations
-- Receive values as parameters to `run()`
-- Auto-collect events, log, and publish to event bus
+Also known as the hexagonal architecture, this pattern places the domain and application at the centre, with ports defining interfaces and adapters providing implementations:
 
-```python
-from aod.application import UseCase
+- **Port** — An interface that defines how the core interacts with the outside world (e.g. "save an order")
+- **Adapter** — A concrete implementation of that port (e.g. "save an order to PostgreSQL")
+- **Driving adapters** — Initiate the flow (controllers, CLI, tests)
+- **Driven adapters** — Are called by the core (database, message queue, API)
 
+The rule: the core depends on ports, not on adapters. You can swap adapters without changing business logic.
 
-class PlaceOrder(UseCase):
-    order_client: OrderClient
+### CQRS (Command Query Responsibility Segregation)
 
-    def run(self, order_id: str, total: float) -> None:
-        order = Order(id=order_id, total=total)
-        self.order_client.save(order)
-```
+Separation of write and read models:
 
-### Ports
+- **Commands** — Requests that change state (writes). Return minimal data (typically void or a success indicator)
+- **Queries** — Requests that return data (reads). Do not modify state
 
-Interfaces that define how the application interacts with the outside world. Infrastructure provides concrete implementations.
+**Benefits:**
+- Read and write models can be optimised independently (different databases, different schemas)
+- Commands can validate against the full domain model; queries can return flat, denormalised data
+- Security rules differ for writes vs reads
 
-- Abstract base classes with method stubs
-- Mutable from inside public methods
-- Implementation is injected at runtime
+**Best practices:**
+- Commands are named imperatively (`PlaceOrder`, `CreateUser`)
+- Queries are named descriptively (`GetOrder`, `FindUsersByName`)
+- Handlers for commands and queries are separate — a command handler should not return query data
+- Commands use the domain model (Entities, Value Objects, invariants); queries can bypass it for performance
 
-```python
-from aod.application import Port
+### Transactions
 
+A transaction groups multiple operations into a single unit that either succeeds completely or fails completely.
 
-class OrderClient(Port):
-    def save(self, order: Order) -> None: ...
-    def find(self, order_id: str) -> Order | None: ...
-```
+**Best practices in DDD:**
+- One transaction per aggregate — never modify two aggregates in the same transaction
+- Use optimistic concurrency for long-running operations
+- Use eventual consistency between bounded contexts (events)
+- The application layer manages transaction boundaries, not the domain
 
-### Contracts
+## Summary of Key Principles
 
-Immutable data classes for commands (writes) and queries (reads).
-
-- `Command[TEntity, TResult]` — write operations
-- `Query[TEntity, TResult]` — read operations
-- Type-checked to ensure only `RootEntity` types are referenced
-
-```python
-from aod.application import Command, Query
-
-
-class PlaceOrder(Command[Order, None]):
-    order_id: str
-    total: float
-
-
-class GetOrder(Query[Order, Order | None]):
-    order_id: str
-```
-
-## Infrastructure Layer
-
-### Sessions
-
-Database abstractions that handle connections and transactions.
-
-- `Session` for synchronous databases
-- `AsyncSession` for asynchronous databases
-- Provide `begin()`, `commit()`, `rollback()`, `close()` lifecycle
-
-```python
-from aod.infrastructure import Session
-
-
-class PostgresSession(Session):
-    def execute(self, operation: object) -> object: ...
-    def query(self, operation: object) -> object: ...
-    def begin(self) -> None: ...
-    def commit(self) -> None: ...
-    def rollback(self) -> None: ...
-    def close(self) -> None: ...
-    def is_dirty(self) -> bool: ...
-```
-
-### Projections
-
-Read and write models for querying and persisting data. Projections are use-case-like classes with `read()` and `write()` methods.
-
-- `ReadProjection` — query data via `read(model: ReadModel)`
-- `WriteProjection` — persist data via `write(model: WriteModel)`
-- `Projection` — combines both read and write
-- Async variants available (`AsyncReadProjection`, `AsyncWriteProjection`, `AsyncProjection`)
-
-```python
-from aod.infrastructure import ReadProjection, ReadModel
-
-
-class UserListProjection(ReadProjection):
-    def read(self, model: ReadModel) -> list[User]:
-        return self.session.query("SELECT * FROM users")
-```
-
-### Containers
-
-Dependency injection containers that wire ports to their implementations.
-
-- `AdapterContainerBase` — declare ports as fields, infrastructure fills them
-- `inject_adapters()` — creates a use case with ports wired from the container
-
-```python
-from aod.infrastructure import AdapterContainerBase, inject_adapters
-
-
-class AppContainer(AdapterContainerBase):
-    order_client: OrderClient
-
-
-container = AppContainer(order_client=RealOrderClient())
-use_case = inject_adapters(container, PlaceOrder)
-```
+| Principle | Description |
+|-----------|-------------|
+| **Ubiquitous Language** | Use the same terms in code, conversations, and documentation |
+| **Persistence Ignorance** | Domain objects do not know about databases, ORMs, or serialisation |
+| **Aggregate Consistency** | One transaction per aggregate; enforce invariants at the root |
+| **Separation of Concerns** | Domain, Application, and Infrastructure have distinct responsibilities |
+| **Dependency Inversion** | Core depends on ports (interfaces), not concrete adapters |
+| **Command-Query Separation** | Do not mix state-changing and state-reading operations |
 
 ## Next Steps
 
+- [Installation](installation.md) — Install the library
 - [Quick Start](quickstart.md) — Apply these concepts in a working example
-- [Domain Objects](../domain/index.md) — Detailed API for entities, value objects, and services
-- [Application Layer](../application/index.md) — Use cases, ports, and contracts
-- [Infrastructure](../infrastructure/index.md) — Sessions, projections, and containers
+- [Mapping DDD to AoD](mapping.md) — See how each concept translates to code

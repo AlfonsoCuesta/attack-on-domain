@@ -1,4 +1,4 @@
-.PHONY: lint typecheck test check release
+.PHONY: lint typecheck test check release docs
 
 lint:
 	uv run ruff format code/
@@ -11,6 +11,9 @@ test:
 	uv run pytest code/tests -q
 
 check: lint typecheck test
+
+docs:
+	uv run zensical serve
 
 release: check
 	@echo "--- Bumping patch version ---"

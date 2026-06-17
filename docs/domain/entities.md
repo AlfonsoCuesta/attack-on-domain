@@ -4,7 +4,7 @@ Entities are mutable domain objects with a distinct identity. Two entities with 
 
 ## Entity
 
-`Entity` is the base class for all domain objects that have identity. It inherits from `ReconstructMixin` and `BaseGuarded`, which provides mutation guards, event emission, and the validation system.
+`Entity` is the base class for all domain objects that have identity, mutation guards, event emission, and validation.
 
 ### Class Definition
 
@@ -87,11 +87,9 @@ class User(Entity):
 
 ### Mutation Rules
 
-Entities follow the `BaseGuarded` mutation policy:
-
-- **Inside public methods**: Mutation is allowed (PASS state). Fields can be assigned.
+- **Inside public methods**: Fields can be assigned.
 - **Outside methods**: Mutation is blocked. `MutationForbiddenException` is raised.
-- **During `__init__`**: Mutation is allowed (INHERIT state) during construction.
+- **During `__init__`**: Mutation is allowed.
 
 ```python
 class User(Entity):
@@ -217,7 +215,7 @@ class Order(RootEntity):
 
 ## Reconstruct
 
-`reconstruct()` is a classmethod available on `Entity` and `RootEntity` (via `ReconstructMixin`). It creates instances without running Pydantic validation, making it suitable for loading persisted objects from a database.
+`reconstruct()` is a classmethod that creates entities without validation, making it suitable for loading persisted objects from a database.
 
 ```python
 user = User.reconstruct(id="1", name="Alice")
@@ -233,7 +231,7 @@ The `__post_init__` hook does NOT run during `reconstruct()`, only during normal
 
 ## `__post_init__` Hook
 
-Defined as an empty method on `BaseValidator`. Override it to run initialization logic after all fields are set. It only runs during normal construction, not during `reconstruct()`.
+Override `__post_init__` to run initialization logic after all fields are set. It runs during normal construction, not during `reconstruct()`.
 
 ```python
 class User(RootEntity):
@@ -248,9 +246,9 @@ class User(RootEntity):
 
 | Parameter | Type | Description |
 |-----------|------|-------------|
-| (none) | — | No parameters. All fields are already set via `__set_model_attributes` before this hook runs |
+| (none) | — | No parameters. All fields are already set before this hook runs |
 
-During `__post_init__`, the mutation context is in INHERIT state, so public methods can be called and fields can be mutated.
+During `__post_init__`, public methods can be called and fields can be mutated.
 
 ## Testing
 
@@ -279,7 +277,7 @@ events = events_of(user)
 
 | Parameter | Type | Description |
 |-----------|------|-------------|
-| `obj` | `BaseGuarded` | The entity or domain object to extract events from |
+| `obj` | `Entity \| ValueObject \| Service` | The domain object to extract events from |
 
 Returns `list[Event]` — all events emitted by this object.
 
