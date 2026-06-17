@@ -10,7 +10,6 @@ from aod._internal.application.port import Port
 from aod._internal.application.unit_of_work import UnitOfWork
 from aod._internal.application.use_case import AsyncUseCase, UseCase
 from aod._internal.core.base_operation import BaseOperation
-from aod._internal.core.infrastructure_exception import PortNotFoundError
 from aod._internal.infrastructure.container import AdapterContainerBase
 from aod._internal.infrastructure.projection import ProjectionBase
 

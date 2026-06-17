@@ -1,5 +1,3 @@
-import inspect
-
 import pytest
 from aod._internal.core.domain_exception import (
     ClassExpectedError,
@@ -468,7 +466,7 @@ def test_duplicate_root_entity_in_aggregate_roots() -> None:
 
 def test_service_with_unresolvable_forward_ref_skips_validation() -> None:
     class BadService(Service):
-        def process(self, x: "NonExistentClass") -> None:  # type: ignore[valid-type]
+        def process(self, x: "NonExistentClass") -> None:  # type: ignore  # noqa: F821
             pass
 
     bc = BoundedContext(services=[BadService])

@@ -10,7 +10,7 @@ class TestMakeBaseModel:
             pass
 
         with pytest.raises(TypeError, match="is not a BaseValidation subclass"):
-            make_base_model(_NotAValidator)
+            make_base_model(_NotAValidator)  # type: ignore
 
     def test_empty_validator_returns_constrained_model(self) -> None:
         class _EmptyValidator(BaseValidator):

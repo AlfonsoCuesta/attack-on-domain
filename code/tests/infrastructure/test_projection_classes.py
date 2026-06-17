@@ -6,6 +6,7 @@ from typing import cast
 import pytest
 from aod._internal.core.domain_exception import MutationForbiddenException
 from aod._internal.core.event_emitter import Event
+from aod._internal.core.infrastructure_exception import InvalidPortFieldError
 from aod._internal.infrastructure.commit_context import _CommitContext
 from aod._internal.infrastructure.projection import (
     AsyncProjection,
@@ -505,8 +506,6 @@ class TestAsyncProjection:
 
 class TestProjectionMultipleSessions:
     def test_multiple_session_fields_raises_error(self) -> None:
-        from aod._internal.core.infrastructure_exception import InvalidPortFieldError
-
         with pytest.raises(InvalidPortFieldError, match="session"):
 
             class _Bad(ReadProjection):

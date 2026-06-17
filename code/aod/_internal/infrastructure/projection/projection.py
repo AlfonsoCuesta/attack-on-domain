@@ -27,6 +27,8 @@ def _is_session_type(tp: Any) -> bool:
             for arg in get_args(tp)
         )
     return False
+
+
 TReadModel = TypeVar("TReadModel", bound=ReadModel)
 TWriteModel = TypeVar("TWriteModel", bound=WriteModel)
 

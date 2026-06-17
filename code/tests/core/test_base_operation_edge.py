@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Any, get_origin
+from typing import get_origin
 
 from aod._internal.core.base_operation import BaseOperation, _resolve_port_class
 
@@ -44,7 +44,7 @@ class TestBaseOperationGetTypeHints:
         try:
 
             class _OpWithBadRef(BaseOperation):
-                bad_field: "NonExistentTypeForSureXYZ"
+                bad_field: "NonExistentTypeForSureXYZ"  # type: ignore  # noqa: F821
 
         except Exception:
             pass

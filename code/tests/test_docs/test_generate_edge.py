@@ -1,7 +1,7 @@
 from __future__ import annotations
 
-from aod._internal.docs.generate import _collect_events_from_types, _write_file
-from aod._internal.docs.model import AppDoc, DocApp, DocInfra
+from aod._internal.docs.generate import _collect_events_from_types
+from aod._internal.docs.model import AppDoc
 from aod._internal.docs.renderer import (
     _fields_table,
     render_app_home,
@@ -10,8 +10,8 @@ from aod._internal.docs.renderer import (
     render_query,
 )
 from aod._internal.docs.model import ContractDoc, FieldDoc, HandlerDoc, MethodDoc, ParamDoc
-from aod._internal.docs.introspect import _get_original_run, introspect_use_case
-from aod.application import UseCase, Port
+from aod._internal.docs.introspect import _get_original_run
+from aod.application import UseCase
 from aod.domain import BoundedContext, RootEntity
 from aod.events import Event
 
@@ -81,7 +81,9 @@ class TestRenderCommandWithDoc:
             stereotype="Command",
             doc="A test command",
             fields=[FieldDoc(name="x", type_name="str", description="desc")],
-            methods=[MethodDoc(name="validate", signature="()", doc="valid", params=[], returns="bool")],
+            methods=[
+                MethodDoc(name="validate", signature="()", doc="valid", params=[], returns="bool")
+            ],
         )
         md = render_command(doc)
         assert "A test command" in md

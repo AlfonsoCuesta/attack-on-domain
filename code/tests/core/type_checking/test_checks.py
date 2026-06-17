@@ -1,3 +1,5 @@
+from typing import Generic, TypeVar
+
 import pytest
 from aod._internal.core.domain_exception import (
     InvalidNestedTypeError,
@@ -291,8 +293,6 @@ def test_resolved_hints_exception() -> None:
 
 
 def test_get_generic_arg_from_mro_finds_arg() -> None:
-    from typing import Generic, TypeVar
-
     T = TypeVar("T")
 
     class Base(Generic[T]):
@@ -314,8 +314,6 @@ def test_get_generic_arg_from_mro_returns_none_when_not_found() -> None:
 
 
 def test_get_last_generic_arg_finds_last_arg() -> None:
-    from typing import Generic, TypeVar
-
     T = TypeVar("T")
     U = TypeVar("U")
 

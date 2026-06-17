@@ -10,9 +10,9 @@ from aod._internal.docs.introspect import (
     _get_own_doc,
     introspect_handler,
 )
-from aod._internal.docs.model import FieldDoc
 from aod.application import Command, Query, UseCase
 from aod.domain import RootEntity
+from aod.infrastructure import CommandHandler
 
 
 class User(RootEntity):
@@ -124,10 +124,11 @@ class TestGetOriginalRun:
 
 class TestIntrospectHandler:
     def test_handler_without_base_handler_still_finds_contract(self) -> None:
-        from aod._internal.application.handler import CommandPort
+        class _Cmd(Command[User, None]):
+            user_id: int
 
-        class _CustomHandler(CommandPort[GetUser]):
-            def handle(self, command: GetUser) -> User | None:
+        class _CustomHandler(CommandHandler[_Cmd]):
+            def handle(self, command: _Cmd) -> None:
                 return None
 
         doc = introspect_handler(_CustomHandler)
