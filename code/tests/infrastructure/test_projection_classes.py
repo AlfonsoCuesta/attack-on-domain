@@ -501,3 +501,17 @@ class TestAsyncProjection:
         with pytest.raises(ValueError):
             p.write(UserWriteModel(user_id=1, name="test"))
         assert _CommitContext.get(False) is False
+
+
+class TestProjectionMultipleSessions:
+    def test_multiple_session_fields_raises_error(self) -> None:
+        from aod._internal.core.infrastructure_exception import InvalidPortFieldError
+
+        with pytest.raises(InvalidPortFieldError, match="session"):
+
+            class _Bad(ReadProjection):
+                session: Session
+                other_session: AsyncSession | None
+
+                def read(self, model: ReadModel) -> str:
+                    return "ok"

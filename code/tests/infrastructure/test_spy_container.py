@@ -2,9 +2,12 @@ from __future__ import annotations
 
 from typing import Any, cast
 
+import pytest
+
 from aod._internal.application.event_bus import EventBus
 from aod._internal.application.logger import Logger
 from aod._internal.application.port import Port
+from aod._internal.core.infrastructure_exception import PortNotFoundError
 from aod._internal.core.event_emitter import Event
 from aod._internal.infrastructure.container import AdapterContainerBase
 from aod._internal.infrastructure.session import AsyncSession, Session
@@ -67,6 +70,12 @@ def test_get_port_stub() -> None:
     container = spy_adapter_container(_MyContainer(weather=_FakePort()))
     stub = container.get_port_stub(Logger)
     assert stub is not None
+
+
+def test_spy_get_port_raises_when_port_not_registered() -> None:
+    container = spy_adapter_container(_MyContainer(weather=_FakePort()))
+    with pytest.raises(PortNotFoundError):
+        container.get_port(Logger)
 
 
 def test_get_session_returns_stub_instance() -> None:

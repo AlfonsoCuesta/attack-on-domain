@@ -17,8 +17,8 @@ from aod._internal.infrastructure.projection.projection import (
 )
 
 from .model import (
-    ContractDoc,
     ContextDoc,
+    ContractDoc,
     EntityDoc,
     EventDoc,
     ExceptionDoc,

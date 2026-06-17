@@ -51,16 +51,12 @@ def inject_ports(
     kwargs: dict[str, Any],
 ) -> None:
     for field_name, field_info in operation_cls.__model_fields__.items():
-        if field_name.startswith("_"):
-            continue
         field_type = field_info.annotation
         if field_type is None or is_special_type(field_type):
             continue
         port_type = extract_port_type(field_type)
         if port_type is not None:
             port_value = container.get_port(port_type)
-            if port_value is None:
-                raise PortNotFoundError(port_type)
             kwargs[field_name] = port_value
 
 
@@ -68,14 +64,7 @@ def inject_projection(
     container: AdapterContainerBase,
     operation_cls: type[ProjectionBase],
 ) -> dict[str, Any]:
-    session_field = operation_cls.__model_fields__.get("session")
-    if session_field is None:
-        return {"session": None}
-
-    session_type = session_field.annotation
-    if isinstance(session_type, type) and issubclass(session_type, type(None)):
-        return {"session": None}
-
+    session_type = operation_cls.__model_fields__["session"].annotation
     return {"session": container.get_session(session_type)}
 
 

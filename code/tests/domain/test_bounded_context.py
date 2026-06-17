@@ -1,3 +1,5 @@
+import inspect
+
 import pytest
 from aod._internal.core.domain_exception import (
     ClassExpectedError,
@@ -462,3 +464,31 @@ def test_duplicate_root_entity_in_aggregate_roots() -> None:
     bc = BoundedContext(aggregate_roots=[Customer, Customer])
 
     assert Address in bc.value_objects
+
+
+def test_service_with_unresolvable_forward_ref_skips_validation() -> None:
+    class BadService(Service):
+        def process(self, x: "NonExistentClass") -> None:  # type: ignore[valid-type]
+            pass
+
+    bc = BoundedContext(services=[BadService])
+    assert BadService in bc.services
+
+
+def test_service_with_invalid_signature_skips_method() -> None:
+    class BadService(Service):
+        def process(self) -> None:
+            pass
+
+    setattr(BadService.process, "__signature__", "invalid")  # type: ignore[attr-defined]
+    bc = BoundedContext(services=[BadService])
+    assert BadService in bc.services
+
+
+def test_service_with_unannotated_param_skips_validation() -> None:
+    class BadService(Service):
+        def process(self, x) -> None:  # type: ignore[no-untyped-def]
+            pass
+
+    bc = BoundedContext(services=[BadService])
+    assert BadService in bc.services

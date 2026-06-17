@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from abc import abstractmethod
 from functools import wraps
-from typing import Any, Callable, TypeVar
+from typing import Any, Callable, TypeVar, get_args, get_origin, get_type_hints
 
 from aod._internal.application.handler.handler import HandlerProtocol
 from aod._internal.core.async_utils import should_await
@@ -15,6 +15,18 @@ from aod._internal.infrastructure.projection.models import ReadModel, WriteModel
 from aod._internal.infrastructure.session import AsyncSession, Session
 
 _PROJECTION_WRAPPED_KEY = "__aod_projection_wrapped__"
+
+
+def _is_session_type(tp: Any) -> bool:
+    if isinstance(tp, type) and issubclass(tp, (Session, AsyncSession)):
+        return True
+    origin = get_origin(tp)
+    if origin is not None:
+        return any(
+            isinstance(arg, type) and issubclass(arg, (Session, AsyncSession))
+            for arg in get_args(tp)
+        )
+    return False
 TReadModel = TypeVar("TReadModel", bound=ReadModel)
 TWriteModel = TypeVar("TWriteModel", bound=WriteModel)
 
@@ -103,17 +115,14 @@ class ProjectionBase(BaseOperation):
     session: Session | AsyncSession | None = None
 
     def __init_subclass__(cls, **kwargs: object) -> None:
-        super().__init_subclass__(**kwargs)
-        session_fields = [
-            name
-            for name, tp in getattr(cls, "__annotations__", {}).items()
-            if isinstance(tp, type) and issubclass(tp, (Session, AsyncSession))
-        ]
+        hints = get_type_hints(cls)
+        session_fields = [name for name, tp in hints.items() if _is_session_type(tp)]
         if len(session_fields) > 1:
             raise InvalidPortFieldError(
                 session_fields[1],
-                str(cls.__annotations__[session_fields[1]]),
+                str(hints[session_fields[1]]),
             )
+        super().__init_subclass__(**kwargs)
 
 
 class ReadProjectionBase(ProjectionBase):

@@ -778,4 +778,8 @@ Guidelines:
 - `typing.get_type_hints` failure → use an unresolvable forward reference string annotation (e.g., `x: "NonExistentClass"`)
 - Handler without Command param → override `handle` with `def handle(self) -> User` and suppress type checker with `# ty:ignore[invalid-method-override]`
 - If a code path can only be triggered by patches, remove the test — the defensive code is trivially correct
-- **No inline imports in tests** — every import must be at the top of the file. Test-local classes are fine, but imports from `aod`, `pydantic`, `unittest`, `types`, etc. must be at module level.
+- **No inline imports in tests** — every import must be at the top of the file. Test-local classes are fine, but imports from `aod`, `pydantic`, `unittest`, `types`, `inspect`, etc. must be at module level.
+- **No fake `__model_fields__` workarounds** — never create a fake class with a hand-crafted `__model_fields__` dict. Use real `BaseOperation`/`ProjectionBase` subclasses instead. If the code path you're testing is unreachable with real objects, remove both the dead code and the test.
+- **Python 3.14 `issubclass` accepts Union** — `issubclass(MySession, Session | None)` returns `True` in Python 3.14. No need to strip `None` before checking.
+- **Python 3.14 `get_type_hints` doesn't raise** — unlike older Python versions, `typing.get_type_hints` in Python 3.14 silently drops unresolvable forward references and returns `{}` instead of raising. A `try/except Exception: return {}` wrapper is dead code.
+- **Python 3.14 `except` without parentheses (PEP 758)** — `except ValueError, TypeError:` (no parens) is valid Python 3.14 and equivalent to `except (ValueError, TypeError):`. `ruff` strips the parens. Keep the form `ruff` produces.
