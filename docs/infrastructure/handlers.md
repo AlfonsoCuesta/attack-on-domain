@@ -218,8 +218,10 @@ Handlers are registered in `AdapterContainerBase`:
 from aod.infrastructure import AdapterContainerBase
 
 class AppContainer(AdapterContainerBase):
-    sessions: set = {PostgresSession}
-    handlers: list = [CreateUserHandler, GetUserHandler]
+    pass
+
+
+container = AppContainer(sessions={PostgresSession}, handlers=[CreateUserHandler, GetUserHandler])
 ```
 
 ## Handler Discovery

@@ -122,10 +122,10 @@ Use `spy_adapter_container` to create a test container with stubbed sessions:
 from aod.testing.doubles import spy_adapter_container
 
 class MyContainer(AdapterContainerBase):
-    sessions: set = {MySession}
-    handlers: list = [CreateUserHandler]
+    pass
 
-container = spy_adapter_container(MyContainer())
+
+container = spy_adapter_container(MyContainer(sessions={MySession}, handlers=[CreateUserHandler]))
 
 session = container.get_session_stub(MySession)
 session.is_dirty.returns(True)

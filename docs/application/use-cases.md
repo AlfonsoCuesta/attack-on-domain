@@ -137,23 +137,32 @@ class CreateUserUseCase(UseCase):
 
 ## Event Collection
 
-Events emitted during `run()` are automatically collected in `self.events`:
+Events emitted during `run()` are automatically collected. This includes events emitted directly by the UseCase via `self._event_emitter.emit(...)` and events emitted by any entity, value object, or service touched during execution.
 
 ```python
 class CreateUserUseCase(UseCase):
     save_user: CommandPort[CreateUser]
 
-    def run(self, user_id: str) -> None:
+    def run(self, user_id: str, name: str) -> None:
         user = User(id=user_id)
-        self.save_user.handle(CreateUser(user_id=user_id, name="", email=""))
+        user.register()  # emits UserRegistered
+        self.save_user.handle(CreateUser(user_id=user_id, name=name, email=""))
         self._event_emitter.emit(UserCreated(user_id=user_id))
 
 uc = CreateUserUseCase(save_user=handler)
-uc.run(user_id="1")
-assert len(uc.events) == 1
+uc.run(user_id="1", name="Alice")
+assert len(uc.events) == 2  # UserRegistered + UserCreated
+assert isinstance(uc.events[0], UserRegistered)
+assert isinstance(uc.events[1], UserCreated)
 ```
 
-Events emitted directly by the UseCase via `self._event_emitter.emit(...)` or by any entity touched during `run()` are all captured. Each call to `run()` replaces `self.events` with events from that invocation.
+The wrapper:
+1. Opens an `EventCollector` context before `run()` executes
+2. Collects all emitted events into `self.events`
+3. Publishes events on the event bus after a successful commit
+4. Replaces `self.events` on each new call to `run()`
+
+If `run()` raises an exception, collected events are discarded and `self.events` is cleared:
 
 ## Private Methods
 
@@ -204,10 +213,10 @@ Use `spy_adapter_container` for testing use cases instead of mocking ports manua
 from aod.testing.doubles import spy_adapter_container
 
 class MyContainer(AdapterContainerBase):
-    sessions: set = {MySession}
-    handlers: list = [CreateUserHandler]
+    pass
 
-container = spy_adapter_container(MyContainer())
+
+container = spy_adapter_container(MyContainer(sessions={MySession}, handlers=[CreateUserHandler]))
 use_case = inject_adapters(container, CreateUserUseCase)
 
 use_case.run(user_id="1", name="Alice")

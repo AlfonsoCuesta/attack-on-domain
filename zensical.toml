@@ -60,8 +60,8 @@ features = [
 ]
 font = {text = "Roboto", code = "Roboto Mono"}
 custom_dir = "docs/overrides"
-logo = "img/logo.png"
-favicon = "img/logo.png"
+logo = "img/light-logo.png"
+favicon = "img/light-logo.png"
 icon = {repo = "fontawesome/brands/github"}
 language = "en"
 

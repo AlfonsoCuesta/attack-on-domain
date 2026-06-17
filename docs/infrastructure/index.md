@@ -68,11 +68,9 @@ class CreateUserHandler(CommandHandler[CreateUser]):
 
 # Define a container
 class AppContainer(AdapterContainerBase):
-    sessions: set = {PostgresSession}
-    handlers: list = [CreateUserHandler]
+    pass
 
-# Inject dependencies
-container = AppContainer()
+container = AppContainer(sessions={PostgresSession}, handlers=[CreateUserHandler])
 use_case = inject_adapters(container, PlaceOrderUseCase)
 ```
 
@@ -144,8 +142,10 @@ Containers wire ports to implementations:
 from aod.infrastructure import AdapterContainerBase
 
 class AppContainer(AdapterContainerBase):
-    sessions: set = {PostgresSession}
-    handlers: list = [CreateUserHandler, GetUserHandler]
+    pass
+
+
+container = AppContainer(sessions={PostgresSession}, handlers=[CreateUserHandler, GetUserHandler])
 ```
 
 ### Injection

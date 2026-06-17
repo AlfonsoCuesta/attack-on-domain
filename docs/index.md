@@ -1,10 +1,13 @@
 # attack-on-domain
 
 <div class="home-hero">
+<div class="hero-title-row">
+<img src="img/dark-logo.png" alt="attack-on-domain" class="hero-logo">
 <h1>attack-on-domain</h1>
+</div>
 <p class="subtitle">DDD building blocks for Python 3.14+</p>
 <p class="description">
-Entities, Value Objects, Bounded Contexts, Domain Events — all with full type safety and immutability guarantees, built on Pydantic v2.
+Build maintainable domain models with entities, value objects, aggregates, CQRS, and hexagonal architecture — fully typed, immutable, with built-in validation, and designed for real-world applications.
 </p>
 <div class="install-code">pip install attack-on-domain</div>
 </div>
@@ -14,13 +17,8 @@ Entities, Value Objects, Bounded Contexts, Domain Events — all with full type 
 <div class="home-features">
 
 <div class="feature-card">
-<h3>Entity & RootEntity</h3>
-<p>Mutable domain objects with identity. Mutate fields inside public methods — immutable from outside.</p>
-</div>
-
-<div class="feature-card">
-<h3>Value Object</h3>
-<p>Immutable, identity-less objects compared by value. Perfect for Money, Email, Address, and other primitives.</p>
+<h3>Domain Building Blocks</h3>
+<p>Entity, RootEntity, ValueObject, and Aggregate — everything you need to model your business domain with identity, mutation guards, and consistency boundaries.</p>
 </div>
 
 <div class="feature-card">
@@ -39,8 +37,13 @@ Entities, Value Objects, Bounded Contexts, Domain Events — all with full type 
 </div>
 
 <div class="feature-card">
-<h3>Validation</h3>
-<p>Type-safe validation through Pydantic type hints and domain invariance rules to enforce business policies.</p>
+<h3>Business Invariants</h3>
+<p>Enforce domain rules at construction time with type-safe field and model-level invariants that raise clear domain exceptions.</p>
+</div>
+
+<div class="feature-card">
+<h3>Testing</h3>
+<p>Spy containers, session stubs, fakers, and event assertions — everything you need to test your domain, application, and infrastructure layers.</p>
 </div>
 
 </div>
@@ -83,9 +86,9 @@ class PlaceOrderUseCase(UseCase):
         ))
 
 class AppContainer(AdapterContainerBase):
-    handlers: list = [PlaceOrderHandler]
+    pass
 
-container = AppContainer()
+container = AppContainer(handlers=[PlaceOrderHandler])
 use_case = inject_adapters(container, PlaceOrderUseCase)
 use_case.run(order_id="1", total=99.99)
 ```

@@ -122,11 +122,10 @@ The recommended approach for testing use cases is to create a spy version of you
 from aod.testing.doubles import spy_adapter_container
 
 class AppContainer(AdapterContainerBase):
-    sessions: set = {MySession}
-    handlers: list = [CreateUserHandler, GetUserHandler]
+    pass
 
-# Create a spy container (all sessions become stubs)
-container = spy_adapter_container(AppContainer())
+
+container = spy_adapter_container(AppContainer(sessions={MySession}, handlers=[CreateUserHandler, GetUserHandler]))
 
 # Configure session behavior
 container.get_session_stub(MySession).is_dirty.returns(True)
@@ -320,10 +319,10 @@ batch = users.batch(5)  # 5 users with auto-generated fields
 from aod.testing.doubles import spy_adapter_container
 
 class AppContainer(AdapterContainerBase):
-    sessions: set = {MySession}
-    handlers: list = [CreateUserHandler, GetUserHandler]
+    pass
 
-container = spy_adapter_container(AppContainer())
+
+container = spy_adapter_container(AppContainer(sessions={MySession}, handlers=[CreateUserHandler, GetUserHandler]))
 use_case = inject_adapters(container, CreateUserUseCase)
 use_case.run(user_id=1, name="Alice")
 

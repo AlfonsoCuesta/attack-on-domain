@@ -53,26 +53,40 @@ body[data-md-color-primary="blue"] {
 
 .home-hero {
     text-align: center;
-    padding: 3rem 0 2rem 0;
+    padding: 2.5rem 0 2rem 0;
 }
 
-.home-hero h1 {
+.home-hero .hero-title-row {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 1rem;
+    margin-bottom: 0.5rem;
+}
+
+.home-hero .hero-logo {
+    width: 3rem;
+    height: 3rem;
+    flex-shrink: 0;
+}
+
+.home-hero .hero-title-row h1 {
     font-size: 2.5rem;
     font-weight: 700;
-    margin-bottom: 0.5rem;
+    margin: 0;
 }
 
 .home-hero .subtitle {
     font-size: 1.2rem;
     color: var(--md-primary-fg-color);
     font-weight: 500;
-    margin-bottom: 1.5rem;
+    margin-bottom: 1rem;
 }
 
 .home-hero .description {
     font-size: 1.1rem;
     max-width: 40rem;
-    margin: 0 auto 2rem auto;
+    margin: 0 auto 1.5rem auto;
     opacity: 0.85;
 }
 

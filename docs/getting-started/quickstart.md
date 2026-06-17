@@ -88,10 +88,10 @@ from aod.infrastructure import AdapterContainerBase, inject_adapters
 
 
 class AppContainer(AdapterContainerBase):
-    handlers: list = [RegisterUserHandler]
+    pass
 
 
-container = AppContainer()
+container = AppContainer(handlers=[RegisterUserHandler])
 use_case = inject_adapters(container, RegisterUserUseCase)
 
 use_case.run(user_id="2", email="alice@example.com", name="Alice")
