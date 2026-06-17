@@ -124,9 +124,36 @@ with EventCollector() as events:
 
 ## Next Steps
 
-- [Entity & RootEntity](entities.md) — Learn about mutable domain objects
-- [ValueObject](value-objects.md) — Learn about immutable domain objects
-- [Service](services.md) — Learn about stateless domain operations
-- [Event System](events.md) — Learn about domain events
-- [Bounded Context](bounded-context.md) — Learn about organizing your domain
-- [Invariants](validation.md) — Learn about business rules and validation
+<div class="home-features">
+
+<div class="feature-card">
+<h3><a href="entities.md">Entity & RootEntity</a></h3>
+<p>Learn about mutable domain objects</p>
+</div>
+
+<div class="feature-card">
+<h3><a href="value-objects.md">ValueObject</a></h3>
+<p>Learn about immutable domain objects</p>
+</div>
+
+<div class="feature-card">
+<h3><a href="services.md">Service</a></h3>
+<p>Learn about stateless domain operations</p>
+</div>
+
+<div class="feature-card">
+<h3><a href="events.md">Event System</a></h3>
+<p>Learn about domain events</p>
+</div>
+
+<div class="feature-card">
+<h3><a href="bounded-context.md">Bounded Context</a></h3>
+<p>Learn about organizing your domain</p>
+</div>
+
+<div class="feature-card">
+<h3><a href="validation.md">Invariants</a></h3>
+<p>Learn about business rules and validation</p>
+</div>
+
+</div>

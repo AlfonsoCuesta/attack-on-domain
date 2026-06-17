@@ -1113,8 +1113,31 @@ from aod.exceptions import (
 
 ## Next Steps
 
-- [Sessions: Database abstraction](../infrastructure/sessions.md)
-- [Projections: Read/write data efficiently](../infrastructure/projections.md)
-- [Container: Dependency injection](../infrastructure/container.md)
-- [Injection: Wiring dependencies](../infrastructure/injection.md)
-- [Testing Utilities: Testing with spies](../testing/index.md)
+<div class="home-features">
+
+<div class="feature-card">
+<h3><a href="../infrastructure/sessions.md">Sessions</a></h3>
+<p>Database abstraction</p>
+</div>
+
+<div class="feature-card">
+<h3><a href="../infrastructure/projections.md">Projections</a></h3>
+<p>Read/write data efficiently</p>
+</div>
+
+<div class="feature-card">
+<h3><a href="../infrastructure/container.md">Container</a></h3>
+<p>Dependency injection</p>
+</div>
+
+<div class="feature-card">
+<h3><a href="../infrastructure/injection.md">Injection</a></h3>
+<p>Wiring dependencies</p>
+</div>
+
+<div class="feature-card">
+<h3><a href="../testing/index.md">Testing Utilities</a></h3>
+<p>Testing with spies</p>
+</div>
+
+</div>

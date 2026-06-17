@@ -259,7 +259,26 @@ class SaveUserHandler(CommandHandler[CreateUser]):
 
 ## Next Steps
 
-- [Quick Start](quickstart.md) — Build a complete example in 5 minutes
-- [DDD Concepts](concepts.md) — Deeper explanation of the theory
-- [Domain Objects](../domain/index.md) — Entity, ValueObject, Service API
-- [Application Layer](../application/index.md) — UseCase, Ports, Contracts
+<div class="home-features">
+
+<div class="feature-card">
+<h3><a href="quickstart.md">Quick Start</a></h3>
+<p>Build a complete example in 5 minutes</p>
+</div>
+
+<div class="feature-card">
+<h3><a href="concepts.md">DDD Concepts</a></h3>
+<p>Deeper explanation of the theory</p>
+</div>
+
+<div class="feature-card">
+<h3><a href="../domain/index.md">Domain Objects</a></h3>
+<p>Entity, ValueObject, Service API</p>
+</div>
+
+<div class="feature-card">
+<h3><a href="../application/index.md">Application Layer</a></h3>
+<p>UseCase, Ports, Contracts</p>
+</div>
+
+</div>

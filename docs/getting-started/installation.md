@@ -34,5 +34,16 @@ print(aod.__version__)
 
 ## Next Steps
 
-- [Quick Start](quickstart.md) — Build your first domain in 5 minutes
-- [DDD Concepts](concepts.md) — Learn the theory behind Domain-Driven Design
+<div class="home-features">
+
+<div class="feature-card">
+<h3><a href="quickstart.md">Quick Start</a></h3>
+<p>Build your first domain in 5 minutes</p>
+</div>
+
+<div class="feature-card">
+<h3><a href="concepts.md">DDD Concepts</a></h3>
+<p>Learn the theory behind Domain-Driven Design</p>
+</div>
+
+</div>

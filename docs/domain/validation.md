@@ -294,6 +294,21 @@ class DateRange(ValueObject):
 
 ## Next Steps
 
-- [Entity & RootEntity](entities.md) — Learn about entity validation
-- [ValueObject](value-objects.md) — Learn about value object validation
-- [Testing](../testing/index.md) — Learn about testing with invariants
+<div class="home-features">
+
+<div class="feature-card">
+<h3><a href="entities.md">Entity & RootEntity</a></h3>
+<p>Learn about entity validation</p>
+</div>
+
+<div class="feature-card">
+<h3><a href="value-objects.md">ValueObject</a></h3>
+<p>Learn about value object validation</p>
+</div>
+
+<div class="feature-card">
+<h3><a href="../testing/index.md">Testing</a></h3>
+<p>Learn about testing with invariants</p>
+</div>
+
+</div>

@@ -172,7 +172,26 @@ assert len(uc.events) == 1
 
 ## Next Steps
 
-- [UseCase](use-cases.md) — Detailed UseCase API
-- [Port](ports.md) — Learn about ports
-- [Contracts](contracts.md) — Learn about commands and queries
-- [Handlers](../infrastructure/handlers.md) — Learn about command/query handlers
+<div class="home-features">
+
+<div class="feature-card">
+<h3><a href="use-cases.md">UseCase</a></h3>
+<p>Detailed UseCase API</p>
+</div>
+
+<div class="feature-card">
+<h3><a href="ports.md">Port</a></h3>
+<p>Learn about ports</p>
+</div>
+
+<div class="feature-card">
+<h3><a href="contracts.md">Contracts</a></h3>
+<p>Learn about commands and queries</p>
+</div>
+
+<div class="feature-card">
+<h3><a href="../infrastructure/handlers.md">Handlers</a></h3>
+<p>Learn about command/query handlers</p>
+</div>
+
+</div>

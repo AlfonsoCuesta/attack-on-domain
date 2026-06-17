@@ -298,7 +298,26 @@ class CreateUserHandler(CommandHandler[CreateUser]):
 
 ## Next Steps
 
-- [UseCase](../application/use-cases.md) — Learn how use cases orchestrate domain logic
-- [Contracts](../application/contracts.md) — Learn about commands and queries
-- [Container](container.md) — Learn about handler registration
-- [Injection](injection.md) — Learn about dependency injection
+<div class="home-features">
+
+<div class="feature-card">
+<h3><a href="../application/use-cases.md">UseCase</a></h3>
+<p>Learn how use cases orchestrate domain logic</p>
+</div>
+
+<div class="feature-card">
+<h3><a href="../application/contracts.md">Contracts</a></h3>
+<p>Learn about commands and queries</p>
+</div>
+
+<div class="feature-card">
+<h3><a href="container.md">Container</a></h3>
+<p>Learn about handler registration</p>
+</div>
+
+<div class="feature-card">
+<h3><a href="injection.md">Injection</a></h3>
+<p>Learn about dependency injection</p>
+</div>
+
+</div>

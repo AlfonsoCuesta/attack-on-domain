@@ -25,8 +25,21 @@ Welcome to `attack-on-domain`! This section will help you get up and running qui
 
 ## Next Steps
 
-After completing the getting started guide:
+<div class="home-features">
 
-1. Explore [Domain Objects](../domain/index.md) to learn about entities and value objects
-2. Learn about [Use Cases](../application/use-cases.md) to orchestrate your domain
-3. Check out [Testing Utilities](../testing/index.md) to write better tests
+<div class="feature-card">
+<h3><a href="../domain/index.md">Domain Objects</a></h3>
+<p>Learn about entities and value objects</p>
+</div>
+
+<div class="feature-card">
+<h3><a href="../application/use-cases.md">Use Cases</a></h3>
+<p>Orchestrate your domain</p>
+</div>
+
+<div class="feature-card">
+<h3><a href="../testing/index.md">Testing Utilities</a></h3>
+<p>Write better tests</p>
+</div>
+
+</div>

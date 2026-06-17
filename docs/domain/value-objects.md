@@ -281,7 +281,26 @@ class DateRange(ValueObject):
 
 ## Next Steps
 
-- [Entity & RootEntity](entities.md) — Learn about mutable domain objects with identity
-- [Service](services.md) — Learn about stateless domain operations
-- [Event System](events.md) — Learn about domain events
-- [Validation](validation.md) — Learn about invariants and validators
+<div class="home-features">
+
+<div class="feature-card">
+<h3><a href="entities.md">Entity & RootEntity</a></h3>
+<p>Learn about mutable domain objects with identity</p>
+</div>
+
+<div class="feature-card">
+<h3><a href="services.md">Service</a></h3>
+<p>Learn about stateless domain operations</p>
+</div>
+
+<div class="feature-card">
+<h3><a href="events.md">Event System</a></h3>
+<p>Learn about domain events</p>
+</div>
+
+<div class="feature-card">
+<h3><a href="validation.md">Validation</a></h3>
+<p>Learn about invariants and validators</p>
+</div>
+
+</div>

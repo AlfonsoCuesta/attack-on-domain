@@ -183,6 +183,21 @@ A transaction groups multiple operations into a single unit that either succeeds
 
 ## Next Steps
 
-- [Installation](installation.md) — Install the library
-- [Quick Start](quickstart.md) — Apply these concepts in a working example
-- [Mapping DDD to AoD](mapping.md) — See how each concept translates to code
+<div class="home-features">
+
+<div class="feature-card">
+<h3><a href="installation.md">Installation</a></h3>
+<p>Install the library</p>
+</div>
+
+<div class="feature-card">
+<h3><a href="quickstart.md">Quick Start</a></h3>
+<p>Apply these concepts in a working example</p>
+</div>
+
+<div class="feature-card">
+<h3><a href="mapping.md">Mapping DDD to AoD</a></h3>
+<p>See how each concept translates to code</p>
+</div>
+
+</div>

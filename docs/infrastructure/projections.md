@@ -183,6 +183,6 @@ assert proj.session.is_dirty.called
 
 ## Next Steps
 
-- [Sessions: Understanding the database abstraction](sessions.md)
-- [Container: Wiring projections into the dependency injection system](container.md)
-- [Injection: Using inject_adapters with projections](injection.md)
+<div class="home-features">
+
+</div>

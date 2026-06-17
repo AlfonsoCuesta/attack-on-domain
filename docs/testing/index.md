@@ -362,4 +362,6 @@ addr = build(Address, street="123 Main", city="NYC")
 
 ## Next Steps
 
-- [API Reference: Full class and method list](../api/index.md)
+<div class="home-features">
+
+</div>

@@ -313,7 +313,26 @@ user_context = BoundedContext(
 
 ## Next Steps
 
-- [Entity & RootEntity](entities.md) — Learn about aggregate roots
-- [ValueObject](value-objects.md) — Learn about value objects
-- [Service](services.md) — Learn about services
-- [Event System](events.md) — Learn about domain events
+<div class="home-features">
+
+<div class="feature-card">
+<h3><a href="entities.md">Entity & RootEntity</a></h3>
+<p>Learn about aggregate roots</p>
+</div>
+
+<div class="feature-card">
+<h3><a href="value-objects.md">ValueObject</a></h3>
+<p>Learn about value objects</p>
+</div>
+
+<div class="feature-card">
+<h3><a href="services.md">Service</a></h3>
+<p>Learn about services</p>
+</div>
+
+<div class="feature-card">
+<h3><a href="events.md">Event System</a></h3>
+<p>Learn about domain events</p>
+</div>
+
+</div>

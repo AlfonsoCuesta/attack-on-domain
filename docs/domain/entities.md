@@ -367,7 +367,26 @@ class User(Entity):
 
 ## Next Steps
 
-- [ValueObject](value-objects.md) — Learn about immutable domain objects
-- [Service](services.md) — Learn about stateless domain operations
-- [Event System](events.md) — Learn about domain events
-- [Bounded Context](bounded-context.md) — Learn about organizing aggregates
+<div class="home-features">
+
+<div class="feature-card">
+<h3><a href="value-objects.md">ValueObject</a></h3>
+<p>Learn about immutable domain objects</p>
+</div>
+
+<div class="feature-card">
+<h3><a href="services.md">Service</a></h3>
+<p>Learn about stateless domain operations</p>
+</div>
+
+<div class="feature-card">
+<h3><a href="events.md">Event System</a></h3>
+<p>Learn about domain events</p>
+</div>
+
+<div class="feature-card">
+<h3><a href="bounded-context.md">Bounded Context</a></h3>
+<p>Learn about organizing aggregates</p>
+</div>
+
+</div>

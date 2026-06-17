@@ -314,7 +314,26 @@ class NotificationClient(Port):
 
 ## Next Steps
 
-- [UseCase](use-cases.md) — Learn how use cases consume `CommandPort[T]` / `QueryPort[T]`
-- [Contracts](contracts.md) — Learn about commands and queries
-- [Handlers](../infrastructure/handlers.md) — Learn how handlers implement `CommandPort[T]` / `QueryPort[T]`
-- [Injection](../infrastructure/injection.md) — Learn how ports are wired to implementations
+<div class="home-features">
+
+<div class="feature-card">
+<h3><a href="use-cases.md">UseCase</a></h3>
+<p>Learn how use cases consume `CommandPort[T]` / `QueryPort[T]`</p>
+</div>
+
+<div class="feature-card">
+<h3><a href="contracts.md">Contracts</a></h3>
+<p>Learn about commands and queries</p>
+</div>
+
+<div class="feature-card">
+<h3><a href="../infrastructure/handlers.md">Handlers</a></h3>
+<p>Learn how handlers implement `CommandPort[T]` / `QueryPort[T]`</p>
+</div>
+
+<div class="feature-card">
+<h3><a href="../infrastructure/injection.md">Injection</a></h3>
+<p>Learn how ports are wired to implementations</p>
+</div>
+
+</div>

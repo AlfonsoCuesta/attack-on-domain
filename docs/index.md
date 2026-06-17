@@ -111,27 +111,23 @@ Each layer depends only on the layer below it:
 <div class="home-features">
 
 <div class="feature-card">
-<h3>Quick Start</h3>
+<h3><a href="getting-started/quickstart/">Quick Start</a></h3>
 <p>Get up and running in 5 minutes with a complete example.</p>
-<p><a href="getting-started/quickstart/">Quick Start</a></p>
 </div>
 
 <div class="feature-card">
-<h3>DDD Concepts</h3>
+<h3><a href="getting-started/concepts/">DDD Concepts</a></h3>
 <p>Learn the Domain-Driven Design principles behind the library.</p>
-<p><a href="getting-started/concepts/">Concepts</a></p>
 </div>
 
 <div class="feature-card">
-<h3>Building Blocks</h3>
+<h3><a href="domain/entities/">Building Blocks</a></h3>
 <p>Entities, Value Objects, Services, and more.</p>
-<p><a href="domain/entities/">Domain</a></p>
 </div>
 
 <div class="feature-card">
-<h3>Testing</h3>
+<h3><a href="testing/">Testing</a></h3>
 <p>Utilities for testing your domain, application, and infrastructure.</p>
-<p><a href="testing/">Testing</a></p>
 </div>
 
 </div>

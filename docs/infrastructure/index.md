@@ -161,8 +161,31 @@ use_case = inject_adapters(container, CreateUserUseCase)
 
 ## Next Steps
 
-- [Session](sessions.md) — Learn about database sessions
-- [Handler](handlers.md) — Learn about command/query handlers
-- [Projection](projections.md) — Learn about read/write projections
-- [Container](container.md) — Learn about dependency injection
-- [Injection](injection.md) — Learn about dependency injection
+<div class="home-features">
+
+<div class="feature-card">
+<h3><a href="sessions.md">Session</a></h3>
+<p>Learn about database sessions</p>
+</div>
+
+<div class="feature-card">
+<h3><a href="handlers.md">Handler</a></h3>
+<p>Learn about command/query handlers</p>
+</div>
+
+<div class="feature-card">
+<h3><a href="projections.md">Projection</a></h3>
+<p>Learn about read/write projections</p>
+</div>
+
+<div class="feature-card">
+<h3><a href="container.md">Container</a></h3>
+<p>Learn about dependency injection</p>
+</div>
+
+<div class="feature-card">
+<h3><a href="injection.md">Injection</a></h3>
+<p>Learn about dependency injection</p>
+</div>
+
+</div>

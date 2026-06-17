@@ -144,6 +144,6 @@ result = proj.read(ReadModel())
 
 ## Next Steps
 
-- [Container: Understanding the dependency injection container](container.md)
-- [Projections: Working with read/write projections](projections.md)
-- [Testing Utilities: Testing with spy classes](../testing/index.md)
+<div class="home-features">
+
+</div>

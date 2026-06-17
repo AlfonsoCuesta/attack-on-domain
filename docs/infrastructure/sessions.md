@@ -135,6 +135,6 @@ For user-defined methods (e.g. `get`, `set`, `execute`), extend the spy or use y
 
 ## Next Steps
 
-- [Container: Wiring sessions into the dependency injection system](container.md)
-- [Projections: Using sessions inside read/write projections](projections.md)
-- [Testing Utilities: Testing with SpySession](../testing/index.md)
+<div class="home-features">
+
+</div>

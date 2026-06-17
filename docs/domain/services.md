@@ -247,7 +247,26 @@ class ShipmentService(Service):
 
 ## Next Steps
 
-- [Entity & RootEntity](entities.md) — Learn about mutable domain objects
-- [ValueObject](value-objects.md) — Learn about immutable domain objects
-- [Event System](events.md) — Learn about emitting events from services
-- [Bounded Context](bounded-context.md) — Learn about registering services
+<div class="home-features">
+
+<div class="feature-card">
+<h3><a href="entities.md">Entity & RootEntity</a></h3>
+<p>Learn about mutable domain objects</p>
+</div>
+
+<div class="feature-card">
+<h3><a href="value-objects.md">ValueObject</a></h3>
+<p>Learn about immutable domain objects</p>
+</div>
+
+<div class="feature-card">
+<h3><a href="events.md">Event System</a></h3>
+<p>Learn about emitting events from services</p>
+</div>
+
+<div class="feature-card">
+<h3><a href="bounded-context.md">Bounded Context</a></h3>
+<p>Learn about registering services</p>
+</div>
+
+</div>

@@ -82,38 +82,25 @@ assert e1 == e2  # True — same attributes
 
 ### `EventEmitter`
 
-Every domain object (Entity, RootEntity, ValueObject, Service) has a `_event_emitter` instance for emitting events.
+Every domain object has a `_event_emitter` instance for emitting events.
 
 ```python
 class EventEmitter:
-    def emit(self, event: Event) -> None: ...
-    def poll_events(self) -> list[Event]: ...
-    def clear_events(self) -> None: ...
+    def emit(self, event: Event) -> None:
+        ...
+
+    def poll_events(self) -> list[Event]:
+        ...
+
+    def clear_events(self) -> None:
+        ...
 ```
 
-#### `emit()`
+`emit(event)` appends the event to the emitter's internal list. If an `EventCollector` context is active, also appends to the collector's list.
 
-| Parameter | Type | Description |
-|-----------|------|-------------|
-| `event` | `Event` | The event instance to record |
+`poll_events()` returns a copy of all events emitted by this emitter, leaving the internal list intact.
 
-Appends the event to the emitter's internal list. If an `EventCollector` context is active, also appends to the collector's list.
-
-#### `poll_events()`
-
-| Parameter | Type | Description |
-|-----------|------|-------------|
-| (none) | — | — |
-
-Returns `list[Event]` — a copy of all events emitted by this emitter, leaving the internal list intact.
-
-#### `clear_events()`
-
-| Parameter | Type | Description |
-|-----------|------|-------------|
-| (none) | — | — |
-
-Clears all events from the internal list.
+`clear_events()` clears all events from the internal list.
 
 ### From Entities
 
@@ -147,7 +134,7 @@ class Money(ValueObject):
     currency: str
 
     def update_amount(self, new_amount: float) -> Money:
-        old = self.amount
+        self._event_emitter.emit(MoneyChanged(old_amount=self.amount, new_amount=new_amount))
         return Money(amount=new_amount, currency=self.currency)
 ```
 
@@ -160,30 +147,6 @@ class OrderService(Service):
 ```
 
 ## Collecting Events
-
-### Automatic Collection by UseCases
-
-Use cases automatically collect events from all domain objects touched during `run()`. The collected events are available via `self.events` after execution.
-
-```python
-from aod.application import UseCase, CommandPort
-
-
-class PlaceOrderUseCase(UseCase):
-    place_order: CommandPort[PlaceOrder]
-
-    def run(self, order_id: str, total: float) -> None:
-        order = Order(id=order_id, total=total)
-        order.place()
-        self.place_order.handle(PlaceOrder(
-            order_id=order_id, total=total,
-        ))
-
-uc = PlaceOrderUseCase(place_order=handler)
-uc.run(order_id="1", total=99.99)
-assert len(uc.events) == 1
-assert isinstance(uc.events[0], OrderPlaced)
-```
 
 ### Manual Collection with `EventCollector`
 
@@ -203,23 +166,13 @@ assert len(events) == 3
 
 #### `EventCollector.__init__()`
 
-| Parameter | Type | Description |
-|-----------|------|-------------|
-| (none) | — | No parameters |
+Takes no parameters.
 
 #### `EventCollector.__enter__()`
-
-| Parameter | Type | Description |
-|-----------|------|-------------|
-| (none) | — | — |
 
 Returns `list[Event]` — the same list that events will be appended to while the context is active.
 
 #### `EventCollector.__exit__()`
-
-| Parameter | Type | Description |
-|-----------|------|-------------|
-| `*args` | `object` | Standard context manager exit arguments |
 
 Stops event collection so subsequent events are no longer captured.
 
@@ -359,7 +312,26 @@ assert_no_events(event_of(order2))
 
 ## Next Steps
 
-- [Entity & RootEntity](entities.md) — Learn about emitting events from entities
-- [ValueObject](value-objects.md) — Learn about emitting events from value objects
-- [Service](services.md) — Learn about emitting events from services
-- [Use Cases](../application/use-cases.md) — Learn about automatic event collection
+<div class="home-features">
+
+<div class="feature-card">
+<h3><a href="entities.md">Entity & RootEntity</a></h3>
+<p>Learn about emitting events from entities</p>
+</div>
+
+<div class="feature-card">
+<h3><a href="value-objects.md">ValueObject</a></h3>
+<p>Learn about emitting events from value objects</p>
+</div>
+
+<div class="feature-card">
+<h3><a href="services.md">Service</a></h3>
+<p>Learn about emitting events from services</p>
+</div>
+
+<div class="feature-card">
+<h3><a href="../application/use-cases.md">Use Cases</a></h3>
+<p>Learn about automatic event collection</p>
+</div>
+
+</div>

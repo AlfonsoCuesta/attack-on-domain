@@ -249,7 +249,26 @@ class CancelOrder(Command[Order, None]):
 
 ## Next Steps
 
-- [UseCase](use-cases.md) — Learn how use cases handle contracts
-- [Handlers](../infrastructure/handlers.md) — Learn about command/query handlers
-- [Port](ports.md) — Learn about ports
-- [Container](../infrastructure/container.md) — Learn about handler registration
+<div class="home-features">
+
+<div class="feature-card">
+<h3><a href="use-cases.md">UseCase</a></h3>
+<p>Learn how use cases handle contracts</p>
+</div>
+
+<div class="feature-card">
+<h3><a href="../infrastructure/handlers.md">Handlers</a></h3>
+<p>Learn about command/query handlers</p>
+</div>
+
+<div class="feature-card">
+<h3><a href="ports.md">Port</a></h3>
+<p>Learn about ports</p>
+</div>
+
+<div class="feature-card">
+<h3><a href="../infrastructure/container.md">Container</a></h3>
+<p>Learn about handler registration</p>
+</div>
+
+</div>

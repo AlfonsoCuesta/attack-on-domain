@@ -115,6 +115,15 @@ body[data-md-color-primary="blue"] {
     margin-bottom: 0.5rem;
 }
 
+.home-features .feature-card h3 a {
+    color: var(--md-primary-fg-color);
+    text-decoration: none;
+}
+
+.home-features .feature-card h3 a:hover {
+    text-decoration: underline;
+}
+
 .home-features .feature-card p {
     margin: 0;
     opacity: 0.8;

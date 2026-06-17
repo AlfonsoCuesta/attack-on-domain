@@ -296,7 +296,26 @@ class CreateUserUseCase(UseCase):
 
 ## Next Steps
 
-- [Port](ports.md) — Learn how ports define interfaces
-- [Contracts](contracts.md) — Learn about commands and queries
-- [Handlers](../infrastructure/handlers.md) — Learn about command/query handlers
-- [Injection](../infrastructure/injection.md) — Learn how dependencies are injected
+<div class="home-features">
+
+<div class="feature-card">
+<h3><a href="ports.md">Port</a></h3>
+<p>Learn how ports define interfaces</p>
+</div>
+
+<div class="feature-card">
+<h3><a href="contracts.md">Contracts</a></h3>
+<p>Learn about commands and queries</p>
+</div>
+
+<div class="feature-card">
+<h3><a href="../infrastructure/handlers.md">Handlers</a></h3>
+<p>Learn about command/query handlers</p>
+</div>
+
+<div class="feature-card">
+<h3><a href="../infrastructure/injection.md">Injection</a></h3>
+<p>Learn how dependencies are injected</p>
+</div>
+
+</div>

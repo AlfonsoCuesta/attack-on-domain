@@ -135,6 +135,6 @@ handler = container.get_handler(CreateUser)
 
 ## Next Steps
 
-- [Injection: Using inject_adapters to wire use cases](injection.md)
-- [Projections: Using the container with projections](projections.md)
-- [Sessions: Understanding session management](sessions.md)
+<div class="home-features">
+
+</div>

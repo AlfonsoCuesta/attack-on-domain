@@ -121,7 +121,26 @@ assert handler.handle.called
 
 ## Next Steps
 
-- [DDD Concepts](concepts.md) — Understand the theory behind the building blocks
-- [Domain Objects](../domain/index.md) — Detailed API for entities, value objects, and services
-- [Testing Utilities](../testing/index.md) — More testing patterns and assertions
-- [Injection](../infrastructure/injection.md) — Dependency injection in depth
+<div class="home-features">
+
+<div class="feature-card">
+<h3><a href="concepts.md">DDD Concepts</a></h3>
+<p>Understand the theory behind the building blocks</p>
+</div>
+
+<div class="feature-card">
+<h3><a href="../domain/index.md">Domain Objects</a></h3>
+<p>Detailed API for entities, value objects, and services</p>
+</div>
+
+<div class="feature-card">
+<h3><a href="../testing/index.md">Testing Utilities</a></h3>
+<p>More testing patterns and assertions</p>
+</div>
+
+<div class="feature-card">
+<h3><a href="../infrastructure/injection.md">Injection</a></h3>
+<p>Dependency injection in depth</p>
+</div>
+
+</div>
