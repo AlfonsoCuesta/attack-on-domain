@@ -13,6 +13,7 @@ class PortDoc:
     name: str
     type_name: str
     description: str = ""
+    is_async: bool = False
     fields: list[FieldDoc] = field(default_factory=list)
     methods: list[MethodDoc] = field(default_factory=list)
 
@@ -22,6 +23,7 @@ class PortDoc:
             name=port_cls.__name__,
             type_name=port_cls.__name__,
             description=inspect.getdoc(port_cls) or "",
+            is_async=port_cls.__name__.startswith("Async"),
             fields=extract_fields(port_cls),
             methods=extract_methods(port_cls),
         )

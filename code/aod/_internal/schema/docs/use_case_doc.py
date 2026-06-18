@@ -3,10 +3,10 @@ from __future__ import annotations
 import inspect
 from dataclasses import dataclass, field
 
-from aod._internal.application.handler import CommandPort, QueryPort
 from aod._internal.application.port import Port
-from aod._internal.application.use_case import UseCase
+from aod._internal.application.use_case import AsyncUseCase, UseCase
 from aod._internal.schema.describe_utils import extract_params
+from aod._internal.schema.docs.handler_port_doc import HandlerPortDoc
 from aod._internal.schema.docs.generic_docs import ParamDoc
 from aod._internal.schema.docs.port_doc import PortDoc
 
@@ -15,16 +15,16 @@ from aod._internal.schema.docs.port_doc import PortDoc
 class UseCaseDoc:
     name: str
     description: str = ""
+    is_async: bool = False
     ports: list[PortDoc] = field(default_factory=list)
-    commands: list[str] = field(default_factory=list)
-    queries: list[str] = field(default_factory=list)
+    handler_ports: list[HandlerPortDoc] = field(default_factory=list)
     params: list[ParamDoc] = field(default_factory=list)
 
     @classmethod
-    def from_use_case(cls, uc_cls: type[UseCase]) -> UseCaseDoc:
+    def from_use_case(cls, uc_cls: type[UseCase] | type[AsyncUseCase]) -> UseCaseDoc:
         ports: list[PortDoc] = []
-        commands: list[str] = []
-        queries: list[str] = []
+        handler_ports: list[HandlerPortDoc] = []
+        is_async = issubclass(uc_cls, AsyncUseCase)
 
         uc_fields = getattr(uc_cls, "__model_fields__", None)
         if uc_fields is not None:
@@ -35,16 +35,9 @@ class UseCaseDoc:
                 if annotation is None:
                     continue
 
-                origin = getattr(annotation, "__origin__", None)
-                if origin is not None and issubclass(origin, (CommandPort, QueryPort)):
-                    args = getattr(annotation, "__args__", ())
-                    contract = args[0] if args else None
-                    if contract is not None:
-                        name = contract.__name__
-                        if issubclass(origin, CommandPort):
-                            commands.append(name)
-                        else:
-                            queries.append(name)
+                hp = HandlerPortDoc.from_handler_port(fname, annotation)
+                if hp is not None:
+                    handler_ports.append(hp)
                 elif (
                     isinstance(annotation, type)
                     and issubclass(annotation, Port)
@@ -55,8 +48,8 @@ class UseCaseDoc:
         return cls(
             name=uc_cls.__name__,
             description=inspect.getdoc(uc_cls) or "",
+            is_async=is_async,
             ports=ports,
-            commands=commands,
-            queries=queries,
+            handler_ports=handler_ports,
             params=extract_params(uc_cls.run),
         )

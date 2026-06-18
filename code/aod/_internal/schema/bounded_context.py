@@ -3,9 +3,9 @@ from __future__ import annotations
 from collections.abc import Iterable
 
 from aod._internal.application.contracts import Command, Query
-from aod._internal.application.handler import CommandPort, QueryPort
+from aod._internal.application.handler import AsyncCommandPort, AsyncQueryPort, CommandPort, QueryPort
 from aod._internal.application.port import Port
-from aod._internal.application.use_case import UseCase
+from aod._internal.application.use_case import AsyncUseCase, UseCase
 from aod._internal.core.domain_exception import (
     ClassExpectedError,
     InvalidEntityTypeError,
@@ -21,7 +21,7 @@ type RootEntityType = type[RootEntity]
 type EntityType = type[Entity]
 type ValueObjectType = type[ValueObject]
 type ServiceType = type[Service]
-type UseCaseType = type[UseCase]
+type UseCaseType = type[UseCase] | type[AsyncUseCase]
 type ContractType = type[Command] | type[Query]
 type PortType = type[Port]
 
@@ -84,7 +84,7 @@ class BoundedContext:
         for uc in use_cases:
             if not isinstance(uc, type):
                 raise ClassExpectedError(role="use case", got=uc)
-            if not issubclass(uc, UseCase):
+            if not issubclass(uc, (UseCase, AsyncUseCase)):
                 raise InvalidServiceTypeError(uc.__name__)
 
         return list(aggregate_roots), list(services), list(use_cases)
@@ -121,7 +121,7 @@ class BoundedContext:
                     continue
                 field_type = uc.__model_fields__[field_name].annotation
                 origin = getattr(field_type, "__origin__", None)
-                if origin is not None and issubclass(origin, (CommandPort, QueryPort)):
+                if origin is not None and issubclass(origin, (CommandPort, QueryPort, AsyncCommandPort, AsyncQueryPort)):
                     args = getattr(field_type, "__args__", ())
                     if args and isinstance(args[0], type):
                         contracts.append(args[0])

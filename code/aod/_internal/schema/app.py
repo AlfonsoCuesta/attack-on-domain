@@ -4,7 +4,6 @@ from collections.abc import Iterable
 from itertools import chain
 
 from aod._internal.core.domain_exception import DuplicateDomainTypeError
-from aod._internal.domain.describe import TypeDoc
 from aod._internal.schema.module import Module
 
 
@@ -13,11 +12,13 @@ class App:
         self,
         name: str,
         modules: Iterable[Module],
+        description: str = "",
     ) -> None:
         modules = list(modules)
         self._validate(modules)
 
         self.name = name
+        self.description = description
         self.modules = tuple(modules)
 
     @staticmethod
@@ -56,21 +57,3 @@ class App:
                     prev_mod, prev_role = seen[h]
                     raise DuplicateDomainTypeError(h.__name__, prev_role, prev_mod)
                 seen[h] = (mod.name, "Handler")
-
-    def describe(self) -> dict[str, dict[str, list[TypeDoc]]]:
-        result: dict[str, dict[str, list[TypeDoc]]] = {}
-
-        for mod in self.modules:
-            result[mod.name] = {
-                "domain": mod.context.describe(),
-                "handlers": [
-                    {"name": h.__name__, "type": "Handler"}
-                    for h in mod.infrastructure.handlers
-                ],
-                "sessions": [
-                    {"name": s.__name__, "type": "Session"}
-                    for s in mod.infrastructure.sessions
-                ],
-            }
-
-        return result

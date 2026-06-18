@@ -4,7 +4,7 @@ from aod._internal.application.handler import CommandPort, QueryPort
 from aod._internal.core.domain_exception import InvalidCommandFieldTypeError
 from aod._internal.core.type_handlers.generic_utils import get_generic_arg_from_orig_bases
 from aod._internal.schema.bounded_context import BoundedContext
-from aod._internal.schema.infrastructure import Infrastructure, HandlerType
+from aod._internal.schema.infrastructure import HandlerType, Infrastructure
 
 
 class Module:
