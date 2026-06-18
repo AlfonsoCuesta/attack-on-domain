@@ -221,15 +221,15 @@ class TestBoundedContext:
 
     def test_raises_on_non_entity_as_root(self) -> None:
         with pytest.raises(InvalidEntityTypeError):
-            BoundedContext(aggregate_roots=[PricingService])  # type: ignore[list-item]
+            BoundedContext(aggregate_roots=[PricingService])  # ty: ignore[invalid-argument-type]
 
     def test_raises_on_entity_as_root(self) -> None:
         with pytest.raises(InvalidRootEntityTypeError):
-            BoundedContext(aggregate_roots=[LineItem])  # type: ignore[list-item]
+            BoundedContext(aggregate_roots=[LineItem])  # ty: ignore[invalid-argument-type]
 
     def test_raises_on_non_service(self) -> None:
         with pytest.raises(InvalidServiceTypeError):
-            BoundedContext(services=[Order])  # type: ignore[list-item]
+            BoundedContext(services=[Order])  # ty: ignore[invalid-argument-type]
 
     def test_repr_with_name(self) -> None:
         bc = BoundedContext(aggregate_roots=[Order], name="orders")

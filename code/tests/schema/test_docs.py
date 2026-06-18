@@ -826,6 +826,12 @@ class TestExtractFieldsEdgeCases:
         assert "x" in names
         assert "_secret" not in names
 
+    def test_class_without_model_fields(self) -> None:
+        class NoFields:
+            x: int
+
+        assert extract_fields(NoFields) == []
+
 
 # ============================================================
 # HandlerDoc edge cases
@@ -931,12 +937,4 @@ class TestBoundedContextDocEdgeCases:
 class TestExtractParamsEdgeCases:
     def test_non_callable(self) -> None:
         """Non-callable passed to extract_params returns empty list."""
-        assert extract_params(42) == []  # type: ignore[arg-type]
-
-
-class TestExtractFieldsEdgeCases:
-    def test_class_without_model_fields(self) -> None:
-        class NoFields:
-            x: int
-
-        assert extract_fields(NoFields) == []
+        assert extract_params(42) == []  # ty: ignore[invalid-argument-type]
