@@ -18,10 +18,12 @@ from aod._internal.schema.docs.use_case_doc import UseCaseDoc
 from aod._internal.schema.docs.value_object_doc import ValueObjectDoc
 from aod._internal.schema.infrastructure import Infrastructure
 from aod._internal.schema.module import Module
+from aod._internal.schema.render import AutoDoc
 
 __all__ = [
     "App",
     "AppDoc",
+    "AutoDoc",
     "BoundedContext",
     "BoundedContextDoc",
     "ContractDoc",
