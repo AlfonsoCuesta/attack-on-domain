@@ -10,10 +10,16 @@ typecheck:
 test:
 	uv run pytest code/tests -q
 
+test-infra:
+	RUN_INTEGRATION=1 uv run pytest code/tests/integration_tests -q
+
 check: lint typecheck test
 
 docs:
 	uv run zensical serve
+
+example-docs:
+	uv run zensical serve --config-file code/tests/schema/example-site/zensical.toml
 
 release: check
 	@echo "--- Bumping patch version ---"

@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import inspect
 from dataclasses import dataclass, field
 
 from aod._internal.domain.value_object import ValueObject
@@ -19,7 +18,7 @@ class ValueObjectDoc:
     def from_value_object(cls, vo_cls: type[ValueObject]) -> ValueObjectDoc:
         return cls(
             name=vo_cls.__name__,
-            description=inspect.getdoc(vo_cls) or "",
+            description=vo_cls.__doc__ or "",
             fields=extract_fields(vo_cls),
             methods=extract_methods(vo_cls),
         )

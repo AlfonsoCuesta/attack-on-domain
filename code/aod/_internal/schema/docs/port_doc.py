@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import inspect
 from dataclasses import dataclass, field
 
 from aod._internal.application.port import Port
@@ -22,7 +21,7 @@ class PortDoc:
         return cls(
             name=port_cls.__name__,
             type_name=port_cls.__name__,
-            description=inspect.getdoc(port_cls) or "",
+            description=port_cls.__doc__ or "",
             is_async=port_cls.__name__.startswith("Async"),
             fields=extract_fields(port_cls),
             methods=extract_methods(port_cls),

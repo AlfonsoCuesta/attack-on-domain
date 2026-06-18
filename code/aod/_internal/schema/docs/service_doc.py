@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import inspect
 from dataclasses import dataclass, field
 
 from aod._internal.domain.service import Service
@@ -18,6 +17,6 @@ class ServiceDoc:
     def from_service(cls, svc_cls: type[Service]) -> ServiceDoc:
         return cls(
             name=svc_cls.__name__,
-            description=inspect.getdoc(svc_cls) or "",
+            description=svc_cls.__doc__ or "",
             methods=extract_methods(svc_cls),
         )

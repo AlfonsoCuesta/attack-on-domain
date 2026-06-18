@@ -75,21 +75,19 @@ class AutoDoc:
     def _render_zensical_toml(self) -> str:
         nav_items: list[Any] = [{"Home": "index.md"}]
 
-        if self.modules:
-            entries = []
-            for mod in self.modules:
-                slug = self._slug(mod.name)
-                entries.append(
-                    {
-                        mod.name: [
-                            f"bounded-contexts/{slug}/index.md",
-                            {"Glossary": f"bounded-contexts/{slug}/glossary.md"},
-                            {"Entities": f"bounded-contexts/{slug}/entities.md"},
-                            {"Infrastructure": f"bounded-contexts/{slug}/infrastructure.md"},
-                        ]
-                    }
-                )
-            nav_items.append({"Bounded Contexts": entries})
+        for mod in self.modules:
+            slug = self._slug(mod.name)
+            label = mod.domain.name or mod.name
+            nav_items.append(
+                {
+                    label: [
+                        f"bounded-contexts/{slug}/index.md",
+                        {"Glossary": f"bounded-contexts/{slug}/glossary.md"},
+                        {"Entities": f"bounded-contexts/{slug}/entities.md"},
+                        {"Infrastructure": f"bounded-contexts/{slug}/infrastructure.md"},
+                    ]
+                }
+            )
 
         nav = self._format_nav(nav_items)
 
@@ -156,6 +154,10 @@ class AutoDoc:
 
     # ---- Home page ----
 
+    @staticmethod
+    def _label(mod: ModuleDoc) -> str:
+        return mod.domain.name or mod.name
+
     def _render_home(self) -> str:
         lines: list[str] = [
             "---",
@@ -180,11 +182,12 @@ class AutoDoc:
             )
             for mod in self.modules:
                 slug = self._slug(mod.name)
+                label = self._label(mod)
                 desc = self._bc_description(mod.domain)
                 lines.extend(
                     [
                         '  <div class="feature-card">',
-                        f'    <h3><a href="bounded-contexts/{slug}/">{mod.name}</a></h3>',
+                        f'    <h3><a href="bounded-contexts/{slug}/">{label}</a></h3>',
                         f"    <p>{desc}</p>",
                         "  </div>",
                     ]
@@ -205,7 +208,7 @@ class AutoDoc:
             "  - toc",
             "---",
             "",
-            f"# {mod.name}",
+            f"# {self._label(mod)}",
         ]
 
         desc = self._bc_description(domain)
@@ -281,7 +284,7 @@ class AutoDoc:
             "  - toc",
             "---",
             "",
-            f"# {mod.name} — Glossary",
+            f"# {self._label(mod)} — Glossary",
             "",
         ]
 
@@ -344,7 +347,7 @@ class AutoDoc:
             "  - toc",
             "---",
             "",
-            f"# {mod.name} — Domain Entities",
+            f"# {self._label(mod)} — Domain Entities",
             "",
         ]
 
@@ -430,7 +433,7 @@ class AutoDoc:
             "  - toc",
             "---",
             "",
-            f"# {mod.name} — Infrastructure",
+            f"# {self._label(mod)} — Infrastructure",
             "",
         ]
 
@@ -573,13 +576,18 @@ class AutoDoc:
 
     @staticmethod
     def _render_method_block(m: MethodDoc) -> str:
-        params_str = ", ".join(f"{p.name}: {p.type_name}" for p in m.params) if m.params else ""
+        def esc(t: str) -> str:
+            return t.replace("[", "\\[").replace("]", "\\]")
+
+        params_str = (
+            ", ".join(f"{p.name}: {esc(p.type_name)}" for p in m.params) if m.params else ""
+        )
         lines = [
             f'<div class="signature"><span class="keyword">def</span> <span class="param">{m.name}</span>({params_str})'
         ]
         if m.return_type:
             lines[0] += (
-                f' <span class="arrow">-&gt;</span> <span class="type">{m.return_type}</span>'
+                f' <span class="arrow">-&gt;</span> <span class="type">{esc(m.return_type)}</span>'
             )
         lines[0] += "</div>"
         if m.description:

@@ -5,7 +5,12 @@ from __future__ import annotations
 from pathlib import Path
 
 from aod._internal.application.contracts import Command, Query
-from aod._internal.application.handler import AsyncCommandPort, AsyncQueryPort, CommandPort, QueryPort
+from aod._internal.application.handler import (
+    AsyncCommandPort,
+    AsyncQueryPort,
+    CommandPort,
+    QueryPort,
+)
 from aod._internal.application.port import Port
 from aod._internal.application.use_case import AsyncUseCase, UseCase
 from aod._internal.application.unit_of_work import UnitOfWork
@@ -13,7 +18,12 @@ from aod._internal.domain.entity import Entity, RootEntity
 from aod._internal.domain.service import Service
 from aod._internal.domain.value_object import ValueObject
 from aod._internal.infrastructure.handlers import AsyncCommandHandler, CommandHandler, QueryHandler
-from aod._internal.infrastructure.projection import AsyncProjection, Projection, ReadProjection, WriteProjection
+from aod._internal.infrastructure.projection import (
+    AsyncProjection,
+    Projection,
+    ReadProjection,
+    WriteProjection,
+)
 from aod._internal.infrastructure.session import AsyncSession, Session
 from aod._internal.schema.app import App
 from aod._internal.schema.bounded_context import BoundedContext
@@ -26,6 +36,7 @@ import pytest
 # ============================================================
 # Domain types
 # ============================================================
+
 
 class OrderId(ValueObject):
     value: str
@@ -57,6 +68,7 @@ class PricingService(Service):
 # Contracts
 # ============================================================
 
+
 class PlaceOrder(Command[Order, None]):
     order_id: str
     amount: float = 0.0
@@ -70,6 +82,7 @@ class GetOrder(Query[Order, Order | None]):
 # Ports
 # ============================================================
 
+
 class EmailSender(Port):
     def send(self, to: str) -> None: ...
 
@@ -81,6 +94,7 @@ class AnalyticsClient(Port):
 # ============================================================
 # Port implementations
 # ============================================================
+
 
 class SmtpSender(EmailSender):
     def send(self, to: str) -> None: ...
@@ -99,6 +113,7 @@ class FakeUnitOfWork(UnitOfWork):
 # ============================================================
 # Use Cases
 # ============================================================
+
 
 class OrderUseCase(UseCase):
     place_order: CommandPort[PlaceOrder]
@@ -122,6 +137,7 @@ class AsyncOrderUseCase(AsyncUseCase):
 # Handlers
 # ============================================================
 
+
 class PlaceOrderHandler(CommandHandler[PlaceOrder]):
     session: Session | None = None
 
@@ -144,6 +160,7 @@ class AsyncPlaceOrderHandler(AsyncCommandHandler[PlaceOrder]):
 # ============================================================
 # Projections — inherits session from base, don't redeclare
 # ============================================================
+
 
 class OrderSummaryProjection(ReadProjection):
     def read(self, model: object) -> list[dict]:
@@ -171,6 +188,7 @@ class AsyncOrderProjection(AsyncProjection):
 # ============================================================
 # Fixtures
 # ============================================================
+
 
 def _make_spy(d: AutoDoc) -> list[tuple[Path, str]]:
     captured: list[tuple[Path, str]] = []
@@ -229,6 +247,7 @@ def doc_proj_spy() -> tuple[AutoDoc, list[tuple[Path, str]]]:
 # ============================================================
 # Home page
 # ============================================================
+
 
 class TestHome:
     def test_with_modules(self, doc_spy: tuple[AutoDoc, list[tuple[Path, str]]]) -> None:
@@ -298,12 +317,13 @@ class TestHome:
 # BoundedContext page
 # ============================================================
 
+
 class TestBoundedContextPage:
     def test_basic_structure(self, doc_spy: tuple[AutoDoc, list[tuple[Path, str]]]) -> None:
         d, _ = doc_spy
         mod = d.modules[0]
         html = d._render_bc_page(mod)
-        assert "orders" in html
+        assert "Orders" in html
         assert "Glossary" in html
         assert "Domain Entities" in html
         assert "Infrastructure" in html
@@ -347,6 +367,7 @@ class TestBoundedContextPage:
 # Glossary
 # ============================================================
 
+
 class TestGlossary:
     def test_all_types(self, doc_spy: tuple[AutoDoc, list[tuple[Path, str]]]) -> None:
         d, _ = doc_spy
@@ -388,8 +409,11 @@ class TestGlossary:
 # Entities detail
 # ============================================================
 
+
 class TestEntities:
-    def test_root_entity_fields_methods(self, doc_spy: tuple[AutoDoc, list[tuple[Path, str]]]) -> None:
+    def test_root_entity_fields_methods(
+        self, doc_spy: tuple[AutoDoc, list[tuple[Path, str]]]
+    ) -> None:
         d, _ = doc_spy
         html = d._render_entities(d.modules[0])
         assert "Order" in html
@@ -428,6 +452,7 @@ class TestEntities:
 # ============================================================
 # Infrastructure detail
 # ============================================================
+
 
 class TestInfrastructure:
     def test_handlers(self, doc_spy: tuple[AutoDoc, list[tuple[Path, str]]]) -> None:
@@ -483,6 +508,7 @@ class TestInfrastructure:
 # Zensical config
 # ============================================================
 
+
 class TestZensicalConfig:
     def test_with_modules(self, doc_spy: tuple[AutoDoc, list[tuple[Path, str]]]) -> None:
         d, _ = doc_spy
@@ -520,6 +546,7 @@ class TestZensicalConfig:
 # Nav formatting
 # ============================================================
 
+
 class TestNavFormatting:
     def test_simple(self) -> None:
         app = App(name="X", modules=[])
@@ -533,13 +560,17 @@ class TestNavFormatting:
         app = App(name="X", modules=[])
         d = AutoDoc(app, "/out")
         _make_spy(d)
-        nav = d._format_nav([
-            {"Home": "index.md"},
-            {"Section": [
-                "sub/index.md",
-                {"SubPage": "sub/page.md"},
-            ]},
-        ])
+        nav = d._format_nav(
+            [
+                {"Home": "index.md"},
+                {
+                    "Section": [
+                        "sub/index.md",
+                        {"SubPage": "sub/page.md"},
+                    ]
+                },
+            ]
+        )
         assert "Section" in nav
         assert "SubPage" in nav
         assert "sub/index.md" in nav
@@ -555,6 +586,7 @@ class TestNavFormatting:
 # ============================================================
 # Full generate
 # ============================================================
+
 
 class TestGenerate:
     def test_files_written(self, doc_spy: tuple[AutoDoc, list[tuple[Path, str]]]) -> None:
@@ -580,8 +612,9 @@ class TestGenerate:
     def test_multiple_modules(self) -> None:
         bc1 = BoundedContext(aggregate_roots=[Order], name="Orders", use_cases=[OrderUseCase])
         bc2 = BoundedContext(name="Sales")
-        infra1 = Infrastructure(handlers=[PlaceOrderHandler, GetOrderHandler],
-                                ports=[FakeUnitOfWork, SmtpSender])
+        infra1 = Infrastructure(
+            handlers=[PlaceOrderHandler, GetOrderHandler], ports=[FakeUnitOfWork, SmtpSender]
+        )
         infra2 = Infrastructure()
         mod1 = Module(name="orders", context=bc1, infrastructure=infra1)
         mod2 = Module(name="sales", context=bc2, infrastructure=infra2)
@@ -602,13 +635,16 @@ class TestGenerate:
     def test_exactly_one_home(self, doc_spy: tuple[AutoDoc, list[tuple[Path, str]]]) -> None:
         d, captured = doc_spy
         d.generate()
-        homes = [(p, c) for p, c in captured if p.name == "index.md" and "bounded-contexts" not in str(p)]
+        homes = [
+            (p, c) for p, c in captured if p.name == "index.md" and "bounded-contexts" not in str(p)
+        ]
         assert len(homes) == 1
 
 
 # ============================================================
 # AutoDoc construction
 # ============================================================
+
 
 class TestConstruction:
     def test_site_name_defaults_to_app_name(self) -> None:
@@ -636,6 +672,7 @@ class TestConstruction:
 # Shared renderers
 # ============================================================
 
+
 class TestShared:
     def test_bc_description_full(self, doc_spy: tuple[AutoDoc, list[tuple[Path, str]]]) -> None:
         d, _ = doc_spy
@@ -661,6 +698,7 @@ class TestShared:
 
     def test_render_field_table_content(self) -> None:
         from aod._internal.schema.docs.generic_docs import FieldDoc
+
         fields = [FieldDoc(name="id", type_name="int", default="0", description="The ID")]
         html = AutoDoc._render_field_table(fields)
         assert "id" in html
@@ -669,19 +707,27 @@ class TestShared:
 
     def test_render_param_table_content(self) -> None:
         from aod._internal.schema.docs.generic_docs import ParamDoc
+
         params = [ParamDoc(name="x", type_name="str", default="''")]
         html = AutoDoc._render_param_table(params)
         assert "x" in html
 
     def test_render_method_block(self) -> None:
         from aod._internal.schema.docs.generic_docs import MethodDoc, ParamDoc
-        m = MethodDoc(name="do_it", params=[ParamDoc(name="x", type_name="int")], return_type="str", description="Does it")
+
+        m = MethodDoc(
+            name="do_it",
+            params=[ParamDoc(name="x", type_name="int")],
+            return_type="str",
+            description="Does it",
+        )
         html = AutoDoc._render_method_block(m)
         assert "def" in html
         assert "do_it" in html
 
     def test_render_method_block_no_params(self) -> None:
         from aod._internal.schema.docs.generic_docs import MethodDoc
+
         m = MethodDoc(name="noop", return_type="None")
         html = AutoDoc._render_method_block(m)
         assert "def" in html
@@ -696,10 +742,13 @@ class TestShared:
 # Async use cases
 # ============================================================
 
+
 class TestAsyncUseCase:
     def test_async_use_case_in_home(self) -> None:
         bc = BoundedContext(aggregate_roots=[Order], use_cases=[AsyncOrderUseCase], name="Async")
-        infra = Infrastructure(handlers=[AsyncPlaceOrderHandler, GetOrderHandler], ports=[FakeUnitOfWork, SmtpSender])
+        infra = Infrastructure(
+            handlers=[AsyncPlaceOrderHandler, GetOrderHandler], ports=[FakeUnitOfWork, SmtpSender]
+        )
         mod = Module(name="async-mod", context=bc, infrastructure=infra)
         app = App(name="AsyncApp", modules=[mod])
         d = AutoDoc(app, "/out")

@@ -1,0 +1,51 @@
+site_name = "E-Commerce Docs"
+site_url = ""
+site_description = "DDD documentation for the E-Commerce Platform"
+repo_url = "https://github.com/example/ecommerce"
+repo_name = "ecommerce"
+edit_uri = "edit/main/docs/"
+extra_css = ["stylesheets/extra.css"]
+
+nav = [
+    { "Home" = "index.md" },
+    { "Orders" = [
+        "bounded-contexts/orders/index.md",
+        { "Glossary" = "bounded-contexts/orders/glossary.md" },
+        { "Entities" = "bounded-contexts/orders/entities.md" },
+        { "Infrastructure" = "bounded-contexts/orders/infrastructure.md" }
+    ] },
+    { "Invoicing" = [
+        "bounded-contexts/invoicing/index.md",
+        { "Glossary" = "bounded-contexts/invoicing/glossary.md" },
+        { "Entities" = "bounded-contexts/invoicing/entities.md" },
+        { "Infrastructure" = "bounded-contexts/invoicing/infrastructure.md" }
+    ] }
+]
+
+[theme]
+name = "material"
+variant = "classic"
+palette = [
+    {scheme = "default", primary = "blue", accent = "blue", toggle = {icon = "material/brightness-7", name = "Switch to light mode"}},
+    {scheme = "slate", primary = "blue", accent = "blue", toggle = {icon = "material/brightness-4", name = "Switch to dark mode"}},
+]
+features = [
+    "navigation.tabs",
+    "navigation.tabs.sticky",
+    "navigation.indexes",
+    "navigation.top",
+    "search.suggest",
+    "search.highlight",
+    "content.code.copy",
+    "content.tabs.link",
+]
+font = {text = "Roboto", code = "Roboto Mono"}
+custom_dir = "docs/overrides"
+icon = {repo = "fontawesome/brands/github"}
+language = "en"
+
+[plugins]
+search = {}
+
+[markdown]
+toc = {permalink = true, title = "On this page"}

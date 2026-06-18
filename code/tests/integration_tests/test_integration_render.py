@@ -30,6 +30,7 @@ from aod._internal.schema.render import AutoDoc
 
 # ---- domain types ----
 
+
 class OrderId(ValueObject):
     value: str
 
@@ -46,6 +47,7 @@ class LineItem(ValueObject):
 
 # ---- contracts ----
 
+
 class PlaceOrder(Command[Order, None]):
     order_id: str
     amount: float = 0.0
@@ -56,6 +58,7 @@ class GetOrder(Query[Order, Order | None]):
 
 
 # ---- ports ----
+
 
 class EmailSender(Port):
     def send(self, to: str) -> None: ...
@@ -73,6 +76,7 @@ class FakeUnitOfWork(UnitOfWork):
 
 # ---- handlers ----
 
+
 class PlaceOrderHandler(CommandHandler[PlaceOrder]):
     session: Session | None = None
 
@@ -87,6 +91,7 @@ class GetOrderHandler(QueryHandler[GetOrder]):
 
 
 # ---- use case ----
+
 
 class OrderUseCase(UseCase):
     place_order: CommandPort[PlaceOrder]

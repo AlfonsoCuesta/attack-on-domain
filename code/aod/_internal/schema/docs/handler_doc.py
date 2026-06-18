@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import inspect
 from dataclasses import dataclass
 from typing import get_type_hints
 
@@ -61,7 +60,7 @@ class HandlerDoc:
             handler_type=handler_type,
             contract=contract_name,
             session=session,
-            description=inspect.getdoc(handler_cls) or "",
+            description=handler_cls.__doc__ or "",
             is_async=is_async,
             handle=handle,
         )
