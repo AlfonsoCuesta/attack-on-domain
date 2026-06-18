@@ -1,4 +1,4 @@
-<img src="docs/img/light-logo.png" alt="attack-on-domain" width="48" align="left" style="margin-right: 12px;"> # attack-on-domain
+# attack-on-domain
 
 Domain-Driven Design building blocks for Python 3.14+: entities, value objects, aggregates, CQRS, ports and adapters, use cases, domain events, invariants, and dependency injection.
 
