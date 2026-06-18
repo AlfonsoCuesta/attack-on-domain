@@ -7,7 +7,6 @@ import pytest
 from aod._internal.application.contracts import Command, Query
 from aod._internal.application.handler import CommandPort, QueryPort
 from aod._internal.application.port import Port
-from aod._internal.application.unit_of_work import UnitOfWork
 from aod._internal.application.use_case import AsyncUseCase, UseCase
 from aod._internal.core.domain_exception import (
     DuplicateDomainTypeError,
@@ -151,25 +150,6 @@ class FakeEventBus(Port):
 
 class FakeCache(Port):
     pass
-
-
-class FakeUnitOfWork(UnitOfWork):
-    _connection: object | None = None
-
-    def begin(self) -> None:
-        pass
-
-    def commit(self) -> None:
-        pass
-
-    def rollback(self) -> None:
-        pass
-
-    def is_dirty(self) -> bool:
-        return False
-
-    def close(self) -> None:
-        pass
 
 
 # ---- Use Cases ----
@@ -319,7 +299,7 @@ class TestModule:
         )
         infra = Infrastructure(
             handlers=[PlaceOrderHandler, GetOrderHandler],
-            ports=[ConsoleLogger, SmtpSender, FakeUnitOfWork],
+            ports=[ConsoleLogger, SmtpSender],
         )
         mod = Module(name="orders", context=bc, infrastructure=infra)
         assert mod.name == "orders"
@@ -379,7 +359,7 @@ class TestApp:
         bc2 = BoundedContext(use_cases=[OrderUseCase])
         infra = Infrastructure(
             handlers=[PlaceOrderHandler, GetOrderHandler],
-            ports=[ConsoleLogger, SmtpSender, FakeUnitOfWork],
+            ports=[ConsoleLogger, SmtpSender],
         )
         mod1 = Module(name="a", context=bc1, infrastructure=infra)
         mod2 = Module(name="b", context=bc2, infrastructure=infra)
@@ -400,7 +380,7 @@ class TestApp:
         bc2 = BoundedContext(use_cases=[OrderUseCase])
         infra = Infrastructure(
             handlers=[PlaceOrderHandler, GetOrderHandler],
-            ports=[ConsoleLogger, SmtpSender, FakeUnitOfWork],
+            ports=[ConsoleLogger, SmtpSender],
         )
         mod1 = Module(name="a", context=bc1, infrastructure=infra)
         mod2 = Module(name="b", context=bc2, infrastructure=infra)
@@ -412,7 +392,7 @@ class TestApp:
         bc2 = BoundedContext(aggregate_roots=[Invoice], name="invoices")
         infra1 = Infrastructure(
             handlers=[PlaceOrderHandler, GetOrderHandler],
-            ports=[ConsoleLogger, SmtpSender, FakeUnitOfWork],
+            ports=[ConsoleLogger, SmtpSender],
         )
         infra2 = Infrastructure()
         mod1 = Module(name="orders", context=bc1, infrastructure=infra1)

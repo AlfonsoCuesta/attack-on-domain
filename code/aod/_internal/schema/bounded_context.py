@@ -2,14 +2,18 @@ from __future__ import annotations
 
 from collections.abc import Iterable
 
+from aod._internal.application.cache import AsyncCache, Cache
 from aod._internal.application.contracts import Command, Query
+from aod._internal.application.event_bus import AsyncEventBus, EventBus
 from aod._internal.application.handler import (
     AsyncCommandPort,
     AsyncQueryPort,
     CommandPort,
     QueryPort,
 )
+from aod._internal.application.logger import AsyncLogger, Logger
 from aod._internal.application.port import Port
+from aod._internal.application.unit_of_work import AsyncUnitOfWork, UnitOfWork
 from aod._internal.application.use_case import AsyncUseCase, UseCase
 from aod._internal.core.domain_exception import (
     ClassExpectedError,
@@ -21,6 +25,10 @@ from aod._internal.core.type_handlers import BaseGuardedTypeHandler, ServiceType
 from aod._internal.domain.entity import Entity, RootEntity
 from aod._internal.domain.service import Service
 from aod._internal.domain.value_object import ValueObject
+
+_INTERNAL_PORT_TYPES = frozenset(
+    {UnitOfWork, AsyncUnitOfWork, Logger, AsyncLogger, EventBus, AsyncEventBus, Cache, AsyncCache}
+)
 
 type RootEntityType = type[RootEntity]
 type EntityType = type[Entity]
@@ -131,7 +139,8 @@ class BoundedContext:
                     if args and isinstance(args[0], type):
                         contracts.append(args[0])
                 elif isinstance(field_type, type) and issubclass(field_type, Port):
-                    ports.append(field_type)
+                    if field_type not in _INTERNAL_PORT_TYPES:
+                        ports.append(field_type)
 
         return contracts, ports
 

@@ -8,6 +8,8 @@ hide:
 
 ## Order
 
+Root aggregate for the ordering subdomain.
+
 **Fields:**
 
 <table class="param-table">
@@ -29,6 +31,19 @@ hide:
 
 ## CustomerId
 
+Unique identifier for a customer.
+
+**Fields:**
+
+<table class="param-table">
+<tr><th>Name</th><th>Type</th><th>Default</th><th>Description</th></tr>
+<tr><td>value</td><td><code>str</code></td><td></td><td></td></tr>
+</table>
+
+## OrderId
+
+Unique identifier for an order in the system.
+
 **Fields:**
 
 <table class="param-table">
@@ -37,6 +52,8 @@ hide:
 </table>
 
 ## OrderLine
+
+A single product line within an order.
 
 **Fields:**
 
@@ -47,22 +64,17 @@ hide:
 <tr><td>price</td><td><code>float</code></td><td></td><td></td></tr>
 </table>
 
-## OrderId
-
-**Fields:**
-
-<table class="param-table">
-<tr><th>Name</th><th>Type</th><th>Default</th><th>Description</th></tr>
-<tr><td>value</td><td><code>str</code></td><td></td><td></td></tr>
-</table>
-
 ## PricingService
+
+Applies discount codes and calculates final prices.
 
 **Methods:**
 
 <div class="signature"><span class="keyword">def</span> <span class="param">apply_discount</span>(base: float, code: str) <span class="arrow">-&gt;</span> <span class="type">float</span></div>
 
 ## TaxService
+
+Calculates tax amounts based on region and price.
 
 **Methods:**
 

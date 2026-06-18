@@ -19,7 +19,6 @@ from aod._internal.application.handler import (
 )
 from aod._internal.application.port import Port
 from aod._internal.application.use_case import AsyncUseCase, UseCase
-from aod._internal.application.unit_of_work import UnitOfWork
 from aod._internal.domain.entity import Entity, RootEntity
 from aod._internal.domain.service import Service
 from aod._internal.domain.value_object import ValueObject
@@ -201,12 +200,6 @@ class ConsoleAuditLogger(AuditLogger):
     def log(self, action: str, details: dict) -> None: ...
 
 
-class FakeUnitOfWork(UnitOfWork):
-    def begin(self) -> None: ...
-    def commit(self) -> None: ...
-    def rollback(self) -> None: ...
-
-
 # ---- Sessions ----
 
 
@@ -353,7 +346,6 @@ def main() -> None:
             ArchiveOrdersProjection,
         ],
         ports=[
-            FakeUnitOfWork,
             SmtpSender,
             StripeGateway,
             FakeInventory,
@@ -369,7 +361,6 @@ def main() -> None:
             InvoiceReportProjection,
         ],
         ports=[
-            FakeUnitOfWork,
             ConsoleAuditLogger,
         ],
     )

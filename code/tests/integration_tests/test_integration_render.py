@@ -157,14 +157,14 @@ class TestRealGeneration:
         html = root.joinpath("docs/index.md").read_text()
         assert "MyApp Docs" in html
         assert "App description" in html
-        assert "orders" in html
+        assert "Orders" in html
         assert "home-hero" in html
         assert "feature-card" in html
 
     @staticmethod
     def _assert_bc_pages(root: Path) -> None:
         bc_index = root.joinpath("docs/bounded-contexts/orders/index.md").read_text()
-        assert "orders" in bc_index
+        assert "Orders" in bc_index
         assert "Use Cases" in bc_index
         assert "OrderUseCase" in bc_index
         assert "Glossary" in bc_index

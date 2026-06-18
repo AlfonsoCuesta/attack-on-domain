@@ -178,6 +178,8 @@ docs/
 │   ├── projections.md                # ReadProjection, WriteProjection, async variants
 │   ├── container.md                  # AdapterContainerBase: sessions, handlers, ports
 │   └── injection.md                  # inject_adapters: wiring dependencies
+├── schema/
+│   └── index.md                      # Schema system overview, AutoDoc, consistency checks
 ├── testing/
 │   └── index.md                      # build, events_of, assert_*, spy classes, FakeDomain
 └── api/
@@ -293,6 +295,38 @@ code/
 │           └── faker/
 │               ├── __init__.py
 │               └── faker.py          # DomainType, FakeDomain
+│       └── schema/                   # Schema system — introspection + docs generation
+│           ├── __init__.py           # Public: App, BoundedContext, Module, Infrastructure, AutoDoc, all Doc types
+│           ├── app.py                # App: main entry point, aggregates modules
+│           ├── bounded_context.py    # BoundedContext: aggregate_roots, services, use_cases, contracts, ports
+│           ├── infrastructure.py     # Infrastructure: handlers, sessions, projections, ports
+│           ├── module.py             # Module: validates handler-port wiring
+│           ├── describe_utils.py     # extract_fields(), extract_methods(), extract_params()
+│           ├── docs/                 # Doc dataclasses for each schema type
+│           │   ├── __init__.py
+│           │   ├── app_doc.py        # AppDoc.from_app()
+│           │   ├── module_doc.py     # ModuleDoc.from_module()
+│           │   ├── bounded_context_doc.py  # BoundedContextDoc.from_bounded_context()
+│           │   ├── entity_doc.py     # EntityDoc.from_entity()
+│           │   ├── root_entity_doc.py  # RootEntityDoc.from_root_entity()
+│           │   ├── value_object_doc.py  # ValueObjectDoc.from_value_object()
+│           │   ├── service_doc.py    # ServiceDoc.from_service()
+│           │   ├── handler_doc.py    # HandlerDoc.from_handler()
+│           │   ├── handler_port_doc.py  # HandlerPortDoc.from_handler_port()
+│           │   ├── contract_doc.py   # ContractDoc.from_contract()
+│           │   ├── port_doc.py       # PortDoc.from_port()
+│           │   ├── session_doc.py    # SessionDoc.from_session()
+│           │   ├── projection_doc.py  # ProjectionDoc.from_projection()
+│           │   ├── use_case_doc.py   # UseCaseDoc.from_use_case()
+│           │   ├── infrastructure_doc.py  # InfrastructureDoc.from_infrastructure()
+│           │   └── generic_docs.py   # FieldDoc, MethodDoc, ParamDoc, type_str(), default_str()
+│           └── render/               # Zensical site generator
+│               ├── __init__.py       # Public: AutoDoc
+│               ├── auto_doc.py       # AutoDoc: generates zensical .md site from App
+│               ├── styles/
+│               │   └── extra.css     # Default CSS for generated site
+│               └── overrides/
+│                   └── main.html     # Default template override (hides sidebar)
 └── tests/                            # All tests
     ├── test_public_api.py
     ├── core/                         # Core framework tests
@@ -773,7 +807,7 @@ uv run pytest code/tests -q
 
 ## Test Count
 
-922 tests (no `patch`/`mock.patch` in any test file)
+1087 tests (no `patch`/`mock.patch` in any test file)
 
 ## At the end of a task
 

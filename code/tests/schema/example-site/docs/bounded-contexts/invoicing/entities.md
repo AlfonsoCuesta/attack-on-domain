@@ -8,6 +8,8 @@ hide:
 
 ## Invoice
 
+Root aggregate for the invoicing subdomain.
+
 **Fields:**
 
 <table class="param-table">
@@ -27,6 +29,8 @@ hide:
 **Queries:** `GetInvoice`
 
 ## OrderId
+
+Unique identifier for an order in the system.
 
 **Fields:**
 

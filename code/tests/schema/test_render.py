@@ -13,7 +13,6 @@ from aod._internal.application.handler import (
 )
 from aod._internal.application.port import Port
 from aod._internal.application.use_case import AsyncUseCase, UseCase
-from aod._internal.application.unit_of_work import UnitOfWork
 from aod._internal.domain.entity import Entity, RootEntity
 from aod._internal.domain.service import Service
 from aod._internal.domain.value_object import ValueObject
@@ -102,12 +101,6 @@ class SmtpSender(EmailSender):
 
 class FakeAnalytics(AnalyticsClient):
     def track(self, event: str) -> None: ...
-
-
-class FakeUnitOfWork(UnitOfWork):
-    def begin(self) -> None: ...
-    def commit(self) -> None: ...
-    def rollback(self) -> None: ...
 
 
 # ============================================================
@@ -215,7 +208,7 @@ def doc_spy() -> tuple[AutoDoc, list[tuple[Path, str]]]:
     )
     infra = Infrastructure(
         handlers=[PlaceOrderHandler, GetOrderHandler],
-        ports=[FakeUnitOfWork, SmtpSender],
+        ports=[SmtpSender],
     )
     mod = Module(name="orders", context=bc, infrastructure=infra)
     app = App(name="TestApp", modules=[mod], description="Test app description")
@@ -235,7 +228,7 @@ def doc_proj_spy() -> tuple[AutoDoc, list[tuple[Path, str]]]:
     infra = Infrastructure(
         handlers=[PlaceOrderHandler, GetOrderHandler],
         projections=[OrderSummaryProjection, WriteOrderProjection, FullOrderProjection],
-        ports=[FakeUnitOfWork, SmtpSender],
+        ports=[SmtpSender],
     )
     mod = Module(name="orders", context=bc, infrastructure=infra)
     app = App(name="TestApp", modules=[mod], description="Test")
@@ -612,9 +605,7 @@ class TestGenerate:
     def test_multiple_modules(self) -> None:
         bc1 = BoundedContext(aggregate_roots=[Order], name="Orders", use_cases=[OrderUseCase])
         bc2 = BoundedContext(name="Sales")
-        infra1 = Infrastructure(
-            handlers=[PlaceOrderHandler, GetOrderHandler], ports=[FakeUnitOfWork, SmtpSender]
-        )
+        infra1 = Infrastructure(handlers=[PlaceOrderHandler, GetOrderHandler], ports=[SmtpSender])
         infra2 = Infrastructure()
         mod1 = Module(name="orders", context=bc1, infrastructure=infra1)
         mod2 = Module(name="sales", context=bc2, infrastructure=infra2)
@@ -747,7 +738,7 @@ class TestAsyncUseCase:
     def test_async_use_case_in_home(self) -> None:
         bc = BoundedContext(aggregate_roots=[Order], use_cases=[AsyncOrderUseCase], name="Async")
         infra = Infrastructure(
-            handlers=[AsyncPlaceOrderHandler, GetOrderHandler], ports=[FakeUnitOfWork, SmtpSender]
+            handlers=[AsyncPlaceOrderHandler, GetOrderHandler], ports=[SmtpSender]
         )
         mod = Module(name="async-mod", context=bc, infrastructure=infra)
         app = App(name="AsyncApp", modules=[mod])

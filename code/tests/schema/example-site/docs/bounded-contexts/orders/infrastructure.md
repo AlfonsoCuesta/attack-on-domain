@@ -50,23 +50,13 @@ hide:
 
 ## Sessions
 
-### RedisSession
+### Session
 
 ### PostgresSession
 
-### Session
+### RedisSession
 
 ## Ports
-
-### FakeUnitOfWork
-
-- **Type:** `FakeUnitOfWork`
-
-**Methods:**
-
-<div class="signature"><span class="keyword">def</span> <span class="param">begin</span>() <span class="arrow">-&gt;</span> <span class="type">None</span></div>
-<div class="signature"><span class="keyword">def</span> <span class="param">commit</span>() <span class="arrow">-&gt;</span> <span class="type">None</span></div>
-<div class="signature"><span class="keyword">def</span> <span class="param">rollback</span>() <span class="arrow">-&gt;</span> <span class="type">None</span></div>
 
 ### SmtpSender
 

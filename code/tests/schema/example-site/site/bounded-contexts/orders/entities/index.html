@@ -576,10 +576,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#orderline" class="md-nav__link">
+  <a href="#orderid" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
-        OrderLine
+        OrderId
       </span>
     </span>
   </a>
@@ -587,10 +587,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#orderid" class="md-nav__link">
+  <a href="#orderline" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
-        OrderId
+        OrderLine
       </span>
     </span>
   </a>
@@ -872,10 +872,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#orderline" class="md-nav__link">
+  <a href="#orderid" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
-        OrderLine
+        OrderId
       </span>
     </span>
   </a>
@@ -883,10 +883,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#orderid" class="md-nav__link">
+  <a href="#orderline" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
-        OrderId
+        OrderLine
       </span>
     </span>
   </a>
@@ -936,6 +936,7 @@
 
 <h1 id="orders-domain-entities">Orders — Domain Entities<a class="headerlink" href="#orders-domain-entities" title="Permanent link">&para;</a></h1>
 <h2 id="order">Order<a class="headerlink" href="#order" title="Permanent link">&para;</a></h2>
+<p>Root aggregate for the ordering subdomain.</p>
 <p><strong>Fields:</strong></p>
 <table class="param-table">
 <tr><th>Name</th><th>Type</th><th>Default</th><th>Description</th></tr>
@@ -952,6 +953,15 @@
 <p><strong>Commands:</strong> <code>PlaceOrder</code>, <code>CancelOrder</code></p>
 <p><strong>Queries:</strong> <code>GetOrder</code>, <code>ListOrders</code></p>
 <h2 id="customerid">CustomerId<a class="headerlink" href="#customerid" title="Permanent link">&para;</a></h2>
+<p>Unique identifier for a customer.</p>
+<p><strong>Fields:</strong></p>
+<table class="param-table">
+<tr><th>Name</th><th>Type</th><th>Default</th><th>Description</th></tr>
+<tr><td>value</td><td><code>str</code></td><td></td><td></td></tr>
+</table>
+
+<h2 id="orderid">OrderId<a class="headerlink" href="#orderid" title="Permanent link">&para;</a></h2>
+<p>Unique identifier for an order in the system.</p>
 <p><strong>Fields:</strong></p>
 <table class="param-table">
 <tr><th>Name</th><th>Type</th><th>Default</th><th>Description</th></tr>
@@ -959,6 +969,7 @@
 </table>
 
 <h2 id="orderline">OrderLine<a class="headerlink" href="#orderline" title="Permanent link">&para;</a></h2>
+<p>A single product line within an order.</p>
 <p><strong>Fields:</strong></p>
 <table class="param-table">
 <tr><th>Name</th><th>Type</th><th>Default</th><th>Description</th></tr>
@@ -967,18 +978,13 @@
 <tr><td>price</td><td><code>float</code></td><td></td><td></td></tr>
 </table>
 
-<h2 id="orderid">OrderId<a class="headerlink" href="#orderid" title="Permanent link">&para;</a></h2>
-<p><strong>Fields:</strong></p>
-<table class="param-table">
-<tr><th>Name</th><th>Type</th><th>Default</th><th>Description</th></tr>
-<tr><td>value</td><td><code>str</code></td><td></td><td></td></tr>
-</table>
-
 <h2 id="pricingservice">PricingService<a class="headerlink" href="#pricingservice" title="Permanent link">&para;</a></h2>
+<p>Applies discount codes and calculates final prices.</p>
 <p><strong>Methods:</strong></p>
 <div class="signature"><span class="keyword">def</span> <span class="param">apply_discount</span>(base: float, code: str) <span class="arrow">-&gt;</span> <span class="type">float</span></div>
 
 <h2 id="taxservice">TaxService<a class="headerlink" href="#taxservice" title="Permanent link">&para;</a></h2>
+<p>Calculates tax amounts based on region and price.</p>
 <p><strong>Methods:</strong></p>
 <div class="signature"><span class="keyword">def</span> <span class="param">calculate_tax</span>(amount: float, region: str) <span class="arrow">-&gt;</span> <span class="type">float</span></div>
 

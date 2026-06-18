@@ -872,17 +872,23 @@
 <h2 id="root-entities">Root Entities<a class="headerlink" href="#root-entities" title="Permanent link">&para;</a></h2>
 <ul>
 <li><strong>Order</strong></li>
+<li>Root aggregate for the ordering subdomain.</li>
 </ul>
 <h2 id="value-objects">Value Objects<a class="headerlink" href="#value-objects" title="Permanent link">&para;</a></h2>
 <ul>
 <li><strong>CustomerId</strong></li>
-<li><strong>OrderLine</strong></li>
+<li>Unique identifier for a customer.</li>
 <li><strong>OrderId</strong></li>
+<li>Unique identifier for an order in the system.</li>
+<li><strong>OrderLine</strong></li>
+<li>A single product line within an order.</li>
 </ul>
 <h2 id="services">Services<a class="headerlink" href="#services" title="Permanent link">&para;</a></h2>
 <ul>
 <li><strong>PricingService</strong></li>
+<li>Applies discount codes and calculates final prices.</li>
 <li><strong>TaxService</strong></li>
+<li>Calculates tax amounts based on region and price.</li>
 </ul>
 
   

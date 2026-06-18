@@ -20,8 +20,6 @@ from aod._internal.core.infrastructure_exception import HandlerResultTypeError
 
 def test_aod_domain_exports_documented_api() -> None:
     assert aod.domain.__all__ == [
-        "App",
-        "BoundedContext",
         "DomainException",
         "Entity",
         "RootEntity",
@@ -30,13 +28,11 @@ def test_aod_domain_exports_documented_api() -> None:
         "Field",
         "PrivateField",
     ]
-    assert aod.domain.App.__name__ == "App"
     assert aod.domain.DomainException.__name__ == "DomainException"
     assert aod.domain.Entity.__name__ == "Entity"
     assert aod.domain.RootEntity.__name__ == "RootEntity"
     assert aod.domain.Service.__name__ == "Service"
     assert aod.domain.ValueObject.__name__ == "ValueObject"
-    assert aod.domain.BoundedContext.__name__ == "BoundedContext"
     assert aod.domain.Field.__name__ == "Field"
     assert aod.domain.PrivateField.__name__ == "PrivateField"
 
