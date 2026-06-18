@@ -12,8 +12,8 @@ if TYPE_CHECKING:
 @dataclass
 class AppDoc:
     name: str
-    description: str
     modules: list[ModuleDoc]
+    description: str = ""
 
     @classmethod
     def from_app(cls, app: App) -> AppDoc:

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from typing import get_type_hints
 
+from aod._internal.application.port import Port
 from aod._internal.core.domain_exception import DuplicateDomainTypeError
 from aod._internal.core.type_handlers.generic_utils import get_generic_arg_from_orig_bases
 from aod._internal.infrastructure.handlers.handlers import BaseHandler
@@ -11,6 +12,7 @@ from aod._internal.infrastructure.session import AsyncSession, Session
 type HandlerType = type[BaseHandler]
 type ProjectionType = type[ProjectionBase]
 type SessionType = type[Session] | type[AsyncSession]
+type PortType = type[Port]
 
 
 class Infrastructure:
@@ -18,11 +20,14 @@ class Infrastructure:
         self,
         handlers: list[HandlerType] | None = None,
         projections: list[ProjectionType] | None = None,
+        ports: list[PortType] | None = None,
     ):
         if handlers is None:
             handlers = []
         if projections is None:
             projections = []
+        if ports is None:
+            ports = []
 
         self._check_duplicate_contracts(handlers)
 
@@ -31,6 +36,7 @@ class Infrastructure:
         self.handlers: tuple[HandlerType, ...] = tuple(handlers)
         self.projections: tuple[ProjectionType, ...] = tuple(projections)
         self.sessions: tuple[SessionType, ...] = tuple(sessions)
+        self.ports: tuple[PortType, ...] = tuple(ports)
 
     @staticmethod
     def _check_duplicate_contracts(handlers: list[HandlerType]) -> None:

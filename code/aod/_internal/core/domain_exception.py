@@ -111,3 +111,17 @@ class ModelValidationError(DomainException):
 
     def __init__(self, cls_name: str, message: str) -> None:
         super().__init__(f"Validation failed for {cls_name}: {message}")
+
+
+class MissingHandlerError(DomainException):
+    """Raised when a module is missing a handler for a contract or port."""
+
+    def __init__(self, message: str) -> None:
+        super().__init__(message)
+
+
+class MissingPortError(DomainException):
+    """Raised when a module is missing an implementation for a port."""
+
+    def __init__(self, port_name: str) -> None:
+        super().__init__(f"Port {port_name} has no implementation in module")

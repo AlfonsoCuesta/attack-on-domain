@@ -11,13 +11,13 @@ from pydantic_core import PydanticUndefined
 def type_str(tp: object) -> str:
     if tp is inspect.Parameter.empty or tp is inspect.Signature.empty:
         return ""
+    if isinstance(tp, type):
+        return tp.__name__
     origin = getattr(tp, "__origin__", None)
     if origin is not None:
         args = getattr(tp, "__args__", ())
         args_str = ", ".join(type_str(a) for a in args)
         return f"{type_str(origin)}[{args_str}]"
-    if isinstance(tp, type):
-        return tp.__name__
     return str(tp)
 
 
