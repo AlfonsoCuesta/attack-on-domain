@@ -57,7 +57,11 @@ class ProjectionDoc:
                     continue
                 from aod._internal.application.port import Port
 
-                if isinstance(annotation, type) and issubclass(annotation, Port) and annotation is not Port:
+                if (
+                    isinstance(annotation, type)
+                    and issubclass(annotation, Port)
+                    and annotation is not Port
+                ):
                     ports.append(PortDoc.from_port(annotation))
 
         read = None

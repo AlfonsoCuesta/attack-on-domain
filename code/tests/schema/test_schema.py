@@ -30,6 +30,7 @@ from aod._internal.schema.module import Module
 
 # ---- Domain types ----
 
+
 class OrderId(ValueObject):
     value: str
 
@@ -57,6 +58,7 @@ class PricingService(Service):
 
 # ---- Contracts ----
 
+
 class PlaceOrder(Command[Order, None]):
     order_id: str
 
@@ -70,6 +72,7 @@ class IssueInvoice(Command[Invoice, None]):
 
 
 # ---- Handlers ----
+
 
 class MySession(Session):
     _connection: object = None
@@ -119,12 +122,14 @@ class IssueInvoiceHandler(CommandHandler[IssueInvoice]):
 
 # ---- Custom Port ----
 
+
 class EmailSender(Port):
     def send(self, to: str, subject: str) -> None:
         pass
 
 
 # ---- Port implementations ----
+
 
 class ConsoleLogger(Port):
     def info(self, msg: str) -> None:
@@ -169,6 +174,7 @@ class FakeUnitOfWork(UnitOfWork):
 
 # ---- Use Cases ----
 
+
 class OrderUseCase(UseCase):
     place_order: CommandPort[PlaceOrder]
     get_order: QueryPort[GetOrder]
@@ -182,6 +188,7 @@ class OrderUseCase(UseCase):
 # ============================================================
 # BoundedContext
 # ============================================================
+
 
 class TestBoundedContext:
     def test_construct_with_all_params(self) -> None:
@@ -270,6 +277,7 @@ class TestBoundedContext:
 # Infrastructure
 # ============================================================
 
+
 class TestInfrastructure:
     def test_construct_empty(self) -> None:
         infra = Infrastructure()
@@ -301,6 +309,7 @@ class TestInfrastructure:
 # ============================================================
 # Module
 # ============================================================
+
 
 class TestModule:
     def test_construct_valid(self) -> None:
@@ -336,6 +345,7 @@ class TestModule:
 # ============================================================
 # App
 # ============================================================
+
 
 class TestApp:
     def test_construct_valid(self) -> None:
@@ -414,6 +424,7 @@ class TestApp:
 # ============================================================
 # MissingHandlerError
 # ============================================================
+
 
 class TestMissingHandlerError:
     def test_message(self) -> None:

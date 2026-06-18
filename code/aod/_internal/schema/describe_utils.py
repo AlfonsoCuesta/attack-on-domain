@@ -3,13 +3,19 @@ from __future__ import annotations
 import inspect
 from collections.abc import Callable
 
-from aod._internal.schema.docs.generic_docs import FieldDoc, MethodDoc, ParamDoc, type_str, default_str
+from aod._internal.schema.docs.generic_docs import (
+    FieldDoc,
+    MethodDoc,
+    ParamDoc,
+    type_str,
+    default_str,
+)
 
 
 def extract_params(func: Callable[..., object]) -> list[ParamDoc]:
     try:
         sig = inspect.signature(func)
-    except (ValueError, TypeError):
+    except ValueError, TypeError:
         return []
     params: list[ParamDoc] = []
     for pname, p in sig.parameters.items():

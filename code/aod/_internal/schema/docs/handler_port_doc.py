@@ -10,9 +10,14 @@ from aod._internal.application.handler import (
 )
 from aod._internal.schema.docs.contract_doc import ContractDoc
 
-_HANDLER_PORT_TYPES: frozenset[type] = frozenset({
-    CommandPort, QueryPort, AsyncCommandPort, AsyncQueryPort,
-})
+_HANDLER_PORT_TYPES: frozenset[type] = frozenset(
+    {
+        CommandPort,
+        QueryPort,
+        AsyncCommandPort,
+        AsyncQueryPort,
+    }
+)
 
 
 @dataclass
@@ -24,9 +29,7 @@ class HandlerPortDoc:
     contract_doc: ContractDoc | None = None
 
     @classmethod
-    def from_handler_port(
-        cls, field_name: str, annotation: object
-    ) -> HandlerPortDoc | None:
+    def from_handler_port(cls, field_name: str, annotation: object) -> HandlerPortDoc | None:
         origin = getattr(annotation, "__origin__", None)
         if origin is None or origin not in _HANDLER_PORT_TYPES:
             return None

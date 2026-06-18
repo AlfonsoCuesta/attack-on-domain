@@ -27,9 +27,7 @@ class Module:
 
         for contract in context.contracts:
             if contract not in handler_contracts:
-                raise MissingHandlerError(
-                    f"Contract {contract.__name__} has no handler in module"
-                )
+                raise MissingHandlerError(f"Contract {contract.__name__} has no handler in module")
 
         for port_cls in context.ports:
             if not any(issubclass(impl, port_cls) for impl in infrastructure.ports):

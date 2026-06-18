@@ -3,7 +3,12 @@ from __future__ import annotations
 from collections.abc import Iterable
 
 from aod._internal.application.contracts import Command, Query
-from aod._internal.application.handler import AsyncCommandPort, AsyncQueryPort, CommandPort, QueryPort
+from aod._internal.application.handler import (
+    AsyncCommandPort,
+    AsyncQueryPort,
+    CommandPort,
+    QueryPort,
+)
 from aod._internal.application.port import Port
 from aod._internal.application.use_case import AsyncUseCase, UseCase
 from aod._internal.core.domain_exception import (
@@ -38,9 +43,7 @@ class BoundedContext:
         aggregate_roots, services, use_cases = self._validate_parameters(
             aggregate_roots, services, use_cases
         )
-        discovered_entities, discovered_vos = self._discover_and_check(
-            aggregate_roots, services
-        )
+        discovered_entities, discovered_vos = self._discover_and_check(aggregate_roots, services)
         contracts, ports = self._extract_from_use_cases(use_cases, aggregate_roots)
         contracts_by_root = self._group_contracts_by_root(contracts, aggregate_roots)
 
@@ -121,7 +124,9 @@ class BoundedContext:
                     continue
                 field_type = uc.__model_fields__[field_name].annotation
                 origin = getattr(field_type, "__origin__", None)
-                if origin is not None and issubclass(origin, (CommandPort, QueryPort, AsyncCommandPort, AsyncQueryPort)):
+                if origin is not None and issubclass(
+                    origin, (CommandPort, QueryPort, AsyncCommandPort, AsyncQueryPort)
+                ):
                     args = getattr(field_type, "__args__", ())
                     if args and isinstance(args[0], type):
                         contracts.append(args[0])

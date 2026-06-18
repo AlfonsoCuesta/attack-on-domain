@@ -63,6 +63,7 @@ from aod._internal.schema.app import App
 
 # ---- Domain types for tests ----
 
+
 class OrderId(ValueObject):
     value: str
 
@@ -97,6 +98,7 @@ class PricingService(Service):
 
 # ---- Contracts ----
 
+
 class PlaceOrder(Command[Order, None]):
     order_id: str
     product_id: str
@@ -111,6 +113,7 @@ class GetOrder(Query[Order, Order | None]):
 
 
 # ---- Infrastructure ----
+
 
 class MySession(Session):
     _connection: object = None
@@ -183,6 +186,7 @@ class AsyncPlaceOrderHandler(AsyncCommandHandler[PlaceOrder]):
 
 # ---- Projections ----
 
+
 class OrderListModel(ReadModel):
     customer_id: str
 
@@ -212,6 +216,7 @@ class MyProjection(Projection):
 
 # ---- Use Cases ----
 
+
 class PlaceOrderUseCase(UseCase):
     place_order: CommandPort[PlaceOrder]
     get_order: QueryPort[GetOrder]
@@ -231,6 +236,7 @@ class AsyncOrderUseCase(AsyncUseCase):
 
 # ---- Custom Port ----
 
+
 class EmailSender(Port):
     def send(self, to: str, subject: str) -> None:
         pass
@@ -245,6 +251,7 @@ class NotifyUseCase(UseCase):
 
 # ---- Callable without __name__ for edge-case testing ----
 
+
 class _CallableNoName:
     def __call__(self) -> None:
         pass
@@ -253,6 +260,7 @@ class _CallableNoName:
 # ============================================================
 # Generic doc helpers
 # ============================================================
+
 
 class TestTypeStr:
     def test_simple_type(self) -> None:
@@ -274,6 +282,7 @@ class TestTypeStr:
 class TestDefaultStr:
     def test_undefined(self) -> None:
         from pydantic_core import PydanticUndefined
+
         assert default_str(PydanticUndefined) == ""
 
     def test_none(self) -> None:
@@ -381,6 +390,7 @@ class TestMethodDoc:
 # describe_utils
 # ============================================================
 
+
 class TestExtractFields:
     def test_with_model_fields(self) -> None:
         fields = extract_fields(Order)
@@ -454,6 +464,7 @@ class TestExtractParams:
 # PortDoc
 # ============================================================
 
+
 class TestPortDoc:
     def test_sync_port(self) -> None:
         doc = PortDoc.from_port(Logger)
@@ -503,6 +514,7 @@ class TestPortDoc:
 # ContractDoc
 # ============================================================
 
+
 class TestContractDoc:
     def test_command_contract(self) -> None:
         doc = ContractDoc.from_contract(PlaceOrder)
@@ -526,6 +538,7 @@ class TestContractDoc:
 # ============================================================
 # HandlerPortDoc
 # ============================================================
+
 
 class TestHandlerPortDoc:
     def test_command_port(self) -> None:
@@ -573,6 +586,7 @@ class TestHandlerPortDoc:
 # ============================================================
 # EntityDoc / RootEntityDoc / ValueObjectDoc / ServiceDoc
 # ============================================================
+
 
 class TestRootEntityDoc:
     def test_with_contracts(self) -> None:
@@ -633,6 +647,7 @@ class TestServiceDoc:
 # UseCaseDoc
 # ============================================================
 
+
 class TestUseCaseDoc:
     def test_sync_use_case(self) -> None:
         doc = UseCaseDoc.from_use_case(PlaceOrderUseCase)
@@ -666,6 +681,7 @@ class TestUseCaseDoc:
 # BoundedContextDoc
 # ============================================================
 
+
 class TestBoundedContextDoc:
     def test_from_bounded_context(self) -> None:
         bc = BoundedContext(
@@ -691,6 +707,7 @@ class TestBoundedContextDoc:
 # ============================================================
 # HandlerDoc
 # ============================================================
+
 
 class TestHandlerDoc:
     def test_command_handler(self) -> None:
@@ -724,6 +741,7 @@ class TestHandlerDoc:
 # SessionDoc
 # ============================================================
 
+
 class TestSessionDoc:
     def test_sync_session(self) -> None:
         doc = SessionDoc.from_session(MySession)
@@ -739,6 +757,7 @@ class TestSessionDoc:
 # ============================================================
 # ProjectionDoc
 # ============================================================
+
 
 class TestProjectionDoc:
     def test_read_projection(self) -> None:
@@ -770,6 +789,7 @@ class TestProjectionDoc:
 # InfrastructureDoc
 # ============================================================
 
+
 class TestInfrastructureDoc:
     def test_from_infrastructure(self) -> None:
         infra = Infrastructure(
@@ -791,6 +811,7 @@ class TestInfrastructureDoc:
 # ============================================================
 # ModuleDoc / AppDoc
 # ============================================================
+
 
 class TestModuleDoc:
     def test_from_module(self) -> None:
@@ -837,9 +858,11 @@ class TestExtractFieldsEdgeCases:
 # HandlerDoc edge cases
 # ============================================================
 
+
 class TestHandlerDocEdgeCases:
     def test_handler_with_session_union(self) -> None:
         """Handler with a Union session type (e.g. MySession | None)."""
+
         class UnionSessionHandler(CommandHandler[PlaceOrder]):
             session: MySession | None
 
@@ -849,9 +872,11 @@ class TestHandlerDocEdgeCases:
         doc = HandlerDoc.from_handler(UnionSessionHandler)
         assert doc.session == "MySession"
 
+
 # ============================================================
 # ProjectionDoc edge cases
 # ============================================================
+
 
 class TestProjectionDocEdgeCases:
     def test_custom_projection_type_fallback(self) -> None:
@@ -896,6 +921,7 @@ class TestProjectionDocEdgeCases:
 # UseCaseDoc edge cases
 # ============================================================
 
+
 class TestUseCaseDocEdgeCases:
     def test_use_case_with_private_fields_skipped(self) -> None:
         """Private fields on a UseCase are skipped."""
@@ -916,6 +942,7 @@ class TestUseCaseDocEdgeCases:
 # BoundedContextDoc edge cases
 # ============================================================
 
+
 class TestBoundedContextDocEdgeCases:
     def test_from_bounded_context_with_use_cases(self) -> None:
         """BoundedContext with use cases exercises all branches."""
@@ -933,6 +960,7 @@ class TestBoundedContextDocEdgeCases:
 # ============================================================
 # describe_utils edge cases - extract_params with bad sig
 # ============================================================
+
 
 class TestExtractParamsEdgeCases:
     def test_non_callable(self) -> None:
