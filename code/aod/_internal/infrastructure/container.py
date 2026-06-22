@@ -1,17 +1,21 @@
 from __future__ import annotations
 
 from types import UnionType
-from typing import Any, ClassVar, Self, Union, cast, get_args, get_origin, get_type_hints
+from typing import Any, ClassVar, Self, TypeVar, Union, cast, get_args, get_origin, get_type_hints
 
 from aod._internal.application.cache import AsyncCache, Cache
 from aod._internal.application.cache.null_cache import NullCache
 from aod._internal.application.contracts import Command, Query
 from aod._internal.application.event_bus import AsyncEventBus, EventBus
 from aod._internal.application.event_bus.null_event_bus import NullEventBus
+from aod._internal.application.handler.handler import HandlerProtocol
 from aod._internal.application.logger import AsyncLogger, Logger
 from aod._internal.application.logger.null_logger import NullLogger
 from aod._internal.application.port import Port
+from aod._internal.application.unit_of_work import UnitOfWork as AppUnitOfWork
+from aod._internal.application.use_case import AsyncUseCase, UseCase
 from aod._internal.core.base_behaviour import BaseBehaviour
+from aod._internal.core.base_operation import BaseOperation
 from aod._internal.core.fields.fields import Field, PrivateField
 from aod._internal.core.infrastructure_exception import (
     DuplicateHandlerError,
@@ -28,6 +32,7 @@ from aod._internal.infrastructure.handlers import (
     QueryHandler,
 )
 from aod._internal.infrastructure.handlers.handlers import AsyncBaseHandler
+from aod._internal.infrastructure.projection import ProjectionBase
 from aod._internal.infrastructure.session import AsyncSession, Session
 from aod._internal.infrastructure.unit_of_work import AsyncUnitOfWork, UnitOfWork
 
@@ -37,6 +42,19 @@ _ASYNC_HANDLERS = AsyncCommandHandler | AsyncQueryHandler
 AnyHandler = (
     type[CommandHandler] | type[QueryHandler] | type[AsyncCommandHandler] | type[AsyncQueryHandler]
 )
+
+_SPECIAL_PORT_TYPES = (
+    AppUnitOfWork,
+    AsyncLogger,
+    Logger,
+    AsyncEventBus,
+    EventBus,
+    AsyncCache,
+    Cache,
+)
+
+TUseCase = TypeVar("TUseCase", bound=UseCase | AsyncUseCase)
+TProjection = TypeVar("TProjection", bound=ProjectionBase)
 
 
 def _is_port_type(tp: object) -> bool:
@@ -48,7 +66,20 @@ def _is_port_type(tp: object) -> bool:
     return isinstance(tp, type) and issubclass(tp, Port)
 
 
-class AdapterContainerBase(BaseBehaviour):
+def is_special_port_type(tp: object) -> bool:
+    return isinstance(tp, type) and issubclass(tp, _SPECIAL_PORT_TYPES)
+
+
+def extract_port_type(tp: object) -> type[Port] | None:
+    origin = get_origin(tp)
+    if origin is not None:
+        tp = origin
+    if isinstance(tp, type) and issubclass(tp, Port) and not issubclass(tp, HandlerProtocol):
+        return tp
+    return None
+
+
+class AdapterContainer(BaseBehaviour):
     sessions: set[type[Session] | type[AsyncSession]] = Field(default_factory=set)
     logger: Logger | AsyncLogger = Field(default_factory=NullLogger)
     event_bus: EventBus | AsyncEventBus = Field(default_factory=NullEventBus)
@@ -65,7 +96,7 @@ class AdapterContainerBase(BaseBehaviour):
         for name, tp in hints.items():
             if (
                 name.startswith("_")
-                or name in AdapterContainerBase.__model_fields__
+                or name in AdapterContainer.__model_fields__
                 or get_origin(tp) is ClassVar
             ):
                 continue
@@ -160,3 +191,44 @@ class AdapterContainerBase(BaseBehaviour):
                 self._sessions_needed[session_cls] = instance
                 return instance
         raise SessionNotFoundError(session_cls)
+
+    # --- Dependency injection ---
+
+    def adapt_use_case(self, use_case_cls: type[TUseCase], **overrides: Any) -> TUseCase:
+        container = self.with_adapters(**overrides) if overrides else self
+
+        kwargs: dict[str, Any] = {
+            "logger": container.logger,
+            "event_bus": container.event_bus,
+            "cache": container.cache,
+            "uow": container.get_uow(),
+        }
+
+        container._inject_ports(use_case_cls, kwargs)
+        return use_case_cls(**kwargs)
+
+    def adapt_projection(self, projection_cls: type[TProjection], **overrides: Any) -> TProjection:
+        container = self.with_adapters(**overrides) if overrides else self
+
+        kwargs: dict[str, Any] = {
+            "logger": container.logger,
+            "event_bus": container.event_bus,
+            "cache": container.cache,
+            **container._inject_projection(projection_cls),
+        }
+
+        container._inject_ports(projection_cls, kwargs)
+        return projection_cls(**kwargs)
+
+    def _inject_ports(self, operation_cls: type[BaseOperation], kwargs: dict[str, Any]) -> None:
+        for field_name, field_info in operation_cls.__model_fields__.items():
+            field_type = field_info.annotation
+            if field_type is None or is_special_port_type(field_type):
+                continue
+            port_type = extract_port_type(field_type)
+            if port_type is not None:
+                kwargs[field_name] = self.get_port(port_type)
+
+    def _inject_projection(self, projection_cls: type[ProjectionBase]) -> dict[str, Any]:
+        session_type = projection_cls.__model_fields__["session"].annotation
+        return {"session": self.get_session(session_type)}

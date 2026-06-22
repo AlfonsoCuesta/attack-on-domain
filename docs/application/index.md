@@ -53,7 +53,7 @@ class CreateUserUseCase(UseCase):
         self._event_emitter.emit(UserCreated(user_id=user_id))
 
 # The container injects the matching CommandHandler
-uc = inject_adapters(container, CreateUserUseCase)
+uc = container.adapt_use_case(CreateUserUseCase)
 uc.run(user_id="1", name="Alice", email="alice@example.com")
 ```
 

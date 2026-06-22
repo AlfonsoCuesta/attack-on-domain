@@ -3,12 +3,12 @@ from __future__ import annotations
 from typing import Any, TypeVar, cast
 
 from aod._internal.application.port import Port
-from aod._internal.infrastructure.container import AdapterContainerBase
+from aod._internal.infrastructure.container import AdapterContainer
 from aod._internal.infrastructure.session import AsyncSession, Session
 from aod._internal.testing.doubles.infrastructure.session import session_stub
 from aod._internal.testing.doubles.stubs import port_stub
 
-T = TypeVar("T", bound=AdapterContainerBase)
+T = TypeVar("T", bound=AdapterContainer)
 
 
 def spy_adapter_container(container: T) -> T:

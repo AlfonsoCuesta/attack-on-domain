@@ -96,7 +96,7 @@ def test_aod_application_exceptions_documented_api() -> None:
 
 def test_aod_infrastructure_exports_documented_api() -> None:
     assert aod.infrastructure.__all__ == [
-        "AdapterContainerBase",
+        "AdapterContainer",
         "Cache",
         "CommandHandler",
         "InfrastructureException",
@@ -109,7 +109,6 @@ def test_aod_infrastructure_exports_documented_api() -> None:
         "UnitOfWork",
         "WriteModel",
         "WriteProjection",
-        "inject_adapters",
     ]
     assert aod.infrastructure.InfrastructureException.__name__ == "InfrastructureException"
 

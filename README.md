@@ -15,7 +15,7 @@ Requires **Python 3.14+**.
 ```python
 from aod.domain import RootEntity, ValueObject, Event
 from aod.application import UseCase, Command, CommandPort
-from aod.infrastructure import CommandHandler, AdapterContainerBase, inject_adapters
+from aod.infrastructure import CommandHandler, AdapterContainer
 
 # Value Object
 class OrderId(ValueObject):
@@ -55,11 +55,11 @@ class PlaceOrderUseCase(UseCase):
         self.place_order.handle(PlaceOrder(order_id=order_id, total=total))
 
 # Dependency Injection
-class AppContainer(AdapterContainerBase):
+class AppContainer(AdapterContainer):
     pass
 
 container = AppContainer(handlers=[PlaceOrderHandler])
-use_case = inject_adapters(container, PlaceOrderUseCase)
+use_case = container.adapt_use_case(PlaceOrderUseCase)
 use_case.run(order_id="1", total=99.99)
 ```
 

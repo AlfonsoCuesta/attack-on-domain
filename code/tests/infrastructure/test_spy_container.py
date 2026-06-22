@@ -9,7 +9,7 @@ from aod._internal.application.logger import Logger
 from aod._internal.application.port import Port
 from aod._internal.core.infrastructure_exception import PortNotFoundError
 from aod._internal.core.event_emitter import Event
-from aod._internal.infrastructure.container import AdapterContainerBase
+from aod._internal.infrastructure.container import AdapterContainer
 from aod._internal.infrastructure.session import AsyncSession, Session
 from aod._internal.infrastructure.unit_of_work import UnitOfWork
 from aod._internal.testing.doubles.infrastructure.container import spy_adapter_container
@@ -45,7 +45,7 @@ class _FakePort(Port):
     value: str = "default"
 
 
-class _MyContainer(AdapterContainerBase):
+class _MyContainer(AdapterContainer):
     weather: _FakePort
 
 

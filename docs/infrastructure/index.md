@@ -10,7 +10,7 @@ The infrastructure layer provides concrete implementations of ports and handles 
 | [Handler](handlers.md) | Command/Query processor | Implement `CommandPort` / `QueryPort` |
 | [Projection](projections.md) | Read/write models | Query data efficiently |
 | [Container](container.md) | Dependency injection | Wire ports to implementations |
-| [Injection](injection.md) | Dependency injection | Inject dependencies into use cases |
+| [Injection](injection.md) | Dependency injection | Wire dependencies into use cases and projections |
 
 ## Imports
 
@@ -23,8 +23,7 @@ from aod.infrastructure import (
     Projection,
     ReadModel,
     WriteModel,
-    AdapterContainerBase,
-    inject_adapters,
+    AdapterContainer,
     CommandHandler,
     QueryHandler,
 )
@@ -35,8 +34,7 @@ from aod.infrastructure import (
 ```python
 from aod.infrastructure import (
     Session,
-    AdapterContainerBase,
-    inject_adapters,
+    AdapterContainer,
     CommandHandler,
 )
 
@@ -67,11 +65,11 @@ class CreateUserHandler(CommandHandler[CreateUser]):
         self.session.execute(...)
 
 # Define a container
-class AppContainer(AdapterContainerBase):
+class AppContainer(AdapterContainer):
     pass
 
 container = AppContainer(sessions={PostgresSession}, handlers=[CreateUserHandler])
-use_case = inject_adapters(container, PlaceOrderUseCase)
+use_case = container.adapt_use_case(PlaceOrderUseCase)
 ```
 
 ## Key Concepts
@@ -139,9 +137,9 @@ class UserListProjection(ReadProjection):
 Containers wire ports to implementations:
 
 ```python
-from aod.infrastructure import AdapterContainerBase
+from aod.infrastructure import AdapterContainer
 
-class AppContainer(AdapterContainerBase):
+class AppContainer(AdapterContainer):
     pass
 
 
@@ -150,13 +148,11 @@ container = AppContainer(sessions={PostgresSession}, handlers=[CreateUserHandler
 
 ### Injection
 
-Inject dependencies into use cases:
+Wire dependencies into use cases via the container:
 
 ```python
-from aod.infrastructure import inject_adapters
-
 container = AppContainer()
-use_case = inject_adapters(container, CreateUserUseCase)
+use_case = container.adapt_use_case(CreateUserUseCase)
 ```
 
 ## Next Steps
@@ -185,7 +181,7 @@ use_case = inject_adapters(container, CreateUserUseCase)
 
 <div class="feature-card">
 <h3><a href="injection.md">Injection</a></h3>
-<p>Learn about dependency injection</p>
+<p>Wire dependencies into use cases and projections</p>
 </div>
 
 </div>

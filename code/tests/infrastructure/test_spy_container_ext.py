@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from aod._internal.infrastructure.container import AdapterContainerBase
+from aod._internal.infrastructure.container import AdapterContainer
 from aod._internal.testing.doubles.infrastructure.container import spy_adapter_container
 from aod.application import Port
 from aod._internal.infrastructure.session import Session
@@ -10,7 +10,7 @@ class _CustomPort(Port):
     value: str = "default"
 
 
-class _MyContainer(AdapterContainerBase):
+class _MyContainer(AdapterContainer):
     weather: _CustomPort
 
 

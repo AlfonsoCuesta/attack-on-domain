@@ -81,18 +81,18 @@ class RegisterUserUseCase(UseCase):
 
 ## 4. Wire It Together
 
-Use `AdapterContainerBase` and `inject_adapters`. The container discovers handlers and auto-wires them into the use case.
+Use `AdapterContainer` and `adapt_use_case`. The container discovers handlers and auto-wires them into the use case.
 
 ```python
-from aod.infrastructure import AdapterContainerBase, inject_adapters
+from aod.infrastructure import AdapterContainer
 
 
-class AppContainer(AdapterContainerBase):
+class AppContainer(AdapterContainer):
     pass
 
 
 container = AppContainer(handlers=[RegisterUserHandler])
-use_case = inject_adapters(container, RegisterUserUseCase)
+use_case = container.adapt_use_case(RegisterUserUseCase)
 
 use_case.run(user_id="2", email="alice@example.com", name="Alice")
 ```
@@ -140,7 +140,7 @@ assert handler.handle.called
 
 <div class="feature-card">
 <h3><a href="../infrastructure/injection.md">Injection</a></h3>
-<p>Dependency injection in depth</p>
+<p>Wire dependencies into use cases and projections</p>
 </div>
 
 </div>

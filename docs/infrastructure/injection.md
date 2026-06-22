@@ -1,34 +1,44 @@
 # Injection
 
-`inject_adapters()` wires dependencies from a container into use cases or projections, automatically resolving ports, sessions, and framework services.
+The container provides two methods for wiring dependencies: `adapt_use_case()` for use cases and `adapt_projection()` for projections. Both resolve ports, sessions, and framework services automatically.
 
-## inject_adapters
-
-```python
-from aod.infrastructure import inject_adapters
-```
-
-### Function Signature
+## adapt_use_case
 
 ```python
-def inject_adapters(
-    container: AdapterContainerBase,
-    operation_cls: type[UseCase | AsyncUseCase | ProjectionBase],
-    **overrides: Any,
-) -> UseCase | AsyncUseCase | ProjectionBase:
+container.adapt_use_case(use_case_cls, **overrides)
 ```
+
+Wire dependencies from a container into a use case.
 
 ### Parameters
 
 | Parameter | Type | Description |
 |-----------|------|-------------|
-| `container` | `AdapterContainerBase` | The wired container instance providing logger, event_bus, cache, ports, and sessions. |
-| `operation_cls` | `type[UseCase \| AsyncUseCase \| ProjectionBase]` | The class to inject dependencies into. Can be a UseCase, AsyncUseCase, or any ProjectionBase subclass. |
+| `use_case_cls` | `type[UseCase \| AsyncUseCase]` | The use case class to inject dependencies into. |
 | `**overrides` | `Any` | Optional field overrides. When provided, the container is copied with these overrides before injection. |
 
 ### Returns
 
-An instance of `operation_cls` with all dependencies wired.
+An instance of `use_case_cls` with all dependencies wired.
+
+## adapt_projection
+
+```python
+container.adapt_projection(projection_cls, **overrides)
+```
+
+Wire dependencies from a container into a projection.
+
+### Parameters
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `projection_cls` | `type[ProjectionBase]` | The projection class to inject dependencies into. |
+| `**overrides` | `Any` | Optional field overrides. When provided, the container is copied with these overrides before injection. |
+
+### Returns
+
+An instance of `projection_cls` with all dependencies wired.
 
 ## Auto-Wiring Logic
 
@@ -44,7 +54,7 @@ All operations receive these from the container:
 
 ### Use Case Wiring
 
-When `operation_cls` is a `UseCase` or `AsyncUseCase`:
+When adapting a `UseCase` or `AsyncUseCase`:
 
 | Field | Source |
 |-------|--------|
@@ -52,7 +62,7 @@ When `operation_cls` is a `UseCase` or `AsyncUseCase`:
 
 ### Projection Wiring
 
-When `operation_cls` is a `ProjectionBase` subclass:
+When adapting a `ProjectionBase` subclass:
 
 | Field | Source |
 |-------|--------|
@@ -66,13 +76,12 @@ All non-framework fields are scanned:
 
 1. Each field's type is checked against all registered ports via `container.get_port()`.
 2. `HandlerProtocol` subclasses are excluded (not injected as ports).
-3. Special types (`UnitOfWork`, `Logger`, `EventBus`, `Cache`, and their async counterparts) are skipped — they are handled separately above.
+3. Special types (`UnitOfWork`, `Logger`, `EventBus`, `Cache`, and their async counterparts) are skipped -- they are handled separately above.
 
 ### Override Support
 
 ```python
-use_case = inject_adapters(
-    container,
+use_case = container.adapt_use_case(
     MyUseCase,
     logger=SpyLogger(),  # override logger for testing
 )
@@ -80,7 +89,7 @@ use_case = inject_adapters(
 
 When `**overrides` are provided:
 
-1. `container.copy(**overrides)` creates a temporary container with overridden fields.
+1. `container.with_adapters(**overrides)` creates a temporary container with overridden fields.
 2. Injection proceeds using the overridden container.
 
 ## Async Use Case Injection
@@ -93,7 +102,7 @@ from aod.application.async_ import UseCase
 class MyAsyncUseCase(UseCase):
     ...
 
-use_case = inject_adapters(container, MyAsyncUseCase)
+use_case = container.adapt_use_case(MyAsyncUseCase)
 assert isinstance(use_case.uow, AsyncUnitOfWork)
 ```
 
@@ -102,13 +111,13 @@ assert isinstance(use_case.uow, AsyncUnitOfWork)
 ### Manual Injection
 
 ```python
-container = MyContainer(
+container = AppContainer(
     sessions={MySession},
     handlers=[MyHandler],
     user_client=MyUserClient(),
 )
 
-use_case = inject_adapters(container, CreateUser)
+use_case = container.adapt_use_case(CreateUser)
 use_case.run(user_id=42, name="Alice")
 ```
 
@@ -117,9 +126,9 @@ use_case.run(user_id=42, name="Alice")
 ```python
 from aod.testing.doubles import spy_adapter_container
 
-container = spy_adapter_container(MyContainer())
+container = spy_adapter_container(AppContainer())
 
-use_case = inject_adapters(container, CreateUserUseCase)
+use_case = container.adapt_use_case(CreateUserUseCase)
 use_case.run(user_id=42, name="Alice")
 
 assert container.get_handler(CreateUser).handle.called
@@ -137,8 +146,8 @@ class UserProjection(ReadProjection):
     def read(self, model: ReadModel) -> list[User]:
         return self.session.query("SELECT * FROM users")
 
-container = MyContainer(sessions={MySession})
-proj = inject_adapters(container, UserProjection)
+container = AppContainer(sessions={MySession})
+proj = container.adapt_projection(UserProjection)
 result = proj.read(ReadModel())
 ```
 

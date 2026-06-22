@@ -84,33 +84,75 @@ class AsyncRedisSession(AsyncSession):
 
 ## Transaction Pattern
 
-A session must **never** call `commit()` or `rollback()` directly. The `UseCase` wrapper handles transactions automatically through an internal `UnitOfWork`:
+A session must **never** call `begin()`, `commit()`, or `rollback()` directly. The `UseCase` wrapper handles transactions automatically through the `UnitOfWork`:
 
-1. The UseCase wrapper opens a `UnitOfWork` context before `run()` executes
-2. If `run()` completes without error, the wrapper calls `commit()` on all dirty sessions
-3. If `run()` raises, the wrapper calls `rollback()`
+### The UnitOfWork Flow
 
-The `commit()` method is decorated to raise `CommitOutsideUnitOfWorkError` if called manually outside this context. This guarantees that transaction control stays in the framework — session implementations focus only on data operations, not transaction management.
+```python
+# This is what happens inside use_case.run():
+uow.begin()                             # calls session.begin() on ALL sessions
+    # Your run() code executes here
+    # CommandHandlers write via session.execute()
+    # QueryHandlers read via session.query()
+if run() succeeds:
+    uow.commit()                        # calls session.commit() ONLY on dirty sessions
+    event_bus.publish(*events)          # publishes collected events
+    cache.flush()                       # clears cache
+if run() fails:
+    uow.rollback()                      # calls session.rollback() ONLY on dirty sessions
+    error re-raised                     # exception propagates to caller
+```
+
+Key points:
+- Only dirty sessions are committed/rolled back (checked via `is_dirty()`)
+- `commit()` is guarded by `_CommitContext` ContextVar — raises `CommitOutsideUnitOfWorkError` if called outside a UseCase
+- `begin()` and `rollback()` are NOT guarded — they can be called anywhere (though you should never need to)
+- QueryHandlers don't participate in transactions — they read data without begin/commit/rollback
+
+### Commit Guard
+
+The `commit()` method on every Session subclass is auto-wrapped at class creation time with a check against a `_CommitContext` flag. This flag is set to `True` only inside `uow.commit()`. Any direct call to `session.commit()` outside a UseCase immediately raises `CommitOutsideUnitOfWorkError`:
+
+```python
+postgres = PostgresSession()
+postgres.commit()  # CommitOutsideUnitOfWorkError!
+
+# Inside a UseCase it works fine:
+use_case = container.adapt_use_case(PlaceOrderUseCase)
+use_case.run(...)  # uow.commit() sets the flag → session.commit() succeeds
+```
+
+This guarantees that transaction control stays in the framework — session implementations focus only on data operations, not transaction management.
+
+### Complete Example
 
 ```python
 class PostgresSession(Session):
-    def execute(self, operation: object) -> object:
-        return self.connection.execute(operation)
+    _conn: object = PrivateField(default=None)
+
+    def execute(self, sql: str, params: dict | None = None) -> None:
+        self._conn.execute(sql, (params or {}))
+
+    def query(self, sql: str, params: dict | None = None) -> list[dict]:
+        cur = self._conn.cursor()
+        cur.execute(sql, (params or {}))
+        return [dict(row) for row in cur.fetchall()]
 
     def begin(self) -> None:
-        self.connection.begin()
+        self._conn.execute("BEGIN")
 
-    def commit(self) -> None:          # raises CommitOutsideUnitOfWorkError
-        self.connection.commit()       # if called manually
+    def commit(self) -> None:          # auto-guarded — raises if outside UseCase
+        self._conn.commit()
 
     def rollback(self) -> None:
-        self.connection.rollback()
+        self._conn.rollback()
 
     def close(self) -> None:
-        self.connection.close()
+        self._conn.close()
 
     def is_dirty(self) -> bool:
-        return self.connection.is_dirty()
+        return self._conn.status == "dirty"
+```
 
 ## Testing with SpySession
 

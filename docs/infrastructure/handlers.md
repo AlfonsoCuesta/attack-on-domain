@@ -212,12 +212,12 @@ class AsyncGetUserHandler(AsyncQueryHandler[GetUser]):
 
 ## Handler Registration
 
-Handlers are registered in `AdapterContainerBase`:
+Handlers are registered in `AdapterContainer`:
 
 ```python
-from aod.infrastructure import AdapterContainerBase
+from aod.infrastructure import AdapterContainer
 
-class AppContainer(AdapterContainerBase):
+class AppContainer(AdapterContainer):
     pass
 
 

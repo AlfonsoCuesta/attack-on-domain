@@ -12,8 +12,7 @@ from aod._internal.domain.bounded_context import BoundedContext
 from aod._internal.domain.entity import Entity, RootEntity
 from aod._internal.domain.service import Service
 from aod._internal.domain.value_object import ValueObject
-from aod._internal.infrastructure.container import AdapterContainerBase
-from aod._internal.infrastructure.inject import inject_adapters
+from aod._internal.infrastructure.container import AdapterContainer
 from aod._internal.infrastructure.session import Session
 from aod._internal.testing.doubles.application import SpyEventBus, SpyLogger, SpyUnitOfWork
 from aod._internal.testing.faker import FakeDomain
@@ -211,7 +210,7 @@ class _SyncSession(Session):
         return False
 
 
-class EcommerceContainer(AdapterContainerBase):
+class EcommerceContainer(AdapterContainer):
     email_sender: FakeEmailSender
     inventory: FakeInventoryClient
 
@@ -466,7 +465,7 @@ class TestContainerAndInjection:
             email_sender=email_sender,
             inventory=inventory,
         )
-        uc = inject_adapters(container, PlaceOrderUseCase)
+        uc = container.adapt_use_case(PlaceOrderUseCase)
         assert isinstance(uc.email_sender, FakeEmailSender)
         assert isinstance(uc.inventory, FakeInventoryClient)
 
@@ -478,7 +477,7 @@ class TestContainerAndInjection:
             inventory=inventory,
             sessions={_SyncSession},
         )
-        uc = inject_adapters(container, PlaceOrderUseCase)
+        uc = container.adapt_use_case(PlaceOrderUseCase)
         uc.run()
         assert len(uc.events) >= 1
 
@@ -492,8 +491,7 @@ class TestContainerAndInjection:
             inventory=inventory,
             sessions={_SyncSession},
         )
-        uc = inject_adapters(
-            container,
+        uc = container.adapt_use_case(
             PlaceOrderUseCase,
             logger=logger,
             event_bus=bus,

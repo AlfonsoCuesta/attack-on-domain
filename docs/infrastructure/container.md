@@ -1,18 +1,18 @@
 # Container
 
-`AdapterContainerBase` wires dependencies for the application and infrastructure layers. It manages sessions, handlers (`CommandHandler[C]`, `QueryHandler[Q]`), ports, and unit-of-work instances. Handlers implement `CommandPort[C]` / `QueryPort[Q]` and are injected into UseCase fields automatically.
+`AdapterContainer` wires dependencies for the application and infrastructure layers. It manages sessions, handlers (`CommandHandler[C]`, `QueryHandler[Q]`), ports, and unit-of-work instances. Handlers implement `CommandPort[C]` / `QueryPort[Q]` and are injected into UseCase fields automatically.
 
-## AdapterContainerBase
+## AdapterContainer
 
 ```python
-from aod.infrastructure import AdapterContainerBase
+from aod.infrastructure import AdapterContainer
 ```
 
-`AdapterContainerBase` is the base class for dependency injection containers.
+`AdapterContainer` is the dependency injection container.
 
 ### Constructor
 
-`AdapterContainerBase(**fields)`
+`AdapterContainer(**fields)`
 
 | Parameter | Type | Description |
 |-----------|------|-------------|
@@ -84,6 +84,33 @@ Find a port implementation by type.
 - Returns the field value.
 - Raises `PortNotFoundError` if no matching port is found.
 
+#### `adapt_use_case(use_case_cls: type[UseCase | AsyncUseCase], **overrides: Any) -> UseCase | AsyncUseCase`
+
+Create a use case instance with all dependencies wired automatically.
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `use_case_cls` | `type[UseCase \| AsyncUseCase]` | The use case class to instantiate. |
+| `**overrides` | `Any` | Optional field overrides for the container copy. |
+
+- Resolves `logger`, `event_bus`, `cache`, and `uow` automatically.
+- Injects matching handler ports (`CommandPort[C]`, `QueryPort[Q]`) and custom ports.
+- When `**overrides` are provided, creates a container copy before injection.
+
+#### `adapt_projection(projection_cls: type[ProjectionBase], **overrides: Any) -> ProjectionBase`
+
+Create a projection instance with all dependencies wired automatically.
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `projection_cls` | `type[ProjectionBase]` | The projection class to instantiate. |
+| `**overrides` | `Any` | Optional field overrides for the container copy. |
+
+- Resolves `logger`, `event_bus`, `cache`, and `session` automatically.
+- The session type is extracted from the projection's `session` field annotation.
+- Injects matching custom ports.
+- When `**overrides` are provided, creates a container copy before injection.
+
 #### `with_adapters(**overrides: Any) -> Self`
 
 Create a copy of the container with overridden fields.
@@ -96,7 +123,7 @@ Create a copy of the container with overridden fields.
 
 When a subclass is created, all declared fields are validated:
 
-- Fields must be `Port` subclasses (or `ClassVar` or inherited from `AdapterContainerBase`).
+- Fields must be `Port` subclasses (or `ClassVar` or inherited from `AdapterContainer`).
 - Non-port fields raise `InvalidPortFieldError`.
 
 ### Handler Validation
@@ -121,7 +148,7 @@ Use `spy_adapter_container` to create a test container with stubbed sessions:
 ```python
 from aod.testing.doubles import spy_adapter_container
 
-class MyContainer(AdapterContainerBase):
+class MyContainer(AdapterContainer):
     pass
 
 

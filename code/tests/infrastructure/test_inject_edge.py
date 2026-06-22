@@ -2,8 +2,7 @@ from __future__ import annotations
 
 import pytest
 from aod._internal.core.infrastructure_exception import PortNotFoundError
-from aod._internal.infrastructure.container import AdapterContainerBase
-from aod._internal.infrastructure.inject import extract_port_type, inject_adapters
+from aod._internal.infrastructure.container import AdapterContainer, extract_port_type
 from aod._internal.application.handler import CommandPort
 from aod.application import Command, Port, UseCase
 from aod.domain import RootEntity
@@ -28,7 +27,7 @@ class _CustomPortUseCase(UseCase):
         pass
 
 
-class _PortContainer(AdapterContainerBase):
+class _PortContainer(AdapterContainer):
     my_port: _CustomPort
 
 
@@ -47,14 +46,14 @@ class TestExtractPortType:
 
 class TestInjectAdapters:
     def test_raises_when_port_not_found(self) -> None:
-        class _EmptyContainer(AdapterContainerBase):
+        class _EmptyContainer(AdapterContainer):
             pass
 
         container = _EmptyContainer()
         with pytest.raises(PortNotFoundError):
-            inject_adapters(container, _CustomPortUseCase)
+            container.adapt_use_case(_CustomPortUseCase)
 
     def test_with_custom_port_works(self) -> None:
         container = _PortContainer(my_port=_CustomPort())
-        uc = inject_adapters(container, _UseCase)
+        uc = container.adapt_use_case(_UseCase)
         assert isinstance(uc.my_port, _CustomPort)

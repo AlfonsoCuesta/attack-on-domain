@@ -78,37 +78,69 @@ class PlaceOrderUseCase(UseCase):
 
 ### Step 3: Infrastructure Layer — Implementations
 
-Create the concrete Handler implementations and Sessions. Rename infrastructure handlers to avoid confusion with application protocols.
+Create the concrete Handler implementations and Sessions.
+
+**Session** is the data access abstraction. There are no repositories, no stores — the Session IS how you read and write. Each handler declares a `session` field with the concrete session type it needs, and the container injects the matching instance.
+
+**Session lifecycle is managed by the UnitOfWork (UoW)** — never call `begin()`, `commit()`, or `rollback()` manually on a session. The UseCase wrapper handles it automatically.
 
 ```python
-from aod.infrastructure import CommandHandler as InfraCommandHandler, QueryHandler as InfraQueryHandler, Session
+from aod.infrastructure import CommandHandler, QueryHandler, Session
+from aod.domain import PrivateField
 
-class PlaceOrderHandler(InfraCommandPort[PlaceOrder]):
-    session: Session
+# Your database session
+class PostgresSession(Session):
+    _conn: object = PrivateField(default=None)
+
+    def execute(self, operation: object) -> None:
+        ...
+
+    def query(self, operation: object) -> object:
+        ...
+
+    def begin(self) -> None:
+        self._conn.begin()
+
+    def commit(self) -> None:          # raises CommitOutsideUnitOfWorkError
+        self._conn.commit()            # if called outside a UseCase
+
+    def rollback(self) -> None:
+        self._conn.rollback()
+
+    def close(self) -> None:
+        self._conn.close()
+
+    def is_dirty(self) -> bool:
+        return ...
+
+# CommandHandler — writes, UoW manages transactions
+class PlaceOrderHandler(CommandHandler[PlaceOrder]):
+    session: PostgresSession
+
     def handle(self, command: PlaceOrder) -> None:
-        # Save order to database
-        ...
+        self.session.execute("INSERT INTO orders ...")
 
-class GetOrderHandler(InfraQueryPort[GetOrder]):
-    session: Session
+# QueryHandler — reads only, no transaction needed
+class GetOrderHandler(QueryHandler[GetOrder]):
+    session: PostgresSession
+
     def handle(self, query: GetOrder) -> Order | None:
-        # Load order from database
-        ...
+        return self.session.query("SELECT * FROM orders WHERE id = ...")
 ```
 
 ### Step 4: Container and Injection
 
-Wire everything together with the AdapterContainer and inject dependencies.
+Wire everything together with `AdapterContainer`. It discovers sessions, handlers, and custom ports, then auto-wires them into UseCases and Projections via `adapt_use_case()` / `adapt_projection()`.
 
 ```python
-from aod.infrastructure import AdapterContainerBase, inject_adapters
+from aod.infrastructure import AdapterContainer
 
-class AppContainer(AdapterContainerBase):
-    sessions: set = {SqlSession}
+class AppContainer(AdapterContainer):
+    sessions: set = {PostgresSession}
     handlers: list = [PlaceOrderHandler, GetOrderHandler]
 
 container = AppContainer()
-place_order = inject_adapters(container, PlaceOrderUseCase)
+place_order = container.adapt_use_case(PlaceOrderUseCase)
 place_order.run(order_id="1", product_id="p1", quantity=2, price=9.99)
 ```
 
@@ -135,7 +167,7 @@ place_order.run(order_id="1", product_id="p1", quantity=2, price=9.99)
 | `from aod.infrastructure import ReadProjection, WriteProjection, Projection` | Projection base classes |
 | `from aod.infrastructure import AsyncReadProjection, AsyncWriteProjection, AsyncProjection` | Async projection classes |
 | `from aod.infrastructure import ReadModel, WriteModel` | Projection data models |
-| `from aod.infrastructure import inject_adapters` | Dependency injection for UseCases and Projections |
+| `from aod.infrastructure import AdapterContainer` | Container with `adapt_use_case()` / `adapt_projection()` |
 | `from aod.domain import DomainException` | Domain base exception |
 | `from aod.application import ApplicationException` | Application base exception |
 | `from aod.infrastructure import InfrastructureException` | Infrastructure base exception |
@@ -331,64 +363,137 @@ class GetOrder(Query[Order, Order | None]):
 - `Query[TEntity, TResult]` — same, and TResult must contain a RootEntity
 - Fields cannot reference non-root Entity types
 
-### CommandHandler / QueryHandler
+### Handler Types
 
-**Application layer** (`aod.application`): Protocol definitions for handlers.
+**Application layer** (`aod.application`): `CommandPort[Command]` / `QueryPort[Query]` — protocol definitions that UseCases depend on.
 
-**Infrastructure layer** (`aod.infrastructure`): Concrete implementations with session injection.
+**Infrastructure layer** (`aod.infrastructure`): `CommandHandler[C]` / `QueryHandler[Q]` — concrete implementations.
 
-**Runtime type checking**: Handlers verify that the command/query passed to `handle()` matches the generic type parameter. If not, raises `TypeError`.
+### Session
 
-**Session**: The database abstraction. No repositories or stores — Session IS the data access layer.
+Session IS the data access layer. There are no repositories, stores, or DAOs. Each handler declares a `session` field typed to its concrete session, and the container injects the correct instance.
+
+#### Required methods
+
+| Method | Description |
+|--------|-------------|
+| `begin()` | Start a new transaction |
+| `commit()` | Commit the transaction. Raises `CommitOutsideUnitOfWorkError` if called outside a UnitOfWork context |
+| `rollback()` | Rollback the transaction |
+| `close()` | Release resources |
+| `is_dirty()` | Return `True` if there are uncommitted changes |
+
+Add any domain-specific methods (e.g. `execute()`, `query()`, `get()`, `set()`) as needed.
+
+#### Transaction flow (UnitOfWork)
+
+The UseCase wrapper manages the transaction lifecycle automatically. Never call `begin()`, `commit()`, or `rollback()` directly on a session.
 
 ```python
-# Application layer — protocol (what the UseCase depends on)
-from aod.application import CommandPort, QueryPort
+# What happens inside use_case.run():
+uow.begin()                         # calls session.begin() on all sessions
+    # Your run() code executes here
+    # CommandHandler.handle() writes through session.execute()
+    # QueryHandler.handle() reads through session.query()
+# If run() succeeds:
+uow.commit()                        # calls session.commit() only on dirty sessions
+# If run() fails:
+uow.rollback()                      # calls session.rollback() only on dirty sessions
+```
 
-# Infrastructure layer — implementation (rename to avoid confusion)
-from aod.infrastructure import CommandHandler as InfraCommandHandler, QueryHandler as InfraQueryHandler, Session
+The `commit()` method on every Session subclass is auto-decorated at class creation time. It checks a `ContextVar` flag (`_CommitContext`) that is set to `True` only inside `uow.commit()`. If someone calls `session.commit()` directly outside a UseCase, it raises `CommitOutsideUnitOfWorkError` immediately.
+
+```python
+class PostgresSession(Session):
+    def commit(self) -> None:
+        # This will raise CommitOutsideUnitOfWorkError if called outside a UseCase
+        self._conn.commit()
+
+# Outside a UseCase — this fails:
+session.commit()  # CommitOutsideUnitOfWorkError!
+```
+
+#### QueryHandlers don't commit
+
+Query handlers only read data. They do not participate in the transaction lifecycle — no `begin()`, no `commit()`, no `rollback()`. The UseCase wrapper only manages transactions for CommandHandlers (writes). QueryHandlers simply read through the session and return results.
+
+```python
+class GetOrderHandler(QueryHandler[GetOrder]):
+    session: PostgresSession
+
+    def handle(self, query: GetOrder) -> Order | None:
+        return self.session.query("SELECT * FROM orders WHERE id = ?", query.order_id)
+    # No commit — this is a read operation
+```
+
+#### Example: Complete session implementation
+
+```python
+from aod.infrastructure import Session
 from aod.domain import PrivateField
 
-# Create your Session subclass
-class MemorySession(Session):
-    _data: dict = PrivateField(default_factory=dict)
+class SqliteSession(Session):
+    _conn: object = PrivateField(default=None)
 
-    def execute(self, operation: object) -> object:
-        # Write operations
-        ...
+    def execute(self, sql: str, params: dict | None = None) -> None:
+        cur = self._conn.cursor()
+        cur.execute(sql, params or {})
 
-    def query(self, operation: object) -> object:
-        # Read operations
-        ...
+    def query(self, sql: str, params: dict | None = None) -> list[dict]:
+        cur = self._conn.cursor()
+        cur.execute(sql, params or {})
+        return [dict(row) for row in cur.fetchall()]
 
     def begin(self) -> None:
-        ...
+        self._conn.execute("BEGIN")
 
     def commit(self) -> None:
-        ...
+        self._conn.commit()
 
     def rollback(self) -> None:
-        ...
+        self._conn.rollback()
 
     def close(self) -> None:
-        ...
+        self._conn.close()
 
     def is_dirty(self) -> bool:
-        return False
+        # Track writes in execute() and return True when there are pending changes
+        return ...
+```
 
-# Handlers use YOUR session type, not abstract Session
-class PlaceOrderHandler(InfraCommandPort[PlaceOrder]):
-    session: MemorySession  # Concrete type — injected by container
+#### Handlers with sessions
+
+```python
+from aod.infrastructure import CommandHandler, QueryHandler
+
+class PlaceOrderHandler(CommandHandler[PlaceOrder]):
+    session: SqliteSession  # Concrete type — injected by container
+
     def handle(self, command: PlaceOrder) -> None:
-        self.session.execute(...)
+        self.session.execute(
+            "INSERT INTO orders (id, total) VALUES (:id, :total)",
+            {"id": command.order_id, "total": command.total},
+        )
 
-class GetOrderHandler(InfraQueryPort[GetOrder]):
-    session: MemorySession  # Concrete type — injected by container
+class GetOrderHandler(QueryHandler[GetOrder]):
+    session: SqliteSession
+
     def handle(self, query: GetOrder) -> Order | None:
-        return self.session.query(...)
+        rows = self.session.query(
+            "SELECT * FROM orders WHERE id = :id",
+            {"id": query.order_id},
+        )
+        if not rows:
+            return None
+        return Order(id=rows[0]["id"], total=rows[0]["total"])
+```
 
-# Type checking works automatically
-handler = PlaceOrderHandler()
+#### Runtime type checking
+
+Handlers verify that the command/query passed to `handle()` matches the generic type parameter:
+
+```python
+handler = PlaceOrderHandler(session=SqliteSession())
 handler.handle(PlaceOrder(...))  # OK
 handler.handle(OtherCommand(...))  # TypeError: Expected PlaceOrder, got OtherCommand
 ```
@@ -449,20 +554,58 @@ class UserUpdateProjection(WriteProjection):
 
 ## Infrastructure Layer
 
-### Container and Injection
+### Container
 
-Wire dependencies together.
+`AdapterContainer` wires sessions, handlers, and custom ports, then auto-injects them into UseCases and Projections.
 
 ```python
-from aod.infrastructure import AdapterContainerBase, inject_adapters
+from aod.infrastructure import AdapterContainer
 
-class AppContainer(AdapterContainerBase):
-    sessions: set = {SqlSession}
+class AppContainer(AdapterContainer):
+    sessions: set = {SqliteSession}                   # Session classes (instantiated lazily)
     handlers: list = [PlaceOrderHandler, GetOrderHandler]
+    email: EmailGateway                               # Custom ports go here
 
-container = AppContainer()
-place_order = inject_adapters(container, PlaceOrderUseCase)
-place_order.run(order_id="1", product_id="p1", quantity=2, price=9.99)
+container = AppContainer(email=FakeEmailSender())
+```
+
+#### adapt_use_case
+
+Creates a UseCase instance with all dependencies injected:
+
+- `logger` — from container
+- `event_bus` — from container
+- `cache` — from container
+- `uow` — a `UnitOfWork` wrapping all registered sessions (begin/commit/rollback orchestrated by the wrapper)
+- Custom ports — resolved by type from container fields
+
+```python
+use_case = container.adapt_use_case(PlaceOrderUseCase)
+use_case.run(order_id="1", product_id="p1", quantity=2, price=9.99)
+# On success: uow.begin() → run() → uow.commit() → events published → cache flushed
+# On failure: uow.begin() → run() [error] → uow.rollback() → error re-raised
+```
+
+#### adapt_projection
+
+Creates a Projection instance with dependencies:
+
+- `logger`, `event_bus`, `cache` — from container
+- `session` — resolved by type from container's registered sessions
+- Custom ports — resolved by type from container fields
+
+```python
+projection = container.adapt_projection(UserListProjection)
+users = projection.read(UserReadModel(user_id="1"))
+```
+
+#### Overrides
+
+Both methods accept keyword overrides to replace specific dependencies for testing:
+
+```python
+# Override just the logger for this specific use case
+uc = container.adapt_use_case(PlaceOrderUseCase, logger=SpyLogger())
 ```
 
 ## Validation

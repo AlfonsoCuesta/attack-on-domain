@@ -11,7 +11,7 @@ from aod._internal.application.logger import Logger
 from aod._internal.application.use_case import UseCase
 from aod._internal.core.fields.fields import PrivateField
 from aod._internal.domain.entity import RootEntity
-from aod._internal.infrastructure.container import AdapterContainerBase
+from aod._internal.infrastructure.container import AdapterContainer
 from aod._internal.infrastructure.handlers import CommandHandler, QueryHandler
 from aod._internal.infrastructure.session import Session
 from aod._internal.testing.doubles.infrastructure.container import spy_adapter_container
@@ -137,7 +137,7 @@ class SyncUserUseCase(UseCase):
         self.save_handler.handle(SaveUser(user_id=user_id, name=name, email=email))
 
 
-class UserServiceContainer(AdapterContainerBase):
+class UserServiceContainer(AdapterContainer):
     pass
 
 

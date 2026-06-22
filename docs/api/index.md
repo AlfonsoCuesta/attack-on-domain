@@ -580,8 +580,7 @@ from aod.infrastructure import ReadProjection, WriteProjection, Projection
 from aod.infrastructure import AsyncReadProjection, AsyncWriteProjection, AsyncProjection
 from aod.infrastructure import CommandHandler, QueryHandler
 from aod.infrastructure import AsyncCommandHandler, AsyncQueryHandler
-from aod.infrastructure import AdapterContainerBase
-from aod.infrastructure import inject_adapters
+from aod.infrastructure import AdapterContainer
 from aod.infrastructure import InfrastructureException
 ```
 
@@ -819,17 +818,17 @@ class AsyncQueryHandler(AsyncBaseHandler, AppAsyncQueryHandler, Generic[TQuery])
 |--------|-----------|-------------|
 | `handle` | `abstractmethod async handle(self, query: TQuery) -> object` | Async handle a query. |
 
-### AdapterContainerBase
+### AdapterContainer
 
 ```python
-class AdapterContainerBase(BaseBehaviour)
+class AdapterContainer(BaseBehaviour)
 ```
 
 Dependency injection container.
 
 #### Constructor
 
-`AdapterContainerBase(**fields)`
+`AdapterContainer(**fields)`
 
 | Parameter | Type | Default | Description |
 |-----------|------|---------|-------------|
@@ -849,24 +848,8 @@ Dependency injection container.
 | `get_uow` | `get_uow(self) -> UnitOfWork \| AsyncUnitOfWork` | Create a UoW with all instantiated sessions. |
 | `get_port` | `get_port(self, port: type[Port]) -> Port` | Find port by type. Raises `PortNotFoundError`. |
 | `with_adapters` | `with_adapters(self, **overrides) -> Self` | Create a copy with overridden fields. |
-
-### inject_adapters
-
-```python
-def inject_adapters(
-    container: AdapterContainerBase,
-    operation_cls: type[UseCase | AsyncUseCase | ProjectionBase],
-    **overrides: Any,
-) -> UseCase | AsyncUseCase | ProjectionBase
-```
-
-Wire dependencies from a container into a use case or projection.
-
-| Parameter | Type | Description |
-|-----------|------|-------------|
-| `container` | `AdapterContainerBase` | The wired container. |
-| `operation_cls` | `type[UseCase \| AsyncUseCase \| ProjectionBase]` | The class to inject. |
-| `**overrides` | `Any` | Override specific dependencies. |
+| `adapt_use_case` | `adapt_use_case(self, use_case_cls, **overrides) -> UseCase \| AsyncUseCase` | Create a use case with all dependencies wired. |
+| `adapt_projection` | `adapt_projection(self, projection_cls, **overrides) -> ProjectionBase` | Create a projection with all dependencies wired. |
 
 ---
 
@@ -1020,7 +1003,7 @@ Same names as sync variants. All methods that perform I/O are async.
 ### `spy_adapter_container`
 
 ```
-spy_adapter_container(container: AdapterContainerBase) -> AdapterContainerBase
+spy_adapter_container(container: AdapterContainer) -> AdapterContainer
 ```
 
 Create a version of a container where sessions and ports are replaced with stubs.
@@ -1132,7 +1115,7 @@ from aod.exceptions import (
 
 <div class="feature-card">
 <h3><a href="../infrastructure/injection.md">Injection</a></h3>
-<p>Wiring dependencies</p>
+<p>Wire dependencies into use cases and projections</p>
 </div>
 
 <div class="feature-card">

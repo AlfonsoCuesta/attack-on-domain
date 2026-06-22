@@ -4,12 +4,9 @@ import pytest
 from aod._internal.application.logger.null_logger import NullLogger
 from aod._internal.application.port import Port
 from aod._internal.core.infrastructure_exception import PortNotFoundError, SessionNotFoundError
-from aod._internal.infrastructure.container import AdapterContainerBase
+from aod._internal.infrastructure.container import AdapterContainer
 from aod._internal.infrastructure.handlers import AsyncCommandHandler
-from aod._internal.infrastructure.inject import (
-    extract_port_type,
-    inject_adapters,
-)
+from aod._internal.infrastructure.container import extract_port_type
 from aod._internal.infrastructure.projection import ReadModel, ReadProjection
 from aod._internal.infrastructure.session import AsyncSession, Session
 from aod.application import Command, Query, UseCase
@@ -76,7 +73,7 @@ class _AsyncSession(AsyncSession):
         return False
 
 
-class _CustomContainer(AdapterContainerBase):
+class _CustomContainer(AdapterContainer):
     weather_client: _FakePort
 
 
@@ -97,7 +94,7 @@ class TestInjectAdapters:
             def run(self) -> None: ...
 
         container = _CustomContainer(weather_client=_FakePort())
-        uc = inject_adapters(container, SimpleUseCase)
+        uc = container.adapt_use_case(SimpleUseCase)
         assert uc.uow is not None
         assert uc.logger is not None
         assert uc.event_bus is not None
@@ -111,7 +108,7 @@ class TestInjectAdapters:
 
         port = _FakePort()
         container = _CustomContainer(weather_client=port)
-        uc = inject_adapters(container, PortUseCase)
+        uc = container.adapt_use_case(PortUseCase)
         assert isinstance(uc.weather_client, _FakePort)
 
     def test_overrides_special_field(self) -> None:
@@ -119,7 +116,7 @@ class TestInjectAdapters:
             def run(self) -> None: ...
 
         container = _CustomContainer(weather_client=_FakePort())
-        uc = inject_adapters(container, SimpleUseCase, logger=NullLogger())
+        uc = container.adapt_use_case(SimpleUseCase, logger=NullLogger())
         assert isinstance(uc.logger, NullLogger)
 
     def test_overrides_port_field(self) -> None:
@@ -131,7 +128,7 @@ class TestInjectAdapters:
         port = _FakePort()
         override_port = _FakePort()
         container = _CustomContainer(weather_client=port)
-        uc = inject_adapters(container, PortUseCase, weather_client=override_port)
+        uc = container.adapt_use_case(PortUseCase, weather_client=override_port)
         assert isinstance(uc.weather_client, _FakePort)
 
     def test_raises_when_port_not_found(self) -> None:
@@ -142,7 +139,7 @@ class TestInjectAdapters:
 
         container = _CustomContainer(weather_client=_FakePort())
         with pytest.raises(PortNotFoundError, match="No port of type"):
-            inject_adapters(container, PortUseCase)
+            container.adapt_use_case(PortUseCase)
 
     def test_ignores_private_fields(self) -> None:
         class PrivateUseCase(UseCase):
@@ -151,7 +148,7 @@ class TestInjectAdapters:
             def run(self) -> None: ...
 
         container = _CustomContainer(weather_client=_FakePort())
-        uc = inject_adapters(container, PrivateUseCase)
+        uc = container.adapt_use_case(PrivateUseCase)
         assert uc._internal == 42
 
     def test_ignores_fields_without_type_hints(self) -> None:
@@ -159,7 +156,7 @@ class TestInjectAdapters:
             def run(self) -> None: ...
 
         container = _CustomContainer(weather_client=_FakePort())
-        uc = inject_adapters(container, NoHintUseCase)
+        uc = container.adapt_use_case(NoHintUseCase)
         assert uc.uow is not None
 
     def test_works_with_async_use_case(self) -> None:
@@ -170,7 +167,7 @@ class TestInjectAdapters:
 
         port = _FakePort()
         container = _CustomContainer(weather_client=port)
-        uc = inject_adapters(container, AsyncPortUseCase)
+        uc = container.adapt_use_case(AsyncPortUseCase)
         assert isinstance(uc.weather_client, _FakePort)
 
 
@@ -181,8 +178,7 @@ class TestInjectProjection:
                 return "ok"
 
         container = _CustomContainer(weather_client=_FakePort(), sessions={_SyncSession})
-        uc = inject_adapters(container, TestProjection)
-        p = uc
+        p = container.adapt_projection(TestProjection)
         assert isinstance(p.session, Session)
         assert p.logger is not None
         assert p.event_bus is not None
@@ -194,8 +190,7 @@ class TestInjectProjection:
                 return "ok"
 
         container = _CustomContainer(weather_client=_FakePort(), sessions={_SyncSession})
-        uc = inject_adapters(container, TestProjection)
-        p = uc
+        p = container.adapt_projection(TestProjection)
         assert isinstance(p.session, Session)
 
     def test_session_is_none_when_no_sessions(self) -> None:
@@ -206,7 +201,7 @@ class TestInjectProjection:
         container = _CustomContainer(weather_client=_FakePort())
 
         with pytest.raises(SessionNotFoundError):
-            inject_adapters(container, TestProjection)
+            container.adapt_projection(TestProjection)
 
     def test_overrides_session(self) -> None:
         class TestProjection(ReadProjection):
@@ -215,6 +210,5 @@ class TestInjectProjection:
 
         override_session = _SyncSession()
         container = _CustomContainer(weather_client=_FakePort(), sessions={_SyncSession})
-        uc = inject_adapters(container, TestProjection, session=override_session)
-        p = uc
+        p = container.adapt_projection(TestProjection, session=override_session)
         assert isinstance(p.session, Session)

@@ -31,7 +31,7 @@ class HandlerResultTypeError(InfrastructureException):
 
 
 class InvalidPortFieldError(InfrastructureException):
-    """A field on an AdapterContainerBase subclass is not a Port type."""
+    """A field on an AdapterContainer subclass is not a Port type."""
 
     def __init__(self, field_name: str, field_type: str) -> None:
         super().__init__(f"Field '{field_name}' must be a Port subclass, got {field_type}")

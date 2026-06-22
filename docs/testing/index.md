@@ -121,7 +121,7 @@ The recommended approach for testing use cases is to create a spy version of you
 ```python
 from aod.testing.doubles import spy_adapter_container
 
-class AppContainer(AdapterContainerBase):
+class AppContainer(AdapterContainer):
     pass
 
 
@@ -135,7 +135,7 @@ container.get_session_stub(MySession).begin.always_returns(None)
 container.get_port_stub(Logger).info.always_returns(None)
 
 # Inject and run
-use_case = inject_adapters(container, CreateUserUseCase)
+use_case = container.adapt_use_case(CreateUserUseCase)
 use_case.run(user_id=1, name="Alice")
 
 # Assert handler was called
@@ -318,12 +318,12 @@ batch = users.batch(5)  # 5 users with auto-generated fields
 ```python
 from aod.testing.doubles import spy_adapter_container
 
-class AppContainer(AdapterContainerBase):
+class AppContainer(AdapterContainer):
     pass
 
 
 container = spy_adapter_container(AppContainer(sessions={MySession}, handlers=[CreateUserHandler, GetUserHandler]))
-use_case = inject_adapters(container, CreateUserUseCase)
+use_case = container.adapt_use_case(CreateUserUseCase)
 use_case.run(user_id=1, name="Alice")
 
 assert_event_emitted(use_case.events, UserCreatedEvent, user_id=1)

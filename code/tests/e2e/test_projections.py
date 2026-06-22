@@ -4,8 +4,7 @@ from __future__ import annotations
 import pytest
 from aod._internal.core.event_emitter import Event
 from aod._internal.infrastructure.commit_context import _CommitContext
-from aod._internal.infrastructure.container import AdapterContainerBase
-from aod._internal.infrastructure.inject import inject_adapters
+from aod._internal.infrastructure.container import AdapterContainer
 from aod._internal.core.infrastructure_exception import SessionNotFoundError
 from aod._internal.infrastructure.projection import (
     AsyncProjection,
@@ -153,7 +152,7 @@ class AsyncFullUserProjection(AsyncProjection):
 # ---------------------------------------------------------------------------
 
 
-class ProjectionContainer(AdapterContainerBase):
+class ProjectionContainer(AdapterContainer):
     pass
 
 
@@ -395,7 +394,7 @@ class TestAsyncFullProjection:
 class TestProjectionInjection:
     def test_inject_read_projection(self) -> None:
         container = ProjectionContainer(sessions={_TestSession})
-        uc = inject_adapters(container, GetUserProjection)
+        uc = container.adapt_projection(GetUserProjection)
         p = uc
         assert isinstance(p.session, Session)
         assert p.logger is not None
@@ -403,13 +402,13 @@ class TestProjectionInjection:
 
     def test_inject_write_projection(self) -> None:
         container = ProjectionContainer(sessions={_TestSession})
-        uc = inject_adapters(container, CreateUserProjection)
+        uc = container.adapt_projection(CreateUserProjection)
         p = uc
         assert isinstance(p.session, Session)
 
     def test_inject_full_projection(self) -> None:
         container = ProjectionContainer(sessions={_TestSession})
-        uc = inject_adapters(container, FullUserProjection)
+        uc = container.adapt_projection(FullUserProjection)
         p = uc
         assert isinstance(p.session, Session)
 
@@ -417,7 +416,7 @@ class TestProjectionInjection:
         logger = SpyLogger()
         bus = SpyEventBus()
         container = ProjectionContainer(sessions={_TestSession})
-        uc = inject_adapters(container, GetUserProjection, logger=logger, event_bus=bus)
+        uc = container.adapt_projection(GetUserProjection, logger=logger, event_bus=bus)
         p = uc
         p.read(UserReadModel(user_id=1))
         completions = [e for e in logger.entries if "completed" in str(e.msg)]
@@ -427,4 +426,4 @@ class TestProjectionInjection:
         container = ProjectionContainer()
 
         with pytest.raises(SessionNotFoundError):
-            inject_adapters(container, GetUserProjection)
+            container.adapt_projection(GetUserProjection)

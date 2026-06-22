@@ -116,14 +116,14 @@ class GetOrderHandler(InfraQueryPort[GetOrder]):
 Wire everything together with the AdapterContainer and inject dependencies.
 
 ```python
-from aod.infrastructure import AdapterContainerBase, inject_adapters
+from aod.infrastructure import AdapterContainer
 
-class AppContainer(AdapterContainerBase):
+class AppContainer(AdapterContainer):
     sessions: set = {SqlSession}
     handlers: list = [PlaceOrderHandler, GetOrderHandler]
 
 container = AppContainer()
-place_order = inject_adapters(container, PlaceOrderUseCase)
+place_order = container.adapt_use_case(PlaceOrderUseCase)
 place_order.run(order_id="1", product_id="p1", quantity=2, price=9.99)
 ```
 
@@ -147,7 +147,7 @@ All docs now use the CQRS pattern as the primary example. Key tenets:
 - UseCases declare `CommandPort[Command]` and `QueryPort[Query]` fields, NOT custom repository ports
 - Custom `Port` subclasses are only for non-database concerns (API clients, notifications, etc.)
 - Infrastructure handlers (`CommandHandler[C]`, `QueryHandler[Q]`) implement the handler ports
-- The container auto-wires handlers into UseCases via `inject_adapters()`
+- The container auto-wires handlers into UseCases via `container.adapt_use_case()`
 - Updated pages: index.md, getting-started/*, application/*, domain/events.md
 
 ## Docs Structure
@@ -176,8 +176,8 @@ docs/
 ├── infrastructure/
 │   ├── sessions.md                   # Session, AsyncSession: transactions, dirty tracking
 │   ├── projections.md                # ReadProjection, WriteProjection, async variants
-│   ├── container.md                  # AdapterContainerBase: sessions, handlers, ports
-│   └── injection.md                  # inject_adapters: wiring dependencies
+│   ├── container.md                  # AdapterContainer: sessions, handlers, ports
+│   └── injection.md                  # adapt_use_case / adapt_projection: wiring dependencies
 ├── schema/
 │   └── index.md                      # Schema system overview, AutoDoc, consistency checks
 ├── testing/
@@ -360,7 +360,7 @@ code/
     └── e2e/                          # End-to-end real-world usage tests
         ├── test_ecommerce.py         # E-commerce domain: VOs, entities, bounded context, app, use case, container, inject, faker, build
         ├── test_invariances.py       # field_invariance, invariance, check_invariant helper
-        ├── test_handler_injection.py # Application-layer Protocol handlers, inject_adapters with handlers + ports
+        ├── test_handler_injection.py # Application-layer Protocol handlers, container wiring with handlers + ports
         ├── test_projections.py       # ReadProjection, WriteProjection, Projection, async variants, injection
         └── test_mutation_rules.py    # _can_mutate, BaseGuarded mutation rules, immutable proxies, nested entities
 ```
@@ -538,7 +538,7 @@ The hierarchy:
 - `HandlerModelError` — handler class is missing a required field
 - `PortNotFoundError` — no port of the requested type is registered on the container
 - `SessionNotFoundError` — no session of the requested type is registered on the container
-- `InvalidPortFieldError` — a field on an `AdapterContainerBase` subclass is not a Port type
+- `InvalidPortFieldError` — a field on an `AdapterContainer` subclass is not a Port type
 
 > For details on when each is raised, see `docs/core/exceptions.md`.
 
@@ -596,7 +596,7 @@ class CreateUser(UseCase):
 
 **Infrastructure handler inheritance**: Infrastructure `CommandHandler`/`QueryHandler` types inherit from both `BaseHandler` and the application-layer `HandlerProtocol` (`Port`). This satisfies Pydantic `isinstance` checks when handlers are used in any context requiring the app-layer type.
 
-**Container sessions**: `AdapterContainerBase.sessions` holds session **classes** (`type[Session] | type[AsyncSession]`), not instances. `get_session(session_cls)` instantiates the matching class, tracks the instance in `_sessions_needed`, and returns it. `get_uow()` checks session types and creates `UnitOfWork`/`AsyncUnitOfWork` with the needed instances.
+**Container sessions**: `AdapterContainer.sessions` holds session **classes** (`type[Session] | type[AsyncSession]`), not instances. `get_session(session_cls)` instantiates the matching class, tracks the instance in `_sessions_needed`, and returns it. `get_uow()` checks session types and creates `UnitOfWork`/`AsyncUnitOfWork` with the needed instances.
 
 ### `Port` Base Class
 
