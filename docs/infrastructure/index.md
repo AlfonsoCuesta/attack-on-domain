@@ -9,8 +9,7 @@ The infrastructure layer provides concrete implementations of ports and handles 
 | [Session](sessions.md) | Database abstraction | Handle connections and transactions |
 | [Handler](handlers.md) | Command/Query processor | Implement `CommandPort` / `QueryPort` |
 | [Projection](projections.md) | Read/write models | Query data efficiently |
-| [Container](container.md) | Dependency injection | Wire ports to implementations |
-| [Injection](injection.md) | Dependency injection | Wire dependencies into use cases and projections |
+| [Container](container.md) | Dependency injection | Wire ports, handlers, sessions into use cases and projections |
 
 ## Imports
 
@@ -65,10 +64,7 @@ class CreateUserHandler(CommandHandler[CreateUser]):
         self.session.execute(...)
 
 # Define a container
-class AppContainer(AdapterContainer):
-    pass
-
-container = AppContainer(sessions={PostgresSession}, handlers=[CreateUserHandler])
+container = AdapterContainer(sessions={PostgresSession}, handlers=[CreateUserHandler])
 use_case = container.adapt_use_case(PlaceOrderUseCase)
 ```
 
@@ -139,11 +135,7 @@ Containers wire ports to implementations:
 ```python
 from aod.infrastructure import AdapterContainer
 
-class AppContainer(AdapterContainer):
-    pass
-
-
-container = AppContainer(sessions={PostgresSession}, handlers=[CreateUserHandler, GetUserHandler])
+container = AdapterContainer(sessions={PostgresSession}, handlers=[CreateUserHandler, GetUserHandler])
 ```
 
 ### Injection
@@ -151,7 +143,7 @@ container = AppContainer(sessions={PostgresSession}, handlers=[CreateUserHandler
 Wire dependencies into use cases via the container:
 
 ```python
-container = AppContainer()
+container = AdapterContainer()
 use_case = container.adapt_use_case(CreateUserUseCase)
 ```
 
@@ -177,11 +169,6 @@ use_case = container.adapt_use_case(CreateUserUseCase)
 <div class="feature-card">
 <h3><a href="container.md">Container</a></h3>
 <p>Learn about dependency injection</p>
-</div>
-
-<div class="feature-card">
-<h3><a href="injection.md">Injection</a></h3>
-<p>Wire dependencies into use cases and projections</p>
 </div>
 
 </div>

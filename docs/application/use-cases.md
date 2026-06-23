@@ -212,11 +212,7 @@ Use `spy_adapter_container` for testing use cases instead of mocking ports manua
 ```python
 from aod.testing.doubles import spy_adapter_container
 
-class MyContainer(AdapterContainer):
-    pass
-
-
-container = spy_adapter_container(MyContainer(sessions={MySession}, handlers=[CreateUserHandler]))
+container = spy_adapter_container(AdapterContainer(sessions={MySession}, handlers=[CreateUserHandler]))
 use_case = container.adapt_use_case(CreateUserUseCase)
 
 use_case.run(user_id="1", name="Alice")
@@ -323,7 +319,7 @@ class CreateUserUseCase(UseCase):
 </div>
 
 <div class="feature-card">
-<h3><a href="../infrastructure/injection.md">Injection</a></h3>
+<h3><a href="../infrastructure/container.md">Container</a></h3>
 <p>Wire dependencies into use cases and projections</p>
 </div>
 

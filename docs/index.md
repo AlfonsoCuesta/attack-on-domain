@@ -53,7 +53,11 @@ Build maintainable domain models with entities, value objects, aggregates, CQRS,
 ```python
 from aod.domain import RootEntity, ValueObject, Event
 from aod.application import UseCase, Command, CommandPort
-from aod.infrastructure import CommandHandler, AdapterContainer
+from aod.infrastructure import CommandHandler, Session, AdapterContainer
+
+
+class SqlSession(Session):
+    def execute(self, operation: object) -> None: ...
 
 class OrderId(ValueObject):
     value: str
@@ -71,6 +75,8 @@ class PlaceOrder(Command[Order, None]):
     total: float
 
 class PlaceOrderHandler(CommandHandler[PlaceOrder]):
+    session: SqlSession
+
     def handle(self, command: PlaceOrder) -> None:
         order = Order(id=OrderId(value=command.order_id), total=command.total)
         self.session.execute(order)
@@ -79,16 +85,11 @@ class PlaceOrderUseCase(UseCase):
     place_order: CommandPort[PlaceOrder]
 
     def run(self, order_id: str, total: float) -> None:
-        order = Order(id=OrderId(value=order_id), total=total)
-        order.place()
         self.place_order.handle(PlaceOrder(
             order_id=order_id, total=total,
         ))
 
-class AppContainer(AdapterContainer):
-    pass
-
-container = AppContainer(handlers=[PlaceOrderHandler])
+container = AdapterContainer(handlers=[PlaceOrderHandler])
 use_case = container.adapt_use_case(PlaceOrderUseCase)
 use_case.run(order_id="1", total=99.99)
 ```

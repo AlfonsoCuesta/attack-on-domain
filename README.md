@@ -15,18 +15,20 @@ Requires **Python 3.14+**.
 ```python
 from aod.domain import RootEntity, ValueObject, Event
 from aod.application import UseCase, Command, CommandPort
-from aod.infrastructure import CommandHandler, AdapterContainer
+from aod.infrastructure import CommandHandler, Session, AdapterContainer
 
-# Value Object
+
+class SqlSession(Session):
+    def execute(self, operation: object) -> None: ...
+
+
 class OrderId(ValueObject):
     value: str
 
-# Domain Event
 class OrderPlaced(Event):
     order_id: str
     total: float
 
-# Aggregate Root
 class Order(RootEntity):
     id: OrderId
     total: float
@@ -34,18 +36,17 @@ class Order(RootEntity):
     def place(self) -> None:
         self._event_emitter.emit(OrderPlaced(order_id=self.id.value, total=self.total))
 
-# Command
 class PlaceOrder(Command[Order, None]):
     order_id: str
     total: float
 
-# Infrastructure Handler
 class PlaceOrderHandler(CommandHandler[PlaceOrder]):
+    session: SqlSession
+
     def handle(self, command: PlaceOrder) -> None:
         order = Order(id=OrderId(value=command.order_id), total=command.total)
         self.session.execute(order)
 
-# Application Use Case
 class PlaceOrderUseCase(UseCase):
     place_order: CommandPort[PlaceOrder]
 
@@ -54,11 +55,7 @@ class PlaceOrderUseCase(UseCase):
         order.place()
         self.place_order.handle(PlaceOrder(order_id=order_id, total=total))
 
-# Dependency Injection
-class AppContainer(AdapterContainer):
-    pass
-
-container = AppContainer(handlers=[PlaceOrderHandler])
+container = AdapterContainer(handlers=[PlaceOrderHandler])
 use_case = container.adapt_use_case(PlaceOrderUseCase)
 use_case.run(order_id="1", total=99.99)
 ```
@@ -74,6 +71,8 @@ use_case.run(order_id="1", total=99.99)
 - **Hexagonal Architecture** — Ports, adapters, and dependency injection through containers
 
 ## Documentation
+
+Full documentation at [alfonsocuesta.github.io/attack-on-domain](https://alfonsocuesta.github.io/attack-on-domain/)
 
 - [Getting Started](docs/getting-started/installation.md) — Install, quickstart, and concepts
 - [Domain Layer](docs/domain/index.md) — Entities, Value Objects, Services, Events, Invariants

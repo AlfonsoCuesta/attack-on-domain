@@ -332,7 +332,7 @@ class NotificationClient(Port):
 </div>
 
 <div class="feature-card">
-<h3><a href="../infrastructure/injection.md">Injection</a></h3>
+<h3><a href="../infrastructure/container.md">Container</a></h3>
 <p>Learn how ports are wired to implementations</p>
 </div>
 

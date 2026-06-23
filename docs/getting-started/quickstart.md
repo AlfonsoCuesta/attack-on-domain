@@ -87,11 +87,7 @@ Use `AdapterContainer` and `adapt_use_case`. The container discovers handlers an
 from aod.infrastructure import AdapterContainer
 
 
-class AppContainer(AdapterContainer):
-    pass
-
-
-container = AppContainer(handlers=[RegisterUserHandler])
+container = AdapterContainer(handlers=[RegisterUserHandler])
 use_case = container.adapt_use_case(RegisterUserUseCase)
 
 use_case.run(user_id="2", email="alice@example.com", name="Alice")
@@ -139,8 +135,8 @@ assert handler.handle.called
 </div>
 
 <div class="feature-card">
-<h3><a href="../infrastructure/injection.md">Injection</a></h3>
-<p>Wire dependencies into use cases and projections</p>
+<h3><a href="../infrastructure/container.md">Container</a></h3>
+<p>Dependency injection and wiring</p>
 </div>
 
 </div>

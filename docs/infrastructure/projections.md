@@ -170,8 +170,6 @@ Events emitted during `read()` or `write()` are automatically collected:
 from aod.testing.doubles import SpySession
 
 class MyReadProjection(ReadProjection):
-    session: Session | None = None
-
     def read(self, model: ReadModel) -> Any:
         result = self.session.query("SELECT * FROM users")
         ...

@@ -141,23 +141,113 @@ Once a session is instantiated via `get_session()`, the same instance is returne
 
 The container supports both sync and async sessions simultaneously. `get_uow()` automatically detects the session type and returns the appropriate `UnitOfWork` or `AsyncUnitOfWork`.
 
-## Testing with Spy Container
+## Auto-Wiring Logic
 
-Use `spy_adapter_container` to create a test container with stubbed sessions:
+### Framework Services
+
+All operations receive these from the container:
+
+| Field | Container Source |
+|-------|-----------------|
+| `logger` | `container.logger` |
+| `event_bus` | `container.event_bus` |
+| `cache` | `container.cache` |
+
+### Use Case Wiring
+
+When adapting a `UseCase` or `AsyncUseCase`:
+
+| Field | Source |
+|-------|--------|
+| `uow` | `container.get_uow()` |
+
+### Projection Wiring
+
+When adapting a `ProjectionBase` subclass:
+
+| Field | Source |
+|-------|--------|
+| `session` | `container.get_session(session_type)` |
+
+The session type is extracted from the projection's `session` field annotation. If the field type is `None`, `session` is set to `None`.
+
+### Port Wiring
+
+All non-framework fields are scanned:
+
+1. Each field's type is checked against all registered ports via `container.get_port()`.
+2. `HandlerProtocol` subclasses are excluded (not injected as ports).
+3. Special types (`UnitOfWork`, `Logger`, `EventBus`, `Cache`, and their async counterparts) are skipped -- they are handled separately above.
+
+### Override Support
+
+```python
+use_case = container.adapt_use_case(
+    MyUseCase,
+    logger=SpyLogger(),  # override logger for testing
+)
+```
+
+When `**overrides` are provided:
+
+1. `container.with_adapters(**overrides)` creates a temporary container with overridden fields.
+2. Injection proceeds using the overridden container.
+
+## Async Use Case Injection
+
+Async use cases are wired identically to sync use cases:
+
+```python
+from aod.application.async_ import UseCase
+
+class MyAsyncUseCase(UseCase):
+    ...
+
+use_case = container.adapt_use_case(MyAsyncUseCase)
+assert isinstance(use_case.uow, AsyncUnitOfWork)
+```
+
+## Common Patterns
+
+### Manual Injection
+
+```python
+container = AdapterContainer(
+    sessions={MySession},
+    handlers=[MyHandler],
+    user_client=MyUserClient(),
+)
+
+use_case = container.adapt_use_case(CreateUser)
+use_case.run(user_id=42, name="Alice")
+```
+
+### Testing with Spy Container
 
 ```python
 from aod.testing.doubles import spy_adapter_container
 
-class MyContainer(AdapterContainer):
-    pass
+container = spy_adapter_container(AdapterContainer())
 
+use_case = container.adapt_use_case(CreateUserUseCase)
+use_case.run(user_id=42, name="Alice")
 
-container = spy_adapter_container(MyContainer(sessions={MySession}, handlers=[CreateUserHandler]))
+assert container.get_handler(CreateUser).handle.called
 
-session = container.get_session_stub(MySession)
-session.is_dirty.returns(True)
+use_case.run(user_id=42, name="Alice")
+assert use_case.uow.committed
+```
 
-handler = container.get_handler(CreateUser)
+### Projection Injection
+
+```python
+class UserProjection(ReadProjection):
+    def read(self, model: ReadModel) -> list[User]:
+        return self.session.query("SELECT * FROM users")
+
+container = AdapterContainer(sessions={MySession})
+proj = container.adapt_projection(UserProjection)
+result = proj.read(ReadModel())
 ```
 
 ## Next Steps

@@ -135,11 +135,7 @@ Wire everything together with `AdapterContainer`. It discovers sessions, handler
 ```python
 from aod.infrastructure import AdapterContainer
 
-class AppContainer(AdapterContainer):
-    sessions: set = {PostgresSession}
-    handlers: list = [PlaceOrderHandler, GetOrderHandler]
-
-container = AppContainer()
+container = AdapterContainer(sessions={PostgresSession}, handlers=[PlaceOrderHandler, GetOrderHandler])
 place_order = container.adapt_use_case(PlaceOrderUseCase)
 place_order.run(order_id="1", product_id="p1", quantity=2, price=9.99)
 ```
@@ -562,11 +558,7 @@ class UserUpdateProjection(WriteProjection):
 from aod.infrastructure import AdapterContainer
 
 class AppContainer(AdapterContainer):
-    sessions: set = {SqliteSession}                   # Session classes (instantiated lazily)
-    handlers: list = [PlaceOrderHandler, GetOrderHandler]
     email: EmailGateway                               # Custom ports go here
-
-container = AppContainer(email=FakeEmailSender())
 ```
 
 #### adapt_use_case

@@ -118,11 +118,7 @@ Wire everything together with the AdapterContainer and inject dependencies.
 ```python
 from aod.infrastructure import AdapterContainer
 
-class AppContainer(AdapterContainer):
-    sessions: set = {SqlSession}
-    handlers: list = [PlaceOrderHandler, GetOrderHandler]
-
-container = AppContainer()
+container = AdapterContainer(sessions={SqlSession}, handlers=[PlaceOrderHandler, GetOrderHandler])
 place_order = container.adapt_use_case(PlaceOrderUseCase)
 place_order.run(order_id="1", product_id="p1", quantity=2, price=9.99)
 ```
@@ -186,8 +182,7 @@ docs/
 ├── infrastructure/
 │   ├── sessions.md                   # Session, AsyncSession: transactions, dirty tracking
 │   ├── projections.md                # ReadProjection, WriteProjection, async variants
-│   ├── container.md                  # AdapterContainer: sessions, handlers, ports
-│   └── injection.md                  # adapt_use_case / adapt_projection: wiring dependencies
+│   └── container.md                  # AdapterContainer: sessions, handlers, ports, injection
 ├── schema/
 │   └── index.md                      # Schema system overview, AutoDoc, consistency checks
 ├── testing/

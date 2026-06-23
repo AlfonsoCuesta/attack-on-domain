@@ -21,18 +21,23 @@ from aod.infrastructure import AsyncCommandHandler, AsyncQueryHandler
 Subclass `CommandHandler` or `QueryHandler` parameterized by your contract type, and implement the `handle()` method:
 
 ```python
-from aod.infrastructure import CommandHandler, QueryHandler
-from aod.infrastructure import Session
+from aod.infrastructure import CommandHandler, QueryHandler, Session
+
+
+class PostgresSession(Session):
+    def execute(self, operation: object) -> None: ...
+    def query(self, operation: object) -> object: ...
+
 
 class CreateUserHandler(CommandHandler[CreateUser]):
-    session: Session
+    session: PostgresSession
 
     def handle(self, command: CreateUser) -> None:
         user = User(id=command.user_id, name=command.name, email=command.email)
         self.session.execute(user)
 
 class GetUserHandler(QueryHandler[GetUser]):
-    session: Session
+    session: PostgresSession
 
     def handle(self, query: GetUser) -> User | None:
         return self.session.query(f"SELECT * FROM users WHERE id = {query.user_id}")
@@ -159,7 +164,7 @@ Handlers are generic over their contract type. The generic argument is used at r
 
 ```python
 class CreateUserHandler(CommandHandler[CreateUser]):
-    session: Session
+    session: PostgresSession
 
     def handle(self, command: CreateUser) -> None:
         pass  # This handler only accepts CreateUser commands
@@ -171,7 +176,7 @@ Handlers include a `session` field for database access:
 
 ```python
 class CreateUserHandler(CommandHandler[CreateUser]):
-    session: Session  # Injected by the container
+    session: PostgresSession  # Injected by the container
 
     def handle(self, command: CreateUser) -> None:
         self.session.execute(...)
@@ -185,7 +190,7 @@ Handler return types are validated at runtime via `_wrap_handle()`. If the retur
 from aod.infrastructure import QueryHandler
 
 class GetUserHandler(QueryHandler[GetUser]):
-    session: Session
+    session: PostgresSession
 
     def handle(self, query: GetUser) -> User | None:
         return self.session.query(...)  # Must return User | None
@@ -194,17 +199,22 @@ class GetUserHandler(QueryHandler[GetUser]):
 ## Async Handlers
 
 ```python
-from aod.infrastructure import AsyncCommandHandler, AsyncQueryHandler
+from aod.infrastructure import AsyncCommandHandler, AsyncQueryHandler, AsyncSession
+
+class AsyncPostgresSession(AsyncSession):
+    async def execute(self, operation: object) -> None: ...
+    async def query(self, operation: object) -> object: ...
+
 
 class AsyncCreateUserHandler(AsyncCommandHandler[CreateUser]):
-    session: AsyncSession
+    session: AsyncPostgresSession
 
     async def handle(self, command: CreateUser) -> None:
         user = User(id=command.user_id, name=command.name)
         await self.session.execute(user)
 
 class AsyncGetUserHandler(AsyncQueryHandler[GetUser]):
-    session: AsyncSession
+    session: AsyncPostgresSession
 
     async def handle(self, query: GetUser) -> User | None:
         return await self.session.query(...)
@@ -217,11 +227,7 @@ Handlers are registered in `AdapterContainer`:
 ```python
 from aod.infrastructure import AdapterContainer
 
-class AppContainer(AdapterContainer):
-    pass
-
-
-container = AppContainer(sessions={PostgresSession}, handlers=[CreateUserHandler, GetUserHandler])
+container = AdapterContainer(sessions={PostgresSession}, handlers=[CreateUserHandler, GetUserHandler])
 ```
 
 ## Handler Discovery
@@ -229,7 +235,7 @@ container = AppContainer(sessions={PostgresSession}, handlers=[CreateUserHandler
 The container discovers and instantiates handlers by contract type:
 
 ```python
-container = AppContainer()
+container = AdapterContainer()
 handler = container.get_handler(CreateUser)  # Returns CreateUserHandler instance
 result = handler.handle(CreateUser(...))
 ```
@@ -255,7 +261,7 @@ assert handler.handle.called
 
 ```python
 class PlaceOrderHandler(CommandHandler[PlaceOrder]):
-    session: Session
+    session: PostgresSession
 
     def handle(self, command: PlaceOrder) -> None:
         order = Order(id=command.order_id, total=command.total)
@@ -266,7 +272,7 @@ class PlaceOrderHandler(CommandHandler[PlaceOrder]):
 
 ```python
 class GetUserHandler(QueryHandler[GetUser]):
-    session: Session
+    session: PostgresSession
 
     def handle(self, query: GetUser) -> User | None:
         return self.session.query(f"SELECT * FROM users WHERE id = {query.user_id}")
@@ -278,7 +284,7 @@ Validation belongs in the domain, not the handler. The handler delegates to doma
 
 ```python
 class CreateUserHandler(CommandHandler[CreateUser]):
-    session: Session
+    session: PostgresSession
 
     def handle(self, command: CreateUser) -> None:
         user = User(id=command.user_id, name=command.name, email=command.email)
@@ -289,7 +295,7 @@ class CreateUserHandler(CommandHandler[CreateUser]):
 
 ```python
 class CreateUserHandler(CommandHandler[CreateUser]):
-    session: Session
+    session: PostgresSession
     validator: UserValidator
 
     def handle(self, command: CreateUser) -> None:
@@ -317,9 +323,5 @@ class CreateUserHandler(CommandHandler[CreateUser]):
 <p>Learn about handler registration</p>
 </div>
 
-<div class="feature-card">
-<h3><a href="injection.md">Injection</a></h3>
-<p>Learn about dependency injection</p>
-</div>
 
 </div>

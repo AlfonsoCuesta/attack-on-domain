@@ -1114,11 +1114,6 @@ from aod.exceptions import (
 </div>
 
 <div class="feature-card">
-<h3><a href="../infrastructure/injection.md">Injection</a></h3>
-<p>Wire dependencies into use cases and projections</p>
-</div>
-
-<div class="feature-card">
 <h3><a href="../testing/index.md">Testing Utilities</a></h3>
 <p>Testing with spies</p>
 </div>

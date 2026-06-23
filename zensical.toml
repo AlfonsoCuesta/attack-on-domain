@@ -34,7 +34,6 @@ nav = [
         "infrastructure/handlers.md",
         "infrastructure/projections.md",
         "infrastructure/container.md",
-        "infrastructure/injection.md",
     ]},
     {"Schema" = "schema/index.md"},
     {"DDD to AoD" = "getting-started/mapping.md"},
