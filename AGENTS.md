@@ -140,6 +140,16 @@ The documentation site is built with **zensical** (a mkdocs-material-compatible 
 **Build command:** `uv run zensical build --clean`
 **Output:** `site/` directory (gitignored)
 
+## GitHub Pages
+
+The docs deploy automatically via `.github/workflows/docs.yml`:
+
+- **Trigger**: pushes to `master` touching `docs/`, `zensical.toml`, or the workflow file
+- **Manual**: use `workflow_dispatch` from the Actions tab
+- **Build**: `uv sync --group dev && uv run zensical build --clean`
+- **Deploy**: `actions/upload-pages-artifact@v3` + `actions/deploy-pages@v4`
+- **Setup**: enable "GitHub Actions" as the Pages source in repo Settings > Pages
+
 ## CQRS-First Documentation
 
 All docs now use the CQRS pattern as the primary example. Key tenets:
