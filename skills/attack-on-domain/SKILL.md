@@ -176,6 +176,9 @@ place_order.run(order_id="1", product_id="p1", quantity=2, price=9.99)
 | `from aod.testing import events_of` | Extract events emitted by an entity/service/vo |
 | `from aod.testing import assert_event_emitted, assert_no_events` | Event assertions |
 | `from aod.testing import check_invariant` | Run a single invariant validator |
+| `from aod.testing.doubles import Params` | `Params` objects with `.args()` and `.kwargs()` from stub calls |
+| `from aod.testing.doubles import port_stub` | Create stub class from any `Port` subclass |
+| `from aod.testing.doubles import spy_adapter_container` | Container with stubbed sessions/ports/handlers |
 | `from aod.testing.doubles.application import SpyLogger, SpyEventBus, SpyUnitOfWork, SpyCache` | Sync test doubles |
 | `from aod.testing.doubles import SpySession, SpyAsyncSession` | Session test doubles |
 | `from aod.testing.doubles.application.async_ import SpyLogger, SpyEventBus, SpyUnitOfWork, SpyCache` | Async test doubles |

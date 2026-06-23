@@ -10,12 +10,25 @@ T = TypeVar("T")
 TPort = TypeVar("TPort", bound=Port)
 
 
+class Params:
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
+        self._args = args
+        self._kwargs = kwargs
+
+    def args(self) -> tuple[Any, ...]:
+        return self._args
+
+    def kwargs(self) -> dict[str, Any]:
+        return self._kwargs
+
+
 class MethodStub:
     def __init__(self, original: Callable[..., Any] | None = None) -> None:
         self._original = original
         self._returns: list[Any] = []
-        self._calls: list[list[Any]] = []
+        self._calls: list[Params] = []
         self._always_returns: Any = None
+        self._raise: Exception | None = None
 
     def returns(self, *values: Any) -> None:
         self._always_returns = None
@@ -25,10 +38,17 @@ class MethodStub:
         self._returns = []
         self._always_returns = value
 
+    def raises(self, exc: Exception) -> None:
+        self._raise = exc
+
     def __call__(self, *args: Any, **kwargs: Any) -> Any:
         return self._call(*args, **kwargs)
 
     def _call(self, *args: Any, **kwargs: Any) -> Any:
+        self._calls.append(Params(*args, **kwargs))
+        if self._raise is not None:
+            exc, self._raise = self._raise, None
+            raise exc
         if self._original is not None:
             sig = inspect.signature(self._original)
             try:
@@ -38,13 +58,12 @@ class MethodStub:
                     sig.bind(None, *args, **kwargs)
             except TypeError:
                 raise
-        self._calls.append(list(args) + list(kwargs.values()))
         if self._returns:
             return self._returns.pop(0)
         return self._always_returns
 
     @property
-    def calls(self) -> list[list[Any]]:
+    def calls(self) -> list[Params]:
         return list(self._calls)
 
     @property

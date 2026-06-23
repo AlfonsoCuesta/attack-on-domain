@@ -848,8 +848,8 @@ Dependency injection container.
 | `get_uow` | `get_uow(self) -> UnitOfWork \| AsyncUnitOfWork` | Create a UoW with all instantiated sessions. |
 | `get_port` | `get_port(self, port: type[Port]) -> Port` | Find port by type. Raises `PortNotFoundError`. |
 | `with_adapters` | `with_adapters(self, **overrides) -> Self` | Create a copy with overridden fields. |
-| `adapt_use_case` | `adapt_use_case(self, use_case_cls, **overrides) -> UseCase \| AsyncUseCase` | Create a use case with all dependencies wired. |
-| `adapt_projection` | `adapt_projection(self, projection_cls, **overrides) -> ProjectionBase` | Create a projection with all dependencies wired. |
+| `adapt_use_case` | `adapt_use_case(self, use_case_cls, *, returns=UNSET, **overrides) -> UseCase \| AsyncUseCase` | Create a use case with all dependencies wired. `returns=` stubs `run()` return value (spy container only). |
+| `adapt_projection` | `adapt_projection(self, projection_cls, *, read_returns=UNSET, write_returns=UNSET, **overrides) -> ProjectionBase` | Create a projection with all dependencies wired. `read_returns=`/`write_returns=` stub projection methods (spy container only). |
 
 ---
 
@@ -860,7 +860,7 @@ from aod.testing import build, events_of, assert_event_emitted, assert_no_events
 from aod.testing import FakeDomain
 from aod.testing.doubles import (
     SpyLogger, SpyEventBus, SpyCache, SpySession, SpyAsyncSession,
-    port_stub, spy_adapter_container,
+    Params, port_stub, spy_adapter_container,
 )
 from aod.testing.doubles.application.async_ import SpyLogger, SpyEventBus, SpyCache
 ```
@@ -1012,7 +1012,10 @@ Create a version of a container where sessions and ports are replaced with stubs
 |--------|-----------|-------------|
 | `get_session_stub` | `get_session_stub(session_cls) -> Any` | Returns a stub for the given session class |
 | `get_port_stub` | `get_port_stub(port_cls) -> Any` | Returns a stub for the given port class |
+| `get_handler_stub` | `get_handler_stub(handler_cls) -> Any` | Returns a stub for the given handler class |
 | `get_handler` | `get_handler(contract) -> Any` | Returns the handler for a contract (handle is a stub) |
+| `adapt_use_case` | `adapt_use_case(cls, *, returns=UNSET, **overrides)` | `returns=` stubs `instance.run` to return the given value |
+| `adapt_projection` | `adapt_projection(cls, *, read_returns=UNSET, write_returns=UNSET, **overrides)` | `read_returns=`/`write_returns=` stub projection methods |
 
 ### `port_stub`
 
@@ -1030,9 +1033,10 @@ Every stub method provides:
 |-------------------|-------------|
 | `.returns(*values)` | Set sequential return values |
 | `.always_returns(value)` | Set a constant return value |
+| `.raises(exc)` | Raise an exception on the next call (consumed once) |
 | `.called` | Whether the method was called |
 | `.call_count` | Number of calls |
-| `.calls` | List of argument lists per call |
+| `.calls` | List of `Params` objects — each exposes `.args()` and `.kwargs()` |
 
 ---
 
@@ -1046,7 +1050,7 @@ from aod.exceptions import (
     ClassExpectedError, InvalidCommandFieldTypeError, InvalidQueryResultTypeError,
     InvalidGenericTypeArgError, InvalidServiceTypeError,
     ApplicationException, UnresolvableEntityError, CommitOutsideUnitOfWorkError,
-    InvalidUseCasePortFieldError,
+    InvalidUseCasePortFieldError, InvalidHandlerPortFieldError,
     InfrastructureException, HandlerResultTypeError, HandlerModelError,
     PortNotFoundError, SessionNotFoundError, InvalidPortFieldError,
     DuplicateHandlerError, HandlerNotFoundError,
@@ -1080,6 +1084,7 @@ from aod.exceptions import (
 | `UnresolvableEntityError` | `ApplicationException` | Cannot determine RootEntity from Command/Query. |
 | `CommitOutsideUnitOfWorkError` | `ApplicationException` | Commit outside a UoW context. |
 | `InvalidUseCasePortFieldError` | `ApplicationException` | UseCase field is not a Port subclass. |
+| `InvalidHandlerPortFieldError` | `ApplicationException` | HandlerProtocol port missing generic type argument. |
 
 ### InfrastructureException Hierarchy
 

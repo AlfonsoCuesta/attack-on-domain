@@ -229,13 +229,17 @@ from aod.testing.doubles import spy_adapter_container
 
 container = spy_adapter_container(AdapterContainer())
 
-use_case = container.adapt_use_case(CreateUserUseCase)
+container.get_handler_stub(CreateUserHandler).handle.returns(None)
+
+use_case = container.adapt_use_case(CreateUserUseCase, returns=None)
 use_case.run(user_id=42, name="Alice")
 
 assert container.get_handler(CreateUser).handle.called
+assert container.get_handler_stub(CreateUserHandler).handle.call_count == 1
 
-use_case.run(user_id=42, name="Alice")
-assert use_case.uow.committed
+# Projection stubs
+proj = container.adapt_projection(UserProjection, read_returns=[])
+result = proj.read(model)  # returns []
 ```
 
 ### Projection Injection

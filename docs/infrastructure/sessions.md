@@ -169,7 +169,7 @@ spy.is_dirty.returns(True)           # next call returns True
 spy.is_dirty.always_returns(False)   # always returns False
 spy.is_dirty.called                  # True if called
 spy.is_dirty.call_count              # number of calls
-spy.is_dirty.calls                   # list of call argument lists
+spy.is_dirty.calls                   # list of Params, each with .args() and .kwargs()
 spy.begin.called                     # tracks begin() too
 ```
 

@@ -537,6 +537,7 @@ The hierarchy:
 - `UnresolvableEntityError` — cannot determine `RootEntity` from Command/Query
 - `CommitOutsideUnitOfWorkError` — commit attempted outside a `UnitOfWork` context
 - `InvalidUseCasePortFieldError` — UseCase field is not a `Port` subclass (renamed from `InvalidPortFieldError` in the application layer)
+- `InvalidHandlerPortFieldError` — `HandlerProtocol` port on a UseCase is missing its generic type argument
 
 **`InfrastructureException` subclasses:**
 - `HandlerResultTypeError` — handler returned wrong type
@@ -711,16 +712,6 @@ class BadProjection(ReadProjection):
 
 Projections exist independently and are never mixed with `Command`/`Query`, `UnitOfWork`, or `Repository`.
 
-### `should_await` Helper
-
-`aod._internal.core.async_utils.should_await(value)` — bridges sync and async calls:
-- If `value` is a coroutine, awaits and returns the result
-- Otherwise returns the value as-is
-
-Used by async `UnitOfWork.command/query`, async `UseCase` wrapper, and async projection classes (imported as `awaiter`). This allows async UoW to accept both sync and async repositories/stores without knowing which at call time.
-
-Zero `# type: ignore` in `type_checks/`, `repository.py`, and `handlers.py`.
-
 ### Test Doubles (`aod._internal.testing.doubles`)
 
 Spy classes for testing application-layer ports, organized under `aod/_internal/testing/doubles/`:
@@ -795,7 +786,7 @@ uv run pytest code/tests -q
 - If you change the application layer, update `port.py` and/or `use_case.py` and verify `test_port.py` / `test_use_case.py`
 - If you change the UnitOfWork, update `unit_of_work.py` (sync + async) and verify `test_port.py` / `test_async_port.py` (includes `is_dirty` tests)
 - If you change async counterparts (aggregated in `aod.application.async_` / `aod.infrastructure.async_`), update both sync and async test files
-- If you change `should_await` in `async_utils.py`, verify `test_use_case.py` / `test_async_use_case.py` (used as `awaiter`) and `test_async_port.py`
+- If you change the container, update `container.py` and verify `test_container.py`, `test_inject.py`, and container-related e2e tests
 - Always add `__all__` to every `__init__.py` and `async_.py` to avoid `F401` lint warnings
 - Always run all tests before committing
 - `Event.emitted_at` is the timestamp field.
@@ -812,7 +803,7 @@ uv run pytest code/tests -q
 
 ## Test Count
 
-1087 tests (no `patch`/`mock.patch` in any test file)
+1107 tests (no `patch`/`mock.patch` in any test file)
 
 ## At the end of a task
 

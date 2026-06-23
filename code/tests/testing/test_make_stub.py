@@ -1,5 +1,6 @@
 from aod.application import Port
-from aod.testing.doubles import port_stub, MethodStub
+from aod._internal.testing.doubles.stubs import MethodStub
+from aod.testing.doubles import port_stub
 
 
 class EmailGateway(Port):
@@ -35,7 +36,8 @@ class TestPortStub:
         stub.send("a@b.com", "Hi", "Body")
         stub.send("c@d.com", "Hi", "Body")
         assert stub.send.call_count == 2
-        assert stub.send.calls == [["a@b.com", "Hi", "Body"], ["c@d.com", "Hi", "Body"]]
+        assert stub.send.calls[0].args() == ("a@b.com", "Hi", "Body")
+        assert stub.send.calls[1].args() == ("c@d.com", "Hi", "Body")
 
     def test_stub_multiple_methods(self) -> None:
         StubEmailGateway = port_stub(EmailGateway)

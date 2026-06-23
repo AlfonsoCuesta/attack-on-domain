@@ -48,7 +48,8 @@ class TestSpySession:
         session.find("1")
         session.find("2")
         assert session.find.call_count == 2
-        assert session.find.calls == [["1"], ["2"]]
+        assert session.find.calls[0].args() == ("1",)
+        assert session.find.calls[1].args() == ("2",)
 
     def test_method_called_property(self) -> None:
         session = session_stub(SqlSession)()

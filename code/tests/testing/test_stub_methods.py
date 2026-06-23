@@ -1,6 +1,8 @@
 from __future__ import annotations
 
-from aod._internal.testing.doubles.stubs import AsyncMethodStub, MethodStub
+import pytest
+
+from aod._internal.testing.doubles.stubs import AsyncMethodStub, MethodStub, Params
 
 
 class TestMethodStub:
@@ -28,7 +30,7 @@ class TestMethodStub:
         stub = MethodStub()
         stub.always_returns("ok")
         stub(a=1, b=2)
-        assert stub.calls == [[1, 2]]
+        assert stub.calls[0].kwargs() == {"a": 1, "b": 2}
 
     def test_called_and_count_after_call(self) -> None:
         stub = MethodStub()
@@ -38,14 +40,47 @@ class TestMethodStub:
         stub()
         assert stub.called is True
         assert stub.call_count == 1
-        assert stub.calls == [[]]
+        assert stub.calls[0].args() == ()
+        assert stub.calls[0].kwargs() == {}
 
     def test_calls_returns_copy(self) -> None:
         stub = MethodStub()
         stub()
         calls = stub.calls
-        calls.append(["x"])
-        assert stub.calls == [[]]
+        calls.append(Params("x"))
+        assert len(stub.calls) == 1
+
+    def test_raises_exception(self) -> None:
+        stub = MethodStub()
+        stub.raises(ValueError("boom"))
+        with pytest.raises(ValueError, match="boom"):
+            stub()
+
+    def test_raises_only_once(self) -> None:
+        stub = MethodStub()
+        stub.always_returns(42)
+        stub.raises(ValueError("boom"))
+        with pytest.raises(ValueError, match="boom"):
+            stub()
+        assert stub() == 42
+
+    def test_raises_before_signature_check(self) -> None:
+        def example(name: str) -> None:
+            pass
+
+        stub = MethodStub(original=example)
+        stub.raises(ValueError("boom"))
+        with pytest.raises(ValueError, match="boom"):
+            stub(1, 2, 3)
+
+    def test_raises_records_call(self) -> None:
+        stub = MethodStub()
+        stub.raises(ValueError("boom"))
+        with pytest.raises(ValueError):
+            stub("arg")
+        assert stub.called is True
+        assert stub.call_count == 1
+        assert stub.calls[0].args() == ("arg",)
 
 
 class TestAsyncMethodStub:
@@ -81,7 +116,7 @@ class TestAsyncMethodStub:
         stub.always_returns("ok")
         result = await stub(x=1, y=2)
         assert result == "ok"
-        assert stub.calls == [[1, 2]]
+        assert stub.calls[0].kwargs() == {"x": 1, "y": 2}
 
     async def test_called_property(self) -> None:
         stub = AsyncMethodStub()
@@ -99,11 +134,43 @@ class TestAsyncMethodStub:
     async def test_calls_property(self) -> None:
         stub = AsyncMethodStub()
         await stub("a", "b")
-        assert stub.calls == [["a", "b"]]
+        assert stub.calls[0].args() == ("a", "b")
 
     async def test_calls_returns_copy(self) -> None:
         stub = AsyncMethodStub()
         await stub("a")
         calls = stub.calls
-        calls.append(["x"])
-        assert stub.calls == [["a"]]
+        calls.append(Params("x"))
+        assert len(stub.calls) == 1
+
+    async def test_raises_exception(self) -> None:
+        stub = AsyncMethodStub()
+        stub.raises(ValueError("boom"))
+        with pytest.raises(ValueError, match="boom"):
+            await stub()
+
+    async def test_raises_only_once(self) -> None:
+        stub = AsyncMethodStub()
+        stub.always_returns(42)
+        stub.raises(ValueError("boom"))
+        with pytest.raises(ValueError, match="boom"):
+            await stub()
+        assert await stub() == 42
+
+    async def test_raises_before_signature_check(self) -> None:
+        async def example(name: str) -> None:
+            pass
+
+        stub = AsyncMethodStub(original=example)
+        stub.raises(ValueError("boom"))
+        with pytest.raises(ValueError, match="boom"):
+            await stub(1, 2, 3)
+
+    async def test_raises_records_call(self) -> None:
+        stub = AsyncMethodStub()
+        stub.raises(ValueError("boom"))
+        with pytest.raises(ValueError):
+            await stub("arg")
+        assert stub.called is True
+        assert stub.call_count == 1
+        assert stub.calls[0].args() == ("arg",)

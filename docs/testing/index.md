@@ -131,8 +131,11 @@ container.get_session_stub(MySession).begin.always_returns(None)
 # Configure port behavior (optional)
 container.get_port_stub(Logger).info.always_returns(None)
 
+# Configure handler stub
+container.get_handler_stub(CreateUserHandler).handle.returns(None)
+
 # Inject and run
-use_case = container.adapt_use_case(CreateUserUseCase)
+use_case = container.adapt_use_case(CreateUserUseCase, returns=None)
 use_case.run(user_id=1, name="Alice")
 
 # Assert handler was called
@@ -150,7 +153,7 @@ stub.is_dirty.returns(True)           # next call returns True
 stub.is_dirty.always_returns(False)   # always returns False
 stub.is_dirty.called                  # True if called at least once
 stub.is_dirty.call_count              # number of calls
-stub.is_dirty.calls                   # list of call argument lists
+stub.is_dirty.calls                   # list of Params, each with .args() and .kwargs()
 stub.begin.called                     # tracks begin() too
 stub.commit.called                    # commit is called by the UseCase wrapper
 ```
@@ -175,6 +178,33 @@ handler = container.get_handler(CreateUser)
 assert handler.handle.called
 ```
 
+### `get_handler_stub`
+
+Access the handler stub for a given handler class. Works like `get_port_stub` for handlers:
+
+```python
+stub = container.get_handler_stub(CreateUserHandler)
+stub.handle.returns(None)
+stub.handle.called
+```
+
+### `adapt_use_case` with `returns=`
+
+The `adapt_use_case` method accepts a `returns` keyword that stubs `instance.run` to return the given value:
+
+```python
+use_case = container.adapt_use_case(CreateUserUseCase, returns=42)
+result = use_case.run(user_id=1)  # returns 42
+```
+
+### `adapt_projection` with `read_returns` / `write_returns`
+
+```python
+proj = container.adapt_projection(MyProjection, read_returns=[], write_returns=None)
+proj.read(model)    # returns []
+proj.write(model)   # returns None
+```
+
 ## `port_stub`
 
 For testing ports outside a container context, create stubs directly:
@@ -188,13 +218,15 @@ logger.info("test")
 assert logger.info.called
 ```
 
-Every public method on the port records calls and lets you configure return values:
+Every public method on the port records calls and lets you configure return values. Each recorded call is a `Params` object with `.args()` and `.kwargs()`:
 
 ```python
 logger.info("message", user_id=1)
 assert logger.info.called
 assert logger.info.call_count == 1
-entry = logger.info.calls[0]  # ["message", 1]
+entry = logger.info.calls[0]
+entry.args()    # ("message",)
+entry.kwargs()  # {"user_id": 1}
 ```
 
 ## Stub Control
@@ -205,9 +237,10 @@ Every stub method provides the same control interface:
 |-------------------|-----------|-------------|
 | `returns` | `returns(*values: Any) -> None` | Set sequential return values (consumed FIFO) |
 | `always_returns` | `always_returns(value: Any) -> None` | Set a constant return value for all calls |
+| `raises` | `raises(exc: Exception) -> None` | Raise an exception on the next call (consumed once) |
 | `called` | `property -> bool` | Whether the method was called at least once |
 | `call_count` | `property -> int` | Number of times the method was called |
-| `calls` | `property -> list[list[Any]]` | All recorded call arguments |
+| `calls` | `property -> list[Params]` | All recorded calls, each exposing `.args()` and `.kwargs()` |
 
 ## Spy Classes
 

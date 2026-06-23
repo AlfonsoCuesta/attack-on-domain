@@ -129,7 +129,7 @@ def test_spy_logger_records_calls() -> None:
     logger_stub = container.get_port_stub(Logger)
     logger_stub.info("test message")
     assert logger_stub.info.call_count == 1
-    assert logger_stub.info.calls[0] == ["test message"]
+    assert logger_stub.info.calls[0].args() == ("test message",)
 
 
 def test_spy_event_bus_records_calls() -> None:
