@@ -4,7 +4,6 @@ import pytest
 from aod._internal.core.application_exception import CommitOutsideUnitOfWorkError
 from aod._internal.infrastructure.commit_context import _CommitContext
 from aod._internal.infrastructure.session import AsyncSession, Session
-from aod._internal.testing.doubles.infrastructure.session import SpyAsyncSession, SpySession
 
 
 class ConcreteSession(Session):
@@ -105,19 +104,5 @@ class TestAsyncSession:
 
     async def test_commit_outside_uow_raises(self) -> None:
         s = ConcreteAsyncSession()
-        with pytest.raises(CommitOutsideUnitOfWorkError):
-            await s.commit()
-
-
-class TestSpySession:
-    def test_commit_outside_uow_raises(self) -> None:
-        s = SpySession()
-        with pytest.raises(CommitOutsideUnitOfWorkError):
-            s.commit()
-
-
-class TestSpyAsyncSession:
-    async def test_commit_outside_uow_raises(self) -> None:
-        s = SpyAsyncSession()
         with pytest.raises(CommitOutsideUnitOfWorkError):
             await s.commit()

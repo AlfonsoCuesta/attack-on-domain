@@ -4,7 +4,6 @@ from typing import Any, TypeVar, cast
 
 from aod._internal.application.port import Port
 from aod._internal.application.use_case import AsyncUseCase, UseCase
-from aod._internal.core.infrastructure_exception import HandlerNotFoundError
 from aod._internal.infrastructure.container import AdapterContainer
 from aod._internal.infrastructure.projection import ProjectionBase
 from aod._internal.infrastructure.session import AsyncSession, Session

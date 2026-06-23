@@ -26,13 +26,18 @@ class MethodStub:
         self._always_returns = value
 
     def __call__(self, *args: Any, **kwargs: Any) -> Any:
-        if self._original is not None and kwargs:
+        return self._call(*args, **kwargs)
+
+    def _call(self, *args: Any, **kwargs: Any) -> Any:
+        if self._original is not None:
             sig = inspect.signature(self._original)
-            for key in kwargs:
-                if key not in sig.parameters:
-                    raise TypeError(
-                        f"{self._original.__name__}() got an unexpected keyword argument '{key}'"
-                    )
+            try:
+                if hasattr(self._original, "__self__"):
+                    sig.bind(*args, **kwargs)
+                else:
+                    sig.bind(None, *args, **kwargs)
+            except TypeError:
+                raise
         self._calls.append(list(args) + list(kwargs.values()))
         if self._returns:
             return self._returns.pop(0)
@@ -51,45 +56,9 @@ class MethodStub:
         return len(self._calls)
 
 
-class AsyncMethodStub:
-    def __init__(self, original: Callable[..., Any] | None = None) -> None:
-        self._original = original
-        self._returns: list[Any] = []
-        self._calls: list[list[Any]] = []
-        self._always_returns: Any = None
-
-    def returns(self, *values: Any) -> None:
-        self._always_returns = None
-        self._returns = list(values)
-
-    def always_returns(self, value: Any) -> None:
-        self._returns = []
-        self._always_returns = value
-
+class AsyncMethodStub(MethodStub):
     async def __call__(self, *args: Any, **kwargs: Any) -> Any:
-        if self._original is not None and kwargs:
-            sig = inspect.signature(self._original)
-            for key in kwargs:
-                if key not in sig.parameters:
-                    raise TypeError(
-                        f"{self._original.__name__}() got an unexpected keyword argument '{key}'"
-                    )
-        self._calls.append(list(args) + list(kwargs.values()))
-        if self._returns:
-            return self._returns.pop(0)
-        return self._always_returns
-
-    @property
-    def calls(self) -> list[list[Any]]:
-        return list(self._calls)
-
-    @property
-    def called(self) -> bool:
-        return len(self._calls) > 0
-
-    @property
-    def call_count(self) -> int:
-        return len(self._calls)
+        return self._call(*args, **kwargs)
 
 
 def port_stub(port_cls: type[TPort]) -> Any:
@@ -103,12 +72,18 @@ def _make_callable_stub(func: Callable[..., Any]) -> Any:
 
 
 def _make_generic_stub(cls: type[T]) -> Any:
-    methods: dict[str, Any] = {}
+    stubs: dict[str, Any] = {}
     for name in dir(cls):
         if name.startswith("_"):
             continue
         attr = getattr(cls, name, None)
         if callable(attr):
-            stub = _make_callable_stub(attr)
-            methods[name] = stub
-    return cast(type[T], type(f"Stub{cls.__name__}", (cls,), methods))
+            stubs[name] = _make_callable_stub(attr)
+
+    stub_cls = type(f"Stub{cls.__name__}", (cls,), stubs)
+
+    for name, stub in stubs.items():
+        if getattr(stub_cls, name) is not stub:
+            setattr(stub_cls, name, stub)
+
+    return cast(type[T], stub_cls)

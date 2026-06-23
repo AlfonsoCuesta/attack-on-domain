@@ -3,14 +3,13 @@ from __future__ import annotations
 from typing import Any, cast
 
 import pytest
-
 from aod._internal.application.event_bus import EventBus
 from aod._internal.application.handler import CommandPort
 from aod._internal.application.logger import Logger
 from aod._internal.application.port import Port
 from aod._internal.application.use_case import UseCase
-from aod._internal.core.infrastructure_exception import PortNotFoundError
 from aod._internal.core.event_emitter import Event
+from aod._internal.core.infrastructure_exception import PortNotFoundError
 from aod._internal.infrastructure.container import AdapterContainer
 from aod._internal.infrastructure.projection import ReadProjection
 from aod._internal.infrastructure.projection.models import ReadModel
@@ -101,7 +100,7 @@ def test_get_async_session_returns_stub_instance() -> None:
 def test_get_handler_returns_stub() -> None:
     original = _MyContainer(sessions={Session}, handlers=[GetUserHandler], weather=_FakePort())
     container = spy_adapter_container(original)
-    handler = container.get_handler(GetUser)
+    handler = cast(Any, container.get_handler(GetUser))
     assert isinstance(handler, GetUserHandler)
     handler.handle(GetUser(user_id=1))
     assert handler.handle.called
@@ -190,15 +189,23 @@ class _UpdateNameUseCase(UseCase):
         self.update.handle(_UpdateName(user_id=user_id, name=name))
 
 
+class UpdateNameHandler(CommandHandler[_UpdateName]):
+    def handle(self, command: _UpdateName) -> None: ...
+
+
 def test_adapt_use_case_with_returns_stubs_run_method() -> None:
-    container = spy_adapter_container(AdapterContainer())
+    container = spy_adapter_container(
+        AdapterContainer(handlers=[UpdateNameHandler], sessions={Session})
+    )
     uc = container.adapt_use_case(_UpdateNameUseCase, returns=42)
     result = uc.run(user_id=1, name="Alice")
     assert result == 42
 
 
 def test_adapt_use_case_without_returns_runs_normally() -> None:
-    container = spy_adapter_container(AdapterContainer())
+    container = spy_adapter_container(
+        AdapterContainer(handlers=[UpdateNameHandler], sessions={Session})
+    )
     uc = container.adapt_use_case(_UpdateNameUseCase)
     result = uc.run(user_id=1, name="Alice")
     assert result is None
