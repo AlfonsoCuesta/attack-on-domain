@@ -1,7 +1,8 @@
 from __future__ import annotations
 
+import inspect
 from inspect import iscoroutinefunction
-from typing import Any, TypeVar, cast
+from typing import Any, Callable, TypeVar, cast
 
 from aod._internal.application.port import Port
 
@@ -10,7 +11,8 @@ TPort = TypeVar("TPort", bound=Port)
 
 
 class MethodStub:
-    def __init__(self) -> None:
+    def __init__(self, original: Callable[..., Any] | None = None) -> None:
+        self._original = original
         self._returns: list[Any] = []
         self._calls: list[list[Any]] = []
         self._always_returns: Any = None
@@ -24,6 +26,13 @@ class MethodStub:
         self._always_returns = value
 
     def __call__(self, *args: Any, **kwargs: Any) -> Any:
+        if self._original is not None and kwargs:
+            sig = inspect.signature(self._original)
+            for key in kwargs:
+                if key not in sig.parameters:
+                    raise TypeError(
+                        f"{self._original.__name__}() got an unexpected keyword argument '{key}'"
+                    )
         self._calls.append(list(args) + list(kwargs.values()))
         if self._returns:
             return self._returns.pop(0)
@@ -43,7 +52,8 @@ class MethodStub:
 
 
 class AsyncMethodStub:
-    def __init__(self) -> None:
+    def __init__(self, original: Callable[..., Any] | None = None) -> None:
+        self._original = original
         self._returns: list[Any] = []
         self._calls: list[list[Any]] = []
         self._always_returns: Any = None
@@ -57,6 +67,13 @@ class AsyncMethodStub:
         self._always_returns = value
 
     async def __call__(self, *args: Any, **kwargs: Any) -> Any:
+        if self._original is not None and kwargs:
+            sig = inspect.signature(self._original)
+            for key in kwargs:
+                if key not in sig.parameters:
+                    raise TypeError(
+                        f"{self._original.__name__}() got an unexpected keyword argument '{key}'"
+                    )
         self._calls.append(list(args) + list(kwargs.values()))
         if self._returns:
             return self._returns.pop(0)
@@ -79,6 +96,12 @@ def port_stub(port_cls: type[TPort]) -> Any:
     return _make_generic_stub(port_cls)
 
 
+def _make_callable_stub(func: Callable[..., Any]) -> Any:
+    return (
+        AsyncMethodStub(original=func) if iscoroutinefunction(func) else MethodStub(original=func)
+    )
+
+
 def _make_generic_stub(cls: type[T]) -> Any:
     methods: dict[str, Any] = {}
     for name in dir(cls):
@@ -86,6 +109,6 @@ def _make_generic_stub(cls: type[T]) -> Any:
             continue
         attr = getattr(cls, name, None)
         if callable(attr):
-            stub = AsyncMethodStub() if iscoroutinefunction(attr) else MethodStub()
+            stub = _make_callable_stub(attr)
             methods[name] = stub
     return cast(type[T], type(f"Stub{cls.__name__}", (cls,), methods))

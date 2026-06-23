@@ -89,6 +89,7 @@ def test_aod_application_exceptions_documented_api() -> None:
     assert aod.application.exceptions.__all__ == [
         "ApplicationException",
         "CommitOutsideUnitOfWorkError",
+        "InvalidHandlerPortFieldError",
         "InvalidUseCasePortFieldError",
         "UnresolvableEntityError",
     ]
@@ -152,6 +153,7 @@ def test_aod_exceptions_documented_api() -> None:
         "InvalidCommandFieldTypeError",
         "InvalidEntityTypeError",
         "InvalidGenericTypeArgError",
+        "InvalidHandlerPortFieldError",
         "InvalidNestedTypeError",
         "InvalidPortFieldError",
         "InvalidQueryResultTypeError",

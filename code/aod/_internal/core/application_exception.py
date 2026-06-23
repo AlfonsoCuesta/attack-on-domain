@@ -19,3 +19,11 @@ class CommitOutsideUnitOfWorkError(ApplicationException):
 class InvalidUseCasePortFieldError(ApplicationException):
     def __init__(self, field_name: str, cls_name: str, got: str) -> None:
         super().__init__(f"Field '{field_name}' on {cls_name} must be a Port subclass (got {got})")
+
+
+class InvalidHandlerPortFieldError(ApplicationException):
+    def __init__(self, field_name: str, cls_name: str) -> None:
+        super().__init__(
+            f"Field '{field_name}' on {cls_name} is a HandlerProtocol port missing its "
+            f"generic type argument (e.g., CommandPort[PlaceOrder])"
+        )

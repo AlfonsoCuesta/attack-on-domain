@@ -5,11 +5,15 @@ from typing import Any, cast
 import pytest
 
 from aod._internal.application.event_bus import EventBus
+from aod._internal.application.handler import CommandPort
 from aod._internal.application.logger import Logger
 from aod._internal.application.port import Port
+from aod._internal.application.use_case import UseCase
 from aod._internal.core.infrastructure_exception import PortNotFoundError
 from aod._internal.core.event_emitter import Event
 from aod._internal.infrastructure.container import AdapterContainer
+from aod._internal.infrastructure.projection import ReadProjection
+from aod._internal.infrastructure.projection.models import ReadModel
 from aod._internal.infrastructure.session import AsyncSession, Session
 from aod._internal.infrastructure.unit_of_work import UnitOfWork
 from aod._internal.testing.doubles.infrastructure.container import spy_adapter_container
@@ -94,12 +98,13 @@ def test_get_async_session_returns_stub_instance() -> None:
     assert session.is_dirty() is True
 
 
-def test_handler_receives_stub_session() -> None:
+def test_get_handler_returns_stub() -> None:
     original = _MyContainer(sessions={Session}, handlers=[GetUserHandler], weather=_FakePort())
     container = spy_adapter_container(original)
-    container.get_session_stub(Session).is_dirty.returns(True)
     handler = container.get_handler(GetUser)
-    assert cast(Any, handler.session).is_dirty() is True
+    assert isinstance(handler, GetUserHandler)
+    handler.handle(GetUser(user_id=1))
+    assert handler.handle.called
 
 
 def test_with_adapters_preserves_session_stub() -> None:
@@ -171,3 +176,72 @@ def test_original_sessions_are_preserved() -> None:
     original = _MyContainer(sessions={_MySession}, weather=_FakePort())
     container = spy_adapter_container(original)
     assert _MySession in container.sessions
+
+
+class _UpdateName(Command[User, None]):
+    user_id: int
+    name: str
+
+
+class _UpdateNameUseCase(UseCase):
+    update: CommandPort[_UpdateName]
+
+    def run(self, user_id: int, name: str) -> None:
+        self.update.handle(_UpdateName(user_id=user_id, name=name))
+
+
+def test_adapt_use_case_with_returns_stubs_run_method() -> None:
+    container = spy_adapter_container(AdapterContainer())
+    uc = container.adapt_use_case(_UpdateNameUseCase, returns=42)
+    result = uc.run(user_id=1, name="Alice")
+    assert result == 42
+
+
+def test_adapt_use_case_without_returns_runs_normally() -> None:
+    container = spy_adapter_container(AdapterContainer())
+    uc = container.adapt_use_case(_UpdateNameUseCase)
+    result = uc.run(user_id=1, name="Alice")
+    assert result is None
+
+
+def test_adapt_use_case_without_returns_works_normally() -> None:
+    class _PortUseCase(UseCase):
+        weather: _FakePort
+
+        def run(self) -> None: ...
+
+    container = spy_adapter_container(_MyContainer(weather=_FakePort()))
+    uc = container.adapt_use_case(_PortUseCase)
+    assert isinstance(uc.weather, _FakePort)
+
+
+class _TestReadProjection(ReadProjection):
+    def read(self, model: ReadModel) -> str:
+        return "original"
+
+
+def test_adapt_projection_with_read_returns() -> None:
+    container = spy_adapter_container(AdapterContainer(sessions={Session}))
+    proj = container.adapt_projection(_TestReadProjection, read_returns="spied")
+    result = proj.read(ReadModel())
+    assert result == "spied"
+
+
+def test_adapt_projection_with_write_returns() -> None:
+    class _TestWriteProjection(ReadProjection):
+        def read(self, model: ReadModel) -> str:
+            return "read"
+
+        def write(self, model: ReadModel) -> str:
+            return "original"
+
+    container = spy_adapter_container(AdapterContainer(sessions={Session}))
+    proj = container.adapt_projection(_TestWriteProjection, write_returns="spied")
+    result = proj.write(ReadModel())
+    assert result == "spied"
+
+
+def test_adapt_projection_without_stubs_works_normally() -> None:
+    container = spy_adapter_container(AdapterContainer(sessions={Session}))
+    proj = container.adapt_projection(_TestReadProjection)
+    assert proj.read(ReadModel()) == "original"

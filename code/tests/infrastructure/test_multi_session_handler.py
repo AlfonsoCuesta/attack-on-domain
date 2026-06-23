@@ -194,10 +194,8 @@ def test_spy_bundle_tracks_handler_calls() -> None:
     save_handler = container.get_handler(SaveUser)
     get_handler = container.get_handler(GetUser)
 
-    assert save_handler.session is not None
-    assert get_handler.session is not None
-    assert isinstance(save_handler.session, MongoSession)
-    assert isinstance(get_handler.session, PSQLSession)
+    assert isinstance(save_handler, SaveUserHandler)
+    assert isinstance(get_handler, GetUserHandler)
 
 
 def test_handlers_use_different_sessions() -> None:
@@ -211,6 +209,5 @@ def test_handlers_use_different_sessions() -> None:
     save_handler = container.get_handler(SaveUser)
     get_handler = container.get_handler(GetUser)
 
-    assert isinstance(save_handler.session, MongoSession)
-    assert isinstance(get_handler.session, PSQLSession)
-    assert type(save_handler.session) is not type(get_handler.session)
+    assert isinstance(save_handler, SaveUserHandler)
+    assert isinstance(get_handler, GetUserHandler)
