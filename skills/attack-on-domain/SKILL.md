@@ -830,6 +830,98 @@ class GetAppointmentHandler(QueryHandler[GetAppointment]):
         return self.session.query(...)
 ```
 
+## Schema System
+
+The schema system provides introspection and documentation generation for your DDD application.
+
+### Key Classes
+
+| Class | Purpose |
+|-------|---------|
+| `App` | Aggregates modules, validates no duplicate types |
+| `BoundedContext` | Discovers entities, value objects, services |
+| `Infrastructure` | Validates handler-port wiring |
+| `Module` | Validates contracts have handlers, ports have implementations |
+| `AutoDoc` | Generates zensical documentation sites |
+
+### Consistency Checks
+
+All schema classes enforce consistency at construction time:
+
+```python
+from aod.schema import App, BoundedContext, Infrastructure, Module
+
+# App rejects duplicate entities across modules
+# BoundedContext rejects non-RootEntity as aggregate roots
+# Module rejects missing handlers for contracts
+# Module rejects missing implementations for ports
+```
+
+### Common Errors
+
+| Error | Cause | Fix |
+|-------|-------|-----|
+| `DuplicateDomainTypeError` | Same class in multiple modules | Use distinct classes or combine modules |
+| `MissingHandlerError` | Contract without handler | Add handler to `Infrastructure` |
+| `MissingPortError` | Port without implementation | Add implementation to `Infrastructure` ports |
+| `InvalidRootEntityTypeError` | Non-RootEntity as aggregate root | Use `RootEntity` subclass |
+| `InvalidServiceTypeError` | Non-Service as service | Use `Service` subclass |
+
+### Generating Documentation with AutoDoc
+
+```python
+from aod.schema import App, BoundedContext, Module, Infrastructure, AutoDoc
+
+bc = BoundedContext(
+    aggregate_roots=[Order],
+    use_cases=[OrderUseCase],
+    name="Orders",
+)
+
+infra = Infrastructure(
+    handlers=[PlaceOrderHandler, GetOrderHandler],
+    projections=[OrderSummaryProjection],
+    ports=[FakeUnitOfWork, SmtpSender],
+)
+
+mod = Module(name="orders", context=bc, infrastructure=infra)
+app = App(name="MyApp", modules=[mod], description="App description")
+
+doc = AutoDoc(
+    app,
+    output_dir="my-site",
+    site_name="MyApp Docs",
+    site_description="DDD documentation",
+    repo_url="https://github.com/example/myapp",
+)
+
+doc.generate()
+# Then: cd my-site && uv run zensical build --clean
+```
+
+**Docstring Inheritance**: Use `cls.__doc__` instead of `inspect.getdoc(cls)` to avoid inheriting docstrings from parent classes (e.g., `Generic`).
+
+**Zensical Navigation**: Use `mod.domain.name` (BoundedContext name) for nav labels, not `mod.name` (module name) for better readability.
+
+## File Organization
+
+```
+code/aod/_internal/schema/
+├── app.py              # App: aggregates modules
+├── bounded_context.py  # BoundedContext: type discovery + validation
+├── infrastructure.py   # Infrastructure: handlers, sessions, projections
+├── module.py           # Module: validates handler-port wiring
+├── docs/               # Doc dataclasses for each type
+└── render/             # Zensical site generator
+    └── auto_doc.py     # AutoDoc: generates .md files from App
+
+code/tests/schema/
+├── test_render.py      # Unit tests with spy (no I/O)
+├── test_docs.py        # Tests for doc generation
+├── test_schema.py      # Tests for schema classes
+└── make_example_site.py  # Example script to generate site
+```
+
 ## Conventions
 
 - Python 3.14+ — use `|` for unions, `type[X]`, `Self`, etc.
