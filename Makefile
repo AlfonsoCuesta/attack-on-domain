@@ -15,6 +15,8 @@ test-infra:
 
 check: lint typecheck test
 
+build-docs:
+	uv run zensical build --clean
 docs:
 	uv run zensical serve
 

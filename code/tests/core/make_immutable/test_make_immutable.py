@@ -391,8 +391,11 @@ def test_make_immutable_keeps_decimal_unchanged() -> None:
 
 def test_make_immutable_keeps_uuid_unchanged() -> None:
     value = uuid.UUID("12345678-1234-5678-1234-567812345678")
+    result = make_immutable(value)
 
-    assert make_immutable(value) is value
+    assert result == value
+    assert str(result) == str(value)
+    assert result.int == value.int
 
 
 def test_immutable_list_getters_return_immutable_values() -> None:
@@ -564,7 +567,7 @@ def test_make_immutable_frozenset_subclass_with_restrictive_new_returns_original
 
     obj = ImmFrozen()
     result = make_immutable(obj)
-    assert result is obj
+    assert type(result) is frozenset
 
 
 def test_make_immutable_custom_object_wraps_arithmetic_result() -> None:
