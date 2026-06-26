@@ -169,9 +169,43 @@ Must return the model data dictionary (or any dict) or raise `ValueError` / `Ass
 
 Same as `field_invariance`: violations raise `InvarianceException` and are bypassed by `reconstruct()`.
 
+## @mutable
+
+`@mutable` (also available as `inherit_context`) is a decorator that marks a method to inherit the mutation context of its caller, bypassing the `can_mutate()` guard on entities. This allows methods to mutate fields even when mutation would normally be blocked.
+
+```python
+from aod.domain.validation import mutable
+
+
+class User(RootEntity):
+    id: UserId
+    _locked: bool = PrivateField(default=False)
+
+    def can_mutate(self) -> bool:
+        return not self._locked
+
+    @mutable
+    def unlock(self) -> None:
+        self._locked = False
+```
+
+Without `@mutable`, `unlock()` would raise `MutationForbiddenException` because `can_mutate()` returns `False` when the entity is locked.
+
+### Signature
+
+```python
+def mutable(fn: Callable) -> Callable: ...
+```
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `fn` | `Callable` | The method to wrap with INHERIT mutation context |
+
+This is also needed for methods called from `__post_init__` that need to mutate fields.
+
 ## inherit_context
 
-`inherit_context` is a decorator that marks a method to inherit the mutation context of its caller. This allows methods to mutate fields even when called from outside the normal method-guarded path (e.g., called from another method or from `__post_init__`).
+`inherit_context` is the original name for the same decorator. Prefer `@mutable` for new code; `inherit_context` is kept for backwards compatibility.
 
 ```python
 from aod.domain.validation import inherit_context
@@ -195,8 +229,6 @@ def inherit_context(fn: Callable) -> Callable: ...
 | Parameter | Type | Description |
 |-----------|------|-------------|
 | `fn` | `Callable` | The method to wrap with INHERIT mutation context |
-
-This is needed for methods called from `__post_init__` that need to mutate fields.
 
 ## Testing
 

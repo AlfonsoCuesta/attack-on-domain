@@ -9,7 +9,7 @@ Comprehensive reference for all publicly importable classes, grouped by layer.
 ```python
 from aod.domain import Entity, RootEntity, ValueObject, Service, Event, BoundedContext, App
 from aod.domain import Field, PrivateField
-from aod.domain.validation import AfterValidator, BeforeValidator, field_invariance, invariance, inherit_context
+from aod.domain.validation import AfterValidator, BeforeValidator, field_invariance, invariance, inherit_context, mutable
 ```
 
 ### Entity
@@ -247,7 +247,7 @@ Pydantic `PrivateAttr` wrapper. Fields are not part of the public API surface â€
 ### Validation Decorators
 
 ```python
-from aod.domain.validation import field_invariance, invariance, AfterValidator, BeforeValidator, inherit_context
+from aod.domain.validation import field_invariance, invariance, AfterValidator, BeforeValidator, inherit_context, mutable
 ```
 
 | Decorator | Description |
@@ -256,7 +256,8 @@ from aod.domain.validation import field_invariance, invariance, AfterValidator, 
 | `invariance` | Model-level validator that runs after all field validators. |
 | `AfterValidator` | Pydantic `AfterValidator` wrapper. |
 | `BeforeValidator` | Pydantic `BeforeValidator` wrapper. |
-| `inherit_context` | Decorator to mark a method as inheriting the mutation context from its caller. |
+| `inherit_context` | Decorator to mark a method as inheriting the mutation context from its caller. Alias: `mutable` |
+| `mutable` | Preferred name for `inherit_context`. Marks a method to bypass the `can_mutate()` guard on entities. |
 
 ---
 

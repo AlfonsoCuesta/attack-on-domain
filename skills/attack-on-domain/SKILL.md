@@ -149,7 +149,7 @@ place_order.run(order_id="1", product_id="p1", quantity=2, price=9.99)
 | `from aod.domain import PrivateField` | Private fields for internal state |
 | `from aod.events import Event` | Event base class |
 | `from aod.events import EventCollector` | Cross-aggregate event capture |
-| `from aod.domain.validation import field_invariance, invariance, inherit_context` | Validation decorators |
+| `from aod.domain.validation import field_invariance, invariance, inherit_context` | Validation decorators (also available as `mutable`) |
 | `from aod.domain.validation import AfterValidator, BeforeValidator` | Pydantic validators |
 | `from aod.application import UseCase` | UseCase base class |
 | `from aod.application import Port` | Abstract port/gateway base class |
@@ -247,6 +247,43 @@ Private fields (declared with `PrivateField`) are excluded from equality compari
 ### Entity
 
 Mutable objects with identity. Can mutate fields inside public methods. NOT used directly in UseCases — only RootEntity is.
+
+**`can_mutate()`**: Every entity exposes a public `can_mutate()` method that controls mutation. Returns `True` by default. Override to block mutation conditionally:
+
+```python
+from aod.domain.validation import mutable
+
+
+class User(RootEntity):
+    id: UserId
+    name: str
+    _locked: bool = PrivateField(default=False)
+
+    def can_mutate(self) -> bool:
+        return not self._locked
+
+    @mutable
+    def lock(self) -> None:
+        self._locked = True
+
+    @mutable
+    def unlock(self) -> None:
+        self._locked = False
+
+    def rename(self, new_name: str) -> None:
+        self.name = new_name
+
+user = User(id=UserId(value="1"), name="Alice")
+user.rename("Bob")                    # OK
+user.lock()
+user.rename("Charlie")                # MutationForbiddenException!
+user.unlock()
+user.rename("Dave")                   # OK again
+```
+
+`@mutable` lets `lock()`/`unlock()` bypass the `can_mutate()` guard. Without it, `unlock()` would fail because mutation is blocked when `can_mutate()` returns `False`.
+
+When `can_mutate()` returns `False`, all mutations (field assignment, list append, etc.) raise `MutationForbiddenException`.
 
 **DO NOT define `__init__`** — the framework generates it automatically from your field annotations. Just declare fields as class attributes.
 

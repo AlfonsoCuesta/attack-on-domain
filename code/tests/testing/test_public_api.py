@@ -189,6 +189,7 @@ def test_aod_domain_validation_documented_api() -> None:
         "field_invariance",
         "invariance",
         "inherit_context",
+        "mutable",
         "make_base_model",
     ]
 

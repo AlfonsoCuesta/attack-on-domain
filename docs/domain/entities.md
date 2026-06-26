@@ -111,6 +111,50 @@ assert user.name == "Bob"
 user.name = "Charlie"  # MutationForbiddenException!
 ```
 
+### `can_mutate()`
+
+Every entity exposes a public `can_mutate()` method that controls whether mutation is allowed inside its own methods. By default it returns `True`, allowing mutation inside public methods. Subclasses can override it to conditionally block mutation:
+
+```python
+from aod.domain import PrivateField
+from aod.domain.validation import mutable
+
+
+class User(RootEntity):
+    id: UserId
+    name: str
+    _locked: bool = PrivateField(default=False)
+
+    def can_mutate(self) -> bool:
+        return not self._locked
+
+    @mutable
+    def lock(self) -> None:
+        self._locked = True
+
+    @mutable
+    def unlock(self) -> None:
+        self._locked = False
+
+    def rename(self, new_name: str) -> None:
+        self.name = new_name
+
+user = User(id=UserId(value="1"), name="Alice")
+user.rename("Bob")           # OK
+
+user.lock()
+user.rename("Charlie")       # MutationForbiddenException!
+
+user.unlock()
+user.rename("Dave")          # OK again
+```
+
+`lock()` and `unlock()` use `@mutable` so they bypass the `can_mutate()` guard. Without it, `unlock()` would fail because the entity is locked and mutation is blocked.
+
+When `can_mutate()` returns `False`, any attempt to mutate the entity (set fields, append to lists, etc.) raises `MutationForbiddenException`. This applies both inside and outside methods.
+
+The private `_can_mutate()` (used internally by the framework's mutation guard) delegates to `can_mutate()`, so overriding `can_mutate()` is the only hook needed.
+
 ### Immutable Proxies
 
 When reading field values outside a mutation context, mutable containers are wrapped in immutable proxies:

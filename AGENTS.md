@@ -433,6 +433,58 @@ All domain classes (`Entity`, `ValueObject`, `Service`) declare `_event_emitter`
 - Methods decorated with `@field_invariance` or `@invariance` (they have `__field_validator_info__`)
 - Abstract methods (marked with `@abstractmethod`)
 
+### `Entity.can_mutate()` — Public Mutation Guard
+
+`Entity` exposes a public `can_mutate()` method that controls whether the entity can be mutated. It delegates to `_can_mutate()` (the internal hook used by `BaseGuarded._is_mutation_allowed`):
+
+```python
+class Entity(ReconstructMixin, BaseGuarded):
+    @inherit_context
+    def _can_mutate(self) -> bool:
+        return self.can_mutate()
+
+    def can_mutate(self) -> bool:
+        return True
+```
+
+- **Default**: returns `True` — mutation allowed inside public methods, blocked from outside.
+- **Override**: subclasses override `can_mutate()` to return `False` or a dynamic condition:
+  ```python
+  class User(RootEntity):
+      id: UserId
+      _locked: bool = PrivateField(default=False)
+
+      def can_mutate(self) -> bool:
+          return not self._locked
+  ```
+- When `can_mutate()` returns `False`, any mutation attempt raises `MutationForbiddenException`.
+- Only `Entity` and its subclasses (`RootEntity`) have this hook. `ValueObject` and `BaseSealed` always block mutation.
+
+#### `@mutable` decorator
+
+The `@mutable` decorator (exposed as `from aod.domain.validation import mutable`) marks a method to inherit the mutation context from its caller, bypassing the `can_mutate()` guard. This is needed for methods like `lock()`/`unlock()` that must mutate even when the entity is locked:
+
+```python
+from aod.domain.validation import mutable
+
+class User(RootEntity):
+    id: UserId
+    _locked: bool = PrivateField(default=False)
+
+    def can_mutate(self) -> bool:
+        return not self._locked
+
+    @mutable
+    def lock(self) -> None:
+        self._locked = True
+
+    @mutable
+    def unlock(self) -> None:
+        self._locked = False
+```
+
+Without `@mutable`, `unlock()` would raise `MutationForbiddenException` because the entity is locked and `can_mutate()` returns `False`.
+
 ### Immutable Proxies via `make_immutable`
 When an attribute is read outside a mutation context, `BaseGuarded.__getattribute__` returns `make_immutable(value)`:
 - `list` → `ImmutableList` (blocks append, extend, __setitem__, etc.)
@@ -610,7 +662,6 @@ Public modules re-export from `_internal`; they contain no logic of their own. T
   2. Invoke the original `run` body
   3. Replace `self.events` with the list of captured events
 - Subclasses access the events collected during the last `run` via `self.events` (public `Field(default_factory=list, init=False)`)
-- Setting `self.events` during `run()` uses `object.__setattr__` internally since the assignment happens outside the mutation context, but users should not mutate `events` from outside (it's guarded by `BaseGuarded.__setattr__` and wrapped in `ImmutableList` via `make_immutable`)
 
 Events emitted directly by the UseCase via `self._event_emitter.emit(...)` or by any entity touched during `run` are all captured and stored on the UseCase, replacing any events from previous runs.
 

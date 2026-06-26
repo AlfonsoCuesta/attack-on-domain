@@ -34,6 +34,14 @@ class Entity(ReconstructMixin, BaseGuarded):
     def __entity_id__(self) -> EntityId:
         return getattr(self, type(self).__entity_id_field_name__)
 
+    @inherit_context
+    def _can_mutate(self) -> bool:
+        return self.can_mutate()
+
+    @inherit_context
+    def can_mutate(self) -> bool:
+        return True
+
     def __eq__(self, other: Any) -> bool:
         if type(self) is not type(other):
             return False
