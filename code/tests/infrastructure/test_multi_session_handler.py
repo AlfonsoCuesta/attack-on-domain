@@ -11,14 +11,19 @@ from aod._internal.application.logger import Logger
 from aod._internal.application.use_case import UseCase
 from aod._internal.core.fields.fields import PrivateField
 from aod._internal.domain.entity import RootEntity
+from aod._internal.domain.entity_id import EntityId
 from aod._internal.infrastructure.container import AdapterContainer
 from aod._internal.infrastructure.handlers import CommandHandler, QueryHandler
 from aod._internal.infrastructure.session import Session
 from aod._internal.testing.doubles.infrastructure.container import spy_adapter_container
 
 
+class IntId(EntityId):
+    value: int
+
+
 class User(RootEntity):
-    id: int
+    id: IntId
     name: str
     email: str
 
@@ -126,7 +131,7 @@ class GetUserHandler(QueryHandler[GetUser]):
         if result is None:
             return None
         d = cast(dict[str, Any], result)
-        return User(id=1, name=d["name"], email=d["email"])
+        return User(id=IntId(value=1), name=d["name"], email=d["email"])
 
 
 class SyncUserUseCase(UseCase):

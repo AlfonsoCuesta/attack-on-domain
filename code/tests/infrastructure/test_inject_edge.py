@@ -12,8 +12,12 @@ class _CustomPort(Port):
     value: str = "default"
 
 
+class IntId(EntityId):
+    value: int
+
+
 class _Entity(RootEntity):
-    id: int
+    id: IntId
 
 
 class _Cmd(Command[_Entity, None]):

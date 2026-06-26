@@ -2,12 +2,17 @@ from __future__ import annotations
 
 import pytest
 from aod._internal.domain.entity import RootEntity
+from aod._internal.domain.entity_id import EntityId
 from aod.application import Command, Query
 from aod.infrastructure.async_ import CommandHandler, QueryHandler
 
 
+class IntId(EntityId):
+    value: int
+
+
 class User(RootEntity):
-    id: int
+    id: IntId
     name: str
 
 
@@ -21,13 +26,13 @@ class GetUser(Query[User, User | None]):
 
 class CreateUserHandler(CommandHandler[CreateUser]):
     async def handle(self, command: CreateUser) -> User:
-        return User(id=1, name=command.name)
+        return User(id=IntId(value=1), name=command.name)
 
 
 class GetUserHandler(QueryHandler[GetUser]):
     async def handle(self, query: GetUser) -> User | None:
         if query.user_id == 1:
-            return User(id=1, name="Alice")
+            return User(id=IntId(value=1), name="Alice")
         return None
 
 

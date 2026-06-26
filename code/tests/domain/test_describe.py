@@ -6,12 +6,17 @@ from aod._internal.domain.bounded_context import BoundedContext
 from aod._internal.domain.describe import extract_fields
 from aod._internal.domain.describe import extract_methods
 from aod._internal.domain.entity import Entity, RootEntity
+from aod._internal.domain.entity_id import EntityId
 from aod._internal.domain.service import Service
 from aod._internal.domain.value_object import ValueObject
 
 
+class IntId(EntityId):
+    value: int
+
+
 class LineItem(Entity):
-    id: int
+    id: IntId
 
 
 class Address(ValueObject):
@@ -19,7 +24,7 @@ class Address(ValueObject):
 
 
 class Order(RootEntity):
-    id: int
+    id: IntId
     amount: float
     items: list[LineItem]
     shipping: Address
@@ -65,7 +70,7 @@ def test_describe_includes_class_docstring() -> None:
     class Customer(RootEntity):
         """A customer of the store."""
 
-        id: int
+        id: IntId
 
     bc = BoundedContext(aggregate_roots=[Customer])
     docs = bc.describe()
@@ -103,7 +108,7 @@ def test_describe_includes_public_methods() -> None:
 
 def test_describe_skips_private_methods() -> None:
     class Product(RootEntity):
-        id: int
+        id: IntId
 
         def _internal(self) -> None:
             pass
@@ -126,7 +131,7 @@ def test_describe_method_includes_signature() -> None:
 
 def test_describe_method_includes_method_docstring() -> None:
     class Shipment(RootEntity):
-        id: int
+        id: IntId
 
         def deliver(self) -> None:
             """Marks the shipment as delivered."""
@@ -141,7 +146,7 @@ def test_describe_method_includes_method_docstring() -> None:
 
 def test_app_describe_returns_dict_of_contexts() -> None:
     class Product(RootEntity):
-        id: int
+        id: IntId
 
     catalog = BoundedContext(aggregate_roots=[Product], name="Catalog")
     app = App("MyApp", catalog)
@@ -154,10 +159,10 @@ def test_app_describe_returns_dict_of_contexts() -> None:
 
 def test_app_describe_includes_all_contexts() -> None:
     class Product(RootEntity):
-        id: int
+        id: IntId
 
     class Order(RootEntity):
-        id: int
+        id: IntId
 
     catalog = BoundedContext(aggregate_roots=[Product], name="Catalog")
     sales = BoundedContext(aggregate_roots=[Order], name="Sales")
@@ -178,7 +183,7 @@ def test_extract_fields_on_non_model() -> None:
 
 def test_describe_skips_private_fields() -> None:
     class Product(RootEntity):
-        id: int
+        id: IntId
         name: str
 
     docs = BoundedContext(aggregate_roots=[Product]).describe()
@@ -215,7 +220,7 @@ def test_extract_methods_handles_signature_error() -> None:
 
 def test_extract_fields_with_null_annotation() -> None:
     class Item(Entity):
-        id: int
+        id: IntId
 
     fi = Item.__model_fields__["id"]
     object.__setattr__(fi, "annotation", None)

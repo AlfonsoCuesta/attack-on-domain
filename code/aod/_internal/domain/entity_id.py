@@ -3,7 +3,6 @@ from __future__ import annotations
 from typing import Any, Self
 
 from aod._internal.core.base_guarded import inherit_context
-from aod._internal.core.event_emitter import EventEmitter
 from aod._internal.core.fields.fields import PrivateField
 from aod._internal.domain.value_object import ValueObject
 
@@ -15,7 +14,6 @@ class EntityId(ValueObject):
     enabling the persistence layer to find and update the original row.
     """
 
-    _event_emitter: EventEmitter = PrivateField(default_factory=EventEmitter)
     _last_id: Self | None = PrivateField(default=None)
 
     @inherit_context

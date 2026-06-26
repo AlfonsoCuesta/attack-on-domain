@@ -4,6 +4,7 @@ import pytest
 from aod._internal.core.domain_exception import InvarianceException
 from aod._internal.core.invariances import field_invariance, invariance
 from aod._internal.domain.entity import RootEntity
+from aod._internal.domain.entity_id import EntityId
 from aod._internal.domain.value_object import ValueObject
 from aod._internal.testing.helpers import build, check_invariant
 
@@ -53,8 +54,12 @@ class OrderLine(ValueObject):
         return v
 
 
+class StrId(EntityId):
+    value: str
+
+
 class Order(RootEntity):
-    id: str
+    id: StrId
     lines: list[OrderLine]
     total: int = 0
 
@@ -66,7 +71,7 @@ class Order(RootEntity):
 
 
 class User(RootEntity):
-    id: str
+    id: StrId
     name: str
     email: Email
     age: Age
@@ -127,7 +132,7 @@ class TestFieldInvariance:
 class TestModelInvariance:
     def test_valid_order_passes(self) -> None:
         order = Order(
-            id="ORD-001",
+            id=StrId(value="ORD-001"),
             lines=[
                 OrderLine(product="A", quantity=2, unit_price=100),
                 OrderLine(product="B", quantity=1, unit_price=50),
@@ -139,7 +144,7 @@ class TestModelInvariance:
     def test_invalid_total_raises(self) -> None:
         with pytest.raises(InvarianceException, match="Total"):
             Order(
-                id="ORD-001",
+                id=StrId(value="ORD-001"),
                 lines=[
                     OrderLine(product="A", quantity=2, unit_price=100),
                 ],
@@ -148,7 +153,7 @@ class TestModelInvariance:
 
     def test_valid_user_passes(self) -> None:
         user = User(
-            id="U-001",
+            id=StrId(value="U-001"),
             name="Alice",
             email=Email(address="alice@example.com"),
             age=Age(value=30),
@@ -158,7 +163,7 @@ class TestModelInvariance:
     def test_underage_user_raises(self) -> None:
         with pytest.raises(InvarianceException, match="adult_check|at least 18"):
             User(
-                id="U-002",
+                id=StrId(value="U-002"),
                 name="Bob",
                 email=Email(address="bob@example.com"),
                 age=Age(value=15),

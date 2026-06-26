@@ -6,18 +6,23 @@ from aod._internal.core.domain_exception import (
     MutationForbiddenException,
 )
 from aod._internal.domain.entity import Entity, RootEntity
+from aod._internal.domain.entity_id import EntityId
 from aod.application import Command, Query
 from aod.infrastructure import CommandHandler, QueryHandler
 
 
+class IntId(EntityId):
+    value: int
+
+
 class User(RootEntity):
-    id: int
+    id: IntId
     name: str
     email: str
 
 
 class Order(RootEntity):
-    id: int
+    id: IntId
     total: float
 
 
@@ -44,13 +49,13 @@ class CreateOrder(Command[Order, Order]):
 
 class CreateUserHandler(CommandHandler[CreateUser]):
     def handle(self, command: CreateUser) -> User:
-        return User(id=1, name=command.name, email=command.email)
+        return User(id=IntId(value=1), name=command.name, email=command.email)
 
 
 class GetUserHandler(QueryHandler[GetUser]):
     def handle(self, query: GetUser) -> User | None:
         if query.user_id == 1:
-            return User(id=1, name="Alice", email="a@b.com")
+            return User(id=IntId(value=1), name="Alice", email="a@b.com")
         return None
 
 
@@ -60,17 +65,17 @@ class DeleteUserHandler(CommandHandler[DeleteUser]):
 
 class CountUsersHandler(QueryHandler[CountUsers]):
     def handle(self, query: CountUsers) -> tuple[int, User]:
-        return (42, User(id=1, name="dummy", email="d@d.com"))
+        return (42, User(id=IntId(value=1), name="dummy", email="d@d.com"))
 
 
 class CreateOrderHandler(CommandHandler[CreateOrder]):
     def handle(self, command: CreateOrder) -> Order:
-        return Order(id=1, total=command.total)
+        return Order(id=IntId(value=1), total=command.total)
 
 
 class BaseCommandHandler(CommandHandler[CreateUser]):
     def handle(self, command: CreateUser) -> User:
-        return User(id=99, name=command.name, email=command.email)
+        return User(id=IntId(value=99), name=command.name, email=command.email)
 
 
 class TestCommand:

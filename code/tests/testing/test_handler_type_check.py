@@ -1,4 +1,5 @@
 import pytest
+from aod._internal.domain.entity_id import EntityId
 from aod.application import Command, Query
 from aod.domain import RootEntity
 from aod.infrastructure import CommandHandler, QueryHandler
@@ -6,8 +7,12 @@ from aod.infrastructure.async_ import CommandHandler as AsyncCommandHandler
 from aod.infrastructure.async_ import QueryHandler as AsyncQueryHandler
 
 
+class StrId(EntityId):
+    value: str
+
+
 class Pet(RootEntity):
-    id: str
+    id: StrId
     name: str
 
 

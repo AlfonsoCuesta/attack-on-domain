@@ -10,6 +10,7 @@ from aod._internal.core.infrastructure_exception import (
     PortNotFoundError,
     SessionNotFoundError,
 )
+from aod._internal.domain.entity_id import EntityId
 from aod._internal.infrastructure.container import AdapterContainer
 from aod._internal.infrastructure.handlers import AsyncCommandHandler
 from aod._internal.infrastructure.session import AsyncSession, Session
@@ -19,8 +20,12 @@ from aod.domain import RootEntity
 from aod.infrastructure import CommandHandler, QueryHandler
 
 
+class IntId(EntityId):
+    value: int
+
+
 class User(RootEntity):
-    id: int
+    id: IntId
     name: str
 
 
@@ -34,19 +39,19 @@ class CreateUser(Command[User, User]):
 
 class GetUserHandler(QueryHandler[GetUser]):
     def handle(self, query: GetUser) -> User | None:
-        return User(id=1, name=str(query.user_id))
+        return User(id=IntId(value=1), name=str(query.user_id))
 
 
 class CreateUserHandler(CommandHandler[CreateUser]):
     def handle(self, command: CreateUser) -> User:
-        return User(id=1, name=command.name)
+        return User(id=IntId(value=1), name=command.name)
 
 
 class _NoSessionHandler(CommandHandler[CreateUser]):
     session: None = None
 
     def handle(self, command: CreateUser) -> User:
-        return User(id=1, name=command.name)
+        return User(id=IntId(value=1), name=command.name)
 
 
 class _FakePort(Port):
@@ -283,11 +288,11 @@ class TestGetHandler:
     def test_duplicate_sync_handler_raises(self) -> None:
         class _HandlerA(CommandHandler[CreateUser]):
             def handle(self, command: CreateUser) -> User:
-                return User(id=1, name=command.name)
+                return User(id=IntId(value=1), name=command.name)
 
         class _HandlerB(CommandHandler[CreateUser]):
             def handle(self, command: CreateUser) -> User:
-                return User(id=2, name=command.name)
+                return User(id=IntId(value=2), name=command.name)
 
         with pytest.raises(DuplicateHandlerError, match="Duplicate handler for"):
             AdapterContainer(handlers=[_HandlerA, _HandlerB])
@@ -295,11 +300,11 @@ class TestGetHandler:
     def test_duplicate_async_handler_raises(self) -> None:
         class _HandlerA(AsyncCommandHandler[CreateUser]):
             async def handle(self, command: CreateUser) -> User:
-                return User(id=1, name=command.name)
+                return User(id=IntId(value=1), name=command.name)
 
         class _HandlerB(AsyncCommandHandler[CreateUser]):
             async def handle(self, command: CreateUser) -> User:
-                return User(id=2, name=command.name)
+                return User(id=IntId(value=2), name=command.name)
 
         with pytest.raises(DuplicateHandlerError, match="Duplicate handler for"):
             AdapterContainer(handlers=[_HandlerA, _HandlerB])
@@ -307,11 +312,11 @@ class TestGetHandler:
     def test_duplicate_query_handler_raises(self) -> None:
         class _HandlerA(QueryHandler[GetUser]):
             def handle(self, query: GetUser) -> User | None:
-                return User(id=1, name=str(query.user_id))
+                return User(id=IntId(value=1), name=str(query.user_id))
 
         class _HandlerB(QueryHandler[GetUser]):
             def handle(self, query: GetUser) -> User | None:
-                return User(id=2, name=str(query.user_id))
+                return User(id=IntId(value=2), name=str(query.user_id))
 
         with pytest.raises(DuplicateHandlerError, match="Duplicate handler for"):
             AdapterContainer(handlers=[_HandlerA, _HandlerB])
@@ -319,11 +324,11 @@ class TestGetHandler:
     def test_sync_and_async_handlers_for_same_contract_raises(self) -> None:
         class _SyncHandler(CommandHandler[CreateUser]):
             def handle(self, command: CreateUser) -> User:
-                return User(id=1, name=command.name)
+                return User(id=IntId(value=1), name=command.name)
 
         class _AsyncHandler(AsyncCommandHandler[CreateUser]):
             async def handle(self, command: CreateUser) -> User:
-                return User(id=2, name=command.name)
+                return User(id=IntId(value=2), name=command.name)
 
         with pytest.raises(DuplicateHandlerError, match="Duplicate handler for"):
             AdapterContainer(handlers=[_SyncHandler, _AsyncHandler])
@@ -331,11 +336,11 @@ class TestGetHandler:
     def test_different_contracts_do_not_raise(self) -> None:
         class _Create(CommandHandler[CreateUser]):
             def handle(self, command: CreateUser) -> User:
-                return User(id=1, name=command.name)
+                return User(id=IntId(value=1), name=command.name)
 
         class _Get(QueryHandler[GetUser]):
             def handle(self, query: GetUser) -> User | None:
-                return User(id=1, name=str(query.user_id))
+                return User(id=IntId(value=1), name=str(query.user_id))
 
         container = AdapterContainer(handlers=[_Create, _Get])
         assert len(container.handlers) == 2
@@ -343,7 +348,7 @@ class TestGetHandler:
     def test_contract_from_handler_raises_when_no_command_param(self) -> None:
         class _BadHandler(CommandHandler[CreateUser]):
             def handle(self) -> User:  # ty:ignore[invalid-method-override]
-                return User(id=1, name="")
+                return User(id=IntId(value=1), name="")
 
         with pytest.raises(HandlerModelError, match="handle"):
             AdapterContainer._contract_from_handler(_BadHandler)
@@ -353,7 +358,7 @@ class TestGetHandler:
             session: Session
 
             def handle(self, command: CreateUser) -> User:
-                return User(id=1, name=command.name)
+                return User(id=IntId(value=1), name=command.name)
 
         container = AdapterContainer(
             handlers=[_ExactSessionHandler],

@@ -8,14 +8,19 @@ from aod._internal.application.port import Port
 from aod._internal.application.use_case import UseCase
 from aod._internal.core.application_exception import InvalidUseCasePortFieldError
 from aod._internal.domain.entity import RootEntity
+from aod._internal.domain.entity_id import EntityId
 from aod._internal.infrastructure.handlers import CommandHandler, QueryHandler
 from aod._internal.infrastructure.handlers.handlers import AsyncCommandHandler
 from aod._internal.infrastructure.projection.projection import ProjectionBase
 from aod._internal.infrastructure.session import AsyncSession, Session
 
 
+class IntId(EntityId):
+    value: int
+
+
 class User(RootEntity):
-    id: int
+    id: IntId
     name: str
 
 

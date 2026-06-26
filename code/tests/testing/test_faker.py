@@ -3,6 +3,7 @@ from __future__ import annotations
 import pytest
 
 from aod._internal.domain.entity import RootEntity
+from aod._internal.domain.entity_id import EntityId
 from aod._internal.domain.service import Service
 from aod._internal.domain.value_object import ValueObject
 from aod.testing import FakeDomain
@@ -18,8 +19,12 @@ class Address(ValueObject):
     city: str
 
 
+class IntId(EntityId):
+    value: int
+
+
 class User(RootEntity):
-    id: int
+    id: IntId
     name: str
     address: Address
 
