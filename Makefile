@@ -13,7 +13,10 @@ test:
 test-infra:
 	RUN_INTEGRATION=1 uv run pytest code/tests/integration_tests -q
 
-check: lint typecheck test
+test-all:
+	RUN_INTEGRATION=1 uv run pytest code/tests -q
+
+check: lint typecheck test-all
 
 build-docs:
 	uv run zensical build --clean

@@ -10,7 +10,7 @@ from aod.domain.validation import (
     BeforeValidator,
     field_invariance,
     invariance,
-    inherit_context,
+    mutable,
 )
 ```
 
@@ -171,7 +171,7 @@ Same as `field_invariance`: violations raise `InvarianceException` and are bypas
 
 ## @mutable
 
-`@mutable` (also available as `inherit_context`) is a decorator that marks a method to inherit the mutation context of its caller, bypassing the `can_mutate()` guard on entities. This allows methods to mutate fields even when mutation would normally be blocked.
+`@mutable` is a decorator that marks a method to inherit the mutation context of its caller, bypassing the `can_mutate()` guard on entities. This allows methods to mutate fields even when mutation would normally be blocked.
 
 ```python
 from aod.domain.validation import mutable
@@ -202,33 +202,6 @@ def mutable(fn: Callable) -> Callable: ...
 | `fn` | `Callable` | The method to wrap with INHERIT mutation context |
 
 This is also needed for methods called from `__post_init__` that need to mutate fields.
-
-## inherit_context
-
-`inherit_context` is the original name for the same decorator. Prefer `@mutable` for new code; `inherit_context` is kept for backwards compatibility.
-
-```python
-from aod.domain.validation import inherit_context
-
-
-class User(Entity):
-    id: str
-    name: str
-
-    @inherit_context
-    def internal_method(self) -> None:
-        self.name = "new name"
-```
-
-### Signature
-
-```python
-def inherit_context(fn: Callable) -> Callable: ...
-```
-
-| Parameter | Type | Description |
-|-----------|------|-------------|
-| `fn` | `Callable` | The method to wrap with INHERIT mutation context |
 
 ## Testing
 

@@ -213,7 +213,7 @@ code/
 │   ├── py.typed                      # PEP 561 marker
 │   ├── domain/                       # Public domain layer (re-exports from _internal)
 │   │   ├── __init__.py               # Re-exports: App, BoundedContext, Entity, RootEntity, EntityId, Service, ValueObject, Field, PrivateField, DomainException
-│   │   └── validation/               # Public: AfterValidator, BeforeValidator, field_invariance, invariance, inherit_context
+│   │   └── validation/               # Public: AfterValidator, BeforeValidator, field_invariance, invariance, mutable
 │   ├── exceptions/__init__.py        # Public: all domain/app/infra exceptions
 │   ├── testing/                       # Public testing utilities
 │   │   ├── __init__.py                # FakeDomain, build, events_of, assert_*
@@ -462,7 +462,7 @@ class Entity(ReconstructMixin, BaseGuarded):
 
 #### `@mutable` decorator
 
-The `@mutable` decorator (exposed as `from aod.domain.validation import mutable`) marks a method to inherit the mutation context from its caller, bypassing the `can_mutate()` guard. This is needed for methods like `lock()`/`unlock()` that must mutate even when the entity is locked:
+The `@mutable` decorator (exposed as `from aod.domain.validation import mutable`) marks a method to inherit the mutation context from its caller, bypassing the `can_mutate()` guard. Previously called `inherit_context` (still used internally in the framework). This is needed for methods like `lock()`/`unlock()` that must mutate even when the entity is locked:
 
 ```python
 from aod.domain.validation import mutable

@@ -149,7 +149,7 @@ place_order.run(order_id="1", product_id="p1", quantity=2, price=9.99)
 | `from aod.domain import PrivateField` | Private fields for internal state |
 | `from aod.events import Event` | Event base class |
 | `from aod.events import EventCollector` | Cross-aggregate event capture |
-| `from aod.domain.validation import field_invariance, invariance, inherit_context` | Validation decorators (also available as `mutable`) |
+| `from aod.domain.validation import field_invariance, invariance, mutable` | Validation decorators |
 | `from aod.domain.validation import AfterValidator, BeforeValidator` | Pydantic validators |
 | `from aod.application import UseCase` | UseCase base class |
 | `from aod.application import Port` | Abstract port/gateway base class |
@@ -281,7 +281,9 @@ user.unlock()
 user.rename("Dave")                   # OK again
 ```
 
-`@mutable` lets `lock()`/`unlock()` bypass the `can_mutate()` guard. Without it, `unlock()` would fail because mutation is blocked when `can_mutate()` returns `False`.
+`@mutable` is a decorator that marks a method to inherit the mutation context of its caller, bypassing the `can_mutate()` guard on entities. This allows methods to mutate fields even when mutation would normally be blocked.
+
+Without `@mutable`, `unlock()` would raise `MutationForbiddenException` because the entity is locked and `can_mutate()` returns `False`. This decorator is also needed for methods called from `__post_init__` that need to mutate fields.
 
 When `can_mutate()` returns `False`, all mutations (field assignment, list append, etc.) raise `MutationForbiddenException`.
 
