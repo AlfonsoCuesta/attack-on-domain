@@ -12,6 +12,7 @@ from tests.application._use_case_scenarios import (
     _RUN_BODIES,
     SCENARIOS,
     Address,
+    IntId,
     Scenario,
     User,
     UserCreated,
@@ -21,8 +22,8 @@ from tests.application._use_case_scenarios import (
 
 class CreateUser(UseCase):
     def run(self, user_id: int, name: str) -> None:
-        user = User(id=user_id, name=name)
-        user._event_emitter.emit(UserCreated(user_id=user.id, name=user.name))
+        user = User(id=IntId(value=user_id), name=name)
+        user._event_emitter.emit(UserCreated(user_id=user.id.value, name=user.name))
 
 
 def test_use_case_is_abstract() -> None:
@@ -84,7 +85,7 @@ def test_run_collects_events_from_entity() -> None:
 def test_run_collects_multiple_events_from_entity() -> None:
     class MultiEmit(UseCase):
         def run(self, user_id: int) -> None:
-            user = User(id=user_id, name="Alice")
+            user = User(id=IntId(value=user_id), name="Alice")
             user.rename("Bob")
             user.rename("Charlie")
 
@@ -140,8 +141,8 @@ def test_subclass_can_have_private_methods() -> None:
 def test_subclass_with_complex_init_state() -> None:
     class Complex(UseCase):
         def run(self, user_id: int, address: Address) -> None:
-            user = User(id=user_id, name="Alice", address=address)
-            user._event_emitter.emit(UserCreated(user_id=user.id, name=user.name))
+            user = User(id=IntId(value=user_id), name="Alice", address=address)
+            user._event_emitter.emit(UserCreated(user_id=user.id.value, name=user.name))
 
     addr = Address(street="Main St", city="Springfield")
     uc = Complex()
@@ -192,8 +193,8 @@ def test_events_supports_slicing() -> None:
 def test_run_exception_still_collects_emitted_events() -> None:
     class FailAfterEmit(UseCase):
         def run(self, user_id: int) -> None:
-            user = User(id=user_id, name="Alice")
-            user._event_emitter.emit(UserCreated(user_id=user.id, name=user.name))
+            user = User(id=IntId(value=user_id), name="Alice")
+            user._event_emitter.emit(UserCreated(user_id=user.id.value, name=user.name))
             msg = "boom"
             raise ValueError(msg)
 
@@ -314,8 +315,8 @@ def test_inheritance_chain_deep() -> None:
 def test_inheritance_chain_preserves_event_collection() -> None:
     class BaseOrder(UseCase):
         def run(self, order_id: int) -> None:
-            user = User(id=order_id, name="order")
-            user._event_emitter.emit(UserCreated(user_id=user.id, name=user.name))
+            user = User(id=IntId(value=order_id), name="order")
+            user._event_emitter.emit(UserCreated(user_id=user.id.value, name=user.name))
 
     class SpecificOrder(BaseOrder):
         pass

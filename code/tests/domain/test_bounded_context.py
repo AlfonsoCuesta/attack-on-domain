@@ -52,7 +52,7 @@ def test_bounded_context_rejects_entity_instance() -> None:
     class Order(RootEntity):
         id: IntId
 
-    order = Order(id=1)
+    order = Order(id=IntId(value=1))
 
     with pytest.raises(ClassExpectedError, match="aggregate root"):
         BoundedContext(aggregate_roots=[order])  # type: ignore
@@ -423,7 +423,7 @@ def test_service_with_entity_return_type_raises_error() -> None:
 
     class BadService(Service):
         def get_customer(self) -> Customer:
-            return Customer(id=1)
+            return Customer(id=IntId(value=1))
 
     with pytest.raises(InvalidServiceParameterError, match="return"):
         BoundedContext(services=[BadService])
@@ -435,7 +435,7 @@ def test_service_with_root_entity_return_type_is_allowed() -> None:
 
     class OrderService(Service):
         def get_order(self) -> Order:
-            return Order(id=1)
+            return Order(id=IntId(value=1))
 
     bc = BoundedContext(services=[OrderService], aggregate_roots=[Order])
 

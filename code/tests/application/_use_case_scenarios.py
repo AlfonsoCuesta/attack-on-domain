@@ -45,19 +45,19 @@ async def run_uc(uc: Any, **kwargs: Any) -> None:
 
 
 def _create_user_body(self: Any, user_id: int, name: str) -> None:
-    user = User(id=user_id, name=name)
+    user = User(id=IntId(value=user_id), name=name)
     user._event_emitter.emit(UserCreated(user_id=user.id.value, name=user.name))
 
 
 def _multi_emit_body(self: Any, user_id: int) -> None:
-    user = User(id=user_id, name="Alice")
+    user = User(id=IntId(value=user_id), name="Alice")
     user.rename("Bob")
     user.rename("Charlie")
 
 
 def _fail_after_emit_body(self: Any, user_id: int) -> None:
-    user = User(id=user_id, name="Alice")
-    user._event_emitter.emit(UserCreated(user_id=user.id, name=user.name))
+    user = User(id=IntId(value=user_id), name="Alice")
+    user._event_emitter.emit(UserCreated(user_id=user.id.value, name=user.name))
     raise ValueError("boom")
 
 
@@ -81,7 +81,7 @@ def _stateful_body(self: Any, value: int) -> None:
 
 
 def _complex_body(self: Any, user_id: int, address: Address) -> None:
-    user = User(id=user_id, name="Alice", address=address)
+    user = User(id=IntId(value=user_id), name="Alice", address=address)
     user._event_emitter.emit(UserCreated(user_id=user.id.value, name=user.name))
 
 

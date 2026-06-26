@@ -1,18 +1,8 @@
 from __future__ import annotations
 
 import pytest
+from aod._internal.application.use_case import AsyncUseCase as UseCase
 from aod._internal.core.domain_exception import MutationForbiddenException
-from aod.application.async_ import UseCase
-from tests.application._use_case_scenarios import (
-    SCENARIOS,
-    Scenario,
-    Address,
-    User,
-    UserCreated,
-    UserRenamed,
-    _RUN_BODIES,
-    run_uc,
-)
 from aod.testing.doubles.application import (
     SpyEventBus,
     SpyLogger,
@@ -20,15 +10,30 @@ from aod.testing.doubles.application import (
 )
 from aod.testing.doubles.application.async_ import (
     SpyEventBus as AsyncSpyEventBus,
+)
+from aod.testing.doubles.application.async_ import (
     SpyLogger as AsyncSpyLogger,
+)
+from aod.testing.doubles.application.async_ import (
     SpyUnitOfWork as AsyncSpyUnitOfWork,
+)
+from tests.application._use_case_scenarios import (
+    _RUN_BODIES,
+    SCENARIOS,
+    Address,
+    IntId,
+    Scenario,
+    User,
+    UserCreated,
+    UserRenamed,
+    run_uc,
 )
 
 
 class CreateUser(UseCase):
     async def run(self, user_id: int, name: str) -> None:
-        user = User(id=user_id, name=name)
-        user._event_emitter.emit(UserCreated(user_id=user.id, name=user.name))
+        user = User(id=IntId(value=user_id), name=name)
+        user._event_emitter.emit(UserCreated(user_id=user.id.value, name=user.name))
 
 
 async def test_async_use_case_is_abstract() -> None:
@@ -88,7 +93,7 @@ async def test_run_collects_events_from_entity() -> None:
 async def test_run_collects_multiple_events_from_entity() -> None:
     class MultiEmit(UseCase):
         async def run(self, user_id: int) -> None:
-            user = User(id=user_id, name="Alice")
+            user = User(id=IntId(value=user_id), name="Alice")
             user.rename("Bob")
             user.rename("Charlie")
 
@@ -144,8 +149,8 @@ async def test_subclass_can_have_private_methods() -> None:
 async def test_subclass_with_complex_init_state() -> None:
     class Complex(UseCase):
         async def run(self, user_id: int, address: Address) -> None:
-            user = User(id=user_id, name="Alice", address=address)
-            user._event_emitter.emit(UserCreated(user_id=user.id, name=user.name))
+            user = User(id=IntId(value=user_id), name="Alice", address=address)
+            user._event_emitter.emit(UserCreated(user_id=user.id.value, name=user.name))
 
     addr = Address(street="Main St", city="Springfield")
     uc = Complex()
@@ -175,8 +180,8 @@ async def test_events_is_immutable_from_outside() -> None:
 async def test_run_exception_still_collects_emitted_events() -> None:
     class FailAfterEmit(UseCase):
         async def run(self, user_id: int) -> None:
-            user = User(id=user_id, name="Alice")
-            user._event_emitter.emit(UserCreated(user_id=user.id, name=user.name))
+            user = User(id=IntId(value=user_id), name="Alice")
+            user._event_emitter.emit(UserCreated(user_id=user.id.value, name=user.name))
             msg = "boom"
             raise ValueError(msg)
 

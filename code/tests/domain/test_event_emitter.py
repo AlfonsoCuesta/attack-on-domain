@@ -70,7 +70,7 @@ def test_entity_emit_poll_clear() -> None:
 
 def test_event_collector_captures_from_entity() -> None:
     class Child(RootEntity):
-        id: int
+        id: IntId
 
     child = Child(id=IntId(value=1))
 
@@ -82,13 +82,14 @@ def test_event_collector_captures_from_entity() -> None:
 
 def test_event_collector_captures_from_aggregate() -> None:
     class Child(RootEntity):
-        id: int
+        id: IntId
 
     class Parent(RootEntity):
+        id: IntId
         child: Child
 
     child = Child(id=IntId(value=1))
-    parent = Parent(child=child)
+    parent = Parent(id=IntId(value=1), child=child)
 
     with EventCollector() as events:
         parent._event_emitter.emit(Event())
