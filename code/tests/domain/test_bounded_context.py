@@ -29,7 +29,8 @@ def test_bounded_context_accepts_only_root_entities() -> None:
     assert bc.aggregate_roots == (Order, Customer)
     assert bc.services == ()
     assert bc.entities == ()
-    assert bc.value_objects == ()
+    assert IntId in bc.value_objects
+    assert len(bc.value_objects) == 1
 
 
 def test_bounded_context_rejects_non_entity_class() -> None:
@@ -150,9 +151,10 @@ def test_discovers_shared_value_object_only_once() -> None:
     bc = BoundedContext(aggregate_roots=[Order])
 
     assert Money in bc.value_objects
+    assert IntId in bc.value_objects
     assert TaxLine in bc.entities
     assert LineItem in bc.entities
-    assert len(bc.value_objects) == 1  # Money is only registered once
+    assert len(bc.value_objects) == 2  # IntId + Money
 
 
 def test_root_entity_with_no_nested_types_has_empty_discovery() -> None:
@@ -162,7 +164,8 @@ def test_root_entity_with_no_nested_types_has_empty_discovery() -> None:
     bc = BoundedContext(aggregate_roots=[Order])
 
     assert bc.entities == ()
-    assert bc.value_objects == ()
+    assert IntId in bc.value_objects
+    assert len(bc.value_objects) == 1
 
 
 # ---------------------------------------------------------------------------

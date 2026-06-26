@@ -1,7 +1,12 @@
 from aod._internal.core.base_validator import make_base_model
+from aod._internal.domain.entity_id import EntityId
 from aod.domain import Field, RootEntity, ValueObject
 from aod.domain.validation import field_invariance, invariance
 from pydantic import BaseModel
+
+
+class IntId(EntityId):
+    value: int
 
 
 class TestConstrainedModel:
@@ -90,7 +95,7 @@ class TestExtractPydanticModel:
             city: str
 
         class User(RootEntity):
-            id: str
+            id: IntId
             name: str
             address: Address
 
@@ -106,7 +111,7 @@ class TestExtractPydanticModel:
             city: str
 
         class User(RootEntity):
-            id: str
+            id: IntId
             address: Address
 
         pydantic_model = make_base_model(User)

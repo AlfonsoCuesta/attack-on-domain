@@ -27,6 +27,10 @@ class IntId(EntityId):
     value: int
 
 
+class StrId(EntityId):
+    value: str
+
+
 class User(RootEntity):
     id: IntId
     name: str

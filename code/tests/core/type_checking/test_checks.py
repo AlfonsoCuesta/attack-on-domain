@@ -11,17 +11,22 @@ from aod._internal.core.type_handlers.generic_utils import (
     get_last_generic_arg,
 )
 from aod._internal.domain.entity import Entity, RootEntity
+from aod._internal.domain.entity_id import EntityId
 from aod._internal.domain.service import Service
 from aod._internal.domain.value_object import ValueObject
 from pydantic.fields import FieldInfo
 
 
+class IntId(EntityId):
+    value: int
+
+
 def test_check_entity_raises_on_root_entity_field() -> None:
     class Product(RootEntity):
-        id: int
+        id: IntId
 
     class BadEntity(Entity):
-        id: int
+        id: IntId
         product: Product
 
     with pytest.raises(InvalidNestedTypeError, match="'product'"):
@@ -30,10 +35,10 @@ def test_check_entity_raises_on_root_entity_field() -> None:
 
 def test_check_entity_passes_with_entity_field() -> None:
     class LineItem(Entity):
-        id: int
+        id: IntId
 
     class Order(Entity):
-        id: int
+        id: IntId
         items: list[LineItem]
 
     BaseGuardedTypeHandler.check_entity(Order)  # Should not raise
@@ -41,10 +46,10 @@ def test_check_entity_passes_with_entity_field() -> None:
 
 def test_check_root_entity_raises_on_root_entity_field() -> None:
     class Product(RootEntity):
-        id: int
+        id: IntId
 
     class Order(RootEntity):
-        id: int
+        id: IntId
         product: Product
 
     with pytest.raises(InvalidNestedTypeError, match="'product'"):
@@ -53,7 +58,7 @@ def test_check_root_entity_raises_on_root_entity_field() -> None:
 
 def test_check_value_object_raises_on_entity_field() -> None:
     class Customer(Entity):
-        id: int
+        id: IntId
 
     class BadVO(ValueObject):
         customer: Customer
@@ -64,7 +69,7 @@ def test_check_value_object_raises_on_entity_field() -> None:
 
 def test_check_value_object_raises_on_root_entity_field() -> None:
     class Product(RootEntity):
-        id: int
+        id: IntId
 
     class BadVO(ValueObject):
         product: Product
@@ -93,7 +98,7 @@ def test_check_value_object_passes_with_nested_vos() -> None:
 
 def test_check_service_raises_on_entity_param() -> None:
     class Customer(Entity):
-        id: int
+        id: IntId
 
     class BadService(Service):
         def process(self, customer: Customer) -> None:
@@ -105,11 +110,11 @@ def test_check_service_raises_on_entity_param() -> None:
 
 def test_check_service_raises_on_entity_return() -> None:
     class Customer(Entity):
-        id: int
+        id: IntId
 
     class BadService(Service):
         def get(self) -> Customer:
-            return Customer(id=1)
+            return Customer(id=IntId(value=1))
 
     with pytest.raises(InvalidServiceParameterError, match="return"):
         ServiceTypeHandler.check_service(BadService)
@@ -117,7 +122,7 @@ def test_check_service_raises_on_entity_return() -> None:
 
 def test_check_service_passes_with_root_entity_param() -> None:
     class Order(RootEntity):
-        id: int
+        id: IntId
 
     class GoodService(Service):
         def process(self, order: Order) -> None:
@@ -183,7 +188,7 @@ def _add_model_field(cls: type, name: str, annotation: object) -> None:
 
 def test_check_entity_skips_private_fields() -> None:
     class MyEntity(Entity):
-        id: int
+        id: IntId
 
     _add_model_field(MyEntity, "_private", int)
     BaseGuardedTypeHandler.check_entity(MyEntity)  # Should not raise
@@ -191,7 +196,7 @@ def test_check_entity_skips_private_fields() -> None:
 
 def test_check_entity_skips_none_annotation() -> None:
     class MyEntity(Entity):
-        id: int
+        id: IntId
 
     _add_model_field(MyEntity, "public_none", None)
     BaseGuardedTypeHandler.check_entity(MyEntity)  # Should not raise
@@ -215,12 +220,12 @@ def test_check_value_object_skips_none_annotation() -> None:
 
 def test_discover_types_skips_private_fields_in_entity() -> None:
     class Inner(Entity):
-        id: int
+        id: IntId
 
     _add_model_field(Inner, "_private", str)
 
     class Root(RootEntity):
-        id: int
+        id: IntId
         inner: Inner
 
     entities, vos = BaseGuardedTypeHandler.discover_types([Root])
@@ -229,12 +234,12 @@ def test_discover_types_skips_private_fields_in_entity() -> None:
 
 def test_discover_types_skips_none_annotation_in_entity() -> None:
     class Inner(Entity):
-        id: int
+        id: IntId
 
     _add_model_field(Inner, "public_none", None)
 
     class Root(RootEntity):
-        id: int
+        id: IntId
         inner: Inner
 
     entities, vos = BaseGuardedTypeHandler.discover_types([Root])
@@ -246,7 +251,7 @@ def test_discover_types_skips_class_without_model_fields() -> None:
         pass
 
     class Root(RootEntity):
-        id: int
+        id: IntId
 
     entities, vos = BaseGuardedTypeHandler.discover_types([Root, NonPydantic])  # type: ignore
     assert isinstance(entities, list)

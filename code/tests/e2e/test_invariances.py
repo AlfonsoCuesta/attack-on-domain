@@ -172,7 +172,7 @@ class TestModelInvariance:
     def test_build_skips_model_invariances(self) -> None:
         order = build(
             Order,
-            id="ORD-001",
+            id=StrId(value="ORD-001"),
             lines=[
                 OrderLine(product="A", quantity=2, unit_price=100),
             ],
@@ -193,7 +193,7 @@ class TestCheckInvariantHelper:
         check_invariant(
             Order,
             "total_must_match_lines",
-            id="ORD-001",
+            id=StrId(value="ORD-001"),
             lines=[OrderLine(product="A", quantity=2, unit_price=100)],
             total=200,
         )
@@ -203,7 +203,7 @@ class TestCheckInvariantHelper:
             check_invariant(
                 Order,
                 "total_must_match_lines",
-                id="ORD-001",
+                id=StrId(value="ORD-001"),
                 lines=[OrderLine(product="A", quantity=2, unit_price=100)],
                 total=999,
             )
@@ -212,7 +212,7 @@ class TestCheckInvariantHelper:
         check_invariant(
             User,
             "adult_check",
-            id="U-001",
+            id=StrId(value="U-001"),
             name="Alice",
             email=build(Email, address="a@b.com"),
             age=Age(value=20),

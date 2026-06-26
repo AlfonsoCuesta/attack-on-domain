@@ -223,7 +223,7 @@ class TestCommandHandler:
         h = BaseCommandHandler()
         cmd = CreateUser(name="Test", email="t@t.com")
         result = h.handle(cmd)
-        assert result.id == 99
+        assert result.id == IntId(value=99)
 
 
 class TestQueryHandler:
@@ -254,4 +254,4 @@ class TestQueryHandler:
         result = h.handle(CountUsers())
         count, user = result
         assert count == 42
-        assert user.id == 1
+        assert user.id == IntId(value=1)

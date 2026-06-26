@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import pytest
 from aod._internal.core.domain_exception import NoEntityIdException, TooManyEntityIdsException
 from aod._internal.domain.entity import Entity, RootEntity
 from aod._internal.domain.entity_id import EntityId
@@ -15,39 +16,21 @@ class OtherId(EntityId):
 
 
 class TestEntityRequiresEntityId:
-    def test_entity_without_entity_id_raises_at_runtime(self) -> None:
-        class BadEntity(Entity):
-            name: str
+    def test_entity_without_entity_id_raises_at_class_creation(self) -> None:
+        with pytest.raises(NoEntityIdException, match="Entity 'BadEntity'"):
+            class BadEntity(Entity):
+                name: str
 
-        b = BadEntity(name="foo")
-        try:
-            _ = b.__entity_id__
-            assert False, "should have raised NoEntityIdException"
-        except NoEntityIdException:
-            pass
+    def test_root_entity_without_entity_id_raises_at_class_creation(self) -> None:
+        with pytest.raises(NoEntityIdException, match="Entity 'BadRoot'"):
+            class BadRoot(RootEntity):
+                name: str
 
-    def test_root_entity_without_entity_id_raises_at_runtime(self) -> None:
-        class BadRoot(RootEntity):
-            name: str
-
-        b = BadRoot(name="foo")
-        try:
-            _ = b.__entity_id__
-            assert False, "should have raised NoEntityIdException"
-        except NoEntityIdException:
-            pass
-
-    def test_entity_with_multiple_entity_ids_raises_at_runtime(self) -> None:
-        class BadEntity(Entity):
-            id1: UserId
-            id2: OtherId
-
-        b = BadEntity(id1=UserId(value="a"), id2=OtherId(key="b"))
-        try:
-            _ = b.__entity_id__
-            assert False, "should have raised TooManyEntityIdsException"
-        except TooManyEntityIdsException:
-            pass
+    def test_entity_with_multiple_entity_ids_raises_at_class_creation(self) -> None:
+        with pytest.raises(TooManyEntityIdsException, match="Entity 'BadEntity'"):
+            class BadEntity(Entity):
+                id1: UserId
+                id2: OtherId
 
 
 class TestEntityIdFieldDetection:

@@ -3,13 +3,18 @@ from aod._internal.core.domain_exception import DuplicateDomainTypeError
 from aod._internal.domain.app import App
 from aod._internal.domain.bounded_context import BoundedContext
 from aod._internal.domain.entity import Entity, RootEntity
+from aod._internal.domain.entity_id import EntityId
 from aod._internal.domain.service import Service
 from aod._internal.domain.value_object import ValueObject
 
 
+class IntId(EntityId):
+    value: int
+
+
 def test_app_accepts_single_context() -> None:
     class Order(RootEntity):
-        id: int
+        id: IntId
 
     sales = BoundedContext(aggregate_roots=[Order], name="Sales")
 
@@ -21,10 +26,10 @@ def test_app_accepts_single_context() -> None:
 
 def test_app_accepts_multiple_non_overlapping_contexts() -> None:
     class Order(RootEntity):
-        id: int
+        id: IntId
 
     class Product(RootEntity):
-        id: int
+        id: IntId
 
     sales = BoundedContext(aggregate_roots=[Order], name="Sales")
     catalog = BoundedContext(aggregate_roots=[Product], name="Catalog")
@@ -36,14 +41,14 @@ def test_app_accepts_multiple_non_overlapping_contexts() -> None:
 
 def test_app_rejects_duplicate_entity_across_contexts() -> None:
     class LineItem(Entity):
-        id: int
+        id: IntId
 
     class Order(RootEntity):
-        id: int
+        id: IntId
         items: list[LineItem]
 
     class Invoice(RootEntity):
-        id: int
+        id: IntId
         lines: list[LineItem]
 
     ordering = BoundedContext(aggregate_roots=[Order], name="Ordering")
@@ -58,7 +63,7 @@ def test_app_rejects_duplicate_entity_across_contexts() -> None:
 
 def test_app_rejects_duplicate_root_entity_across_contexts() -> None:
     class Product(RootEntity):
-        id: int
+        id: IntId
 
     inventory = BoundedContext(aggregate_roots=[Product], name="Inventory")
     catalog = BoundedContext(aggregate_roots=[Product], name="Catalog")
@@ -89,11 +94,11 @@ def test_app_accepts_duplicate_value_object_across_contexts() -> None:
         street: str
 
     class Order(RootEntity):
-        id: int
+        id: IntId
         shipping: Address
 
     class Customer(RootEntity):
-        id: int
+        id: IntId
         address: Address
 
     sales = BoundedContext(aggregate_roots=[Order], name="Sales")
@@ -106,15 +111,15 @@ def test_app_accepts_duplicate_value_object_across_contexts() -> None:
 
 def test_app_rejects_duplicate_discovered_entity_across_contexts() -> None:
     class TaxBreakdown(Entity):
-        id: int
+        id: IntId
         rate: float
 
     class Order(RootEntity):
-        id: int
+        id: IntId
         taxes: list[TaxBreakdown]
 
     class Invoice(RootEntity):
-        id: int
+        id: IntId
         lines: list[TaxBreakdown]
 
     ordering = BoundedContext(aggregate_roots=[Order], name="Ordering")
@@ -129,7 +134,7 @@ def test_app_rejects_duplicate_discovered_entity_across_contexts() -> None:
 
 def test_app_error_message_mentions_first_context() -> None:
     class Report(RootEntity):
-        id: int
+        id: IntId
 
     analytics = BoundedContext(aggregate_roots=[Report], name="Analytics")
     reporting = BoundedContext(aggregate_roots=[Report], name="Reporting")
