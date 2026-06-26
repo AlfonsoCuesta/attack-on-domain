@@ -75,12 +75,12 @@ class SealedValue(BaseSealed):
 
 class TestBasicMutation:
     def test_mutation_allowed_inside_public_method(self) -> None:
-        e = MutableEntity(id="1", name="Alice")
+        e = MutableEntity(id=StrId(value="1"), name="Alice")
         e.increment()
         assert e.counter == 1
 
     def test_mutation_blocked_from_outside(self) -> None:
-        e = MutableEntity(id="1", name="Alice")
+        e = MutableEntity(id=StrId(value="1"), name="Alice")
         with pytest.raises(MutationForbiddenException):
             e.name = "Bob"
 
@@ -95,7 +95,7 @@ class TestBasicMutation:
             s.data = 0
 
     def test_delattr_blocked_from_outside(self) -> None:
-        e = MutableEntity(id="1", name="Alice")
+        e = MutableEntity(id=StrId(value="1"), name="Alice")
         with pytest.raises(MutationForbiddenException):
             del e.name
 
@@ -107,30 +107,30 @@ class TestBasicMutation:
             def remove_name(self) -> None:
                 del self.name
 
-        e = WithDelete(id="1", name="Alice")
+        e = WithDelete(id=StrId(value="1"), name="Alice")
         e.remove_name()
         assert not hasattr(e, "name")
 
 
 class TestCanMutateOverride:
     def test_mutation_blocked_when_can_mutate_returns_false(self) -> None:
-        e = GuardedEntity(id="1")
+        e = GuardedEntity(id=StrId(value="1"))
         with pytest.raises(MutationForbiddenException):
             e.set_value(42)
 
     def test_mutation_allowed_when_can_mutate_returns_true(self) -> None:
-        e = GuardedEntity(id="1")
+        e = GuardedEntity(id=StrId(value="1"))
         e.allow_mutation()
         e.set_value(42)
         assert e.value == 42
 
     def test_inherit_context_bypasses_can_mutate(self) -> None:
-        e = GuardedEntity(id="1")
+        e = GuardedEntity(id=StrId(value="1"))
         e.force_set_value(42)
         assert e.value == 42
 
     def test_can_mutate_checked_on_every_call(self) -> None:
-        e = GuardedEntity(id="1")
+        e = GuardedEntity(id=StrId(value="1"))
         with pytest.raises(MutationForbiddenException):
             e.set_value(1)
         e.allow_mutation()
@@ -140,28 +140,28 @@ class TestCanMutateOverride:
 
 class TestNestedMutation:
     def test_nested_entity_mutation_allowed_inside_method(self) -> None:
-        child = MutableEntity(id="c1", name="Child")
-        parent = ParentEntity(id="p1", child=child)
+        child = MutableEntity(id=StrId(value="c1"), name="Child")
+        parent = ParentEntity(id=StrId(value="p1"), child=child)
         parent.set_child_name("Renamed")
         assert parent.child is not None
         assert parent.child.name == "Renamed"
 
     def test_nested_entity_mutation_blocked_from_outside(self) -> None:
-        child = MutableEntity(id="c1", name="Child")
-        parent = ParentEntity(id="p1", child=child)
+        child = MutableEntity(id=StrId(value="c1"), name="Child")
+        parent = ParentEntity(id=StrId(value="p1"), child=child)
         assert parent.child is not None
         with pytest.raises(MutationForbiddenException):
             parent.child.name = "Hacked"
 
     def test_nested_entity_immutable_proxy_outside_method(self) -> None:
-        child = MutableEntity(id="c1", name="Child")
-        parent = ParentEntity(id="p1", child=child)
+        child = MutableEntity(id=StrId(value="c1"), name="Child")
+        parent = ParentEntity(id=StrId(value="p1"), child=child)
         proxy = parent.child
         assert proxy.__class__.__name__.startswith("Immutable")
 
     def test_mutable_inside_method_not_proxied(self) -> None:
-        child = MutableEntity(id="c1", name="Child")
-        parent = ParentEntity(id="p1", child=child)
+        child = MutableEntity(id=StrId(value="c1"), name="Child")
+        parent = ParentEntity(id=StrId(value="p1"), child=child)
         parent.set_child_name("NewName")
         assert parent.child is not None
         assert parent.child.name == "NewName"
@@ -176,7 +176,7 @@ class TestImmutableProxies:
             def add(self, v: int) -> None:
                 self.items.append(v)
 
-        e = WithList(id="1")
+        e = WithList(id=StrId(value="1"))
         proxy = e.items
         with pytest.raises(MutationForbiddenException):
             proxy.append(1)
@@ -189,7 +189,7 @@ class TestImmutableProxies:
             def add(self, v: int) -> None:
                 self.items.append(v)
 
-        e = WithList(id="1")
+        e = WithList(id=StrId(value="1"))
         e.add(1)
         e.add(2)
         assert list(e.items) == [1, 2]
@@ -199,7 +199,7 @@ class TestImmutableProxies:
             id: StrId
             data: dict[str, int] = {}
 
-        e = WithDict(id="1")
+        e = WithDict(id=StrId(value="1"))
         proxy = e.data
         with pytest.raises(MutationForbiddenException):
             proxy["x"] = 1
@@ -209,7 +209,7 @@ class TestImmutableProxies:
             id: StrId
             tags: set[str] = set()
 
-        e = WithSet(id="1")
+        e = WithSet(id=StrId(value="1"))
         proxy = e.tags
         with pytest.raises(MutationForbiddenException):
             proxy.add("x")
@@ -217,14 +217,14 @@ class TestImmutableProxies:
 
 class TestEntitySpecific:
     def test_entity_can_mutate_inside_method(self) -> None:
-        e = MutableEntity(id="1", name="Alice")
+        e = MutableEntity(id=StrId(value="1"), name="Alice")
         e.rename("Bob")
         assert e.name == "Bob"
 
     def test_entity_cannot_mutate_from_outside(self) -> None:
-        e = MutableEntity(id="1", name="Alice")
+        e = MutableEntity(id=StrId(value="1"), name="Alice")
         with pytest.raises(MutationForbiddenException):
-            e.id = "2"
+            e.id = StrId(value="2")
 
     def test_value_object_always_immutable(self) -> None:
         v = ImmutableValueObject(x=1, y=2)

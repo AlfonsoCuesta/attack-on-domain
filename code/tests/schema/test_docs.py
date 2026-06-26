@@ -65,7 +65,7 @@ from aod._internal.schema.app import App
 # ---- Domain types for tests ----
 
 
-class OrderId(ValueObject):
+class OrderId(EntityId):
     value: str
 
 
