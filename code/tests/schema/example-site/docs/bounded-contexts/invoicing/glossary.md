@@ -13,6 +13,6 @@ hide:
 
 ## Value Objects
 
-- **OrderId**
-  - Unique identifier for an order in the system.
+- **InvoiceId**
+  - Unique identifier for an invoice.
 

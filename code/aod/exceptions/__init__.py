@@ -20,6 +20,8 @@ from aod._internal.core.domain_exception import (
     InvarianceException,
     ModelValidationError,
     MutationForbiddenException,
+    NoEntityIdException,
+    TooManyEntityIdsException,
 )
 from aod._internal.core.infrastructure_exception import (
     DuplicateHandlerError,
@@ -57,6 +59,8 @@ __all__ = [
     "InvarianceException",
     "ModelValidationError",
     "MutationForbiddenException",
+    "NoEntityIdException",
+    "TooManyEntityIdsException",
     "PortNotFoundError",
     "SessionNotFoundError",
     "UnresolvableEntityError",

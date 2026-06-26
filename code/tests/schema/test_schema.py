@@ -16,8 +16,8 @@ from aod._internal.core.domain_exception import (
     MissingHandlerError,
 )
 from aod._internal.domain.entity import Entity, RootEntity
+from aod._internal.domain.entity_id import EntityId
 from aod._internal.domain.service import Service
-from aod._internal.domain.value_object import ValueObject
 from aod._internal.infrastructure.handlers import CommandHandler, QueryHandler
 from aod._internal.infrastructure.projection import ReadProjection
 from aod._internal.infrastructure.session import Session
@@ -30,12 +30,16 @@ from aod._internal.schema.module import Module
 # ---- Domain types ----
 
 
-class OrderId(ValueObject):
+class IntId(EntityId):
+    value: int
+
+
+class OrderId(EntityId):
     value: str
 
 
 class LineItem(Entity):
-    id: int
+    id: IntId
     sku: str
 
 
@@ -46,7 +50,7 @@ class Order(RootEntity):
 
 
 class Invoice(RootEntity):
-    id: int
+    id: IntId
     amount: float
 
 

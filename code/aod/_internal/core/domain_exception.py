@@ -125,3 +125,19 @@ class MissingPortError(DomainException):
 
     def __init__(self, port_name: str) -> None:
         super().__init__(f"Port {port_name} has no implementation in module")
+
+
+class NoEntityIdException(DomainException):
+    """Raised when an Entity subclass has no EntityId-typed field."""
+
+    def __init__(self, cls_name: str) -> None:
+        super().__init__(f"Entity '{cls_name}' must have exactly one EntityId field, found none")
+
+
+class TooManyEntityIdsException(DomainException):
+    """Raised when an Entity subclass has more than one EntityId-typed field."""
+
+    def __init__(self, cls_name: str) -> None:
+        super().__init__(
+            f"Entity '{cls_name}' must have exactly one EntityId field, found multiple"
+        )

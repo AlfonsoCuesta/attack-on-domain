@@ -6,7 +6,7 @@ hide:
 
 # Orders
 
-1 root entity, 3 value objects, 2 services, 1 use case
+1 root entity, 2 value objects, 2 services, 1 use case
 
 <div class="home-features">
   <div class="feature-card">

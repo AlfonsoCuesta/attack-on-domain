@@ -14,8 +14,8 @@ Root aggregate for the invoicing subdomain.
 
 <table class="param-table">
 <tr><th>Name</th><th>Type</th><th>Default</th><th>Description</th></tr>
-<tr><td>id</td><td><code>str</code></td><td></td><td></td></tr>
-<tr><td>order_id</td><td><code>OrderId</code></td><td></td><td></td></tr>
+<tr><td>id</td><td><code>InvoiceId</code></td><td></td><td></td></tr>
+<tr><td>order_id</td><td><code>str</code></td><td></td><td></td></tr>
 <tr><td>amount</td><td><code>float</code></td><td>0.0</td><td></td></tr>
 <tr><td>paid</td><td><code>bool</code></td><td>False</td><td></td></tr>
 </table>
@@ -28,9 +28,9 @@ Root aggregate for the invoicing subdomain.
 
 **Queries:** `GetInvoice`
 
-## OrderId
+## InvoiceId
 
-Unique identifier for an order in the system.
+Unique identifier for an invoice.
 
 **Fields:**
 

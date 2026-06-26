@@ -14,6 +14,7 @@ from aod._internal.application.handler import (
 from aod._internal.application.port import Port
 from aod._internal.application.use_case import AsyncUseCase, UseCase
 from aod._internal.domain.entity import Entity, RootEntity
+from aod._internal.domain.entity_id import EntityId
 from aod._internal.domain.service import Service
 from aod._internal.domain.value_object import ValueObject
 from aod._internal.infrastructure.handlers import AsyncCommandHandler, CommandHandler, QueryHandler
@@ -37,8 +38,12 @@ import pytest
 # ============================================================
 
 
-class OrderId(ValueObject):
+class OrderId(EntityId):
     value: str
+
+
+class IntId(EntityId):
+    value: int
 
 
 class Order(RootEntity):
@@ -49,6 +54,7 @@ class Order(RootEntity):
 
 
 class LineItem(Entity):
+    id: IntId
     product: str
     quantity: int
 

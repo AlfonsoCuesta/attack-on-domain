@@ -16,7 +16,7 @@ from aod._internal.core.domain_exception import (
 )
 from aod._internal.domain.entity import Entity, RootEntity
 from aod._internal.domain.service import Service
-from aod._internal.domain.value_object import ValueObject
+from aod._internal.domain.entity_id import EntityId
 from aod._internal.infrastructure.handlers import CommandHandler, QueryHandler
 from aod._internal.infrastructure.session import Session
 from aod._internal.schema import App, AutoDoc, BoundedContext, Infrastructure, Module
@@ -25,7 +25,11 @@ from aod._internal.schema import App, AutoDoc, BoundedContext, Infrastructure, M
 # ---- Test domain types ----
 
 
-class OrderId(ValueObject):
+class IntId(EntityId):
+    value: int
+
+
+class OrderId(EntityId):
     value: str
 
 
@@ -141,7 +145,7 @@ class TestSchemaConsistencyChecks:
 
     def test_bounded_context_rejects_non_root_entity(self) -> None:
         class LineItem(Entity):
-            id: int
+            id: IntId
 
         with pytest.raises(InvalidRootEntityTypeError):
             BoundedContext(aggregate_roots=[LineItem])  # ty: ignore[invalid-argument-type]

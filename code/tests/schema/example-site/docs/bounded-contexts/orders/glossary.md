@@ -13,8 +13,6 @@ hide:
 
 ## Value Objects
 
-- **CustomerId**
-  - Unique identifier for a customer.
 - **OrderId**
   - Unique identifier for an order in the system.
 - **OrderLine**

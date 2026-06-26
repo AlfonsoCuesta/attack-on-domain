@@ -15,7 +15,6 @@ Root aggregate for the ordering subdomain.
 <table class="param-table">
 <tr><th>Name</th><th>Type</th><th>Default</th><th>Description</th></tr>
 <tr><td>id</td><td><code>OrderId</code></td><td></td><td></td></tr>
-<tr><td>customer_id</td><td><code>CustomerId</code></td><td></td><td></td></tr>
 <tr><td>lines</td><td><code>list[OrderLine]</code></td><td>[]</td><td></td></tr>
 <tr><td>total</td><td><code>float</code></td><td>0.0</td><td></td></tr>
 </table>
@@ -28,17 +27,6 @@ Root aggregate for the ordering subdomain.
 **Commands:** `PlaceOrder`, `CancelOrder`
 
 **Queries:** `GetOrder`, `ListOrders`
-
-## CustomerId
-
-Unique identifier for a customer.
-
-**Fields:**
-
-<table class="param-table">
-<tr><th>Name</th><th>Type</th><th>Default</th><th>Description</th></tr>
-<tr><td>value</td><td><code>str</code></td><td></td><td></td></tr>
-</table>
 
 ## OrderId
 

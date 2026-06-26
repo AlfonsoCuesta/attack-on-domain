@@ -6,6 +6,7 @@ import pytest
 
 from aod._internal.core.event_emitter import Event
 from aod._internal.domain.entity import Entity, RootEntity
+from aod._internal.domain.entity_id import EntityId
 from aod._internal.domain.value_object import ValueObject
 
 
@@ -22,14 +23,18 @@ class Address(ValueObject):
     city: str
 
 
+class IntId(EntityId):
+    value: int
+
+
 class User(RootEntity):
-    id: int
+    id: IntId
     name: str
     address: Address
 
 
 class SimpleEntity(Entity):
-    id: int
+    id: IntId
     value: str
 
 
@@ -45,4 +50,4 @@ def address() -> Address:
 
 @pytest.fixture
 def user(address: Address) -> User:
-    return User(id=1, name="Alice", address=address)
+    return User(id=IntId(value=1), name="Alice", address=address)

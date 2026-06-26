@@ -20,6 +20,7 @@ from aod._internal.application.handler import (
 from aod._internal.application.port import Port
 from aod._internal.application.use_case import AsyncUseCase, UseCase
 from aod._internal.domain.entity import Entity, RootEntity
+from aod._internal.domain.entity_id import EntityId
 from aod._internal.domain.service import Service
 from aod._internal.domain.value_object import ValueObject
 from aod._internal.infrastructure.handlers import (
@@ -43,13 +44,13 @@ from aod._internal.schema.render import AutoDoc
 # ---- Value Objects ----
 
 
-class OrderId(ValueObject):
+class OrderId(EntityId):
     """Unique identifier for an order in the system."""
 
     value: str
 
 
-class CustomerId(ValueObject):
+class CustomerId(EntityId):
     """Unique identifier for a customer."""
 
     value: str
@@ -71,6 +72,12 @@ class OrderLine(ValueObject):
     price: float
 
 
+class InvoiceId(EntityId):
+    """Unique identifier for an invoice."""
+
+    value: str
+
+
 # ---- Entities ----
 
 
@@ -89,7 +96,6 @@ class Order(RootEntity):
     """Root aggregate for the ordering subdomain."""
 
     id: OrderId
-    customer_id: CustomerId
     lines: list[OrderLine] = []
     total: float = 0.0
     total: float = 0.0
@@ -102,8 +108,8 @@ class Order(RootEntity):
 class Invoice(RootEntity):
     """Root aggregate for the invoicing subdomain."""
 
-    id: str
-    order_id: OrderId
+    id: InvoiceId
+    order_id: str
     amount: float = 0.0
     paid: bool = False
     paid: bool = False

@@ -18,6 +18,7 @@ from aod._internal.application.port import Port
 from aod._internal.application.use_case import UseCase
 from aod._internal.application.unit_of_work import UnitOfWork
 from aod._internal.domain.entity import RootEntity
+from aod._internal.domain.entity_id import EntityId
 from aod._internal.domain.value_object import ValueObject
 from aod._internal.infrastructure.handlers import CommandHandler, QueryHandler
 from aod._internal.infrastructure.session import Session
@@ -31,7 +32,7 @@ from aod._internal.schema.render import AutoDoc
 # ---- domain types ----
 
 
-class OrderId(ValueObject):
+class OrderId(EntityId):
     value: str
 
 
