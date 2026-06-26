@@ -1,11 +1,13 @@
 from __future__ import annotations
 
 import pytest
-from aod._internal.core.infrastructure_exception import PortNotFoundError
-from aod._internal.infrastructure.container import AdapterContainer, extract_port_type
+from aod._internal.application.contracts import Command
 from aod._internal.application.handler import CommandPort
-from aod.application import Command, Port, UseCase
-from aod.domain import RootEntity
+from aod._internal.application.port import Port
+from aod._internal.application.use_case import UseCase
+from aod._internal.core.infrastructure_exception import PortNotFoundError
+from aod._internal.domain.entity import EntityId, RootEntity
+from aod._internal.infrastructure.container import AdapterContainer, extract_port_type
 
 
 class _CustomPort(Port):
