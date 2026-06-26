@@ -18,16 +18,19 @@ class OtherId(EntityId):
 class TestEntityRequiresEntityId:
     def test_entity_without_entity_id_raises_at_class_creation(self) -> None:
         with pytest.raises(NoEntityIdException, match="Entity 'BadEntity'"):
+
             class BadEntity(Entity):
                 name: str
 
     def test_root_entity_without_entity_id_raises_at_class_creation(self) -> None:
         with pytest.raises(NoEntityIdException, match="Entity 'BadRoot'"):
+
             class BadRoot(RootEntity):
                 name: str
 
     def test_entity_with_multiple_entity_ids_raises_at_class_creation(self) -> None:
         with pytest.raises(TooManyEntityIdsException, match="Entity 'BadEntity'"):
+
             class BadEntity(Entity):
                 id1: UserId
                 id2: OtherId

@@ -168,8 +168,9 @@ docs/
 │   ├── quickstart.md                 # 5-minute guide: VOs, Entities, Ports, UseCase, DI
 │   └── concepts.md                   # DDD theory: VOs, Entities, Aggregates, Services, Events
 ├── domain/
-│   ├── entities.md                   # Entity, RootEntity: constructors, mutation, reconstruct
-│   ├── value-objects.md              # ValueObject: immutability, equality, validation
+│   ├── entities.md                   # Entity, RootEntity: constructors, mutation, reconstruct, post_init vs invariance
+│   ├── entity-id.md                  # EntityId: identity value objects, hash caveat, evolve
+│   ├── value-objects.md              # ValueObject: immutability, equality, validation, post_init vs invariance
 │   ├── services.md                   # Service: stateless ops, event emission, type constraints
 │   ├── events.md                     # Event: emission, collection, EventCollector, assertions
 │   ├── bounded-context.md            # BoundedContext: constructor, discovery, type checks
@@ -211,7 +212,7 @@ code/
 │   ├── events.py                     # Public: Event, EventCollector (cross-layer)
 │   ├── py.typed                      # PEP 561 marker
 │   ├── domain/                       # Public domain layer (re-exports from _internal)
-│   │   ├── __init__.py               # Re-exports: App, BoundedContext, Entity, RootEntity, Service, ValueObject, Field, PrivateField, DomainException
+│   │   ├── __init__.py               # Re-exports: App, BoundedContext, Entity, RootEntity, EntityId, Service, ValueObject, Field, PrivateField, DomainException
 │   │   └── validation/               # Public: AfterValidator, BeforeValidator, field_invariance, invariance, inherit_context
 │   ├── exceptions/__init__.py        # Public: all domain/app/infra exceptions
 │   ├── testing/                       # Public testing utilities
@@ -249,6 +250,7 @@ code/
 │       └── domain/                   # DDD domain primitives (implementation)
 │           ├── value_object.py
 │           ├── entity.py
+│           ├── entity_id.py
 │           ├── service.py
 │           ├── app.py
 │           ├── bounded_context.py
@@ -463,6 +465,35 @@ class User(RootEntity):
 ```
 
 Works for `Entity`, `RootEntity`, `ValueObject`, `Service` (all inherit from `BaseGuarded`). Also works for `UseCase` and any `BaseValidator` subclass.
+
+### `__post_init__` vs `@invariance` / `@field_invariance`
+
+Both run at construction time but serve different purposes:
+
+| Concern | `__post_init__` | `@invariance` / `@field_invariance` |
+|---------|-----------------|--------------------------------------|
+| What it does | Post-construction logic using the instantiated instance (`self`) | Validates field or model values before they are stored |
+| Use case | Emit creation events, compute derived values, call setup methods | Check business rules: "quantity must be positive", "end must be after start" |
+| Runs on `reconstruct()` | **No** | **No** |
+| Has `self` | Yes | No (receives `cls` and raw value) |
+| Can mutate fields | Yes (during the hook) | No |
+
+Do NOT override `__init__` — use `__post_init__` instead. See `docs/domain/entities.md` for detailed guidance.
+
+### EntityId Requirement
+
+Every `Entity` / `RootEntity` subclass must have exactly one field typed as an `EntityId` subclass. `Entity.__init_subclass__` enforces this at class creation time:
+
+- Zero `EntityId` fields → `NoEntityIdException`
+- Two or more `EntityId` fields → `TooManyEntityIdsException`
+
+`EntityId` is a `ValueObject` subclass — immutable, compared by value. Since entities use their `EntityId` for hashing, **mutating an entity's ID changes its hash**, which can cause issues if the entity is stored in a `set` or used as a `dict` key. Avoid mutating entity identities after construction. See `docs/domain/entity-id.md`.
+
+### Equality Behavior
+
+- **ValueObject**: compared by all public fields (`==` compares every annotated field; `PrivateField` attributes are excluded). Two VOs with identical public field values are equal.
+- **Entity / RootEntity**: compared only by their `EntityId`. Two entities with the same `EntityId` are equal regardless of other field values.
+- **EntityId**: compared by value (inherited from `ValueObject`).
 
 ### Type Checking System (`type_handlers/`)
 Three check functions enforce DDD type constraints at `BoundedContext` construction:

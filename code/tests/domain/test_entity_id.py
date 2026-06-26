@@ -17,7 +17,7 @@ class TestEntityIdCreation:
         uid = UserId(email="a@b.com", phone="123")
         assert uid.email == "a@b.com"
         assert uid.phone == "123"
-        assert uid._last_id is None
+        assert uid.last_id is None
 
     def test_is_value_object(self) -> None:
         assert issubclass(EntityId, ValueObject)
@@ -55,18 +55,18 @@ class TestEntityIdEvolve:
 
         assert uid2.phone == uid1.phone
 
-    def test_evolve_sets_last_id_to_original(self) -> None:
+    def test_evolve_setslast_id_to_original(self) -> None:
         uid1 = UserId(email="a@b.com", phone="123")
         uid2 = uid1.evolve(email="new@b.com")
 
-        assert uid2._last_id is uid1
+        assert uid2.last_id is uid1
 
     def test_evolve_chain_points_to_oldest(self) -> None:
         uid1 = UserId(email="a@b.com", phone="123")
         uid2 = uid1.evolve(email="new@b.com")
         uid3 = uid2.evolve(phone="456")
 
-        assert uid3._last_id is uid1
+        assert uid3.last_id is uid1
         assert uid3.email == "new@b.com"
         assert uid3.phone == "456"
 
@@ -115,10 +115,10 @@ class TestEntityIdImmutability:
         except Exception:
             pass
 
-    def test_cannot_mutate_last_id(self) -> None:
+    def test_cannot_mutatelast_id(self) -> None:
         uid = UserId(email="a@b.com", phone="123")
         try:
-            uid._last_id = None  # type: ignore[misc]
+            uid.last_id = None  # type: ignore
             assert False, "should have raised"
         except Exception:
             pass

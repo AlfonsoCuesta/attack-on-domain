@@ -173,13 +173,17 @@ class TestFakeDomainBuild:
 class TestFakeDomainBatch:
     def test_batch_with_count(self) -> None:
         JessicaUser = FakeDomain(User)
-        users = JessicaUser.batch(3, [{"id": IntId(value=1)}, {"id": IntId(value=2)}, {"id": IntId(value=3)}])
+        users = JessicaUser.batch(
+            3, [{"id": IntId(value=1)}, {"id": IntId(value=2)}, {"id": IntId(value=3)}]
+        )
         assert len(users) == 3
         assert [u.id for u in users] == [IntId(value=1), IntId(value=2), IntId(value=3)]
 
     def test_batch_without_overrides(self) -> None:
         JessicaUser = FakeDomain(User, name="Jessica")
-        users = JessicaUser.batch(3, [{"id": IntId(value=1)}, {"id": IntId(value=2)}, {"id": IntId(value=3)}])
+        users = JessicaUser.batch(
+            3, [{"id": IntId(value=1)}, {"id": IntId(value=2)}, {"id": IntId(value=3)}]
+        )
         assert len(users) == 3
         for u in users:
             assert u.name == "Jessica"

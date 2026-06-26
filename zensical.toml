@@ -16,6 +16,7 @@ nav = [
     {    "Domain" = [
         "domain/index.md",
         "domain/entities.md",
+        "domain/entity-id.md",
         "domain/value-objects.md",
         "domain/services.md",
         "domain/events.md",

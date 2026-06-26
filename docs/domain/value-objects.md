@@ -2,6 +2,8 @@
 
 Value Objects are immutable, identity-less domain objects. They are defined by their attributes rather than by a unique identifier. Two value objects with the same field values are considered equal.
 
+> **Note:** [EntityId](entity-id.md) is a specialized `ValueObject` — it is immutable and compared by value, but it serves as the identity for entities rather than data.
+
 ## Class Definition
 
 `ValueObject` is always immutable — there is no way to change a value object after construction.
@@ -196,6 +198,20 @@ class Email(ValueObject):
     def __post_init__(self):
         self._event_emitter.emit(EmailCreatedEvent(value=self.value))
 ```
+
+### When to Use `__post_init__` vs `@field_invariance`
+
+Both run at construction time but serve different purposes:
+
+| Concern | `__post_init__` | `@field_invariance` |
+|---------|-----------------|---------------------|
+| What it does | Post-construction logic using the **instantiated object** (`self`) | Validates a **field value** before it is stored |
+| Use case | Emit creation events, compute derived data | Enforce business rules on field values |
+| Runs on `reconstruct()` | **No** — only on normal `__init__` | **No** |
+| Has `self` | Yes | No — receives `cls` and the raw value |
+| Can mutate fields | Yes (during the hook) | No |
+
+**Use `__post_init__`** for operations that need the constructed instance. **Use `@field_invariance`** to validate that a value satisfies a domain rule before it is accepted.
 
 ## Testing
 

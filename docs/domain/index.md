@@ -8,6 +8,7 @@ The domain layer is the heart of your application. It contains the business logi
 |-------|-------------|------------|
 | [Entity](entities.md) | Mutable object with identity | Mutable |
 | [RootEntity](entities.md#rootentity) | Aggregate root entity | Mutable |
+| [EntityId](entity-id.md) | Specialized ValueObject for entity identity | Immutable |
 | [ValueObject](value-objects.md) | Immutable, identity-less object | Immutable |
 | [Service](services.md) | Stateless domain operation | Stateless |
 | [Event](events.md) | Record of something that happened | Immutable |
@@ -19,6 +20,7 @@ The domain layer is the heart of your application. It contains the business logi
 from aod.domain import (
     Entity,
     RootEntity,
+    EntityId,
     ValueObject,
     Service,
     Field,
@@ -32,12 +34,16 @@ from aod.events import Event, EventCollector
 ## Quick Example
 
 ```python
-from aod.domain import RootEntity, ValueObject, Event
+from aod.domain import RootEntity, ValueObject, EntityId, Event
 
 # Value Object — immutable
 class Money(ValueObject):
     amount: float
     currency: str
+
+# EntityId — immutable identity for entities
+class OrderId(EntityId):
+    value: str
 
 # Event — immutable, auto-timestamped
 class OrderPlaced(Event):
@@ -46,12 +52,12 @@ class OrderPlaced(Event):
 
 # Root Entity — mutable, has identity
 class Order(RootEntity):
-    id: str
+    id: OrderId
     total: Money
 
     def place(self) -> None:
         self._event_emitter.emit(
-            OrderPlaced(order_id=self.id, total=self.total.amount)
+            OrderPlaced(order_id=self.id.value, total=self.total.amount)
         )
 ```
 
@@ -66,12 +72,15 @@ Entities and Root Entities have automatic mutation guards:
 - **During `__init__`**: Mutation is allowed (INHERIT state)
 
 ```python
-user = User(id="1", name="Alice")
+class UserId(EntityId):
+    value: str
+
+user = User(id=UserId(value="1"), name="Alice")
 user.name = "Bob"  # MutationForbiddenException!
 
 # But inside methods:
 class User(RootEntity):
-    id: str
+    id: UserId
     name: str
 
     def rename(self, new_name: str) -> None:
@@ -83,7 +92,7 @@ class User(RootEntity):
 When you read attributes outside a mutation context, you get immutable proxies:
 
 ```python
-user = User(id="1", tags=["admin", "user"])
+user = User(id=UserId(value="1"), tags=["admin", "user"])
 user.tags.append("super")  # MutationForbiddenException!
 ```
 

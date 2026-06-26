@@ -188,17 +188,18 @@ place_order.run(order_id="1", product_id="p1", quantity=2, price=9.99)
 ### ValueObject vs Entity vs RootEntity
 
 | | ValueObject | Entity | RootEntity |
-|---|---|---|---|
+|---|---|---|---|---|
 | **Identity** | No identity | Has identity | Has identity |
 | **Mutable** | No | Yes (inside methods) | Yes (inside methods) |
+| **Equality** | By all public fields | By `EntityId` only | By `EntityId` only |
 | **Use in UseCase** | No | No | Yes |
 | **Example** | Money, Email, Address | OrderLine, Address | Order, User, Product |
 
-**ValueObject** — Immutable, no identity. Two `Money(amount=10, currency="USD")` are equal. Used as fields inside other objects.
+**ValueObject** — Immutable, no identity. Compared by value: two VOs with identical public fields are equal. Used as fields inside other objects.
 
-**Entity** — Mutable, has identity. Two `User(id="1", name="Alice")` are different objects (different identity). Cannot be used directly in UseCases.
+**Entity** — Mutable, has identity. Compared only by their `EntityId`: two Entities with the same id are equal regardless of other fields. Cannot be used directly in UseCases.
 
-**RootEntity** — The aggregate root. Entry point for all operations. This is what UseCases, Commands, and Queries work with. All other entities in the aggregate are nested inside the RootEntity's fields.
+**RootEntity** — Same as Entity: compared by `EntityId`. The aggregate root, entry point for UseCases, Commands, and Queries.
 
 ```python
 from aod.domain import RootEntity, ValueObject, Entity, Field
@@ -232,7 +233,16 @@ class Money(ValueObject):
 
 price = Money(amount=10.0, currency="USD")
 price.amount = 20.0  # MutationForbiddenException!
+
+**Equality**: Two ValueObjects with the same public fields are equal:
+
+```python
+a = Money(amount=10.0, currency="USD")
+b = Money(amount=10.0, currency="USD")
+assert a == b
 ```
+
+Private fields (declared with `PrivateField`) are excluded from equality comparison.
 
 ### Entity
 
@@ -260,6 +270,22 @@ class User(Entity):
         self.id = id or uuid4()
         self.name = name
         self.email = email
+```
+
+**Equality**: Two Entities with the same `EntityId` are equal, regardless of other fields:
+
+```python
+class UserId(EntityId):
+    value: str
+
+class User(Entity):
+    id: UserId
+    name: str
+
+a = User(id=UserId(value="1"), name="Alice")
+b = User(id=UserId(value="1"), name="Bob")
+assert a == b  # Same EntityId → equal
+assert hash(a) == hash(b)
 ```
 
 ### RootEntity
@@ -630,14 +656,12 @@ class Money(ValueObject):
     currency: str
 
     @field_invariance("amount")
-    @classmethod
     def _amount_positive(cls, v: float) -> float:
         if v < 0:
             raise ValueError("amount must be positive")
         return v
 
     @invariance
-    @classmethod
     def _currency_uppercase(cls, data: dict) -> dict:
         data["currency"] = data.get("currency", "").upper()
         return data
@@ -664,13 +688,34 @@ self._event_emitter.emit(OrderPlaced(order_id="1", total=100.0))
 Run code after construction (works for Entity, RootEntity, ValueObject, Service, UseCase):
 
 ```python
+class UserId(EntityId):
+    value: str
+
 class User(RootEntity):
-    id: int
+    id: UserId
     name: str
 
     def __post_init__(self) -> None:
-        self._event_emitter.emit(UserCreated(user_id=self.id))
+        self._event_emitter.emit(UserCreated(user_id=self.id.value))
 ```
+
+#### `__post_init__` vs `@invariance` / `@field_invariance`
+
+Both run at construction but serve different purposes:
+
+| Concern | `__post_init__` | `@invariance` / `@field_invariance` |
+|---------|-----------------|--------------------------------------|
+| What it does | Post-construction logic using `self` | Validates field/model values before storage |
+| Use case | Emit creation events, compute derived values, call setup methods | Check business rules: "quantity must be positive", "end must be after start" |
+| Runs on `reconstruct()` | No | No |
+| Has `self` | Yes | No (receives `cls` and raw value) |
+| Can mutate fields | Yes (during the hook) | No |
+
+**Use `__post_init__`** for operations that need the constructed instance — emit events, compute derived fields, call setup methods.
+
+**Use `@invariance` / `@field_invariance`** when the check can be expressed as "this value must satisfy X" — it does not need `self`.
+
+Do NOT override `__init__` — use `__post_init__` instead.
 
 ### EventCollector
 

@@ -1,19 +1,24 @@
 # Entity & RootEntity
 
-Entities are mutable domain objects with a distinct identity. Two entities with the same attribute values are still different entities if they are separate instances.
+Entities are mutable domain objects with a distinct identity. Two entities with different identities are always different, regardless of their attribute values. Entities compare by their `EntityId` only — `==` checks identity, not field values.
 
 ## Entity
 
-`Entity` is the base class for all domain objects that have identity, mutation guards, event emission, and validation.
+`Entity` is the base class for all domain objects that have identity, mutation guards, event emission, and validation. Every entity must have exactly one [EntityId](entity-id.md) field — the framework enforces this at class creation time.
 
 ### Class Definition
 
 ```python
 from aod.domain import Entity
+from aod.domain import EntityId
+
+
+class UserId(EntityId):
+    value: str
 
 
 class User(Entity):
-    id: str
+    id: UserId
     name: str
     email: str
 ```
@@ -24,18 +29,18 @@ class User(Entity):
 
 | Parameter | Type | Description |
 |-----------|------|-------------|
-| `id` | `str` | Entity identity field. Required unless a default is provided |
+| `id` | `UserId` | Entity identity — must be an `EntityId` subclass. Required |
 | `name` | `str` | Field derived from class annotation. Required unless optional or defaulted |
 | `email` | `str` | Field derived from class annotation. Required unless optional or defaulted |
 
 Each annotated field becomes a constructor parameter. Fields without defaults are required. Fields with defaults (e.g. `name: str = "unnamed"`) are optional.
 
 ```python
-user = User(id="1", name="Alice", email="alice@example.com")
+user = User(id=UserId(value="abc"), name="Alice", email="alice@example.com")
 
-# Entities have identity — different instances are never equal
-user2 = User(id="1", name="Alice", email="alice@example.com")
-assert user != user2
+# Entities have identity — two entities with the same id are equal
+user2 = User(id=UserId(value="abc"), name="Alice", email="alice@example.com")
+assert user == user2
 ```
 
 ### Field Utility: `Field()`
@@ -77,7 +82,7 @@ from aod.domain import PrivateField
 
 ```python
 class User(Entity):
-    id: str
+    id: UserId
     name: str
     _password_hash: str = PrivateField(default="")
 
@@ -93,13 +98,13 @@ class User(Entity):
 
 ```python
 class User(Entity):
-    id: str
+    id: UserId
     name: str
 
     def rename(self, new_name: str) -> None:
         self.name = new_name
 
-user = User(id="1", name="Alice")
+user = User(id=UserId(value=1), name="Alice")
 user.rename("Bob")
 assert user.name == "Bob"
 
@@ -116,10 +121,10 @@ When reading field values outside a mutation context, mutable containers are wra
 
 ```python
 class User(Entity):
-    id: str
+    id: UserId
     tags: list[str]
 
-user = User(id="1", tags=["admin", "user"])
+user = User(id=UserId(value=1), tags=["admin", "user"])
 user.tags.append("super")  # MutationForbiddenException!
 ```
 
@@ -127,7 +132,7 @@ Inside a method, the real mutable objects are available:
 
 ```python
 class User(Entity):
-    id: str
+    id: UserId
     tags: list[str]
 
     def add_tag(self, tag: str) -> None:
@@ -144,7 +149,7 @@ from datetime import datetime
 
 
 class User(Entity):
-    id: str
+    id: UserId
     name: str
     email: str
     created_at: datetime
@@ -160,6 +165,10 @@ class User(Entity):
 from aod.domain import RootEntity, ValueObject
 
 
+class OrderId(EntityId):
+    value: int
+
+
 class OrderLine(ValueObject):
     product_id: str
     quantity: int
@@ -167,7 +176,7 @@ class OrderLine(ValueObject):
 
 
 class Order(RootEntity):
-    id: str
+    id: OrderId
     lines: list[OrderLine]
     total: float
 
@@ -183,7 +192,7 @@ class Order(RootEntity):
 
 | Parameter | Type | Description |
 |-----------|------|-------------|
-| `id` | `str` | Root entity identity field |
+| `id` | `OrderId` | Root entity identity — must be an `EntityId` subclass |
 | `lines` | `list[OrderLine]` | Field derived from class annotation |
 | `total` | `float` | Field derived from class annotation |
 
@@ -195,7 +204,7 @@ Allowed: reference by ID instead of by object:
 
 ```python
 class Order(RootEntity):
-    id: str
+    id: OrderId
     user_id: str  # OK
 ```
 
@@ -203,7 +212,7 @@ Forbidden: direct nesting:
 
 ```python
 class Order(RootEntity):
-    id: str
+    id: OrderId
     user: User  # InvalidNestedTypeError!
 ```
 
@@ -218,7 +227,7 @@ class Order(RootEntity):
 `reconstruct()` is a classmethod that creates entities without validation, making it suitable for loading persisted objects from a database.
 
 ```python
-user = User.reconstruct(id="1", name="Alice")
+user = User.reconstruct(id=UserId(value=1), name="Alice")
 ```
 
 ### Parameters
@@ -235,11 +244,11 @@ Override `__post_init__` to run initialization logic after all fields are set. I
 
 ```python
 class User(RootEntity):
-    id: int
+    id: UserId
     name: str
 
     def __post_init__(self):
-        self._event_emitter.emit(UserCreatedEvent(user_id=self.id))
+        self._event_emitter.emit(UserCreatedEvent(user_id=self.id.value))
 ```
 
 ### Parameters
@@ -250,6 +259,58 @@ class User(RootEntity):
 
 During `__post_init__`, public methods can be called and fields can be mutated.
 
+### When to Use `__post_init__` vs `@invariance` / `@field_invariance`
+
+Both hooks run at construction time, but they serve different purposes.
+
+| Concern | `__post_init__` | `@invariance` / `@field_invariance` |
+|---------|-----------------|--------------------------------------|
+| What it does | Post-construction logic using the **already-initialized instance** (`self`) | Validates field or model **values** before they are stored |
+| Use case | Emit creation events, compute derived values, call setup methods | Check business rules: "quantity must be positive", "end date must be after start" |
+| Runs on `reconstruct()` | **No** — only on normal `__init__` | **No** — only on normal `__init__` |
+| Has access to `self` | Yes — all fields are set | No — receives `cls` and the raw value |
+| Can mutate fields | Yes (during the hook) | No — read-only |
+
+**Use `__post_init__` when you need to:**
+
+- Emit a domain event at creation time
+- Compute a derived field that depends on other fields
+- Call a setup/initialization method
+- Perform any operation that needs the full constructed instance
+
+```python
+class User(RootEntity):
+    id: UserId
+    name: str
+    created_at: datetime
+
+    def __post_init__(self):
+        self._event_emitter.emit(UserCreated(user_id=self.id.value))
+        self.created_at = datetime.now(timezone.utc)
+```
+
+**Do NOT override `__init__`** directly — use `__post_init__` instead. The framework's `__init__` handles validation, model construction, and mutation context setup before calling this hook.
+
+**Use `@invariance` / `@field_invariance` when you need to:**
+
+- Validate that a field satisfies a domain rule
+- Reject invalid states at construction time
+- Validate relationships between fields
+
+```python
+class Money(ValueObject):
+    amount: float
+    currency: str
+
+    @field_invariance("amount")
+    def amount_must_be_positive(cls, v: float) -> float:
+        if v < 0:
+            raise ValueError("amount must be positive")
+        return v
+```
+
+> **Rule of thumb:** if the check can be expressed as "this value must satisfy X", use `@field_invariance`. If the check needs the constructed instance (you need `self`), use `__post_init__`.
+
 ## Testing
 
 Testing utilities are available from `aod.testing`:
@@ -259,7 +320,7 @@ Testing utilities are available from `aod.testing`:
 ```python
 from aod.testing import build
 
-user = build(User, id="1", name="Alice")
+user = build(User, id=UserId(value=1), name="Alice")
 ```
 
 | Parameter | Type | Description |
@@ -317,7 +378,7 @@ Raises `AssertionError` if the sequence is non-empty.
 
 ```python
 class User(Entity):
-    id: str
+    id: UserId
     name: str
     role: str = "member"
     is_active: bool = True
@@ -330,16 +391,16 @@ from aod.events import Event
 
 
 class UserRegistered(Event):
-    user_id: str
+    user_id: int
     email: str
 
 
 class User(RootEntity):
-    id: str
+    id: UserId
     email: str
 
     def register(self) -> None:
-        self._event_emitter.emit(UserRegistered(user_id=self.id, email=self.email))
+        self._event_emitter.emit(UserRegistered(user_id=self.id.value, email=self.email))
 ```
 
 ### Entity with Value Object Fields
@@ -352,7 +413,7 @@ class Address(ValueObject):
 
 
 class User(Entity):
-    id: str
+    id: UserId
     name: str
     address: Address
 ```
@@ -362,12 +423,19 @@ class User(Entity):
 | Exception | Raised When |
 |-----------|-------------|
 | `MutationForbiddenException` | Attempting to mutate an entity field outside a public method |
+| `NoEntityIdException` | An `Entity` or `RootEntity` subclass has no `EntityId` field |
+| `TooManyEntityIdsException` | An `Entity` or `RootEntity` subclass has more than one `EntityId` field |
 | `InvalidNestedTypeError` | An Entity or ValueObject field references a RootEntity |
 | `ModelValidationError` | Pydantic validation fails during construction |
 
 ## Next Steps
 
 <div class="home-features">
+
+<div class="feature-card">
+<h3><a href="entity-id.md">EntityId</a></h3>
+<p>Learn about entity identity</p>
+</div>
 
 <div class="feature-card">
 <h3><a href="value-objects.md">ValueObject</a></h3>
