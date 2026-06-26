@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import pytest
 from aod._internal.core.domain_exception import (
+    InvalidValueObjectFieldError,
     InvarianceException,
     ModelValidationError,
     MutationForbiddenException,
@@ -175,3 +176,12 @@ class TestValueObjectBuild:
     def test_build_skips_invariances(self) -> None:
         v = build(VoWithInvariant, amount=-10)
         assert v.amount == -10
+
+
+class TestValueObjectIdentityField:
+    def test_raises_when_field_has_id_true(self) -> None:
+        with pytest.raises(InvalidValueObjectFieldError, match=r"is marked with Field\(id=True\)"):
+
+            class _(ValueObject):
+                id: str = Field(id=True)
+                name: str

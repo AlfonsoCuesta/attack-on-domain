@@ -566,7 +566,7 @@ Three check functions enforce DDD type constraints at `BoundedContext` construct
 Raises `InvalidNestedTypeError` if any field references `RootEntity` (or any subclass of it).
 
 #### `check_value_object(vo_cls)`
-Raises `InvalidNestedTypeError` if any field references `Entity` **or** `RootEntity` (ValueObjects must only contain primitives or other ValueObjects).
+Raises `InvalidNestedTypeError` if any field references `Entity` **or** `RootEntity` (ValueObjects must only contain primitives or other ValueObjects). Additionally, ValueObject raises `InvalidValueObjectFieldError` at class creation if any field is marked with `Field(id=True)` — ValueObjects are identity-less by design.
 
 #### `check_service(service_cls)`
 Iterates all public methods via `inspect.getmembers`. For each method:
@@ -617,6 +617,8 @@ The hierarchy:
 - `MutationForbiddenException(DomainException)` — mutation outside allowed context
 - `InvarianceException(DomainException, ValueError)` — field/model invariance violated
 - `InvalidCommandFieldTypeError` — Command/Query field references non-root Entity
+- `InvalidIdentityFieldTypeError` — `Field(id=True)` used on a field that is not an `EntityId` subclass
+- `InvalidValueObjectFieldError` — a `ValueObject` has a field marked with `Field(id=True)`, which is not allowed
 - `InvalidQueryResultTypeError` — `Query` TResult does not include a `RootEntity`
 - `InvalidGenericTypeArgError` — generic argument fails its constraint
 - `InvalidEntityTypeError` — not an `Entity` subclass

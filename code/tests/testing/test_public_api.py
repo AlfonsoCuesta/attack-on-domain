@@ -46,14 +46,18 @@ def test_aod_domain_exceptions_documented_api() -> None:
         "InvalidCommandFieldTypeError",
         "InvalidEntityTypeError",
         "InvalidGenericTypeArgError",
+        "InvalidIdentityFieldTypeError",
         "InvalidNestedTypeError",
         "InvalidQueryResultTypeError",
         "InvalidRootEntityTypeError",
         "InvalidServiceParameterError",
         "InvalidServiceTypeError",
+        "InvalidValueObjectFieldError",
         "InvarianceException",
         "ModelValidationError",
         "MutationForbiddenException",
+        "NoEntityIdException",
+        "TooManyEntityIdsException",
     ]
 
 
@@ -163,6 +167,7 @@ def test_aod_exceptions_documented_api() -> None:
         "InvalidServiceParameterError",
         "InvalidServiceTypeError",
         "InvalidUseCasePortFieldError",
+        "InvalidValueObjectFieldError",
         "InvarianceException",
         "ModelValidationError",
         "MutationForbiddenException",

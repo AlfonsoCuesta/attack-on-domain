@@ -151,3 +151,13 @@ class InvalidIdentityFieldTypeError(DomainException):
             f"Entity '{cls_name}' field '{field_name}' is marked as identity "
             f"but has type '{type_name}', which is not an EntityId subclass"
         )
+
+
+class InvalidValueObjectFieldError(DomainException):
+    """Raised when a ValueObject has a field marked with Field(id=True)."""
+
+    def __init__(self, cls_name: str, field_name: str) -> None:
+        super().__init__(
+            f"ValueObject '{cls_name}' field '{field_name}' is marked with Field(id=True), "
+            f"which is not allowed on ValueObjects"
+        )

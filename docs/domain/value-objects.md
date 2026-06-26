@@ -79,6 +79,17 @@ e2 = Email(value="alice@example.com")
 assert e1 == e2  # True — same value, same object
 ```
 
+**Marking a field with `Field(id=True)` on a ValueObject raises `InvalidValueObjectFieldError`** at class creation time. ValueObjects are identity-less by design — they cannot have identity fields.
+
+```python
+from aod.domain import ValueObject, Field
+
+# Raises InvalidValueObjectFieldError:
+class Bad(ValueObject):
+    id: str = Field(id=True)  # Error!
+    name: str
+```
+
 ### Structural Equality
 
 Two value objects with the same attributes are considered equal:
@@ -294,6 +305,7 @@ class DateRange(ValueObject):
 |-----------|-------------|
 | `MutationForbiddenException` | Attempting to mutate a value object field after construction |
 | `ModelValidationError` | Pydantic validation fails during `__init__` |
+| `InvalidValueObjectFieldError` | A ValueObject field is marked with `Field(id=True)` |
 
 ## Next Steps
 

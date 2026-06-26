@@ -65,7 +65,19 @@ from aod.domain import Field
 | `allow_inf_nan` | `bool \| None` | `None` | Allow infinity or NaN values |
 | `max_digits` | `int \| None` | `None` | Maximum number of digits (decimal) |
 | `decimal_places` | `int \| None` | `None` | Maximum decimal places |
-| `init` | `bool` | `True` | Whether the field accepts a value at construction time |
+| `id` | `bool` | `False` | When `True`, marks this field as the entity identity. Must be an `EntityId` subclass. Only allowed on Entity/RootEntity, not ValueObject |
+
+### Identity Field
+
+Every `Entity` / `RootEntity` subclass must have exactly one identity field. Use `Field(id=True)` to mark it explicitly when you have multiple `EntityId`-typed fields:
+
+```python
+class User(RootEntity):
+    id: UserId = Field(id=True)
+    father: UserId  # reference, not the identity
+```
+
+Without `Field(id=True)`, the framework falls back to finding a single `EntityId` field automatically. If zero or multiple `EntityId` fields are found, a `NoEntityIdException` or `TooManyEntityIdsException` is raised.
 
 ### PrivateField
 
@@ -469,6 +481,7 @@ class User(Entity):
 | `MutationForbiddenException` | Attempting to mutate an entity field outside a public method |
 | `NoEntityIdException` | An `Entity` or `RootEntity` subclass has no `EntityId` field |
 | `TooManyEntityIdsException` | An `Entity` or `RootEntity` subclass has more than one `EntityId` field |
+| `InvalidIdentityFieldTypeError` | `Field(id=True)` is used on a field that is not an `EntityId` subclass |
 | `InvalidNestedTypeError` | An Entity or ValueObject field references a RootEntity |
 | `ModelValidationError` | Pydantic validation fails during construction |
 

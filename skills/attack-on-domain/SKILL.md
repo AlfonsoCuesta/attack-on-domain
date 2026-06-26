@@ -224,6 +224,8 @@ Immutable identity-less values. Cannot be changed after creation.
 
 **DO NOT define `__init__`** — the framework generates it automatically from your field annotations.
 
+**`Field(id=True)` is NOT allowed** on ValueObject fields — ValueObjects are identity-less by design. Marking any field with `Field(id=True)` raises `InvalidValueObjectFieldError` at class creation time.
+
 ```python
 from aod.domain import ValueObject
 
@@ -247,6 +249,22 @@ Private fields (declared with `PrivateField`) are excluded from equality compari
 ### Entity
 
 Mutable objects with identity. Can mutate fields inside public methods. NOT used directly in UseCases — only RootEntity is.
+
+**Identity**: Every Entity must have exactly one identity field. Use `Field(id=True)` to mark it explicitly, especially when you have multiple `EntityId`-typed fields:
+
+```python
+from aod.domain import Entity, Field
+
+class UserId(EntityId):
+    value: str
+
+class User(Entity):
+    id: UserId = Field(id=True)
+    name: str
+    father: UserId  # reference, not the identity
+```
+
+Without `Field(id=True)`, the framework falls back to finding a single `EntityId` field automatically. If there are zero or multiple `EntityId` fields and no `Field(id=True)`, a `NoEntityIdException` or `TooManyEntityIdsException` is raised.
 
 **`can_mutate()`**: Every entity exposes a public `can_mutate()` method that controls mutation. Returns `True` by default. Override to block mutation conditionally:
 
@@ -295,17 +313,16 @@ from uuid import UUID, uuid4
 
 # Correct: fields as annotations, no __init__
 class User(Entity):
-    id: UUID
+    id: UserId = Field(id=True)
     name: str
     email: str
 
 # Wrong: defining __init__ manually
 class User(Entity):
-    id: UUID
+    id: UserId = Field(id=True)
     name: str
-    email: str
 
-    def __init__(self, name: str, email: str, id: UUID | None = None) -> None:  # NO!
+    def __init__(self, name: str, email: str, id: UserId | None = None) -> None:  # NO!
         self.id = id or uuid4()
         self.name = name
         self.email = email
@@ -314,11 +331,12 @@ class User(Entity):
 **Equality**: Two Entities with the same `EntityId` are equal, regardless of other fields:
 
 ```python
-class UserId(EntityId):
-    value: str
+class User(Entity):
+    id: UserId = Field(id=True)
+    name: str
 
 class User(Entity):
-    id: UserId
+    id: UserId = Field(id=True)
     name: str
 
 a = User(id=UserId(value="1"), name="Alice")
@@ -337,21 +355,22 @@ Aggregate root. The entry point for all operations. UseCases, Commands, and Quer
 from aod.domain import RootEntity
 
 class Order(RootEntity):
-    id: str
+    id: OrderId = Field(id=True)
     total: float
 
 class OrderLine(RootEntity):
+    id: OrderLineId = Field(id=True)
     product_id: str
     quantity: int
 
 # Wrong: RootEntity nested in another
 class Order(RootEntity):
-    id: str
+    id: OrderId = Field(id=True)
     line: OrderLine  # InvalidNestedTypeError!
 
 # Correct: reference by ID
 class Order(RootEntity):
-    id: str
+    id: OrderId = Field(id=True)
     line_id: str
 ```
 
