@@ -11,6 +11,7 @@ from aod._internal.domain.bounded_context import BoundedContext
 from aod._internal.domain.entity import Entity, EntityId, RootEntity
 from aod._internal.domain.service import Service
 from aod._internal.domain.value_object import ValueObject
+from aod.domain import Field
 
 
 class IntId(EntityId):
@@ -19,10 +20,10 @@ class IntId(EntityId):
 
 def test_bounded_context_accepts_only_root_entities() -> None:
     class Order(RootEntity):
-        id: IntId
+        id: IntId = Field(id=True)
 
     class Customer(RootEntity):
-        id: IntId
+        id: IntId = Field(id=True)
 
     bc = BoundedContext(aggregate_roots=[Order, Customer])
 
@@ -43,7 +44,7 @@ def test_bounded_context_rejects_non_entity_class() -> None:
 
 def test_bounded_context_rejects_non_root_entity() -> None:
     class NotRoot(Entity):
-        id: IntId
+        id: IntId = Field(id=True)
 
     with pytest.raises(InvalidRootEntityTypeError, match="is not a root Entity"):
         BoundedContext(aggregate_roots=[NotRoot])  # type: ignore
@@ -51,7 +52,7 @@ def test_bounded_context_rejects_non_root_entity() -> None:
 
 def test_bounded_context_rejects_entity_instance() -> None:
     class Order(RootEntity):
-        id: IntId
+        id: IntId = Field(id=True)
 
     order = Order(id=IntId(value=1))
 
@@ -61,7 +62,7 @@ def test_bounded_context_rejects_entity_instance() -> None:
 
 def test_bounded_context_accepts_services_too() -> None:
     class Order(RootEntity):
-        id: IntId
+        id: IntId = Field(id=True)
 
     class Pricing(Service):
         pass
@@ -87,10 +88,10 @@ def test_bounded_context_rejects_non_service_class() -> None:
 
 def test_discovers_entity_from_root_entity_field() -> None:
     class LineItem(Entity):
-        id: IntId
+        id: IntId = Field(id=True)
 
     class Order(RootEntity):
-        id: IntId
+        id: IntId = Field(id=True)
         items: list[LineItem]
 
     bc = BoundedContext(aggregate_roots=[Order])
@@ -104,7 +105,7 @@ def test_discovers_value_object_from_root_entity_field() -> None:
         street: str
 
     class Order(RootEntity):
-        id: IntId
+        id: IntId = Field(id=True)
         shipping: Address
 
     bc = BoundedContext(aggregate_roots=[Order])
@@ -114,15 +115,15 @@ def test_discovers_value_object_from_root_entity_field() -> None:
 
 def test_discovers_nested_entities_recursively() -> None:
     class TaxBreakdown(Entity):
-        id: IntId
+        id: IntId = Field(id=True)
         rate: float
 
     class LineItem(Entity):
-        id: IntId
+        id: IntId = Field(id=True)
         taxes: list[TaxBreakdown]
 
     class Order(RootEntity):
-        id: IntId
+        id: IntId = Field(id=True)
         items: list[LineItem]
 
     bc = BoundedContext(aggregate_roots=[Order])
@@ -136,16 +137,16 @@ def test_discovers_shared_value_object_only_once() -> None:
         amount: int
 
     class TaxLine(Entity):
-        id: IntId
+        id: IntId = Field(id=True)
         total: Money
 
     class LineItem(Entity):
-        id: IntId
+        id: IntId = Field(id=True)
         price: Money
         taxes: list[TaxLine]
 
     class Order(RootEntity):
-        id: IntId
+        id: IntId = Field(id=True)
         items: list[LineItem]
 
     bc = BoundedContext(aggregate_roots=[Order])
@@ -159,7 +160,7 @@ def test_discovers_shared_value_object_only_once() -> None:
 
 def test_root_entity_with_no_nested_types_has_empty_discovery() -> None:
     class Order(RootEntity):
-        id: IntId
+        id: IntId = Field(id=True)
 
     bc = BoundedContext(aggregate_roots=[Order])
 
@@ -175,14 +176,14 @@ def test_root_entity_with_no_nested_types_has_empty_discovery() -> None:
 
 def test_entity_with_root_entity_field_raises_error() -> None:
     class Product(RootEntity):
-        id: IntId
+        id: IntId = Field(id=True)
 
     class OrderLine(Entity):
-        id: IntId
+        id: IntId = Field(id=True)
         product: Product
 
     class Order(RootEntity):
-        id: IntId
+        id: IntId = Field(id=True)
         lines: list[OrderLine]
 
     with pytest.raises(InvalidNestedTypeError, match="references 'Product'"):
@@ -191,10 +192,10 @@ def test_entity_with_root_entity_field_raises_error() -> None:
 
 def test_root_entity_with_root_entity_field_raises_error() -> None:
     class Product(RootEntity):
-        id: IntId
+        id: IntId = Field(id=True)
 
     class Order(RootEntity):
-        id: IntId
+        id: IntId = Field(id=True)
         product: Product
 
     with pytest.raises(InvalidNestedTypeError, match="references 'Product'"):
@@ -203,10 +204,10 @@ def test_root_entity_with_root_entity_field_raises_error() -> None:
 
 def test_entity_with_entity_field_is_allowed() -> None:
     class LineItem(Entity):
-        id: IntId
+        id: IntId = Field(id=True)
 
     class Order(RootEntity):
-        id: IntId
+        id: IntId = Field(id=True)
         items: list[LineItem]
 
     bc = BoundedContext(aggregate_roots=[Order])
@@ -219,7 +220,7 @@ def test_entity_with_value_object_field_is_allowed() -> None:
         street: str
 
     class Order(RootEntity):
-        id: IntId
+        id: IntId = Field(id=True)
         shipping: Address
 
     BoundedContext(aggregate_roots=[Order])  # Should not raise
@@ -227,14 +228,14 @@ def test_entity_with_value_object_field_is_allowed() -> None:
 
 def test_entity_with_optional_root_entity_field_raises_error() -> None:
     class Product(RootEntity):
-        id: IntId
+        id: IntId = Field(id=True)
 
     class OrderLine(Entity):
-        id: IntId
+        id: IntId = Field(id=True)
         product: Product | None = None
 
     class Order(RootEntity):
-        id: IntId
+        id: IntId = Field(id=True)
         lines: list[OrderLine]
 
     with pytest.raises(InvalidNestedTypeError, match="references 'Product'"):
@@ -243,14 +244,14 @@ def test_entity_with_optional_root_entity_field_raises_error() -> None:
 
 def test_entity_with_list_of_root_entity_raises_error() -> None:
     class Product(RootEntity):
-        id: IntId
+        id: IntId = Field(id=True)
 
     class OrderLine(Entity):
-        id: IntId
+        id: IntId = Field(id=True)
         products: list[Product]
 
     class Order(RootEntity):
-        id: IntId
+        id: IntId = Field(id=True)
         lines: list[OrderLine]
 
     with pytest.raises(InvalidNestedTypeError):
@@ -261,14 +262,14 @@ def test_root_entity_field_error_discovered_through_child_entity() -> None:
     """A nested Entity that references a RootEntity must also raise."""
 
     class Product(RootEntity):
-        id: IntId
+        id: IntId = Field(id=True)
 
     class LineItem(Entity):
-        id: IntId
+        id: IntId = Field(id=True)
         product: Product
 
     class Order(RootEntity):
-        id: IntId
+        id: IntId = Field(id=True)
         items: list[LineItem]
 
     with pytest.raises(InvalidNestedTypeError, match="references 'Product'"):
@@ -282,13 +283,13 @@ def test_root_entity_field_error_discovered_through_child_entity() -> None:
 
 def test_value_object_with_entity_field_raises_error() -> None:
     class Customer(Entity):
-        id: IntId
+        id: IntId = Field(id=True)
 
     class OrderLineRef(ValueObject):
         customer: Customer
 
     class Order(RootEntity):
-        id: IntId
+        id: IntId = Field(id=True)
         ref: OrderLineRef
 
     with pytest.raises(InvalidNestedTypeError, match="references 'Customer'"):
@@ -297,13 +298,13 @@ def test_value_object_with_entity_field_raises_error() -> None:
 
 def test_value_object_with_root_entity_field_raises_error() -> None:
     class Product(RootEntity):
-        id: IntId
+        id: IntId = Field(id=True)
 
     class ProductRef(ValueObject):
         product: Product
 
     class Order(RootEntity):
-        id: IntId
+        id: IntId = Field(id=True)
         ref: ProductRef
 
     with pytest.raises(InvalidNestedTypeError, match="references 'Product'"):
@@ -319,7 +320,7 @@ def test_value_object_with_only_primitives_and_other_vos_is_allowed() -> None:
         tax: Money
 
     class Order(RootEntity):
-        id: IntId
+        id: IntId = Field(id=True)
         price: Price
 
     bc = BoundedContext(aggregate_roots=[Order])
@@ -335,7 +336,7 @@ def test_value_object_with_only_primitives_and_other_vos_is_allowed() -> None:
 
 def test_service_with_entity_param_raises_error() -> None:
     class Customer(Entity):
-        id: IntId
+        id: IntId = Field(id=True)
 
     class ValidationService(Service):
         def validate(self, customer: Customer) -> bool:
@@ -364,7 +365,7 @@ def test_service_with_value_object_param_is_allowed() -> None:
 
 def test_service_with_root_entity_param_is_allowed() -> None:
     class Order(RootEntity):
-        id: IntId
+        id: IntId = Field(id=True)
 
     class PricingService(Service):
         def calculate(self, order: Order) -> float:
@@ -393,10 +394,10 @@ def test_service_with_custom_class_param_is_allowed() -> None:
 
 def test_service_with_multiple_params_only_entity_forbidden() -> None:
     class Order(RootEntity):
-        id: IntId
+        id: IntId = Field(id=True)
 
     class Customer(Entity):
-        id: IntId
+        id: IntId = Field(id=True)
 
     class BadService(Service):
         def process(self, order: Order, customer: Customer) -> None:
@@ -422,7 +423,7 @@ def test_bounded_context_repr_without_name() -> None:
 
 def test_service_with_entity_return_type_raises_error() -> None:
     class Customer(Entity):
-        id: IntId
+        id: IntId = Field(id=True)
 
     class BadService(Service):
         def get_customer(self) -> Customer:
@@ -434,7 +435,7 @@ def test_service_with_entity_return_type_raises_error() -> None:
 
 def test_service_with_root_entity_return_type_is_allowed() -> None:
     class Order(RootEntity):
-        id: IntId
+        id: IntId = Field(id=True)
 
     class OrderService(Service):
         def get_order(self) -> Order:
@@ -463,7 +464,7 @@ def test_duplicate_root_entity_in_aggregate_roots() -> None:
         street: str
 
     class Customer(RootEntity):
-        id: IntId
+        id: IntId = Field(id=True)
         address: Address
 
     bc = BoundedContext(aggregate_roots=[Customer, Customer])

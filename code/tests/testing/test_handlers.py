@@ -5,6 +5,7 @@ from aod._internal.core.domain_exception import (
     DomainException,
     MutationForbiddenException,
 )
+from aod._internal.core.fields.fields import Field
 from aod._internal.domain.entity import Entity, RootEntity
 from aod._internal.domain.entity_id import EntityId
 from aod.application import Command, Query
@@ -16,13 +17,13 @@ class IntId(EntityId):
 
 
 class User(RootEntity):
-    id: IntId
+    id: IntId = Field(id=True)
     name: str
     email: str
 
 
 class Order(RootEntity):
-    id: IntId
+    id: IntId = Field(id=True)
     total: float
 
 

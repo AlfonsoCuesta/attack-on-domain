@@ -1,4 +1,5 @@
 from aod._internal.core.event_emitter import Event, EventCollector, EventEmitter
+from aod._internal.core.fields.fields import Field
 from aod._internal.domain.entity import EntityId, RootEntity
 from aod._internal.domain.value_object import ValueObject
 
@@ -57,7 +58,7 @@ def test_event_collector_does_not_capture_outside_context() -> None:
 
 def test_entity_emit_poll_clear() -> None:
     class Child(RootEntity):
-        id: IntId
+        id: IntId = Field(id=True)
 
     child = Child(id=IntId(value=1))
     e1 = Event()
@@ -70,7 +71,7 @@ def test_entity_emit_poll_clear() -> None:
 
 def test_event_collector_captures_from_entity() -> None:
     class Child(RootEntity):
-        id: IntId
+        id: IntId = Field(id=True)
 
     child = Child(id=IntId(value=1))
 
@@ -82,10 +83,10 @@ def test_event_collector_captures_from_entity() -> None:
 
 def test_event_collector_captures_from_aggregate() -> None:
     class Child(RootEntity):
-        id: IntId
+        id: IntId = Field(id=True)
 
     class Parent(RootEntity):
-        id: IntId
+        id: IntId = Field(id=True)
         child: Child
 
     child = Child(id=IntId(value=1))

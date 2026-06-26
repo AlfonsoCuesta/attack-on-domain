@@ -11,12 +11,11 @@ import tomllib
 from pathlib import Path
 
 import pytest
-
 from aod._internal.application.contracts import Command, Query
 from aod._internal.application.handler import CommandPort, QueryPort
 from aod._internal.application.port import Port
-from aod._internal.application.use_case import UseCase
 from aod._internal.application.unit_of_work import UnitOfWork
+from aod._internal.application.use_case import UseCase
 from aod._internal.domain.entity import RootEntity
 from aod._internal.domain.entity_id import EntityId
 from aod._internal.domain.value_object import ValueObject
@@ -27,7 +26,7 @@ from aod._internal.schema.bounded_context import BoundedContext
 from aod._internal.schema.infrastructure import Infrastructure
 from aod._internal.schema.module import Module
 from aod._internal.schema.render import AutoDoc
-
+from aod.domain import Field
 
 # ---- domain types ----
 
@@ -37,7 +36,7 @@ class OrderId(EntityId):
 
 
 class Order(RootEntity):
-    id: OrderId
+    id: OrderId = Field(id=True)
     total: float = 0.0
 
 

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import pytest
 from aod._internal.application.contracts import Command, Query
 from aod._internal.application.handler import (
     AsyncCommandPort,
@@ -30,8 +31,7 @@ from aod._internal.schema.bounded_context import BoundedContext
 from aod._internal.schema.infrastructure import Infrastructure
 from aod._internal.schema.module import Module
 from aod._internal.schema.render import AutoDoc
-import pytest
-
+from aod.domain import Field
 
 # ============================================================
 # Domain types
@@ -47,14 +47,14 @@ class IntId(EntityId):
 
 
 class Order(RootEntity):
-    id: OrderId
+    id: OrderId = Field(id=True)
     total: float = 0.0
 
     def apply_discount(self, factor: float) -> None: ...
 
 
 class LineItem(Entity):
-    id: IntId
+    id: IntId = Field(id=True)
     product: str
     quantity: int
 

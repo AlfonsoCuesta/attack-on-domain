@@ -1,15 +1,15 @@
 from __future__ import annotations
 
-import pytest
+from typing import get_args, get_origin
 
+import pytest
+from aod._internal.core.fields.fields import Field
 from aod._internal.domain.entity import RootEntity
 from aod._internal.domain.entity_id import EntityId
 from aod._internal.domain.service import Service
 from aod._internal.domain.value_object import ValueObject
-from aod.testing import FakeDomain
 from aod._internal.testing.faker.faker import _flatten, _to_domain
-from typing import get_args, get_origin
-
+from aod.testing import FakeDomain
 
 # ── domain types used across tests ──────────────────────────────────────────
 
@@ -24,7 +24,7 @@ class IntId(EntityId):
 
 
 class User(RootEntity):
-    id: IntId
+    id: IntId = Field(id=True)
     name: str
     address: Address
 

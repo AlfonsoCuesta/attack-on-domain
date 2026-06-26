@@ -2,8 +2,6 @@
 
 import inspect
 
-from pydantic.fields import FieldInfo
-
 from aod._internal.application.cache import AsyncCache, Cache
 from aod._internal.application.contracts import Command, Query
 from aod._internal.application.event_bus import AsyncEventBus, EventBus
@@ -33,6 +31,7 @@ from aod._internal.infrastructure.projection import (
 )
 from aod._internal.infrastructure.projection.models import ReadModel, WriteModel
 from aod._internal.infrastructure.session import AsyncSession, Session
+from aod._internal.schema.app import App
 from aod._internal.schema.bounded_context import BoundedContext
 from aod._internal.schema.describe_utils import extract_fields, extract_methods, extract_params
 from aod._internal.schema.docs.app_doc import AppDoc
@@ -59,8 +58,8 @@ from aod._internal.schema.docs.use_case_doc import UseCaseDoc
 from aod._internal.schema.docs.value_object_doc import ValueObjectDoc
 from aod._internal.schema.infrastructure import Infrastructure
 from aod._internal.schema.module import Module
-from aod._internal.schema.app import App
-
+from aod.domain import Field
+from pydantic.fields import FieldInfo
 
 # ---- Domain types for tests ----
 
@@ -79,7 +78,7 @@ class IntId(EntityId):
 
 
 class Order(RootEntity):
-    id: OrderId
+    id: OrderId = Field(id=True)
     total: float = 0.0
 
     def add_line(self, product_id: str, quantity: int) -> None:
@@ -87,7 +86,7 @@ class Order(RootEntity):
 
 
 class LineItem(Entity):
-    id: IntId
+    id: IntId = Field(id=True)
     sku: str
 
 

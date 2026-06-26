@@ -4,7 +4,7 @@ import pytest
 from aod._internal.core.base_guarded import inherit_context
 from aod._internal.core.base_sealed import BaseSealed
 from aod._internal.core.domain_exception import MutationForbiddenException
-from aod._internal.core.fields.fields import PrivateField
+from aod._internal.core.fields.fields import Field, PrivateField
 from aod._internal.domain.entity import RootEntity
 from aod._internal.domain.entity_id import EntityId
 from aod._internal.domain.value_object import ValueObject
@@ -20,7 +20,7 @@ class StrId(EntityId):
 
 
 class MutableEntity(RootEntity):
-    id: StrId
+    id: StrId = Field(id=True)
     name: str
     counter: int = 0
 
@@ -32,7 +32,7 @@ class MutableEntity(RootEntity):
 
 
 class GuardedEntity(RootEntity):
-    id: StrId
+    id: StrId = Field(id=True)
     value: int = 0
     _allow_mutation: bool = PrivateField(default=False)
 
@@ -56,7 +56,7 @@ class ImmutableValueObject(ValueObject):
 
 
 class ParentEntity(RootEntity):
-    id: StrId
+    id: StrId = Field(id=True)
     child: MutableEntity | None = None
 
     def set_child_name(self, name: str) -> None:
@@ -101,7 +101,7 @@ class TestBasicMutation:
 
     def test_delattr_allowed_inside_public_method(self) -> None:
         class WithDelete(RootEntity):
-            id: StrId
+            id: StrId = Field(id=True)
             name: str
 
             def remove_name(self) -> None:
@@ -170,7 +170,7 @@ class TestNestedMutation:
 class TestImmutableProxies:
     def test_list_is_immutable_outside(self) -> None:
         class WithList(RootEntity):
-            id: StrId
+            id: StrId = Field(id=True)
             items: list[int] = []
 
             def add(self, v: int) -> None:
@@ -183,7 +183,7 @@ class TestImmutableProxies:
 
     def test_list_mutable_inside_method(self) -> None:
         class WithList(RootEntity):
-            id: StrId
+            id: StrId = Field(id=True)
             items: list[int] = []
 
             def add(self, v: int) -> None:
@@ -196,7 +196,7 @@ class TestImmutableProxies:
 
     def test_dict_is_immutable_outside(self) -> None:
         class WithDict(RootEntity):
-            id: StrId
+            id: StrId = Field(id=True)
             data: dict[str, int] = {}
 
         e = WithDict(id=StrId(value="1"))
@@ -206,7 +206,7 @@ class TestImmutableProxies:
 
     def test_set_is_immutable_outside(self) -> None:
         class WithSet(RootEntity):
-            id: StrId
+            id: StrId = Field(id=True)
             tags: set[str] = set()
 
         e = WithSet(id=StrId(value="1"))

@@ -95,7 +95,7 @@ class TestExtractPydanticModel:
             city: str
 
         class User(RootEntity):
-            id: IntId
+            id: IntId = Field(id=True)
             name: str
             address: Address
 
@@ -111,7 +111,7 @@ class TestExtractPydanticModel:
             city: str
 
         class User(RootEntity):
-            id: IntId
+            id: IntId = Field(id=True)
             address: Address
 
         pydantic_model = make_base_model(User)

@@ -3,6 +3,7 @@ from __future__ import annotations
 import pytest
 from aod._internal.application.logger.null_logger import NullLogger
 from aod._internal.application.port import Port
+from aod._internal.core.fields.fields import Field
 from aod._internal.core.infrastructure_exception import PortNotFoundError, SessionNotFoundError
 from aod._internal.domain.entity_id import EntityId
 from aod._internal.infrastructure.container import AdapterContainer, extract_port_type
@@ -20,7 +21,7 @@ class IntId(EntityId):
 
 
 class User(RootEntity):
-    id: IntId
+    id: IntId = Field(id=True)
     name: str
 
 

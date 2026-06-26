@@ -141,3 +141,13 @@ class TooManyEntityIdsException(DomainException):
         super().__init__(
             f"Entity '{cls_name}' must have exactly one EntityId field, found multiple"
         )
+
+
+class InvalidIdentityFieldTypeError(DomainException):
+    """Raised when Field(id=True) is used on a field that is not an EntityId subclass."""
+
+    def __init__(self, cls_name: str, field_name: str, type_name: str) -> None:
+        super().__init__(
+            f"Entity '{cls_name}' field '{field_name}' is marked as identity "
+            f"but has type '{type_name}', which is not an EntityId subclass"
+        )

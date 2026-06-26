@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import pytest
-
 from aod._internal.application.contracts import Command, Query
 from aod._internal.application.handler import CommandPort, QueryPort
 from aod._internal.application.port import Port
@@ -25,7 +24,7 @@ from aod._internal.schema.app import App
 from aod._internal.schema.bounded_context import BoundedContext
 from aod._internal.schema.infrastructure import Infrastructure
 from aod._internal.schema.module import Module
-
+from aod.domain import Field
 
 # ---- Domain types ----
 
@@ -39,18 +38,18 @@ class OrderId(EntityId):
 
 
 class LineItem(Entity):
-    id: IntId
+    id: IntId = Field(id=True)
     sku: str
 
 
 class Order(RootEntity):
-    id: OrderId
+    id: OrderId = Field(id=True)
     total: float = 0.0
     lines: list[LineItem] = []
 
 
 class Invoice(RootEntity):
-    id: IntId
+    id: IntId = Field(id=True)
     amount: float
 
 

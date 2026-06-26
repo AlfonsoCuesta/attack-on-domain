@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import pytest
-
 from aod._internal.application.contracts import Command, Query
 from aod._internal.application.handler import CommandPort, QueryPort
 from aod._internal.application.port import Port
@@ -15,12 +14,12 @@ from aod._internal.core.domain_exception import (
     MissingHandlerError,
 )
 from aod._internal.domain.entity import Entity, RootEntity
-from aod._internal.domain.service import Service
 from aod._internal.domain.entity_id import EntityId
+from aod._internal.domain.service import Service
 from aod._internal.infrastructure.handlers import CommandHandler, QueryHandler
 from aod._internal.infrastructure.session import Session
 from aod._internal.schema import App, AutoDoc, BoundedContext, Infrastructure, Module
-
+from aod.domain import Field
 
 # ---- Test domain types ----
 
@@ -34,7 +33,7 @@ class OrderId(EntityId):
 
 
 class Order(RootEntity):
-    id: OrderId
+    id: OrderId = Field(id=True)
     total: float = 0.0
 
 
@@ -145,7 +144,7 @@ class TestSchemaConsistencyChecks:
 
     def test_bounded_context_rejects_non_root_entity(self) -> None:
         class LineItem(Entity):
-            id: IntId
+            id: IntId = Field(id=True)
 
         with pytest.raises(InvalidRootEntityTypeError):
             BoundedContext(aggregate_roots=[LineItem])  # ty: ignore[invalid-argument-type]

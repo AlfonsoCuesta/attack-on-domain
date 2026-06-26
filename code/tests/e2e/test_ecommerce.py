@@ -6,7 +6,7 @@ from aod._internal.application.port import Port
 from aod._internal.application.use_case import UseCase
 from aod._internal.core.domain_exception import MutationForbiddenException
 from aod._internal.core.event_emitter import Event
-from aod._internal.core.fields.fields import PrivateField
+from aod._internal.core.fields.fields import Field, PrivateField
 from aod._internal.domain.app import App
 from aod._internal.domain.bounded_context import BoundedContext
 from aod._internal.domain.entity import Entity, RootEntity
@@ -61,7 +61,7 @@ class OrderCancelled(Event):
 
 
 class Customer(RootEntity):
-    id: IntId
+    id: IntId = Field(id=True)
     name: str
     email: str
     shipping_address: Address
@@ -71,14 +71,14 @@ class Customer(RootEntity):
 
 
 class Product(Entity):
-    id: IntId
+    id: IntId = Field(id=True)
     sku: str
     name: str
     price: Money
 
 
 class Order(RootEntity):
-    id: IntId
+    id: IntId = Field(id=True)
     customer_id: str
     lines: list[OrderLine]
     shipped: bool = False

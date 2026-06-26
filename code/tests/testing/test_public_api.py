@@ -152,6 +152,7 @@ def test_aod_exceptions_documented_api() -> None:
         "HandlerResultTypeError",
         "InfrastructureException",
         "InvalidCommandFieldTypeError",
+        "InvalidIdentityFieldTypeError",
         "InvalidEntityTypeError",
         "InvalidGenericTypeArgError",
         "InvalidHandlerPortFieldError",

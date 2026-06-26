@@ -5,6 +5,7 @@ from aod._internal.core.event_emitter import Event, EventCollector
 from aod._internal.domain.entity import Entity, RootEntity
 from aod._internal.domain.entity_id import EntityId
 from aod._internal.domain.value_object import ValueObject
+from aod.domain import Field
 
 
 class IntId(EntityId):
@@ -31,7 +32,7 @@ def test_entity_post_init_runs_on_normal_construction() -> None:
     called: list[bool] = []
 
     class User(Entity):
-        id: IntId
+        id: IntId = Field(id=True)
 
         def __post_init__(self) -> None:
             called.append(True)
@@ -45,7 +46,7 @@ def test_entity_post_init_does_not_run_on_reconstruct() -> None:
     called: list[bool] = []
 
     class User(Entity):
-        id: IntId
+        id: IntId = Field(id=True)
 
         def __post_init__(self) -> None:
             called.append(True)
@@ -60,7 +61,7 @@ def test_entity_post_init_can_emit_events() -> None:
         user_id: int
 
     class User(Entity):
-        id: IntId
+        id: IntId = Field(id=True)
 
         def __post_init__(self) -> None:
             self._event_emitter.emit(UserCreated(user_id=self.id.value))
@@ -78,7 +79,7 @@ def test_entity_post_init_does_not_emit_on_reconstruct() -> None:
         user_id: int
 
     class User(Entity):
-        id: IntId
+        id: IntId = Field(id=True)
 
         def __post_init__(self) -> None:
             self._event_emitter.emit(UserCreated(user_id=self.id.value))
@@ -93,7 +94,7 @@ def test_entity_post_init_events_collected_by_event_collector() -> None:
         user_id: int
 
     class User(Entity):
-        id: IntId
+        id: IntId = Field(id=True)
 
         def __post_init__(self) -> None:
             self._event_emitter.emit(UserCreated(user_id=self.id.value))
@@ -108,7 +109,7 @@ def test_entity_post_init_events_collected_by_event_collector() -> None:
 
 def test_entity_post_init_can_call_public_methods() -> None:
     class User(Entity):
-        id: IntId
+        id: IntId = Field(id=True)
 
         called: list[bool] = []
 
@@ -125,7 +126,7 @@ def test_entity_post_init_can_call_public_methods() -> None:
 
 def test_entity_post_init_can_set_fields() -> None:
     class User(Entity):
-        id: IntId
+        id: IntId = Field(id=True)
         label: str = ""
 
         def __post_init__(self) -> None:
@@ -140,7 +141,7 @@ def test_entity_post_init_not_called_on_reconstruct_with_custom_init() -> None:
     post_init_ran: list[bool] = []
 
     class User(Entity):
-        id: IntId
+        id: IntId = Field(id=True)
 
         def __post_init__(self) -> None:
             post_init_ran.append(True)
@@ -160,7 +161,7 @@ def test_root_entity_post_init_runs_on_normal_construction() -> None:
     called: list[bool] = []
 
     class Aggregate(RootEntity):
-        id: IntId
+        id: IntId = Field(id=True)
 
         def __post_init__(self) -> None:
             called.append(True)
@@ -175,7 +176,7 @@ def test_root_entity_post_init_emits_events() -> None:
         aggregate_id: int
 
     class Aggregate(RootEntity):
-        id: IntId
+        id: IntId = Field(id=True)
 
         def __post_init__(self) -> None:
             self._event_emitter.emit(AggregateCreated(aggregate_id=self.id.value))
@@ -306,13 +307,14 @@ def test_post_init_calls_super_in_entity_inheritance() -> None:
     called: list[str] = []
 
     class BaseEntity(Entity):
-        id: IntId
+        id: IntId = Field(id=True)
         x: int
 
         def __post_init__(self) -> None:
             called.append("base")
 
     class ChildEntity(BaseEntity):
+        id: IntId = Field(id=True)
         y: int
 
         def __post_init__(self) -> None:
@@ -328,13 +330,14 @@ def test_post_init_inherits_from_entity_parent() -> None:
     called: list[str] = []
 
     class BaseEntity(Entity):
-        id: IntId
+        id: IntId = Field(id=True)
         x: int
 
         def __post_init__(self) -> None:
             called.append("base")
 
     class ChildEntity(BaseEntity):
+        id: IntId = Field(id=True)
         y: int
 
     ChildEntity(id=IntId(value=1), x=1, y=2)
@@ -346,13 +349,14 @@ def test_post_init_not_called_on_reconstruct_with_inheritance() -> None:
     called: list[str] = []
 
     class BaseEntity(Entity):
-        id: IntId
+        id: IntId = Field(id=True)
         x: int
 
         def __post_init__(self) -> None:
             called.append("base")
 
     class ChildEntity(BaseEntity):
+        id: IntId = Field(id=True)
         y: int
 
         def __post_init__(self) -> None:
@@ -377,13 +381,13 @@ def test_multiple_entities_each_emit_own_events_via_post_init() -> None:
         order_id: int
 
     class User(RootEntity):
-        id: IntId
+        id: IntId = Field(id=True)
 
         def __post_init__(self) -> None:
             self._event_emitter.emit(UserCreated(user_id=self.id.value))
 
     class Order(RootEntity):
-        id: IntId
+        id: IntId = Field(id=True)
 
         def __post_init__(self) -> None:
             self._event_emitter.emit(OrderCreated(order_id=self.id.value))

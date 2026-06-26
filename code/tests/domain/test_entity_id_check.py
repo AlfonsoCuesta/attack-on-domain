@@ -1,7 +1,11 @@
 from __future__ import annotations
 
 import pytest
-from aod._internal.core.domain_exception import NoEntityIdException, TooManyEntityIdsException
+from aod._internal.core.domain_exception import (
+    InvalidIdentityFieldTypeError,
+    NoEntityIdException,
+    TooManyEntityIdsException,
+)
 from aod._internal.core.fields.fields import Field
 from aod._internal.domain.entity import Entity, RootEntity
 from aod._internal.domain.entity_id import EntityId
@@ -30,7 +34,7 @@ class TestEntityRequiresEntityId:
                 name: str
 
     def test_entity_with_multiple_entity_ids_raises_at_class_creation(self) -> None:
-        with pytest.raises(TooManyEntityIdsException, match="Entity 'BadEntity'"):
+        with pytest.raises(NoEntityIdException, match="Entity 'BadEntity'"):
 
             class BadEntity(Entity):
                 id1: UserId
@@ -40,14 +44,14 @@ class TestEntityRequiresEntityId:
 class TestEntityIdFieldDetection:
     def test_single_entity_id_detected(self) -> None:
         class GoodEntity(Entity):
-            id: UserId
+            id: UserId = Field(id=True)
             name: str
 
         assert GoodEntity(id=UserId(value="x"), name="test").__entity_id_field_name__ == "id"
 
     def test_root_entity_single_entity_id_detected(self) -> None:
         class GoodRoot(RootEntity):
-            entity_id: UserId
+            entity_id: UserId = Field(id=True)
             data: str
 
         assert (
@@ -59,7 +63,7 @@ class TestEntityIdFieldDetection:
 class TestEntityIdProperty:
     def test_property_returns_entity_id_value(self) -> None:
         class User(Entity):
-            id: UserId
+            id: UserId = Field(id=True)
             name: str
 
         uid = UserId(value="abc")
@@ -68,7 +72,7 @@ class TestEntityIdProperty:
 
     def test_root_entity_id_property(self) -> None:
         class Admin(RootEntity):
-            eid: UserId
+            eid: UserId = Field(id=True)
             role: str
 
         uid = UserId(value="admin-1")
@@ -79,7 +83,7 @@ class TestEntityIdProperty:
 class TestEntityEqByEntityId:
     def test_same_entity_id_equals(self) -> None:
         class User(Entity):
-            id: UserId
+            id: UserId = Field(id=True)
             name: str
 
         uid = UserId(value="abc")
@@ -91,7 +95,7 @@ class TestEntityEqByEntityId:
 
     def test_different_entity_id_not_equal(self) -> None:
         class User(Entity):
-            id: UserId
+            id: UserId = Field(id=True)
             name: str
 
         u1 = User(id=UserId(value="a"), name="alice")
@@ -101,11 +105,11 @@ class TestEntityEqByEntityId:
 
     def test_different_types_not_equal(self) -> None:
         class User(Entity):
-            id: UserId
+            id: UserId = Field(id=True)
             name: str
 
         class Admin(Entity):
-            id: OtherId
+            id: OtherId = Field(id=True)
             role: str
 
         u = User(id=UserId(value="1"), name="x")
@@ -115,7 +119,7 @@ class TestEntityEqByEntityId:
 
     def test_self_equality(self) -> None:
         class User(Entity):
-            id: UserId
+            id: UserId = Field(id=True)
             name: str
 
         u = User(id=UserId(value="x"), name="test")
@@ -125,7 +129,7 @@ class TestEntityEqByEntityId:
 class TestEntityHash:
     def test_equal_entities_have_same_hash(self) -> None:
         class User(Entity):
-            id: UserId
+            id: UserId = Field(id=True)
             name: str
 
         uid = UserId(value="same")
@@ -180,3 +184,20 @@ class TestIdentityFieldMarker:
             class BadEntity(Entity):
                 id1: UserId = Field(id=True)
                 id2: OtherId = Field(id=True)
+
+
+class TestInvalidIdentityFieldType:
+    def test_field_id_with_non_entity_id_type_raises(self) -> None:
+        with pytest.raises(InvalidIdentityFieldTypeError, match="Entity 'BadEntity'"):
+
+            class BadEntity(Entity):
+                id: str = Field(id=True)
+
+    def test_field_id_with_non_entity_id_value_object_raises(self) -> None:
+        class NotAnId(ValueObject):
+            value: str
+
+        with pytest.raises(InvalidIdentityFieldTypeError, match="Entity 'BadEntity'"):
+
+            class BadEntity(Entity):
+                id: NotAnId = Field(id=True)

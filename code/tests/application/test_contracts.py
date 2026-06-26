@@ -6,6 +6,7 @@ from aod._internal.application.contracts.contracts import (
 )
 from aod._internal.domain.entity import RootEntity
 from aod._internal.domain.entity_id import EntityId
+from aod.domain import Field
 
 
 class IntId(EntityId):
@@ -13,7 +14,7 @@ class IntId(EntityId):
 
 
 class User(RootEntity):
-    id: IntId
+    id: IntId = Field(id=True)
     name: str
 
 

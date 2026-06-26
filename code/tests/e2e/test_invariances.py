@@ -7,7 +7,7 @@ from aod._internal.domain.entity import RootEntity
 from aod._internal.domain.entity_id import EntityId
 from aod._internal.domain.value_object import ValueObject
 from aod._internal.testing.helpers import build, check_invariant
-
+from aod.domain import Field
 
 # ---------------------------------------------------------------------------
 # Domain objects with invariances
@@ -59,7 +59,7 @@ class StrId(EntityId):
 
 
 class Order(RootEntity):
-    id: StrId
+    id: StrId = Field(id=True)
     lines: list[OrderLine]
     total: int = 0
 
@@ -71,7 +71,7 @@ class Order(RootEntity):
 
 
 class User(RootEntity):
-    id: StrId
+    id: StrId = Field(id=True)
     name: str
     email: Email
     age: Age

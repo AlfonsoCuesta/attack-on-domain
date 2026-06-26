@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import pytest
 from aod._internal.application.port import Port
+from aod._internal.core.fields.fields import Field
 from aod._internal.core.infrastructure_exception import (
     DuplicateHandlerError,
     HandlerModelError,
@@ -25,7 +26,7 @@ class IntId(EntityId):
 
 
 class User(RootEntity):
-    id: IntId
+    id: IntId = Field(id=True)
     name: str
 
 

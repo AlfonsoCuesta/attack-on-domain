@@ -9,7 +9,7 @@ from aod._internal.application.handler import CommandPort as AppCommandPort
 from aod._internal.application.handler import QueryPort as AppQueryPort
 from aod._internal.application.logger import Logger
 from aod._internal.application.use_case import UseCase
-from aod._internal.core.fields.fields import PrivateField
+from aod._internal.core.fields.fields import Field, PrivateField
 from aod._internal.domain.entity import RootEntity
 from aod._internal.domain.entity_id import EntityId
 from aod._internal.infrastructure.container import AdapterContainer
@@ -23,7 +23,7 @@ class IntId(EntityId):
 
 
 class User(RootEntity):
-    id: IntId
+    id: IntId = Field(id=True)
     name: str
     email: str
 

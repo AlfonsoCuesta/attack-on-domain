@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from aod._internal.application.contracts import Command
+from aod._internal.core.fields.fields import Field
 from aod._internal.domain.entity import RootEntity
 from aod._internal.domain.entity_id import EntityId
 from aod._internal.infrastructure.container import AdapterContainer
@@ -14,7 +15,7 @@ class IntId(EntityId):
 
 
 class User(RootEntity):
-    id: IntId
+    id: IntId = Field(id=True)
     name: str
 
 

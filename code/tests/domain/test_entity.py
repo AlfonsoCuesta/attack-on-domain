@@ -5,7 +5,7 @@ from __future__ import annotations
 import pytest
 from aod._internal.core.domain_exception import ModelValidationError, MutationForbiddenException
 from aod._internal.core.event_emitter import Event, EventCollector
-from aod._internal.core.fields import PrivateField
+from aod._internal.core.fields import Field, PrivateField
 from aod._internal.domain.entity import Entity, RootEntity
 from aod._internal.domain.entity_id import EntityId
 from aod._internal.domain.value_object import ValueObject
@@ -25,23 +25,23 @@ class UserCreated(Event):
 
 
 class User(RootEntity):
-    id: IntId
+    id: IntId = Field(id=True)
     name: str
     address: Address
 
 
 class SimpleEntity(Entity):
-    id: IntId
+    id: IntId = Field(id=True)
     value: str
 
 
 class EntityWithPrivate(RootEntity):
-    id: IntId
+    id: IntId = Field(id=True)
     _secret: str = PrivateField(default="hidden")
 
 
 class EntityWithDefaults(RootEntity):
-    id: IntId
+    id: IntId = Field(id=True)
     name: str = "unknown"
     score: float = 0.0
 

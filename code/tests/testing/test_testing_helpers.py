@@ -3,10 +3,12 @@ from __future__ import annotations
 import pytest
 from aod._internal.core.domain_exception import InvarianceException, ModelValidationError
 from aod._internal.core.event_emitter import Event
+from aod._internal.core.fields.fields import Field
 from aod._internal.domain.entity import RootEntity
 from aod._internal.domain.entity_id import EntityId
 from aod._internal.domain.service import Service
 from aod._internal.domain.value_object import ValueObject
+from aod.domain.validation import field_invariance, invariance
 from aod.testing import (
     assert_event_emitted,
     assert_no_events,
@@ -14,20 +16,19 @@ from aod.testing import (
     check_invariant,
     events_of,
 )
-from aod.domain.validation import field_invariance, invariance
 
 
 class IntId(EntityId):
     value: int
 
 
-# ── build ────────────────────────────────────────────────────────────────────
+# -- build ----------------------------------------------------------------------
 
 
 class TestBuild:
     def test_entity(self) -> None:
         class User(RootEntity):
-            id: IntId
+            id: IntId = Field(id=True)
             name: str
 
         u = build(User, id=IntId(value=1), name="Alf")
@@ -53,7 +54,7 @@ class TestBuild:
 
     def test_resets_contextvar(self) -> None:
         class User(RootEntity):
-            id: IntId
+            id: IntId = Field(id=True)
 
         u1 = build(User, id=IntId(value=1))
         u2 = build(User, id=IntId(value=2))
@@ -62,13 +63,13 @@ class TestBuild:
 
     def test_raises_on_missing_required(self) -> None:
         class User(RootEntity):
-            id: IntId
+            id: IntId = Field(id=True)
 
         with pytest.raises(ModelValidationError):
             build(User)
 
 
-# ── events_of ────────────────────────────────────────────────────────────────
+# -- events_of ------------------------------------------------------------------
 
 
 class TestEventsOf:
@@ -77,7 +78,7 @@ class TestEventsOf:
             user_id: int
 
         class User(RootEntity):
-            id: IntId
+            id: IntId = Field(id=True)
 
             def __post_init__(self) -> None:
                 self._event_emitter.emit(UserCreated(user_id=self.id.value))
@@ -90,13 +91,13 @@ class TestEventsOf:
 
     def test_empty_when_no_events(self) -> None:
         class User(RootEntity):
-            id: IntId
+            id: IntId = Field(id=True)
 
         u = build(User, id=IntId(value=1))
         assert events_of(u) == []
 
 
-# ── assert_event_emitted ─────────────────────────────────────────────────────
+# -- assert_event_emitted -------------------------------------------------------
 
 
 class TestAssertEventEmitted:
@@ -133,7 +134,7 @@ class TestAssertEventEmitted:
             assert_event_emitted(events, UserCreated, user_id=99)
 
 
-# ── assert_no_events ─────────────────────────────────────────────────────────
+# -- assert_no_events -----------------------------------------------------------
 
 
 class TestAssertNoEvents:
@@ -148,13 +149,13 @@ class TestAssertNoEvents:
             assert_no_events([OrderPlaced(order_id=1)])
 
 
-# ── check_invariant ──────────────────────────────────────────────────────────
+# -- check_invariant ------------------------------------------------------------
 
 
 class TestCheckInvariant:
     def test_field_invariance_passes(self) -> None:
         class User(RootEntity):
-            id: IntId
+            id: IntId = Field(id=True)
             username: str | None = None
 
             @field_invariance("username")
@@ -167,7 +168,7 @@ class TestCheckInvariant:
 
     def test_field_invariance_raises(self) -> None:
         class User(RootEntity):
-            id: IntId
+            id: IntId = Field(id=True)
             username: str | None = None
 
             @field_invariance("username")
@@ -181,7 +182,7 @@ class TestCheckInvariant:
 
     def test_model_invariance_passes(self) -> None:
         class User(RootEntity):
-            id: IntId
+            id: IntId = Field(id=True)
             username: str | None = None
             age: int
 
@@ -194,7 +195,7 @@ class TestCheckInvariant:
 
     def test_model_invariance_raises(self) -> None:
         class User(RootEntity):
-            id: IntId
+            id: IntId = Field(id=True)
             username: str | None = None
             age: int
 
@@ -208,7 +209,7 @@ class TestCheckInvariant:
 
     def test_raises_on_unknown_name(self) -> None:
         class User(RootEntity):
-            id: IntId
+            id: IntId = Field(id=True)
             username: str | None = None
 
         with pytest.raises(ValueError, match="does_not_exist"):

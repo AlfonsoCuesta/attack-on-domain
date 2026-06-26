@@ -13,6 +13,7 @@ from aod._internal.infrastructure.handlers import CommandHandler, QueryHandler
 from aod._internal.infrastructure.handlers.handlers import AsyncCommandHandler
 from aod._internal.infrastructure.projection.projection import ProjectionBase
 from aod._internal.infrastructure.session import AsyncSession, Session
+from aod.domain import Field
 
 
 class IntId(EntityId):
@@ -20,7 +21,7 @@ class IntId(EntityId):
 
 
 class User(RootEntity):
-    id: IntId
+    id: IntId = Field(id=True)
     name: str
 
 

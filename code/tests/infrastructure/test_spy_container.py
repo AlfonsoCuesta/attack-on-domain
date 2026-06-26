@@ -9,6 +9,7 @@ from aod._internal.application.logger import Logger
 from aod._internal.application.port import Port
 from aod._internal.application.use_case import UseCase
 from aod._internal.core.event_emitter import Event
+from aod._internal.core.fields.fields import Field
 from aod._internal.core.infrastructure_exception import PortNotFoundError
 from aod._internal.domain.entity_id import EntityId
 from aod._internal.infrastructure.container import AdapterContainer
@@ -27,7 +28,7 @@ class IntId(EntityId):
 
 
 class User(RootEntity):
-    id: IntId
+    id: IntId = Field(id=True)
     name: str
 
 

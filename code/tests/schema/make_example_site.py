@@ -40,6 +40,7 @@ from aod._internal.schema.bounded_context import BoundedContext
 from aod._internal.schema.infrastructure import Infrastructure
 from aod._internal.schema.module import Module
 from aod._internal.schema.render import AutoDoc
+from aod.domain import Field
 
 # ---- Value Objects ----
 
@@ -84,7 +85,7 @@ class InvoiceId(EntityId):
 class Customer(Entity):
     """A customer in the e-commerce platform."""
 
-    id: CustomerId
+    id: CustomerId = Field(id=True)
     name: str
     address: Address
 
@@ -95,7 +96,7 @@ class Customer(Entity):
 class Order(RootEntity):
     """Root aggregate for the ordering subdomain."""
 
-    id: OrderId
+    id: OrderId = Field(id=True)
     lines: list[OrderLine] = []
     total: float = 0.0
     total: float = 0.0
@@ -108,7 +109,7 @@ class Order(RootEntity):
 class Invoice(RootEntity):
     """Root aggregate for the invoicing subdomain."""
 
-    id: InvoiceId
+    id: InvoiceId = Field(id=True)
     order_id: str
     amount: float = 0.0
     paid: bool = False
