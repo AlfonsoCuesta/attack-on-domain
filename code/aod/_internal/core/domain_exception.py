@@ -135,7 +135,7 @@ class NoEntityIdException(DomainException):
 
 
 class TooManyEntityIdsException(DomainException):
-    """Raised when an Entity subclass has more than one EntityId-typed field."""
+    """Raised when an Entity subclass has more than one EntityId field and no Field(id=True)."""
 
     def __init__(self, cls_name: str) -> None:
         super().__init__(

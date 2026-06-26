@@ -7,6 +7,7 @@ from typing import Any
 from aod._internal.core.event_emitter import Event
 from aod._internal.domain import RootEntity, ValueObject
 from aod._internal.domain.entity_id import EntityId
+from aod.domain import Field
 
 
 class UserCreated(Event):
@@ -29,7 +30,7 @@ class IntId(EntityId):
 
 
 class User(RootEntity):
-    id: IntId
+    id: IntId = Field(id=True)
     name: str
     address: Address | None = None
 

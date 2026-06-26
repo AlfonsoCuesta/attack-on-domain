@@ -11,10 +11,14 @@ class Unset:
         return "UNSET FIELD"
 
 
+_IDENTITY_MARKER = object()
+
+
 @overload
 def Field(
     default: Any,
     *,
+    id: bool = ...,
     default_factory: Callable[[], Any] | None = ...,
     gt: annotated_types.SupportsGt | None = ...,
     ge: annotated_types.SupportsGe | None = ...,
@@ -37,6 +41,7 @@ def Field(
 def Field(
     *,
     default_factory: Callable[[], Any],
+    id: bool = ...,
     gt: annotated_types.SupportsGt | None = ...,
     ge: annotated_types.SupportsGe | None = ...,
     lt: annotated_types.SupportsLt | None = ...,
@@ -57,6 +62,7 @@ def Field(
 @overload
 def Field(
     *,
+    id: bool = ...,
     gt: annotated_types.SupportsGt | None = ...,
     ge: annotated_types.SupportsGe | None = ...,
     lt: annotated_types.SupportsLt | None = ...,
@@ -75,7 +81,13 @@ def Field(
 
 
 def Field(default: Any = ..., **kwargs: Any) -> Any:
-    return PField(default, **kwargs)
+    id_flag = kwargs.pop("id", False)
+    field_info = PField(default, **kwargs)
+    if id_flag:
+        existing = list(field_info.metadata)
+        existing.append(_IDENTITY_MARKER)
+        object.__setattr__(field_info, "metadata", existing)
+    return field_info
 
 
 @overload

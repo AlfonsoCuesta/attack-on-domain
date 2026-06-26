@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import pytest
 from aod._internal.core.domain_exception import NoEntityIdException, TooManyEntityIdsException
+from aod._internal.core.fields.fields import Field
 from aod._internal.domain.entity import Entity, RootEntity
 from aod._internal.domain.entity_id import EntityId
 from aod._internal.domain.value_object import ValueObject
@@ -141,3 +142,41 @@ class TestEntityIdValueObjectStillWorks:
         m1 = Money(amount=10.0)
         m2 = Money(amount=10.0)
         assert m1 == m2
+
+
+class TestIdentityFieldMarker:
+    def test_field_id_true_resolves_identity(self) -> None:
+        class User(Entity):
+            id: UserId = Field(id=True)
+            father: UserId
+            pets: list[OtherId]
+
+        uid = UserId(value="abc")
+        u = User(id=uid, father=UserId(value="dad"), pets=[OtherId(key="pet1")])
+        assert u.__entity_id_field_name__ == "id"
+        assert u.__entity_id__ is uid
+
+    def test_root_entity_with_multiple_same_type_ids(self) -> None:
+        class User(RootEntity):
+            id: UserId = Field(id=True)
+            father: UserId
+
+        uid = UserId(value="me")
+        u = User(id=uid, father=UserId(value="dad"))
+        assert u.__entity_id_field_name__ == "id"
+
+    def test_field_id_overrides_entity_id_detection(self) -> None:
+        class Doc(Entity):
+            doc_id: OtherId = Field(id=True)
+            owner: UserId
+
+        oid = OtherId(key="doc-1")
+        d = Doc(doc_id=oid, owner=UserId(value="owner-1"))
+        assert d.__entity_id_field_name__ == "doc_id"
+
+    def test_too_many_field_id_markers_raises(self) -> None:
+        with pytest.raises(TooManyEntityIdsException, match="Entity 'BadEntity'"):
+
+            class BadEntity(Entity):
+                id1: UserId = Field(id=True)
+                id2: OtherId = Field(id=True)

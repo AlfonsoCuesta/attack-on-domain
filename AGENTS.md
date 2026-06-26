@@ -451,7 +451,7 @@ class Entity(ReconstructMixin, BaseGuarded):
 - **Override**: subclasses override `can_mutate()` to return `False` or a dynamic condition:
   ```python
   class User(RootEntity):
-      id: UserId
+      id: UserId = Field(id=True)
       _locked: bool = PrivateField(default=False)
 
       def can_mutate(self) -> bool:
@@ -468,7 +468,7 @@ The `@mutable` decorator (exposed as `from aod.domain.validation import mutable`
 from aod.domain.validation import mutable
 
 class User(RootEntity):
-    id: UserId
+    id: UserId = Field(id=True)
     _locked: bool = PrivateField(default=False)
 
     def can_mutate(self) -> bool:
@@ -504,11 +504,11 @@ Defined on `BaseValidator` (empty) and called from `BaseValidator.__init__`. Onl
 
 ```python
 class User(RootEntity):
-    id: int
+    id: UserId = Field(id=True)
     name: str
 
     def __post_init__(self):
-        self._event_emitter.emit(UserCreatedEvent(user_id=self.id))
+        self._event_emitter.emit(UserCreatedEvent(user_id=self.id.value))
         self.setup_defaults()
 
     def setup_defaults(self):
@@ -532,12 +532,24 @@ Both run at construction time but serve different purposes:
 
 Do NOT override `__init__` — use `__post_init__` instead. See `docs/domain/entities.md` for detailed guidance.
 
-### EntityId Requirement
+### Identity Field
 
-Every `Entity` / `RootEntity` subclass must have exactly one field typed as an `EntityId` subclass. `Entity.__init_subclass__` enforces this at class creation time:
+Every `Entity` / `RootEntity` subclass must have exactly one identity field. The identity field is detected in two ways:
 
-- Zero `EntityId` fields → `NoEntityIdException`
-- Two or more `EntityId` fields → `TooManyEntityIdsException`
+1. **Explicit via `Field(id=True)`**: Mark any field as the identity:
+   ```python
+   class User(RootEntity):
+       id: UserId = Field(id=True)
+       father: UserId  # reference to another User, not the identity
+   ```
+   This allows entities with multiple `EntityId`-typed fields.
+
+2. **Fallback** (original behavior): If no `Field(id=True)` is found, the class must have exactly one field typed as an `EntityId` subclass.
+
+`Entity.__init_subclass__` enforces this at class creation time:
+- Zero identity fields → `NoEntityIdException` / `NoIdentityFieldException`
+- Multiple `Field(id=True)` → `TooManyIdentityFieldsException`
+- Two or more `EntityId` fields with no `Field(id=True)` → `TooManyEntityIdsException`
 
 `EntityId` is a `ValueObject` subclass — immutable, compared by value. Since entities use their `EntityId` for hashing, **mutating an entity's ID changes its hash**, which can cause issues if the entity is stored in a `set` or used as a `dict` key. Avoid mutating entity identities after construction. See `docs/domain/entity-id.md`.
 
