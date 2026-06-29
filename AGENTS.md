@@ -169,7 +169,7 @@ docs/
 │   └── concepts.md                   # DDD theory: VOs, Entities, Aggregates, Services, Events
 ├── domain/
 │   ├── entities.md                   # Entity, RootEntity: constructors, mutation, reconstruct, post_init vs invariance
-│   ├── entity-id.md                  # EntityId: identity value objects, hash caveat, evolve
+│   ├── entity-id.md                  # Identity Field: Field(id=True), hash caveat
 │   ├── value-objects.md              # ValueObject: immutability, equality, validation, post_init vs invariance
 │   ├── services.md                   # Service: stateless ops, event emission, type constraints
 │   ├── events.md                     # Event: emission, collection, EventCollector, assertions
@@ -212,7 +212,7 @@ code/
 │   ├── events.py                     # Public: Event, EventCollector (cross-layer)
 │   ├── py.typed                      # PEP 561 marker
 │   ├── domain/                       # Public domain layer (re-exports from _internal)
-│   │   ├── __init__.py               # Re-exports: App, BoundedContext, Entity, RootEntity, EntityId, Service, ValueObject, Field, PrivateField, DomainException
+│   │   ├── __init__.py               # Re-exports: Entity, RootEntity, Service, ValueObject, Field, PrivateField, DomainException
 │   │   └── validation/               # Public: AfterValidator, BeforeValidator, field_invariance, invariance, mutable
 │   ├── exceptions/__init__.py        # Public: all domain/app/infra exceptions
 │   ├── testing/                       # Public testing utilities
@@ -250,7 +250,6 @@ code/
 │       └── domain/                   # DDD domain primitives (implementation)
 │           ├── value_object.py
 │           ├── entity.py
-│           ├── entity_id.py
 │           ├── service.py
 │           ├── app.py
 │           ├── bounded_context.py
@@ -534,30 +533,30 @@ Do NOT override `__init__` — use `__post_init__` instead. See `docs/domain/ent
 
 ### Identity Field
 
-Every `Entity` / `RootEntity` subclass must have exactly one identity field. The identity field is detected in two ways:
+Every `Entity` / `RootEntity` subclass must have exactly one identity field, marked with `Field(id=True)`. The identity field can be any type — `int`, `str`, `UUID`, or a `ValueObject` subclass:
 
-1. **Explicit via `Field(id=True)`**: Mark any field as the identity:
-   ```python
-   class User(RootEntity):
-       id: UserId = Field(id=True)
-       father: UserId  # reference to another User, not the identity
-   ```
-   This allows entities with multiple `EntityId`-typed fields.
+```python
+class UserId(ValueObject):
+    value: str
 
-2. **Fallback** (original behavior): If no `Field(id=True)` is found, the class must have exactly one field typed as an `EntityId` subclass.
+class User(RootEntity):
+    id: UserId = Field(id=True)
+    name: str
+    father: int  # reference to another User, not the identity
+```
+
+This allows entities with multiple fields of the same type, where only one is the identity.
 
 `Entity.__init_subclass__` enforces this at class creation time:
-- Zero identity fields → `NoEntityIdException` / `NoIdentityFieldException`
-- Multiple `Field(id=True)` → `TooManyIdentityFieldsException`
-- Two or more `EntityId` fields with no `Field(id=True)` → `TooManyEntityIdsException`
+- Zero fields with `Field(id=True)` → `NoIdentityFieldException`
+- Multiple fields with `Field(id=True)` → `TooManyIdentityFieldsException`
 
-`EntityId` is a `ValueObject` subclass — immutable, compared by value. Since entities use their `EntityId` for hashing, **mutating an entity's ID changes its hash**, which can cause issues if the entity is stored in a `set` or used as a `dict` key. Avoid mutating entity identities after construction. See `docs/domain/entity-id.md`.
+Since entities use their identity field for hashing, **mutating an entity's ID changes its hash**, which can cause issues if the entity is stored in a `set` or used as a `dict` key. Avoid mutating entity identities after construction. See `docs/domain/entity-id.md`.
 
 ### Equality Behavior
 
 - **ValueObject**: compared by all public fields (`==` compares every annotated field; `PrivateField` attributes are excluded). Two VOs with identical public field values are equal.
-- **Entity / RootEntity**: compared only by their `EntityId`. Two entities with the same `EntityId` are equal regardless of other field values.
-- **EntityId**: compared by value (inherited from `ValueObject`).
+- **Entity / RootEntity**: compared only by their identity field. Two entities with the same identity value are equal regardless of other field values.
 
 ### Type Checking System (`type_handlers/`)
 Three check functions enforce DDD type constraints at `BoundedContext` construction:
@@ -617,7 +616,6 @@ The hierarchy:
 - `MutationForbiddenException(DomainException)` — mutation outside allowed context
 - `InvarianceException(DomainException, ValueError)` — field/model invariance violated
 - `InvalidCommandFieldTypeError` — Command/Query field references non-root Entity
-- `InvalidIdentityFieldTypeError` — `Field(id=True)` used on a field that is not an `EntityId` subclass
 - `InvalidValueObjectFieldError` — a `ValueObject` has a field marked with `Field(id=True)`, which is not allowed
 - `InvalidQueryResultTypeError` — `Query` TResult does not include a `RootEntity`
 - `InvalidGenericTypeArgError` — generic argument fails its constraint

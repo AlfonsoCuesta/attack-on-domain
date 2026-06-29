@@ -20,7 +20,6 @@ from aod._internal.application.handler import (
 from aod._internal.application.port import Port
 from aod._internal.application.use_case import AsyncUseCase, UseCase
 from aod._internal.domain.entity import Entity, RootEntity
-from aod._internal.domain.entity_id import EntityId
 from aod._internal.domain.service import Service
 from aod._internal.domain.value_object import ValueObject
 from aod._internal.infrastructure.handlers import (
@@ -45,18 +44,6 @@ from aod.domain import Field
 # ---- Value Objects ----
 
 
-class OrderId(EntityId):
-    """Unique identifier for an order in the system."""
-
-    value: str
-
-
-class CustomerId(EntityId):
-    """Unique identifier for a customer."""
-
-    value: str
-
-
 class Address(ValueObject):
     """Postal address for shipping and billing."""
 
@@ -73,19 +60,13 @@ class OrderLine(ValueObject):
     price: float
 
 
-class InvoiceId(EntityId):
-    """Unique identifier for an invoice."""
-
-    value: str
-
-
 # ---- Entities ----
 
 
 class Customer(Entity):
     """A customer in the e-commerce platform."""
 
-    id: CustomerId = Field(id=True)
+    id: str = Field(id=True)
     name: str
     address: Address
 
@@ -96,9 +77,8 @@ class Customer(Entity):
 class Order(RootEntity):
     """Root aggregate for the ordering subdomain."""
 
-    id: OrderId = Field(id=True)
+    id: str = Field(id=True)
     lines: list[OrderLine] = []
-    total: float = 0.0
     total: float = 0.0
 
     def add_line(self, product_id: str, quantity: int, price: float) -> None: ...
@@ -109,10 +89,9 @@ class Order(RootEntity):
 class Invoice(RootEntity):
     """Root aggregate for the invoicing subdomain."""
 
-    id: InvoiceId = Field(id=True)
+    id: str = Field(id=True)
     order_id: str
     amount: float = 0.0
-    paid: bool = False
     paid: bool = False
 
     def mark_paid(self) -> None: ...

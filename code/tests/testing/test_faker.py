@@ -5,7 +5,6 @@ from typing import get_args, get_origin
 import pytest
 from aod._internal.core.fields.fields import Field
 from aod._internal.domain.entity import RootEntity
-from aod._internal.domain.entity_id import EntityId
 from aod._internal.domain.service import Service
 from aod._internal.domain.value_object import ValueObject
 from aod._internal.testing.faker.faker import _flatten, _to_domain
@@ -19,12 +18,8 @@ class Address(ValueObject):
     city: str
 
 
-class IntId(EntityId):
-    value: int
-
-
 class User(RootEntity):
-    id: IntId = Field(id=True)
+    id: int = Field(id=True)
     name: str
     address: Address
 
@@ -129,26 +124,26 @@ class TestFakeDomainConstructor:
 class TestFakeDomainBuild:
     def test_entity_with_nested_value_object(self) -> None:
         JessicaUser = FakeDomain(User)
-        u = JessicaUser(id=IntId(value=1), name="Alf", address=Address(street="S", city="C"))
+        u = JessicaUser(id=1, name="Alf", address=Address(street="S", city="C"))
         assert isinstance(u, User)
-        assert u.id == IntId(value=1)
+        assert u.id == 1
         assert u.name == "Alf"
         assert u.address.street == "S"
 
     def test_defaults_are_applied(self) -> None:
         JessicaUser = FakeDomain(User, name="Jessica")
-        u = JessicaUser(id=IntId(value=1), address=Address(street="S", city="C"))
+        u = JessicaUser(id=1, address=Address(street="S", city="C"))
         assert u.name == "Jessica"
-        assert u.id == IntId(value=1)
+        assert u.id == 1
 
     def test_call_overrides_defaults(self) -> None:
         JessicaUser = FakeDomain(User, name="Jessica")
-        u = JessicaUser(id=IntId(value=1), name="Pablo", address=Address(street="S", city="C"))
+        u = JessicaUser(id=1, name="Pablo", address=Address(street="S", city="C"))
         assert u.name == "Pablo"
 
     def test_call_overrides_partial(self) -> None:
         JessicaUser = FakeDomain(User, name="Jessica")
-        u = JessicaUser(id=IntId(value=1), address=Address(street="S", city="C"))
+        u = JessicaUser(id=1, address=Address(street="S", city="C"))
         assert u.name == "Jessica"
 
     def test_value_object(self) -> None:
@@ -163,9 +158,9 @@ class TestFakeDomainBuild:
 
     def test_fills_missing_fields_with_fake_data(self) -> None:
         JessicaUser = FakeDomain(User, name="Jessica")
-        u = JessicaUser(id=IntId(value=1), address=Address(street="S", city="C"))
+        u = JessicaUser(id=1, address=Address(street="S", city="C"))
         assert u.name == "Jessica"
-        assert u.id == IntId(value=1)
+        assert u.id == 1
         assert isinstance(u.address, Address)
         assert u.address.street == "S"
 
@@ -173,17 +168,13 @@ class TestFakeDomainBuild:
 class TestFakeDomainBatch:
     def test_batch_with_count(self) -> None:
         JessicaUser = FakeDomain(User)
-        users = JessicaUser.batch(
-            3, [{"id": IntId(value=1)}, {"id": IntId(value=2)}, {"id": IntId(value=3)}]
-        )
+        users = JessicaUser.batch(3, [{"id": 1}, {"id": 2}, {"id": 3}])
         assert len(users) == 3
-        assert [u.id for u in users] == [IntId(value=1), IntId(value=2), IntId(value=3)]
+        assert [u.id for u in users] == [1, 2, 3]
 
     def test_batch_without_overrides(self) -> None:
         JessicaUser = FakeDomain(User, name="Jessica")
-        users = JessicaUser.batch(
-            3, [{"id": IntId(value=1)}, {"id": IntId(value=2)}, {"id": IntId(value=3)}]
-        )
+        users = JessicaUser.batch(3, [{"id": 1}, {"id": 2}, {"id": 3}])
         assert len(users) == 3
         for u in users:
             assert u.name == "Jessica"

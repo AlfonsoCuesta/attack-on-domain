@@ -15,7 +15,6 @@ from aod._internal.application.handler import (
 from aod._internal.application.port import Port
 from aod._internal.application.use_case import AsyncUseCase, UseCase
 from aod._internal.domain.entity import Entity, RootEntity
-from aod._internal.domain.entity_id import EntityId
 from aod._internal.domain.service import Service
 from aod._internal.domain.value_object import ValueObject
 from aod._internal.infrastructure.handlers import AsyncCommandHandler, CommandHandler, QueryHandler
@@ -38,30 +37,23 @@ from aod.domain import Field
 # ============================================================
 
 
-class OrderId(EntityId):
-    value: str
-
-
-class IntId(EntityId):
-    value: int
+class Address(ValueObject):
+    street: str
+    city: str
 
 
 class Order(RootEntity):
-    id: OrderId = Field(id=True)
+    id: str = Field(id=True)
     total: float = 0.0
+    shipping_address: Address
 
     def apply_discount(self, factor: float) -> None: ...
 
 
 class LineItem(Entity):
-    id: IntId = Field(id=True)
+    id: int = Field(id=True)
     product: str
     quantity: int
-
-
-class Address(ValueObject):
-    street: str
-    city: str
 
 
 class PricingService(Service):
@@ -375,7 +367,7 @@ class TestGlossary:
         assert "Root Entities" in html
         assert "Order" in html
         assert "Value Objects" in html
-        assert "OrderId" in html
+        assert "Address" in html
 
     def test_empty_domain(self) -> None:
         bc = BoundedContext(name="empty")
@@ -399,7 +391,7 @@ class TestGlossary:
         _make_spy(d)
         html = d._render_glossary(d.modules[0])
         assert "Root Entities" in html
-        assert "OrderId" in html
+        assert "Address" in html
         assert "Services" in html
         assert "PricingService" in html
 
@@ -422,7 +414,7 @@ class TestEntities:
     def test_value_objects(self, doc_spy: tuple[AutoDoc, list[tuple[Path, str]]]) -> None:
         d, _ = doc_spy
         html = d._render_entities(d.modules[0])
-        assert "OrderId" in html
+        assert "Address" in html
 
     def test_empty(self) -> None:
         bc = BoundedContext(name="empty")
@@ -731,7 +723,7 @@ class TestShared:
 
     def test_slug(self) -> None:
         assert AutoDoc._slug("Hello World") == "hello-world"
-        assert AutoDoc._slug("OrderId") == "orderid"
+        assert AutoDoc._slug("Order") == "order"
         assert AutoDoc._slug("my-use_case") == "my-use-case"
 
 

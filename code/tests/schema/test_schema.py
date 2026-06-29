@@ -15,7 +15,6 @@ from aod._internal.core.domain_exception import (
     MissingHandlerError,
 )
 from aod._internal.domain.entity import Entity, RootEntity
-from aod._internal.domain.entity_id import EntityId
 from aod._internal.domain.service import Service
 from aod._internal.infrastructure.handlers import CommandHandler, QueryHandler
 from aod._internal.infrastructure.projection import ReadProjection
@@ -29,27 +28,19 @@ from aod.domain import Field
 # ---- Domain types ----
 
 
-class IntId(EntityId):
-    value: int
-
-
-class OrderId(EntityId):
-    value: str
-
-
 class LineItem(Entity):
-    id: IntId = Field(id=True)
+    id: int = Field(id=True)
     sku: str
 
 
 class Order(RootEntity):
-    id: OrderId = Field(id=True)
+    id: str = Field(id=True)
     total: float = 0.0
     lines: list[LineItem] = []
 
 
 class Invoice(RootEntity):
-    id: IntId = Field(id=True)
+    id: int = Field(id=True)
     amount: float
 
 
@@ -235,8 +226,7 @@ class TestBoundedContext:
 
     def test_value_objects_discovered(self) -> None:
         bc = BoundedContext(aggregate_roots=[Order])
-        vo_names = {v.__name__ for v in bc.value_objects}
-        assert "OrderId" in vo_names
+        assert len(bc.value_objects) == 0
 
     def test_entities_discovered(self) -> None:
         bc = BoundedContext(aggregate_roots=[Order])

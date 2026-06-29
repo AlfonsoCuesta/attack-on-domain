@@ -22,7 +22,6 @@ def test_aod_domain_exports_documented_api() -> None:
     assert aod.domain.__all__ == [
         "DomainException",
         "Entity",
-        "EntityId",
         "RootEntity",
         "Service",
         "ValueObject",
@@ -46,7 +45,6 @@ def test_aod_domain_exceptions_documented_api() -> None:
         "InvalidCommandFieldTypeError",
         "InvalidEntityTypeError",
         "InvalidGenericTypeArgError",
-        "InvalidIdentityFieldTypeError",
         "InvalidNestedTypeError",
         "InvalidQueryResultTypeError",
         "InvalidRootEntityTypeError",
@@ -56,8 +54,8 @@ def test_aod_domain_exceptions_documented_api() -> None:
         "InvarianceException",
         "ModelValidationError",
         "MutationForbiddenException",
-        "NoEntityIdException",
-        "TooManyEntityIdsException",
+        "NoIdentityFieldException",
+        "TooManyIdentityFieldsException",
     ]
 
 
@@ -156,7 +154,6 @@ def test_aod_exceptions_documented_api() -> None:
         "HandlerResultTypeError",
         "InfrastructureException",
         "InvalidCommandFieldTypeError",
-        "InvalidIdentityFieldTypeError",
         "InvalidEntityTypeError",
         "InvalidGenericTypeArgError",
         "InvalidHandlerPortFieldError",
@@ -171,8 +168,8 @@ def test_aod_exceptions_documented_api() -> None:
         "InvarianceException",
         "ModelValidationError",
         "MutationForbiddenException",
-        "NoEntityIdException",
-        "TooManyEntityIdsException",
+        "NoIdentityFieldException",
+        "TooManyIdentityFieldsException",
         "PortNotFoundError",
         "SessionNotFoundError",
         "UnresolvableEntityError",

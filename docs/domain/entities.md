@@ -1,24 +1,19 @@
 # Entity & RootEntity
 
-Entities are mutable domain objects with a distinct identity. Two entities with different identities are always different, regardless of their attribute values. Entities compare by their `EntityId` only — `==` checks identity, not field values.
+Entities are mutable domain objects with a distinct identity. Two entities with different identities are always different, regardless of their attribute values. Entities compare by their identity field only — `==` checks identity, not field values.
 
 ## Entity
 
-`Entity` is the base class for all domain objects that have identity, mutation guards, event emission, and validation. Every entity must have exactly one [EntityId](entity-id.md) field — the framework enforces this at class creation time.
+`Entity` is the base class for all domain objects that have identity, mutation guards, event emission, and validation. Every entity must have exactly one identity field marked with `Field(id=True)` — the framework enforces this at class creation time.
 
 ### Class Definition
 
 ```python
-from aod.domain import Entity
-from aod.domain import EntityId
-
-
-class UserId(EntityId):
-    value: str
+from aod.domain import Entity, Field
 
 
 class User(Entity):
-    id: UserId
+    id: int = Field(id=True)
     name: str
     email: str
 ```
@@ -29,17 +24,17 @@ class User(Entity):
 
 | Parameter | Type | Description |
 |-----------|------|-------------|
-| `id` | `UserId` | Entity identity — must be an `EntityId` subclass. Required |
+| `id` | `int` | Entity identity — must be marked with `Field(id=True)`. Required |
 | `name` | `str` | Field derived from class annotation. Required unless optional or defaulted |
 | `email` | `str` | Field derived from class annotation. Required unless optional or defaulted |
 
 Each annotated field becomes a constructor parameter. Fields without defaults are required. Fields with defaults (e.g. `name: str = "unnamed"`) are optional.
 
 ```python
-user = User(id=UserId(value="abc"), name="Alice", email="alice@example.com")
+user = User(id=1, name="Alice", email="alice@example.com")
 
 # Entities have identity — two entities with the same id are equal
-user2 = User(id=UserId(value="abc"), name="Alice", email="alice@example.com")
+user2 = User(id=1, name="Alice", email="alice@example.com")
 assert user == user2
 ```
 
@@ -65,19 +60,38 @@ from aod.domain import Field
 | `allow_inf_nan` | `bool \| None` | `None` | Allow infinity or NaN values |
 | `max_digits` | `int \| None` | `None` | Maximum number of digits (decimal) |
 | `decimal_places` | `int \| None` | `None` | Maximum decimal places |
-| `id` | `bool` | `False` | When `True`, marks this field as the entity identity. Must be an `EntityId` subclass. Only allowed on Entity/RootEntity, not ValueObject |
+| `id` | `bool` | `False` | When `True`, marks this field as the entity identity. The field can be any type (`int`, `str`, `UUID`, etc.). Only allowed on Entity/RootEntity, not ValueObject |
 
 ### Identity Field
 
-Every `Entity` / `RootEntity` subclass must have exactly one identity field. Use `Field(id=True)` to mark it explicitly when you have multiple `EntityId`-typed fields:
+Every `Entity` / `RootEntity` subclass must have exactly one identity field marked with `Field(id=True)`. The identity field can be any type — `int`, `str`, `UUID`, or a custom `ValueObject` subclass:
 
 ```python
 class User(RootEntity):
-    id: UserId = Field(id=True)
-    father: UserId  # reference, not the identity
+    id: int = Field(id=True)
+    father_id: int  # reference, not the identity
+    name: str
 ```
 
-Without `Field(id=True)`, the framework falls back to finding a single `EntityId` field automatically. If zero or multiple `EntityId` fields are found, a `NoEntityIdException` or `TooManyEntityIdsException` is raised.
+ValueObject identities provide type safety and domain meaning:
+
+```python
+from aod.domain import RootEntity, ValueObject
+
+
+class UserId(ValueObject):
+    value: str
+
+
+class User(RootEntity):
+    id: UserId = Field(id=True)
+    name: str
+
+user = User(id=UserId(value="abc-123"), name="Alice")
+assert user.id.value == "abc-123"
+```
+
+If no field is marked with `Field(id=True)`, a `NoIdentityFieldException` is raised at class creation time. If more than one field is marked with `Field(id=True)`, a `TooManyIdentityFieldsException` is raised.
 
 ### PrivateField
 
@@ -94,7 +108,7 @@ from aod.domain import PrivateField
 
 ```python
 class User(Entity):
-    id: UserId
+    id: int = Field(id=True)
     name: str
     _password_hash: str = PrivateField(default="")
 
@@ -110,13 +124,13 @@ class User(Entity):
 
 ```python
 class User(Entity):
-    id: UserId
+    id: int = Field(id=True)
     name: str
 
     def rename(self, new_name: str) -> None:
         self.name = new_name
 
-user = User(id=UserId(value=1), name="Alice")
+user = User(id=1, name="Alice")
 user.rename("Bob")
 assert user.name == "Bob"
 
@@ -133,7 +147,7 @@ from aod.domain.validation import mutable
 
 
 class User(RootEntity):
-    id: UserId
+    id: int = Field(id=True)
     name: str
     _locked: bool = PrivateField(default=False)
 
@@ -151,7 +165,7 @@ class User(RootEntity):
     def rename(self, new_name: str) -> None:
         self.name = new_name
 
-user = User(id=UserId(value="1"), name="Alice")
+user = User(id=1, name="Alice")
 user.rename("Bob")           # OK
 
 user.lock()
@@ -177,10 +191,10 @@ When reading field values outside a mutation context, mutable containers are wra
 
 ```python
 class User(Entity):
-    id: UserId
+    id: int = Field(id=True)
     tags: list[str]
 
-user = User(id=UserId(value=1), tags=["admin", "user"])
+user = User(id=1, tags=["admin", "user"])
 user.tags.append("super")  # MutationForbiddenException!
 ```
 
@@ -188,7 +202,7 @@ Inside a method, the real mutable objects are available:
 
 ```python
 class User(Entity):
-    id: UserId
+    id: int = Field(id=True)
     tags: list[str]
 
     def add_tag(self, tag: str) -> None:
@@ -205,7 +219,7 @@ from datetime import datetime
 
 
 class User(Entity):
-    id: UserId
+    id: int = Field(id=True)
     name: str
     email: str
     created_at: datetime
@@ -218,11 +232,7 @@ class User(Entity):
 `RootEntity` is an entity that serves as an aggregate root. It is the entry point to a cluster of associated domain objects and cannot be nested inside other entities.
 
 ```python
-from aod.domain import RootEntity, ValueObject
-
-
-class OrderId(EntityId):
-    value: int
+from aod.domain import RootEntity, ValueObject, Field
 
 
 class OrderLine(ValueObject):
@@ -232,7 +242,7 @@ class OrderLine(ValueObject):
 
 
 class Order(RootEntity):
-    id: OrderId
+    id: int = Field(id=True)
     lines: list[OrderLine]
     total: float
 
@@ -248,7 +258,7 @@ class Order(RootEntity):
 
 | Parameter | Type | Description |
 |-----------|------|-------------|
-| `id` | `OrderId` | Root entity identity — must be an `EntityId` subclass |
+| `id` | `int` | Root entity identity — marked with `Field(id=True)` |
 | `lines` | `list[OrderLine]` | Field derived from class annotation |
 | `total` | `float` | Field derived from class annotation |
 
@@ -260,7 +270,7 @@ Allowed: reference by ID instead of by object:
 
 ```python
 class Order(RootEntity):
-    id: OrderId
+    id: int = Field(id=True)
     user_id: str  # OK
 ```
 
@@ -268,7 +278,7 @@ Forbidden: direct nesting:
 
 ```python
 class Order(RootEntity):
-    id: OrderId
+    id: int = Field(id=True)
     user: User  # InvalidNestedTypeError!
 ```
 
@@ -283,7 +293,7 @@ class Order(RootEntity):
 `reconstruct()` is a classmethod that creates entities without validation, making it suitable for loading persisted objects from a database.
 
 ```python
-user = User.reconstruct(id=UserId(value=1), name="Alice")
+user = User.reconstruct(id=1, name="Alice")
 ```
 
 ### Parameters
@@ -300,11 +310,11 @@ Override `__post_init__` to run initialization logic after all fields are set. I
 
 ```python
 class User(RootEntity):
-    id: UserId
+    id: int = Field(id=True)
     name: str
 
     def __post_init__(self):
-        self._event_emitter.emit(UserCreatedEvent(user_id=self.id.value))
+        self._event_emitter.emit(UserCreatedEvent(user_id=self.id))
 ```
 
 ### Parameters
@@ -336,12 +346,12 @@ Both hooks run at construction time, but they serve different purposes.
 
 ```python
 class User(RootEntity):
-    id: UserId
+    id: int = Field(id=True)
     name: str
     created_at: datetime
 
     def __post_init__(self):
-        self._event_emitter.emit(UserCreated(user_id=self.id.value))
+        self._event_emitter.emit(UserCreated(user_id=self.id))
         self.created_at = datetime.now(timezone.utc)
 ```
 
@@ -376,7 +386,7 @@ Testing utilities are available from `aod.testing`:
 ```python
 from aod.testing import build
 
-user = build(User, id=UserId(value=1), name="Alice")
+user = build(User, id=1, name="Alice")
 ```
 
 | Parameter | Type | Description |
@@ -434,7 +444,7 @@ Raises `AssertionError` if the sequence is non-empty.
 
 ```python
 class User(Entity):
-    id: UserId
+    id: int = Field(id=True)
     name: str
     role: str = "member"
     is_active: bool = True
@@ -452,11 +462,11 @@ class UserRegistered(Event):
 
 
 class User(RootEntity):
-    id: UserId
+    id: int = Field(id=True)
     email: str
 
     def register(self) -> None:
-        self._event_emitter.emit(UserRegistered(user_id=self.id.value, email=self.email))
+        self._event_emitter.emit(UserRegistered(user_id=self.id, email=self.email))
 ```
 
 ### Entity with Value Object Fields
@@ -469,7 +479,7 @@ class Address(ValueObject):
 
 
 class User(Entity):
-    id: UserId
+    id: int = Field(id=True)
     name: str
     address: Address
 ```
@@ -479,20 +489,14 @@ class User(Entity):
 | Exception | Raised When |
 |-----------|-------------|
 | `MutationForbiddenException` | Attempting to mutate an entity field outside a public method |
-| `NoEntityIdException` | An `Entity` or `RootEntity` subclass has no `EntityId` field |
-| `TooManyEntityIdsException` | An `Entity` or `RootEntity` subclass has more than one `EntityId` field |
-| `InvalidIdentityFieldTypeError` | `Field(id=True)` is used on a field that is not an `EntityId` subclass |
+| `NoIdentityFieldException` | An `Entity` or `RootEntity` subclass has no field marked with `Field(id=True)` |
+| `TooManyIdentityFieldsException` | An `Entity` or `RootEntity` subclass has more than one field marked with `Field(id=True)` |
 | `InvalidNestedTypeError` | An Entity or ValueObject field references a RootEntity |
 | `ModelValidationError` | Pydantic validation fails during construction |
 
 ## Next Steps
 
 <div class="home-features">
-
-<div class="feature-card">
-<h3><a href="entity-id.md">EntityId</a></h3>
-<p>Learn about entity identity</p>
-</div>
 
 <div class="feature-card">
 <h3><a href="value-objects.md">ValueObject</a></h3>

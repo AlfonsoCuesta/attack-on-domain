@@ -10,7 +10,6 @@ from aod._internal.core.fields.fields import Field, PrivateField
 from aod._internal.domain.app import App
 from aod._internal.domain.bounded_context import BoundedContext
 from aod._internal.domain.entity import Entity, RootEntity
-from aod._internal.domain.entity_id import EntityId
 from aod._internal.domain.service import Service
 from aod._internal.domain.value_object import ValueObject
 from aod._internal.infrastructure.container import AdapterContainer
@@ -22,10 +21,6 @@ from aod._internal.testing.helpers import assert_event_emitted, build, events_of
 # ---------------------------------------------------------------------------
 # Domain Layer — E-commerce domain
 # ---------------------------------------------------------------------------
-
-
-class IntId(EntityId):
-    value: str
 
 
 class Money(ValueObject):
@@ -61,7 +56,7 @@ class OrderCancelled(Event):
 
 
 class Customer(RootEntity):
-    id: IntId = Field(id=True)
+    id: str = Field(id=True)
     name: str
     email: str
     shipping_address: Address
@@ -71,14 +66,14 @@ class Customer(RootEntity):
 
 
 class Product(Entity):
-    id: IntId = Field(id=True)
+    id: str = Field(id=True)
     sku: str
     name: str
     price: Money
 
 
 class Order(RootEntity):
-    id: IntId = Field(id=True)
+    id: str = Field(id=True)
     customer_id: str
     lines: list[OrderLine]
     shipped: bool = False
@@ -92,7 +87,7 @@ class Order(RootEntity):
         total = sum(line.unit_price.amount * line.quantity for line in self.lines)
         self._event_emitter.emit(
             OrderPlaced(
-                order_id=self.id.value,
+                order_id=self.id,
                 customer_id=self.customer_id,
                 total=total,
             )
@@ -104,13 +99,13 @@ class Order(RootEntity):
         if self.cancelled:
             raise ValueError("Order already cancelled")
         self.shipped = True
-        self._event_emitter.emit(OrderShipped(order_id=self.id.value))
+        self._event_emitter.emit(OrderShipped(order_id=self.id))
 
     def cancel(self, reason: str) -> None:
         if self.shipped:
             raise ValueError("Cannot cancel shipped order")
         self.cancelled = True
-        self._event_emitter.emit(OrderCancelled(order_id=self.id.value, reason=reason))
+        self._event_emitter.emit(OrderCancelled(order_id=self.id, reason=reason))
 
 
 class InventoryService(Service):
@@ -165,7 +160,7 @@ class PlaceOrderUseCase(UseCase):
             if not self.inventory.reserve(line.product_id, line.quantity):
                 raise ValueError(f"Insufficient inventory for {line.product_id}")
         order = Order(
-            id=IntId(value=cmd.order_id),
+            id=cmd.order_id,
             customer_id=cmd.customer_id,
             lines=cmd.lines,
         )
@@ -255,7 +250,7 @@ class TestValueObjects:
 class TestEntities:
     def test_customer_creation(self) -> None:
         customer = Customer(
-            id=IntId(value="CUST-001"),
+            id="CUST-001",
             name="Alice",
             email="alice@example.com",
             shipping_address=Address(street="123 Main St", city="Springfield", zip_code="12345"),
@@ -265,7 +260,7 @@ class TestEntities:
 
     def test_customer_update_email(self) -> None:
         customer = Customer(
-            id=IntId(value="CUST-001"),
+            id="CUST-001",
             name="Alice",
             email="alice@example.com",
             shipping_address=Address(street="123 Main St", city="Springfield", zip_code="12345"),
@@ -275,7 +270,7 @@ class TestEntities:
 
     def test_order_creation(self) -> None:
         order = Order(
-            id=IntId(value="ORD-001"),
+            id="ORD-001",
             customer_id="CUST-001",
             lines=[
                 OrderLine(product_id="PROD-001", quantity=2, unit_price=Money(amount=1000)),
@@ -286,7 +281,7 @@ class TestEntities:
 
     def test_order_place_emits_event(self) -> None:
         order = Order(
-            id=IntId(value="ORD-001"),
+            id="ORD-001",
             customer_id="CUST-001",
             lines=[
                 OrderLine(product_id="PROD-001", quantity=2, unit_price=Money(amount=1000)),
@@ -297,42 +292,40 @@ class TestEntities:
         assert_event_emitted(events, OrderPlaced, order_id="ORD-001", total=2000)
 
     def test_order_ship_emits_event(self) -> None:
-        order = Order(id=IntId(value="ORD-001"), customer_id="CUST-001", lines=[])
+        order = Order(id="ORD-001", customer_id="CUST-001", lines=[])
         order.place()
         order.ship()
         events = events_of(order)
         assert_event_emitted(events, OrderShipped, order_id="ORD-001")
 
     def test_order_cancel_emits_event(self) -> None:
-        order = Order(id=IntId(value="ORD-001"), customer_id="CUST-001", lines=[])
+        order = Order(id="ORD-001", customer_id="CUST-001", lines=[])
         order.place()
         order.cancel("changed mind")
         events = events_of(order)
         assert_event_emitted(events, OrderCancelled, order_id="ORD-001", reason="changed mind")
 
     def test_cannot_ship_cancelled_order(self) -> None:
-        order = Order(id=IntId(value="ORD-001"), customer_id="CUST-001", lines=[])
+        order = Order(id="ORD-001", customer_id="CUST-001", lines=[])
         order.place()
         order.cancel("no longer needed")
         with pytest.raises(ValueError, match="already cancelled"):
             order.ship()
 
     def test_cannot_cancel_shipped_order(self) -> None:
-        order = Order(id=IntId(value="ORD-001"), customer_id="CUST-001", lines=[])
+        order = Order(id="ORD-001", customer_id="CUST-001", lines=[])
         order.place()
         order.ship()
         with pytest.raises(ValueError, match="Cannot cancel shipped order"):
             order.cancel("oops")
 
     def test_cannot_place_twice(self) -> None:
-        order = Order(id=IntId(value="ORD-001"), customer_id="CUST-001", lines=[])
+        order = Order(id="ORD-001", customer_id="CUST-001", lines=[])
         order.place()
         order.place()
 
     def test_product_entity(self) -> None:
-        product = Product(
-            id=IntId(value="PROD-001"), sku="PROD-001", name="Widget", price=Money(amount=999)
-        )
+        product = Product(id="PROD-001", sku="PROD-001", name="Widget", price=Money(amount=999))
         assert product.sku == "PROD-001"
         assert product.name == "Widget"
 
@@ -518,33 +511,33 @@ class TestFakeDomain:
         fake = FakeDomain(Customer)
         customer = fake(name="Bob")
         assert customer.name == "Bob"
-        assert isinstance(customer.id, IntId)
+        assert isinstance(customer.id, str)
         assert isinstance(customer.shipping_address, Address)
 
     def test_fake_order(self) -> None:
         fake = FakeDomain(
             Order,
-            id=IntId(value="ORD-001"),
+            id="ORD-001",
             customer_id="CUST-001",
             lines=[],
             shipped=False,
             cancelled=False,
         )
         order = fake()
-        assert isinstance(order.id, IntId)
+        assert isinstance(order.id, str)
         assert isinstance(order.lines, list)
 
     def test_fake_order_with_overrides(self) -> None:
         fake = FakeDomain(
             Order,
-            id=IntId(value="ORD-001"),
+            id="ORD-001",
             customer_id="CUST-001",
             lines=[],
             shipped=False,
             cancelled=False,
         )
-        order = fake(id=IntId(value="ORD-CUSTOM"))
-        assert order.id == IntId(value="ORD-CUSTOM")
+        order = fake(id="ORD-CUSTOM")
+        assert order.id == "ORD-CUSTOM"
         assert order.customer_id == "CUST-001"
 
     def test_fake_batch(self) -> None:
@@ -558,18 +551,18 @@ class TestBuildHelper:
     def test_build_skips_validation(self) -> None:
         order = build(
             Order,
-            id=IntId(value="ORD-001"),
+            id="ORD-001",
             customer_id="CUST-001",
             lines=[],
             shipped=False,
             cancelled=False,
         )
-        assert order.id == IntId(value="ORD-001")
+        assert order.id == "ORD-001"
 
     def test_build_with_nested_value_objects(self) -> None:
         order = build(
             Order,
-            id=IntId(value="ORD-001"),
+            id="ORD-001",
             customer_id="CUST-001",
             lines=[
                 OrderLine(product_id="PROD-001", quantity=1, unit_price=Money(amount=500)),

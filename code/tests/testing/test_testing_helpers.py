@@ -5,7 +5,6 @@ from aod._internal.core.domain_exception import InvarianceException, ModelValida
 from aod._internal.core.event_emitter import Event
 from aod._internal.core.fields.fields import Field
 from aod._internal.domain.entity import RootEntity
-from aod._internal.domain.entity_id import EntityId
 from aod._internal.domain.service import Service
 from aod._internal.domain.value_object import ValueObject
 from aod.domain.validation import field_invariance, invariance
@@ -18,22 +17,18 @@ from aod.testing import (
 )
 
 
-class IntId(EntityId):
-    value: int
-
-
 # -- build ----------------------------------------------------------------------
 
 
 class TestBuild:
     def test_entity(self) -> None:
         class User(RootEntity):
-            id: IntId = Field(id=True)
+            id: int = Field(id=True)
             name: str
 
-        u = build(User, id=IntId(value=1), name="Alf")
+        u = build(User, id=1, name="Alf")
         assert isinstance(u, User)
-        assert u.id == IntId(value=1)
+        assert u.id == 1
         assert u.name == "Alf"
 
     def test_value_object(self) -> None:
@@ -54,16 +49,16 @@ class TestBuild:
 
     def test_resets_contextvar(self) -> None:
         class User(RootEntity):
-            id: IntId = Field(id=True)
+            id: int = Field(id=True)
 
-        u1 = build(User, id=IntId(value=1))
-        u2 = build(User, id=IntId(value=2))
-        assert u1.id == IntId(value=1)
-        assert u2.id == IntId(value=2)
+        u1 = build(User, id=1)
+        u2 = build(User, id=2)
+        assert u1.id == 1
+        assert u2.id == 2
 
     def test_raises_on_missing_required(self) -> None:
         class User(RootEntity):
-            id: IntId = Field(id=True)
+            id: int = Field(id=True)
 
         with pytest.raises(ModelValidationError):
             build(User)
@@ -78,12 +73,12 @@ class TestEventsOf:
             user_id: int
 
         class User(RootEntity):
-            id: IntId = Field(id=True)
+            id: int = Field(id=True)
 
             def __post_init__(self) -> None:
-                self._event_emitter.emit(UserCreated(user_id=self.id.value))
+                self._event_emitter.emit(UserCreated(user_id=self.id))
 
-        u = User(id=IntId(value=1))
+        u = User(id=1)
         evts = events_of(u)
         assert len(evts) == 1
         assert isinstance(evts[0], UserCreated)
@@ -91,9 +86,9 @@ class TestEventsOf:
 
     def test_empty_when_no_events(self) -> None:
         class User(RootEntity):
-            id: IntId = Field(id=True)
+            id: int = Field(id=True)
 
-        u = build(User, id=IntId(value=1))
+        u = build(User, id=1)
         assert events_of(u) == []
 
 
@@ -155,7 +150,7 @@ class TestAssertNoEvents:
 class TestCheckInvariant:
     def test_field_invariance_passes(self) -> None:
         class User(RootEntity):
-            id: IntId = Field(id=True)
+            id: int = Field(id=True)
             username: str | None = None
 
             @field_invariance("username")
@@ -164,11 +159,11 @@ class TestCheckInvariant:
                     raise ValueError("username must not be empty")
                 return value
 
-        check_invariant(User, "username_must_not_be_empty", id=IntId(value=1), username="Alf")
+        check_invariant(User, "username_must_not_be_empty", id=1, username="Alf")
 
     def test_field_invariance_raises(self) -> None:
         class User(RootEntity):
-            id: IntId = Field(id=True)
+            id: int = Field(id=True)
             username: str | None = None
 
             @field_invariance("username")
@@ -178,11 +173,11 @@ class TestCheckInvariant:
                 return value
 
         with pytest.raises(InvarianceException):
-            check_invariant(User, "username_must_not_be_empty", id=IntId(value=1), username="")
+            check_invariant(User, "username_must_not_be_empty", id=1, username="")
 
     def test_model_invariance_passes(self) -> None:
         class User(RootEntity):
-            id: IntId = Field(id=True)
+            id: int = Field(id=True)
             username: str | None = None
             age: int
 
@@ -191,11 +186,11 @@ class TestCheckInvariant:
                 if self.age < 18:
                     raise ValueError("must be adult")
 
-        check_invariant(User, "adult", id=IntId(value=1), username="Alf", age=20)
+        check_invariant(User, "adult", id=1, username="Alf", age=20)
 
     def test_model_invariance_raises(self) -> None:
         class User(RootEntity):
-            id: IntId = Field(id=True)
+            id: int = Field(id=True)
             username: str | None = None
             age: int
 
@@ -205,12 +200,12 @@ class TestCheckInvariant:
                     raise ValueError("must be adult")
 
         with pytest.raises(InvarianceException):
-            check_invariant(User, "adult", id=IntId(value=1), username="Alf", age=15)
+            check_invariant(User, "adult", id=1, username="Alf", age=15)
 
     def test_raises_on_unknown_name(self) -> None:
         class User(RootEntity):
-            id: IntId = Field(id=True)
+            id: int = Field(id=True)
             username: str | None = None
 
         with pytest.raises(ValueError, match="does_not_exist"):
-            check_invariant(User, "does_not_exist", id=IntId(value=1), username="Alf")
+            check_invariant(User, "does_not_exist", id=1, username="Alf")

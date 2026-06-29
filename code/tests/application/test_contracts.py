@@ -5,16 +5,11 @@ from aod._internal.application.contracts.contracts import (
     _validate_result_contains_root_entity,
 )
 from aod._internal.domain.entity import RootEntity
-from aod._internal.domain.entity_id import EntityId
 from aod.domain import Field
 
 
-class IntId(EntityId):
-    value: int
-
-
 class User(RootEntity):
-    id: IntId = Field(id=True)
+    id: int = Field(id=True)
     name: str
 
 

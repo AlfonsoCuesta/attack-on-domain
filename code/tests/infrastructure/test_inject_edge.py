@@ -7,7 +7,7 @@ from aod._internal.application.port import Port
 from aod._internal.application.use_case import UseCase
 from aod._internal.core.fields.fields import Field
 from aod._internal.core.infrastructure_exception import PortNotFoundError
-from aod._internal.domain.entity import EntityId, RootEntity
+from aod._internal.domain.entity import RootEntity
 from aod._internal.infrastructure.container import AdapterContainer, extract_port_type
 
 
@@ -15,12 +15,8 @@ class _CustomPort(Port):
     value: str = "default"
 
 
-class IntId(EntityId):
-    value: int
-
-
 class _Entity(RootEntity):
-    id: IntId = Field(id=True)
+    id: int = Field(id=True)
 
 
 class _Cmd(Command[_Entity, None]):

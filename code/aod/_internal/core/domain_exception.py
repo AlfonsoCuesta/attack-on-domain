@@ -127,29 +127,21 @@ class MissingPortError(DomainException):
         super().__init__(f"Port {port_name} has no implementation in module")
 
 
-class NoEntityIdException(DomainException):
-    """Raised when an Entity subclass has no EntityId-typed field."""
-
-    def __init__(self, cls_name: str) -> None:
-        super().__init__(f"Entity '{cls_name}' must have exactly one EntityId field, found none")
-
-
-class TooManyEntityIdsException(DomainException):
-    """Raised when an Entity subclass has more than one EntityId field and no Field(id=True)."""
+class NoIdentityFieldException(DomainException):
+    """Raised when an Entity subclass has no field marked with Field(id=True)."""
 
     def __init__(self, cls_name: str) -> None:
         super().__init__(
-            f"Entity '{cls_name}' must have exactly one EntityId field, found multiple"
+            f"Entity '{cls_name}' must have exactly one field with Field(id=True), found none"
         )
 
 
-class InvalidIdentityFieldTypeError(DomainException):
-    """Raised when Field(id=True) is used on a field that is not an EntityId subclass."""
+class TooManyIdentityFieldsException(DomainException):
+    """Raised when an Entity subclass has more than one field marked with Field(id=True)."""
 
-    def __init__(self, cls_name: str, field_name: str, type_name: str) -> None:
+    def __init__(self, cls_name: str) -> None:
         super().__init__(
-            f"Entity '{cls_name}' field '{field_name}' is marked as identity "
-            f"but has type '{type_name}', which is not an EntityId subclass"
+            f"Entity '{cls_name}' must have exactly one field with Field(id=True), found multiple"
         )
 
 

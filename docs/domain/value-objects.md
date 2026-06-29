@@ -2,8 +2,6 @@
 
 Value Objects are immutable, identity-less domain objects. They are defined by their attributes rather than by a unique identifier. Two value objects with the same field values are considered equal.
 
-> **Note:** [EntityId](entity-id.md) is a specialized `ValueObject` — it is immutable and compared by value, but it serves as the identity for entities rather than data.
-
 ## Class Definition
 
 `ValueObject` is always immutable — there is no way to change a value object after construction.

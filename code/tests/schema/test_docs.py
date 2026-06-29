@@ -16,7 +16,6 @@ from aod._internal.application.port import Port
 from aod._internal.application.unit_of_work import AsyncUnitOfWork, UnitOfWork
 from aod._internal.application.use_case import AsyncUseCase, UseCase
 from aod._internal.domain.entity import Entity, RootEntity
-from aod._internal.domain.entity_id import EntityId
 from aod._internal.domain.service import Service
 from aod._internal.domain.value_object import ValueObject
 from aod._internal.infrastructure.handlers import (
@@ -64,21 +63,13 @@ from pydantic.fields import FieldInfo
 # ---- Domain types for tests ----
 
 
-class OrderId(EntityId):
-    value: str
-
-
 class OrderLine(ValueObject):
     product_id: str
     quantity: int = 1
 
 
-class IntId(EntityId):
-    value: int
-
-
 class Order(RootEntity):
-    id: OrderId = Field(id=True)
+    id: str = Field(id=True)
     total: float = 0.0
 
     def add_line(self, product_id: str, quantity: int) -> None:
@@ -86,7 +77,7 @@ class Order(RootEntity):
 
 
 class LineItem(Entity):
-    id: IntId = Field(id=True)
+    id: int = Field(id=True)
     sku: str
 
 
@@ -622,10 +613,11 @@ class TestEntityDoc:
 
 class TestValueObjectDoc:
     def test_from_value_object(self) -> None:
-        doc = ValueObjectDoc.from_value_object(OrderId)
-        assert doc.name == "OrderId"
+        doc = ValueObjectDoc.from_value_object(OrderLine)
+        assert doc.name == "OrderLine"
         field_names = {f.name for f in doc.fields}
-        assert "value" in field_names
+        assert "product_id" in field_names
+        assert "quantity" in field_names
 
     def test_with_methods(self) -> None:
         class TaxRate(ValueObject):
@@ -697,8 +689,7 @@ class TestBoundedContextDoc:
         assert doc.name == "orders"
         assert len(doc.roots) == 1
         assert doc.roots[0].name == "Order"
-        vo_names = {v.name for v in doc.value_objects}
-        assert "OrderId" in vo_names
+        assert len(doc.value_objects) == 0
         assert len(doc.services) == 1
         assert doc.services[0].name == "PricingService"
 

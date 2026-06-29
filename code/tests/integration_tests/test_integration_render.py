@@ -17,7 +17,6 @@ from aod._internal.application.port import Port
 from aod._internal.application.unit_of_work import UnitOfWork
 from aod._internal.application.use_case import UseCase
 from aod._internal.domain.entity import RootEntity
-from aod._internal.domain.entity_id import EntityId
 from aod._internal.domain.value_object import ValueObject
 from aod._internal.infrastructure.handlers import CommandHandler, QueryHandler
 from aod._internal.infrastructure.session import Session
@@ -31,18 +30,15 @@ from aod.domain import Field
 # ---- domain types ----
 
 
-class OrderId(EntityId):
-    value: str
-
-
-class Order(RootEntity):
-    id: OrderId = Field(id=True)
-    total: float = 0.0
-
-
 class LineItem(ValueObject):
     product: str
     quantity: int
+
+
+class Order(RootEntity):
+    id: str = Field(id=True)
+    total: float = 0.0
+    line_items: list[LineItem] = []
 
 
 # ---- contracts ----
@@ -171,11 +167,11 @@ class TestRealGeneration:
 
         glossary = root.joinpath("docs/bounded-contexts/orders/glossary.md").read_text()
         assert "Order" in glossary
-        assert "OrderId" in glossary
+        assert "LineItem" in glossary
 
         entities = root.joinpath("docs/bounded-contexts/orders/entities.md").read_text()
         assert "Order" in entities
-        assert "OrderId" in entities
+        assert "LineItem" in entities
 
         infra = root.joinpath("docs/bounded-contexts/orders/infrastructure.md").read_text()
         assert "PlaceOrderHandler" in infra

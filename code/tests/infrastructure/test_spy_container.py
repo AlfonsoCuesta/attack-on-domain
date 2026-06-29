@@ -11,7 +11,6 @@ from aod._internal.application.use_case import UseCase
 from aod._internal.core.event_emitter import Event
 from aod._internal.core.fields.fields import Field
 from aod._internal.core.infrastructure_exception import PortNotFoundError
-from aod._internal.domain.entity_id import EntityId
 from aod._internal.infrastructure.container import AdapterContainer
 from aod._internal.infrastructure.projection import ReadProjection
 from aod._internal.infrastructure.projection.models import ReadModel
@@ -23,12 +22,8 @@ from aod.domain import RootEntity
 from aod.infrastructure import CommandHandler, QueryHandler
 
 
-class IntId(EntityId):
-    value: int
-
-
 class User(RootEntity):
-    id: IntId = Field(id=True)
+    id: int = Field(id=True)
     name: str
 
 
@@ -42,12 +37,12 @@ class CreateUser(Command[User, User]):
 
 class GetUserHandler(QueryHandler[GetUser]):
     def handle(self, query: GetUser) -> User | None:
-        return User(id=IntId(value=1), name=str(query.user_id))
+        return User(id=1, name=str(query.user_id))
 
 
 class CreateUserHandler(CommandHandler[CreateUser]):
     def handle(self, command: CreateUser) -> User:
-        return User(id=IntId(value=1), name=command.name)
+        return User(id=1, name=command.name)
 
 
 class _FakePort(Port):

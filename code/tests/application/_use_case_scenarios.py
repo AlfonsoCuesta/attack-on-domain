@@ -6,7 +6,6 @@ from typing import Any
 
 from aod._internal.core.event_emitter import Event
 from aod._internal.domain import RootEntity, ValueObject
-from aod._internal.domain.entity_id import EntityId
 from aod.domain import Field
 
 
@@ -25,18 +24,14 @@ class Address(ValueObject):
     city: str
 
 
-class IntId(EntityId):
-    value: int
-
-
 class User(RootEntity):
-    id: IntId = Field(id=True)
+    id: int = Field(id=True)
     name: str
     address: Address | None = None
 
     def rename(self, new_name: str) -> None:
         self.name = new_name
-        self._event_emitter.emit(UserRenamed(user_id=self.id.value, new_name=new_name))
+        self._event_emitter.emit(UserRenamed(user_id=self.id, new_name=new_name))
 
 
 async def run_uc(uc: Any, **kwargs: Any) -> None:
@@ -46,19 +41,19 @@ async def run_uc(uc: Any, **kwargs: Any) -> None:
 
 
 def _create_user_body(self: Any, user_id: int, name: str) -> None:
-    user = User(id=IntId(value=user_id), name=name)
-    user._event_emitter.emit(UserCreated(user_id=user.id.value, name=user.name))
+    user = User(id=user_id, name=name)
+    user._event_emitter.emit(UserCreated(user_id=user.id, name=user.name))
 
 
 def _multi_emit_body(self: Any, user_id: int) -> None:
-    user = User(id=IntId(value=user_id), name="Alice")
+    user = User(id=user_id, name="Alice")
     user.rename("Bob")
     user.rename("Charlie")
 
 
 def _fail_after_emit_body(self: Any, user_id: int) -> None:
-    user = User(id=IntId(value=user_id), name="Alice")
-    user._event_emitter.emit(UserCreated(user_id=user.id.value, name=user.name))
+    user = User(id=user_id, name="Alice")
+    user._event_emitter.emit(UserCreated(user_id=user.id, name=user.name))
     raise ValueError("boom")
 
 
@@ -82,8 +77,8 @@ def _stateful_body(self: Any, value: int) -> None:
 
 
 def _complex_body(self: Any, user_id: int, address: Address) -> None:
-    user = User(id=IntId(value=user_id), name="Alice", address=address)
-    user._event_emitter.emit(UserCreated(user_id=user.id.value, name=user.name))
+    user = User(id=user_id, name="Alice", address=address)
+    user._event_emitter.emit(UserCreated(user_id=user.id, name=user.name))
 
 
 def _my_uc_body(self: Any, called: bool) -> None:

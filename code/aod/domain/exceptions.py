@@ -5,7 +5,6 @@ from aod._internal.core.domain_exception import (
     InvalidCommandFieldTypeError,
     InvalidEntityTypeError,
     InvalidGenericTypeArgError,
-    InvalidIdentityFieldTypeError,
     InvalidNestedTypeError,
     InvalidQueryResultTypeError,
     InvalidRootEntityTypeError,
@@ -15,8 +14,8 @@ from aod._internal.core.domain_exception import (
     InvarianceException,
     ModelValidationError,
     MutationForbiddenException,
-    NoEntityIdException,
-    TooManyEntityIdsException,
+    NoIdentityFieldException,
+    TooManyIdentityFieldsException,
 )
 
 __all__ = [
@@ -26,7 +25,6 @@ __all__ = [
     "InvalidCommandFieldTypeError",
     "InvalidEntityTypeError",
     "InvalidGenericTypeArgError",
-    "InvalidIdentityFieldTypeError",
     "InvalidNestedTypeError",
     "InvalidQueryResultTypeError",
     "InvalidRootEntityTypeError",
@@ -36,6 +34,6 @@ __all__ = [
     "InvarianceException",
     "ModelValidationError",
     "MutationForbiddenException",
-    "NoEntityIdException",
-    "TooManyEntityIdsException",
+    "NoIdentityFieldException",
+    "TooManyIdentityFieldsException",
 ]

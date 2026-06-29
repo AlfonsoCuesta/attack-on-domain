@@ -1,17 +1,15 @@
 from __future__ import annotations
 
-from typing import Any, get_type_hints
+from typing import Any
 
 from aod._internal.core.base_guarded import BaseGuarded, inherit_context
 from aod._internal.core.domain_exception import (
-    InvalidIdentityFieldTypeError,
-    NoEntityIdException,
-    TooManyEntityIdsException,
+    NoIdentityFieldException,
+    TooManyIdentityFieldsException,
 )
 from aod._internal.core.event_emitter import EventEmitter
 from aod._internal.core.fields.fields import _IDENTITY_MARKER, PrivateField
 from aod._internal.core.reconstructable import ReconstructMixin
-from aod._internal.domain.entity_id import EntityId
 from pydantic.fields import FieldInfo
 
 
@@ -30,22 +28,8 @@ class Entity(ReconstructMixin, BaseGuarded):
 
         if identity_fields:
             if len(identity_fields) > 1:
-                raise TooManyEntityIdsException(cls.__name__)
-            field_name = identity_fields[0]
-            try:
-                hints = get_type_hints(cls)
-                field_type = hints.get(field_name)
-            except Exception:
-                field_type = cls.__annotations__.get(field_name)
-            if (
-                field_type is None
-                or not isinstance(field_type, type)
-                or not issubclass(field_type, EntityId)
-            ):
-                raise InvalidIdentityFieldTypeError(
-                    cls.__name__, field_name, getattr(field_type, "__name__", str(field_type))
-                )
-            cls.__entity_id_field_name__ = field_name
+                raise TooManyIdentityFieldsException(cls.__name__)
+            cls.__entity_id_field_name__ = identity_fields[0]
             return
 
         for parent in cls.__mro__[1:]:
@@ -53,11 +37,11 @@ class Entity(ReconstructMixin, BaseGuarded):
                 cls.__entity_id_field_name__ = parent.__entity_id_field_name__
                 return
 
-        raise NoEntityIdException(cls.__name__)
+        raise NoIdentityFieldException(cls.__name__)
 
     @property
     @inherit_context
-    def __entity_id__(self) -> EntityId:
+    def __entity_id__(self) -> Any:
         return getattr(self, type(self).__entity_id_field_name__)
 
     @inherit_context

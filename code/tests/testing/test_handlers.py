@@ -7,23 +7,18 @@ from aod._internal.core.domain_exception import (
 )
 from aod._internal.core.fields.fields import Field
 from aod._internal.domain.entity import Entity, RootEntity
-from aod._internal.domain.entity_id import EntityId
 from aod.application import Command, Query
 from aod.infrastructure import CommandHandler, QueryHandler
 
 
-class IntId(EntityId):
-    value: int
-
-
 class User(RootEntity):
-    id: IntId = Field(id=True)
+    id: int = Field(id=True)
     name: str
     email: str
 
 
 class Order(RootEntity):
-    id: IntId = Field(id=True)
+    id: int = Field(id=True)
     total: float
 
 
@@ -50,13 +45,13 @@ class CreateOrder(Command[Order, Order]):
 
 class CreateUserHandler(CommandHandler[CreateUser]):
     def handle(self, command: CreateUser) -> User:
-        return User(id=IntId(value=1), name=command.name, email=command.email)
+        return User(id=1, name=command.name, email=command.email)
 
 
 class GetUserHandler(QueryHandler[GetUser]):
     def handle(self, query: GetUser) -> User | None:
         if query.user_id == 1:
-            return User(id=IntId(value=1), name="Alice", email="a@b.com")
+            return User(id=1, name="Alice", email="a@b.com")
         return None
 
 
@@ -66,17 +61,17 @@ class DeleteUserHandler(CommandHandler[DeleteUser]):
 
 class CountUsersHandler(QueryHandler[CountUsers]):
     def handle(self, query: CountUsers) -> tuple[int, User]:
-        return (42, User(id=IntId(value=1), name="dummy", email="d@d.com"))
+        return (42, User(id=1, name="dummy", email="d@d.com"))
 
 
 class CreateOrderHandler(CommandHandler[CreateOrder]):
     def handle(self, command: CreateOrder) -> Order:
-        return Order(id=IntId(value=1), total=command.total)
+        return Order(id=1, total=command.total)
 
 
 class BaseCommandHandler(CommandHandler[CreateUser]):
     def handle(self, command: CreateUser) -> User:
-        return User(id=IntId(value=99), name=command.name, email=command.email)
+        return User(id=99, name=command.name, email=command.email)
 
 
 class TestCommand:
@@ -224,7 +219,7 @@ class TestCommandHandler:
         h = BaseCommandHandler()
         cmd = CreateUser(name="Test", email="t@t.com")
         result = h.handle(cmd)
-        assert result.id == IntId(value=99)
+        assert result.id == 99
 
 
 class TestQueryHandler:
@@ -255,4 +250,4 @@ class TestQueryHandler:
         result = h.handle(CountUsers())
         count, user = result
         assert count == 42
-        assert user.id == IntId(value=1)
+        assert user.id == 1

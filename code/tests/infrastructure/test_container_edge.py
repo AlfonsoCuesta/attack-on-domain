@@ -3,19 +3,14 @@ from __future__ import annotations
 from aod._internal.application.contracts import Command
 from aod._internal.core.fields.fields import Field
 from aod._internal.domain.entity import RootEntity
-from aod._internal.domain.entity_id import EntityId
 from aod._internal.infrastructure.container import AdapterContainer
 from aod._internal.infrastructure.handlers import AsyncCommandHandler
 from aod._internal.infrastructure.session import AsyncSession, Session
 from aod._internal.testing.doubles.infrastructure.session import session_stub
 
 
-class IntId(EntityId):
-    value: int
-
-
 class User(RootEntity):
-    id: IntId = Field(id=True)
+    id: int = Field(id=True)
     name: str
 
 

@@ -21,9 +21,6 @@ Create ValueObjects, Events, and the RootEntity that serves as the aggregate roo
 from aod.domain import RootEntity, ValueObject, Field
 from aod.events import Event
 
-class OrderId(ValueObject):
-    value: str
-
 class OrderLine(ValueObject):
     product_id: str
     quantity: int = Field(ge=1)
@@ -34,7 +31,7 @@ class OrderPlaced(Event):
     total: float
 
 class Order(RootEntity):
-    id: OrderId
+    id: str = Field(id=True)
     lines: list[OrderLine] = Field(default_factory=list)
     total: float = 0.0
 
@@ -42,7 +39,7 @@ class Order(RootEntity):
         line = OrderLine(product_id=product_id, quantity=quantity, price=price)
         self.lines.append(line)
         self.total += quantity * price
-        self._event_emitter.emit(OrderPlaced(order_id=self.id.value, total=self.total))
+        self._event_emitter.emit(OrderPlaced(order_id=self.id, total=self.total))
 ```
 
 ### Step 2: Application Layer — UseCases, Commands/Queries, Handlers (APPLICATION)
@@ -144,8 +141,8 @@ place_order.run(order_id="1", product_id="p1", quantity=2, price=9.99)
 
 | Import | What |
 |--------|------|
-| `from aod.domain import BoundedContext, Entity, RootEntity, ValueObject, Service` | Domain primitives |
-| `from aod.domain import Field` | Field wrapper with constraints |
+| `from aod.domain import BoundedContext, Entity, RootEntity, ValueObject, Service, Field` | Domain primitives |
+| `from aod.domain import Field` | Field wrapper with constraints and `id=True` for identity |
 | `from aod.domain import PrivateField` | Private fields for internal state |
 | `from aod.events import Event` | Event base class |
 | `from aod.events import EventCollector` | Cross-aggregate event capture |
@@ -189,31 +186,28 @@ place_order.run(order_id="1", product_id="p1", quantity=2, price=9.99)
 
 | | ValueObject | Entity | RootEntity |
 |---|---|---|---|---|
-| **Identity** | No identity | Has identity | Has identity |
+| **Identity** | No identity | Has identity (`Field(id=True)`) | Has identity (`Field(id=True)`) |
 | **Mutable** | No | Yes (inside methods) | Yes (inside methods) |
-| **Equality** | By all public fields | By `EntityId` only | By `EntityId` only |
+| **Equality** | By all public fields | By identity field only | By identity field only |
 | **Use in UseCase** | No | No | Yes |
 | **Example** | Money, Email, Address | OrderLine, Address | Order, User, Product |
 
 **ValueObject** — Immutable, no identity. Compared by value: two VOs with identical public fields are equal. Used as fields inside other objects.
 
-**Entity** — Mutable, has identity. Compared only by their `EntityId`: two Entities with the same id are equal regardless of other fields. Cannot be used directly in UseCases.
+**Entity** — Mutable, has identity. Compared only by their identity field: two Entities with the same id are equal regardless of other fields. Cannot be used directly in UseCases.
 
-**RootEntity** — Same as Entity: compared by `EntityId`. The aggregate root, entry point for UseCases, Commands, and Queries.
+**RootEntity** — Same as Entity: compared by identity field. The aggregate root, entry point for UseCases, Commands, and Queries.
 
 ```python
 from aod.domain import RootEntity, ValueObject, Entity, Field
 
-class OrderId(ValueObject):      # ValueObject: no identity, immutable
-    value: str
-
 class OrderLine(Entity):         # Entity: has identity, mutable, but NOT used in UseCases
-    id: str
+    id: str = Field(id=True)
     product_id: str
     quantity: int
 
 class Order(RootEntity):         # RootEntity: the aggregate root, used in UseCases
-    id: OrderId
+    id: str = Field(id=True)
     lines: list[OrderLine] = Field(default_factory=list)
     total: float = 0.0
 ```
@@ -250,21 +244,21 @@ Private fields (declared with `PrivateField`) are excluded from equality compari
 
 Mutable objects with identity. Can mutate fields inside public methods. NOT used directly in UseCases — only RootEntity is.
 
-**Identity**: Every Entity must have exactly one identity field. Use `Field(id=True)` to mark it explicitly, especially when you have multiple `EntityId`-typed fields:
+**Identity**: Every Entity must have exactly one identity field marked with `Field(id=True)`. The identity can be any type (`int`, `str`, `UUID`, etc.), including `ValueObject` subclasses for type-safe identities:
 
 ```python
-from aod.domain import Entity, Field
+from aod.domain import Entity, Field, ValueObject
 
-class UserId(EntityId):
+class UserId(ValueObject):
     value: str
 
 class User(Entity):
     id: UserId = Field(id=True)
     name: str
-    father: UserId  # reference, not the identity
+    manager_id: int  # reference, not the identity
 ```
 
-Without `Field(id=True)`, the framework falls back to finding a single `EntityId` field automatically. If there are zero or multiple `EntityId` fields and no `Field(id=True)`, a `NoEntityIdException` or `TooManyEntityIdsException` is raised.
+If no field is marked with `Field(id=True)`, a `NoIdentityFieldException` is raised at class creation time. If multiple fields are marked, a `TooManyIdentityFieldsException` is raised.
 
 **`can_mutate()`**: Every entity exposes a public `can_mutate()` method that controls mutation. Returns `True` by default. Override to block mutation conditionally:
 
@@ -273,7 +267,7 @@ from aod.domain.validation import mutable
 
 
 class User(RootEntity):
-    id: UserId
+    id: int = Field(id=True)
     name: str
     _locked: bool = PrivateField(default=False)
 
@@ -291,7 +285,7 @@ class User(RootEntity):
     def rename(self, new_name: str) -> None:
         self.name = new_name
 
-user = User(id=UserId(value="1"), name="Alice")
+user = User(id=1, name="Alice")
 user.rename("Bob")                    # OK
 user.lock()
 user.rename("Charlie")                # MutationForbiddenException!
@@ -313,35 +307,31 @@ from uuid import UUID, uuid4
 
 # Correct: fields as annotations, no __init__
 class User(Entity):
-    id: UserId = Field(id=True)
+    id: int = Field(id=True)
     name: str
     email: str
 
 # Wrong: defining __init__ manually
 class User(Entity):
-    id: UserId = Field(id=True)
+    id: int = Field(id=True)
     name: str
 
-    def __init__(self, name: str, email: str, id: UserId | None = None) -> None:  # NO!
+    def __init__(self, name: str, email: str, id: int | None = None) -> None:  # NO!
         self.id = id or uuid4()
         self.name = name
         self.email = email
 ```
 
-**Equality**: Two Entities with the same `EntityId` are equal, regardless of other fields:
+**Equality**: Two Entities with the same identity are equal, regardless of other fields:
 
 ```python
 class User(Entity):
-    id: UserId = Field(id=True)
+    id: int = Field(id=True)
     name: str
 
-class User(Entity):
-    id: UserId = Field(id=True)
-    name: str
-
-a = User(id=UserId(value="1"), name="Alice")
-b = User(id=UserId(value="1"), name="Bob")
-assert a == b  # Same EntityId → equal
+a = User(id=1, name="Alice")
+b = User(id=1, name="Bob")
+assert a == b  # Same identity → equal
 assert hash(a) == hash(b)
 ```
 
@@ -355,22 +345,22 @@ Aggregate root. The entry point for all operations. UseCases, Commands, and Quer
 from aod.domain import RootEntity
 
 class Order(RootEntity):
-    id: OrderId = Field(id=True)
+    id: int = Field(id=True)
     total: float
 
 class OrderLine(RootEntity):
-    id: OrderLineId = Field(id=True)
+    id: int = Field(id=True)
     product_id: str
     quantity: int
 
 # Wrong: RootEntity nested in another
 class Order(RootEntity):
-    id: OrderId = Field(id=True)
+    id: int = Field(id=True)
     line: OrderLine  # InvalidNestedTypeError!
 
 # Correct: reference by ID
 class Order(RootEntity):
-    id: OrderId = Field(id=True)
+    id: int = Field(id=True)
     line_id: str
 ```
 
@@ -746,15 +736,12 @@ self._event_emitter.emit(OrderPlaced(order_id="1", total=100.0))
 Run code after construction (works for Entity, RootEntity, ValueObject, Service, UseCase):
 
 ```python
-class UserId(EntityId):
-    value: str
-
 class User(RootEntity):
-    id: UserId
+    id: int = Field(id=True)
     name: str
 
     def __post_init__(self) -> None:
-        self._event_emitter.emit(UserCreated(user_id=self.id.value))
+        self._event_emitter.emit(UserCreated(user_id=self.id))
 ```
 
 #### `__post_init__` vs `@invariance` / `@field_invariance`

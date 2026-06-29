@@ -14,7 +14,6 @@ from aod._internal.core.domain_exception import (
     MissingHandlerError,
 )
 from aod._internal.domain.entity import Entity, RootEntity
-from aod._internal.domain.entity_id import EntityId
 from aod._internal.domain.service import Service
 from aod._internal.infrastructure.handlers import CommandHandler, QueryHandler
 from aod._internal.infrastructure.session import Session
@@ -24,16 +23,8 @@ from aod.domain import Field
 # ---- Test domain types ----
 
 
-class IntId(EntityId):
-    value: int
-
-
-class OrderId(EntityId):
-    value: str
-
-
 class Order(RootEntity):
-    id: OrderId = Field(id=True)
+    id: str = Field(id=True)
     total: float = 0.0
 
 
@@ -144,7 +135,7 @@ class TestSchemaConsistencyChecks:
 
     def test_bounded_context_rejects_non_root_entity(self) -> None:
         class LineItem(Entity):
-            id: IntId = Field(id=True)
+            id: int = Field(id=True)
 
         with pytest.raises(InvalidRootEntityTypeError):
             BoundedContext(aggregate_roots=[LineItem])  # ty: ignore[invalid-argument-type]

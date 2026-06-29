@@ -3,13 +3,8 @@ from aod._internal.core.base_validator import BaseValidator
 from aod._internal.core.domain_exception import MutationForbiddenException
 from aod._internal.core.event_emitter import Event, EventCollector
 from aod._internal.domain.entity import Entity, RootEntity
-from aod._internal.domain.entity_id import EntityId
 from aod._internal.domain.value_object import ValueObject
 from aod.domain import Field
-
-
-class IntId(EntityId):
-    value: int
 
 
 # ---------------------------------------------------------------------------
@@ -32,12 +27,12 @@ def test_entity_post_init_runs_on_normal_construction() -> None:
     called: list[bool] = []
 
     class User(Entity):
-        id: IntId = Field(id=True)
+        id: int = Field(id=True)
 
         def __post_init__(self) -> None:
             called.append(True)
 
-    User(id=IntId(value=1))
+    User(id=1)
 
     assert called == [True]
 
@@ -46,12 +41,12 @@ def test_entity_post_init_does_not_run_on_reconstruct() -> None:
     called: list[bool] = []
 
     class User(Entity):
-        id: IntId = Field(id=True)
+        id: int = Field(id=True)
 
         def __post_init__(self) -> None:
             called.append(True)
 
-    User.reconstruct(id=IntId(value=1))
+    User.reconstruct(id=1)
 
     assert called == []
 
@@ -61,12 +56,12 @@ def test_entity_post_init_can_emit_events() -> None:
         user_id: int
 
     class User(Entity):
-        id: IntId = Field(id=True)
+        id: int = Field(id=True)
 
         def __post_init__(self) -> None:
-            self._event_emitter.emit(UserCreated(user_id=self.id.value))
+            self._event_emitter.emit(UserCreated(user_id=self.id))
 
-    user = User(id=IntId(value=42))
+    user = User(id=42)
 
     events = user._event_emitter.poll_events()
     assert len(events) == 1
@@ -79,12 +74,12 @@ def test_entity_post_init_does_not_emit_on_reconstruct() -> None:
         user_id: int
 
     class User(Entity):
-        id: IntId = Field(id=True)
+        id: int = Field(id=True)
 
         def __post_init__(self) -> None:
-            self._event_emitter.emit(UserCreated(user_id=self.id.value))
+            self._event_emitter.emit(UserCreated(user_id=self.id))
 
-    user = User.reconstruct(id=IntId(value=42))
+    user = User.reconstruct(id=42)
 
     assert user._event_emitter.poll_events() == []
 
@@ -94,13 +89,13 @@ def test_entity_post_init_events_collected_by_event_collector() -> None:
         user_id: int
 
     class User(Entity):
-        id: IntId = Field(id=True)
+        id: int = Field(id=True)
 
         def __post_init__(self) -> None:
-            self._event_emitter.emit(UserCreated(user_id=self.id.value))
+            self._event_emitter.emit(UserCreated(user_id=self.id))
 
     with EventCollector() as collected:
-        User(id=IntId(value=1))
+        User(id=1)
 
     assert len(collected) == 1
     assert isinstance(collected[0], UserCreated)
@@ -109,7 +104,7 @@ def test_entity_post_init_events_collected_by_event_collector() -> None:
 
 def test_entity_post_init_can_call_public_methods() -> None:
     class User(Entity):
-        id: IntId = Field(id=True)
+        id: int = Field(id=True)
 
         called: list[bool] = []
 
@@ -119,20 +114,20 @@ def test_entity_post_init_can_call_public_methods() -> None:
         def setup(self) -> None:
             self.called.append(True)
 
-    user = User(id=IntId(value=1))
+    user = User(id=1)
 
     assert user.called == [True]
 
 
 def test_entity_post_init_can_set_fields() -> None:
     class User(Entity):
-        id: IntId = Field(id=True)
+        id: int = Field(id=True)
         label: str = ""
 
         def __post_init__(self) -> None:
-            object.__setattr__(self, "label", f"user:{self.id.value}")
+            object.__setattr__(self, "label", f"user:{self.id}")
 
-    user = User(id=IntId(value=7))
+    user = User(id=7)
 
     assert user.label == "user:7"
 
@@ -141,13 +136,13 @@ def test_entity_post_init_not_called_on_reconstruct_with_custom_init() -> None:
     post_init_ran: list[bool] = []
 
     class User(Entity):
-        id: IntId = Field(id=True)
+        id: int = Field(id=True)
 
         def __post_init__(self) -> None:
             post_init_ran.append(True)
 
-    User(id=IntId(value=1))
-    User.reconstruct(id=IntId(value=2))
+    User(id=1)
+    User.reconstruct(id=2)
 
     assert post_init_ran == [True]
 
@@ -161,12 +156,12 @@ def test_root_entity_post_init_runs_on_normal_construction() -> None:
     called: list[bool] = []
 
     class Aggregate(RootEntity):
-        id: IntId = Field(id=True)
+        id: int = Field(id=True)
 
         def __post_init__(self) -> None:
             called.append(True)
 
-    Aggregate(id=IntId(value=1))
+    Aggregate(id=1)
 
     assert called == [True]
 
@@ -176,12 +171,12 @@ def test_root_entity_post_init_emits_events() -> None:
         aggregate_id: int
 
     class Aggregate(RootEntity):
-        id: IntId = Field(id=True)
+        id: int = Field(id=True)
 
         def __post_init__(self) -> None:
-            self._event_emitter.emit(AggregateCreated(aggregate_id=self.id.value))
+            self._event_emitter.emit(AggregateCreated(aggregate_id=self.id))
 
-    agg = Aggregate(id=IntId(value=99))
+    agg = Aggregate(id=99)
 
     events = agg._event_emitter.poll_events()
     assert len(events) == 1
@@ -307,21 +302,21 @@ def test_post_init_calls_super_in_entity_inheritance() -> None:
     called: list[str] = []
 
     class BaseEntity(Entity):
-        id: IntId = Field(id=True)
+        id: int = Field(id=True)
         x: int
 
         def __post_init__(self) -> None:
             called.append("base")
 
     class ChildEntity(BaseEntity):
-        id: IntId = Field(id=True)
+        id: int = Field(id=True)
         y: int
 
         def __post_init__(self) -> None:
             super().__post_init__()
             called.append("child")
 
-    ChildEntity(id=IntId(value=1), x=1, y=2)
+    ChildEntity(id=1, x=1, y=2)
 
     assert called == ["base", "child"]
 
@@ -330,17 +325,17 @@ def test_post_init_inherits_from_entity_parent() -> None:
     called: list[str] = []
 
     class BaseEntity(Entity):
-        id: IntId = Field(id=True)
+        id: int = Field(id=True)
         x: int
 
         def __post_init__(self) -> None:
             called.append("base")
 
     class ChildEntity(BaseEntity):
-        id: IntId = Field(id=True)
+        id: int = Field(id=True)
         y: int
 
-    ChildEntity(id=IntId(value=1), x=1, y=2)
+    ChildEntity(id=1, x=1, y=2)
 
     assert called == ["base"]
 
@@ -349,21 +344,21 @@ def test_post_init_not_called_on_reconstruct_with_inheritance() -> None:
     called: list[str] = []
 
     class BaseEntity(Entity):
-        id: IntId = Field(id=True)
+        id: int = Field(id=True)
         x: int
 
         def __post_init__(self) -> None:
             called.append("base")
 
     class ChildEntity(BaseEntity):
-        id: IntId = Field(id=True)
+        id: int = Field(id=True)
         y: int
 
         def __post_init__(self) -> None:
             super().__post_init__()
             called.append("child")
 
-    ChildEntity.reconstruct(id=IntId(value=1), x=1, y=2)
+    ChildEntity.reconstruct(id=1, x=1, y=2)
 
     assert called == []
 
@@ -381,20 +376,20 @@ def test_multiple_entities_each_emit_own_events_via_post_init() -> None:
         order_id: int
 
     class User(RootEntity):
-        id: IntId = Field(id=True)
+        id: int = Field(id=True)
 
         def __post_init__(self) -> None:
-            self._event_emitter.emit(UserCreated(user_id=self.id.value))
+            self._event_emitter.emit(UserCreated(user_id=self.id))
 
     class Order(RootEntity):
-        id: IntId = Field(id=True)
+        id: int = Field(id=True)
 
         def __post_init__(self) -> None:
-            self._event_emitter.emit(OrderCreated(order_id=self.id.value))
+            self._event_emitter.emit(OrderCreated(order_id=self.id))
 
     with EventCollector() as collected:
-        user = User(id=IntId(value=1))
-        order = Order(id=IntId(value=2))
+        user = User(id=1)
+        order = Order(id=2)
 
     assert len(collected) == 2
     assert collected[0].user_id == 1

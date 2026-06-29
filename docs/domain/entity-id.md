@@ -1,110 +1,92 @@
-# EntityId
+# Identity Field
 
-`EntityId` is a specialized `ValueObject` that represents the identity of an `Entity`. Every entity must have exactly one field of type `EntityId` — the framework enforces this at class creation time.
+Every `Entity` and `RootEntity` subclass must have exactly one identity field marked with `Field(id=True)`. The identity field can be any type — `int`, `str`, `UUID`, or a custom type — and the framework enforces the "exactly one" rule at class creation time.
 
-Because `EntityId` inherits from `ValueObject`, identities are immutable and compared by their internal value. Two entities with the same `EntityId` are considered the same entity.
+## Marking the Identity Field
 
-## Simple Identity
-
-A single-field identity using a `value` field is the most common form:
+Use `Field(id=True)` to mark the identity field:
 
 ```python
-from aod.domain import EntityId
+from aod.domain import RootEntity, Field
 
 
-class UserId(EntityId):
+class User(RootEntity):
+    id: int = Field(id=True)
+    name: str
+    email: str
+```
+
+Any type works as an identity field:
+
+```python
+import uuid
+from aod.domain import Entity, Field
+
+
+class Order(Entity):
+    id: uuid.UUID = Field(id=True)
+    total: float
+
+
+class Post(Entity):
+    id: str = Field(id=True)
+    title: str
+```
+
+## ValueObject as Identity
+
+Identity fields can also be `ValueObject` subclasses, providing type safety and encapsulation:
+
+```python
+from aod.domain import RootEntity, ValueObject, Field
+
+
+class UserId(ValueObject):
     value: str
 
 
-class OrderId(EntityId):
-    value: int
-```
-
-## Composite Identity
-
-An `EntityId` can have multiple fields, forming a composite key:
-
-```python
-class UserId(EntityId):
+class User(RootEntity):
+    id: UserId = Field(id=True)
+    name: str
     email: str
-    phone: str
+
+user = User(id=UserId(value="abc-123"), name="Alice", email="alice@example.com")
+assert user.id.value == "abc-123"
 ```
 
-Two identities are equal only when all fields match:
+ValueObject identities are compared by value — two entities with `UserId(value="abc-123")` are equal regardless of other fields. This is the recommended pattern for rich identity types that carry domain meaning.
+
+## Distinguishing Identity from References
+
+When an entity has multiple fields of the same type, `Field(id=True)` tells the framework which one is the identity:
 
 ```python
-a = UserId(email="alice@example.com", phone="+1-555-0100")
-b = UserId(email="alice@example.com", phone="+1-555-0100")
-assert a == b  # True
+from aod.domain import RootEntity, Field
 
-c = UserId(email="alice@example.com", phone="+1-555-0101")
-assert a != c  # Different phone
+
+class User(RootEntity):
+    id: int = Field(id=True)  # This is the identity
+    manager_id: int           # This is a reference, not the identity
+    name: str
 ```
 
-## Key Characteristics
+## Exactly One Identity Field
 
-### Immutable
-
-`EntityId` is a `ValueObject`, so it cannot be changed after creation:
-
-```python
-uid = UserId(value="abc")
-uid.value = "def"  # MutationForbiddenException!
-```
-
-### Compared by Value
-
-Two `EntityId` instances with the same field values are equal:
-
-```python
-a = UserId(value="abc")
-b = UserId(value="abc")
-assert a == b  # True
-```
-
-### Structural Equality for Entities
-
-Entities use their `EntityId` for equality and hashing. Two entities with the same `EntityId` are equal:
+The framework requires exactly one field marked with `Field(id=True)`:
 
 ```python
 class User(RootEntity):
-    id: UserId
+    id: int = Field(id=True)  # OK
     name: str
 
-uid = UserId(value="abc")
-u1 = User(id=uid, name="Alice")
-u2 = User(id=uid, name="Bob")
-assert u1 == u2  # True — same identity
-assert hash(u1) == hash(u2)
-```
-
-Different entity types with the same identity value are never equal:
-
-```python
-class Admin(RootEntity):
-    id: UserId
-    role: str
-
-a = Admin(id=UserId(value="1"), role="super")
-u = User(id=UserId(value="1"), name="x")
-assert a != u  # Different types
-```
-
-## Each Entity Needs Exactly One EntityId
-
-The framework requires every `Entity` and `RootEntity` subclass to have exactly one field typed as an `EntityId` subclass:
-
-```python
-class User(RootEntity):
-    id: UserId       # One EntityId field — OK
-    name: str
 
 class BadEntity(Entity):
-    name: str        # No EntityId — NoEntityIdException at class creation
+    name: str  # NoIdentityFieldException at class creation
+
 
 class BadEntity2(Entity):
-    id1: UserId
-    id2: OrderId     # Two EntityId fields — TooManyEntityIdsException
+    id: int = Field(id=True)
+    alt_id: int = Field(id=True)  # TooManyIdentityFieldsException
 ```
 
 This check runs at class creation time — not at instantiation — so the error surfaces as soon as the class is defined.
@@ -115,74 +97,61 @@ You can change an entity's identity inside a method:
 
 ```python
 class User(RootEntity):
-    id: UserId
+    id: int = Field(id=True)
     name: str
 
-    def reassign(self, new_id: UserId) -> None:
+    def reassign(self, new_id: int) -> None:
         self.id = new_id
 ```
 
 However, changing the identity also changes the entity's hash. If the entity is stored in a `set` or used as a `dict` key, the hash change can cause subtle bugs:
 
 ```python
-uid1 = UserId(value="a")
-uid2 = UserId(value="b")
-
-user = User(id=uid1, name="Alice")
+user = User(id=1, name="Alice")
 s = {user}
 d = {user: "found"}
 
-user.reassign(uid2)
+user.reassign(2)
 
-assert user in s      # False! Hash changed after insertion
-assert user in d      # False! Hash changed after insertion
+assert user in s  # False! Hash changed after insertion
+assert user in d  # False! Hash changed after insertion
 ```
 
 **Best practice:** avoid mutating an entity's identity after construction. If you need to change the identity, create a new entity or ensure the entity was never placed in a set/dict before the mutation.
 
-## The `evolve()` Method
+## Equality by Identity
 
-`EntityId` provides an `evolve()` method that creates a new identity with some fields changed, while linking to the previous identity for change tracking:
+Entities compare by their identity field value, not by their other fields:
 
 ```python
-class UserId(EntityId):
-    value: str
-    tenant: str = "default"
+class User(RootEntity):
+    id: int = Field(id=True)
+    name: str
 
-uid = UserId(value="abc")
-uid2 = uid.evolve(tenant="acme")
-
-assert uid2.value == "abc"
-assert uid2.tenant == "acme"
-assert uid2.last_id is uid  # Links to the original
+u1 = User(id=1, name="Alice")
+u2 = User(id=1, name="Bob")
+assert u1 == u2  # True — same identity
+assert hash(u1) == hash(u2)
 ```
 
-The `last_id` public property is readable by persistence layers to trace identity chains and find the previous row for updates.
-
-This is useful for persistence layers that need to track identity changes.
-
-### `evolve()` Parameters
-
-| Parameter | Type | Description |
-|-----------|------|-------------|
-| `**changes` | `Any` | Fields to override in the new identity |
-
-Returns a new `EntityId` instance with the requested changes. Fields not present in `changes` keep their current values.
-
-## Testing
+Different entity types with the same identity value are never equal:
 
 ```python
-from aod.testing import build
+class Admin(RootEntity):
+    id: int = Field(id=True)
+    role: str
 
-user = build(User, id=UserId(value="abc"), name="Alice")
+a = Admin(id=1, role="super")
+u = User(id=1, name="x")
+assert a != u  # Different types
 ```
 
 ## Exceptions
 
 | Exception | Raised When |
 |-----------|-------------|
-| `NoEntityIdException` | An `Entity` or `RootEntity` subclass has no `EntityId` field |
-| `TooManyEntityIdsException` | An `Entity` or `RootEntity` subclass has more than one `EntityId` field |
+| `NoIdentityFieldException` | An `Entity` or `RootEntity` subclass has no field marked with `Field(id=True)` |
+| `TooManyIdentityFieldsException` | An `Entity` or `RootEntity` subclass has more than one field marked with `Field(id=True)` |
 
 ## Next Steps
 
@@ -190,12 +159,12 @@ user = build(User, id=UserId(value="abc"), name="Alice")
 
 <div class="feature-card">
 <h3><a href="entities.md">Entity & RootEntity</a></h3>
-<p>Learn about mutable domain objects with EntityId identity</p>
+<p>Learn about mutable domain objects with identity</p>
 </div>
 
 <div class="feature-card">
 <h3><a href="value-objects.md">ValueObject</a></h3>
-<p>Learn about immutable domain objects — EntityId is a specialized ValueObject</p>
+<p>Learn about immutable domain objects</p>
 </div>
 
 <div class="feature-card">
