@@ -1,13 +1,14 @@
 from __future__ import annotations
 
 import pytest
+from aod._internal.application.dto import DTO
 from aod._internal.application.logger.null_logger import NullLogger
 from aod._internal.application.port import Port
 from aod._internal.core.fields.fields import Field
 from aod._internal.core.infrastructure_exception import PortNotFoundError, SessionNotFoundError
 from aod._internal.infrastructure.container import AdapterContainer, extract_port_type
 from aod._internal.infrastructure.handlers import AsyncCommandHandler
-from aod._internal.infrastructure.projection import ReadModel, ReadProjection
+from aod._internal.infrastructure.projection import ReadProjection
 from aod._internal.infrastructure.session import AsyncSession, Session
 from aod.application import Command, Query, UseCase
 from aod.application.async_ import UseCase as AsyncUseCase
@@ -174,7 +175,7 @@ class TestInjectAdapters:
 class TestInjectProjection:
     def test_injects_session_and_logger(self) -> None:
         class TestProjection(ReadProjection):
-            def read(self, model: ReadModel) -> str:
+            def read(self, model: DTO) -> str:
                 return "ok"
 
         container = _CustomContainer(weather_client=_FakePort(), sessions={_SyncSession})
@@ -186,7 +187,7 @@ class TestInjectProjection:
 
     def test_injects_session_from_container(self) -> None:
         class TestProjection(ReadProjection):
-            def read(self, model: ReadModel) -> str:
+            def read(self, model: DTO) -> str:
                 return "ok"
 
         container = _CustomContainer(weather_client=_FakePort(), sessions={_SyncSession})
@@ -195,7 +196,7 @@ class TestInjectProjection:
 
     def test_session_is_none_when_no_sessions(self) -> None:
         class TestProjection(ReadProjection):
-            def read(self, model: ReadModel) -> str:
+            def read(self, model: DTO) -> str:
                 return "ok"
 
         container = _CustomContainer(weather_client=_FakePort())
@@ -205,7 +206,7 @@ class TestInjectProjection:
 
     def test_overrides_session(self) -> None:
         class TestProjection(ReadProjection):
-            def read(self, model: ReadModel) -> str:
+            def read(self, model: DTO) -> str:
                 return "ok"
 
         override_session = _SyncSession()

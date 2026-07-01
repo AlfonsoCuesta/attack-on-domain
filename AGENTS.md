@@ -42,12 +42,18 @@ class Order(RootEntity):
         self._event_emitter.emit(OrderPlaced(order_id=self.id.value, total=self.total))
 ```
 
-### Step 2: Application Layer — UseCases, Commands/Queries, Handlers (APPLICATION)
+### Step 2: Application Layer — DTOs, UseCases, Commands/Queries, Handlers
 
-Create Commands, Queries, and UseCases. UseCases depend on `CommandPort[Command]` and `QueryPort[Query]` from `aod.application` — NOT on repositories or custom ports for database access. All database communication goes through handlers.
+Create DTOs for UseCase input, and Commands/Queries for handlers. **Commands and Queries are internal** — created by the UseCase, never by the user. DTOs (from `aod.application`) are the public contract for `run()`.
 
 ```python
-from aod.application import UseCase, Command, Query, CommandHandler, QueryHandler
+from aod.application import UseCase, Command, Query, CommandPort, QueryPort, DTO
+
+class PlaceOrderInput(DTO):
+    order_id: str
+    product_id: str
+    quantity: int
+    price: float
 
 class PlaceOrder(Command[Order, None]):
     order_id: str
@@ -62,14 +68,14 @@ class PlaceOrderUseCase(UseCase):
     place_order: CommandPort[PlaceOrder]
     get_order: QueryPort[GetOrder]
 
-    def run(self, order_id: str, product_id: str, quantity: int, price: float) -> None:
-        order = Order(id=OrderId(value=order_id))
-        order.add_line(product_id, quantity, price)
+    def run(self, dto: PlaceOrderInput) -> None:
+        order = Order(id=dto.order_id)
+        order.add_line(dto.product_id, dto.quantity, dto.price)
         self.place_order.handle(PlaceOrder(
-            order_id=order_id,
-            product_id=product_id,
-            quantity=quantity,
-            price=price,
+            order_id=dto.order_id,
+            product_id=dto.product_id,
+            quantity=dto.quantity,
+            price=dto.price,
         ))
 ```
 
@@ -120,7 +126,7 @@ from aod.infrastructure import AdapterContainer
 
 container = AdapterContainer(sessions={SqlSession}, handlers=[PlaceOrderHandler, GetOrderHandler])
 place_order = container.adapt_use_case(PlaceOrderUseCase)
-place_order.run(order_id="1", product_id="p1", quantity=2, price=9.99)
+place_order.run(PlaceOrderInput(order_id="1", product_id="p1", quantity=2, price=9.99))
 ```
 
 ## Documentation Site
@@ -394,11 +400,11 @@ BaseValidator (metaclass: ValidationModelMeta → ABCMeta)
     │       ├── ValueObject(ReconstructMixin, BaseSealed) → has reconstruct ✓
     │       ├── Event
     │       ├── Command
-    │       ├── Query
-    │       ├── ReadModel
-    │       └── WriteModel
+    │       └── Query
     └── BaseGuarded (direct inheritance for Port, Session, etc.)
 ```
+
+`DTO` inherits directly from `pydantic.BaseModel` — it is not part of this hierarchy. No mutation guards, no events, no identity.
 
 `ReconstructMixin` is only mixed into `Entity` and `ValueObject`. `Service` and `UseCase` never see `reconstruct()`.
 

@@ -3,6 +3,7 @@ from __future__ import annotations
 from typing import Any, cast
 
 import pytest
+from aod._internal.application.dto import DTO
 from aod._internal.application.event_bus import EventBus
 from aod._internal.application.handler import CommandPort
 from aod._internal.application.logger import Logger
@@ -13,7 +14,6 @@ from aod._internal.core.fields.fields import Field
 from aod._internal.core.infrastructure_exception import PortNotFoundError
 from aod._internal.infrastructure.container import AdapterContainer
 from aod._internal.infrastructure.projection import ReadProjection
-from aod._internal.infrastructure.projection.models import ReadModel
 from aod._internal.infrastructure.session import AsyncSession, Session
 from aod._internal.infrastructure.unit_of_work import UnitOfWork
 from aod._internal.testing.doubles.infrastructure.container import spy_adapter_container
@@ -224,32 +224,32 @@ def test_adapt_use_case_without_returns_works_normally() -> None:
 
 
 class _TestReadProjection(ReadProjection):
-    def read(self, model: ReadModel) -> str:
+    def read(self, model: DTO) -> str:
         return "original"
 
 
 def test_adapt_projection_with_read_returns() -> None:
     container = spy_adapter_container(AdapterContainer(sessions={Session}))
     proj = container.adapt_projection(_TestReadProjection, read_returns="spied")
-    result = proj.read(ReadModel())
+    result = proj.read(DTO())
     assert result == "spied"
 
 
 def test_adapt_projection_with_write_returns() -> None:
     class _TestWriteProjection(ReadProjection):
-        def read(self, model: ReadModel) -> str:
+        def read(self, model: DTO) -> str:
             return "read"
 
-        def write(self, model: ReadModel) -> str:
+        def write(self, model: DTO) -> str:
             return "original"
 
     container = spy_adapter_container(AdapterContainer(sessions={Session}))
     proj = container.adapt_projection(_TestWriteProjection, write_returns="spied")
-    result = proj.write(ReadModel())
+    result = proj.write(DTO())
     assert result == "spied"
 
 
 def test_adapt_projection_without_stubs_works_normally() -> None:
     container = spy_adapter_container(AdapterContainer(sessions={Session}))
     proj = container.adapt_projection(_TestReadProjection)
-    assert proj.read(ReadModel()) == "original"
+    assert proj.read(DTO()) == "original"

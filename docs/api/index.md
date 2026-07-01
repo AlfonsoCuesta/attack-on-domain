@@ -263,7 +263,7 @@ from aod.domain.validation import field_invariance, invariance, AfterValidator, 
 ## Application Layer
 
 ```python
-from aod.application import UseCase, Port, Logger, EventBus, UnitOfWork, Cache, Command, Query
+from aod.application import UseCase, Port, DTO, Logger, EventBus, UnitOfWork, Cache, Command, Query
 from aod.application import CommandPort, QueryPort
 from aod.application import ApplicationException
 from aod.application.async_ import UseCase, Logger, EventBus, UnitOfWork, Cache
@@ -569,13 +569,33 @@ Immutable query contract for read operations.
 - Same field restrictions as `Command`.
 - `TResult` is validated to contain at least one `RootEntity` type.
 
+### DTO
+
+```python
+class DTO(BaseModel)
+```
+
+Data Transfer Object. Inherits directly from Pydantic's `BaseModel` — a pure data carrier with no mutation guards, no event emission, and no identity. Fully FastAPI-compatible.
+
+#### Constructor
+
+`DTO(**fields)` — All fields are keyword-only. `extra="forbid"` by default.
+
+#### Constraints
+
+- Not part of the domain layer — does not inherit from `BaseValidator`, `BaseGuarded`, or any domain framework class.
+- No `_event_emitter`, no mutation restrictions, no identity field.
+
+#### Usage
+
+Use `DTO` for UseCase `run()` input and Projection input models.
+
 ---
 
 ## Infrastructure Layer
 
 ```python
 from aod.infrastructure import Session, AsyncSession
-from aod.infrastructure import ReadModel, WriteModel
 from aod.infrastructure import ReadProjection, WriteProjection, Projection
 from aod.infrastructure import AsyncReadProjection, AsyncWriteProjection, AsyncProjection
 from aod.infrastructure import CommandHandler, QueryHandler
@@ -612,30 +632,6 @@ class AsyncSession(Port)
 
 Same interface as `Session` but `execute`, `query`, `begin`, `commit`, `rollback`, `close` are async. `is_dirty()` is sync.
 
-### ReadModel
-
-```python
-class ReadModel(BaseSealed)
-```
-
-Immutable input model for read projections.
-
-#### Constructor
-
-`ReadModel(**fields)` — All fields are keyword-only.
-
-### WriteModel
-
-```python
-class WriteModel(BaseSealed)
-```
-
-Immutable input model for write projections.
-
-#### Constructor
-
-`WriteModel(**fields)` — All fields are keyword-only.
-
 ### ReadProjection
 
 ```python
@@ -657,7 +653,7 @@ Synchronous read projection.
 
 | Method | Signature | Description |
 |--------|-----------|-------------|
-| `read` | `abstractmethod read(self, model: ReadModel) -> Any` | Execute read logic. Auto-wrapped with event collection, logging, cache flush, and event bus publish. |
+| `read` | `abstractmethod read(self, model: Any) -> Any` | Execute read logic. Auto-wrapped with event collection, logging, cache flush, and event bus publish. |
 
 ### WriteProjection
 
@@ -680,7 +676,7 @@ Synchronous write projection.
 
 | Method | Signature | Description |
 |--------|-----------|-------------|
-| `write` | `abstractmethod write(self, model: WriteModel) -> Any` | Execute write logic. Auto-wrapped with `CommitContext`, transaction begin, event collection, rollback on failure, logging, cache flush, and event bus publish. |
+| `write` | `abstractmethod write(self, model: Any) -> Any` | Execute write logic. Auto-wrapped with `CommitContext`, transaction begin, event collection, rollback on failure, logging, cache flush, and event bus publish. |
 
 ### Projection
 
@@ -696,7 +692,7 @@ Same as `ReadProjection` and `WriteProjection`.
 
 #### Methods
 
-Both `read(self, model: ReadModel) -> Any` and `write(self, model: WriteModel) -> Any`.
+Both `read(self, model: Any) -> Any` and `write(self, model: Any) -> Any`.
 
 ### AsyncReadProjection
 
@@ -716,7 +712,7 @@ class AsyncReadProjection(AsyncReadProjectionBase)
 
 | Method | Signature | Description |
 |--------|-----------|-------------|
-| `read` | `abstractmethod async read(self, model: ReadModel) -> Any` | Async read. |
+| `read` | `abstractmethod async read(self, model: Any) -> Any` | Async read. |
 
 ### AsyncWriteProjection
 
@@ -732,7 +728,7 @@ class AsyncWriteProjection(AsyncWriteProjectionBase)
 
 | Method | Signature | Description |
 |--------|-----------|-------------|
-| `write` | `abstractmethod async write(self, model: WriteModel) -> Any` | Async write. |
+| `write` | `abstractmethod async write(self, model: Any) -> Any` | Async write. |
 
 ### AsyncProjection
 

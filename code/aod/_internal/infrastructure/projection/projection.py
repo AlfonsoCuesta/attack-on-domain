@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from abc import abstractmethod
 from functools import wraps
-from typing import Any, Callable, TypeVar, get_args, get_origin, get_type_hints
+from typing import Any, Callable, get_args, get_origin, get_type_hints
 
 from aod._internal.application.handler.handler import HandlerProtocol
 from aod._internal.core.async_utils import should_await
@@ -11,7 +11,6 @@ from aod._internal.core.event_emitter import EventCollector
 from aod._internal.core.fields.fields import Field
 from aod._internal.core.infrastructure_exception import InvalidPortFieldError
 from aod._internal.infrastructure.commit_context import _CommitContext
-from aod._internal.infrastructure.projection.models import ReadModel, WriteModel
 from aod._internal.infrastructure.session import AsyncSession, Session
 
 _PROJECTION_WRAPPED_KEY = "__aod_projection_wrapped__"
@@ -29,10 +28,6 @@ def _is_session_type(tp: Any) -> bool:
     return False
 
 
-TReadModel = TypeVar("TReadModel", bound=ReadModel)
-TWriteModel = TypeVar("TWriteModel", bound=WriteModel)
-
-
 def _make_projection_wrapper(
     fn: Callable[..., Any],
     *,
@@ -43,7 +38,7 @@ def _make_projection_wrapper(
     if is_async:
 
         @wraps(fn)
-        async def async_wrapper(self: Any, model: ReadModel | WriteModel) -> Any:
+        async def async_wrapper(self: Any, *args: Any, **kwargs: Any) -> Any:
             token = _CommitContext.set(True) if is_write else None
             exception: BaseException | None = None
             try:
@@ -51,7 +46,7 @@ def _make_projection_wrapper(
                     await should_await(self.session.begin())
                 with EventCollector() as events:
                     try:
-                        result = await should_await(fn(self, model))
+                        result = await should_await(fn(self, *args, **kwargs))
                     except BaseException as e:
                         exception = e
                         result = None
@@ -81,13 +76,13 @@ def _make_projection_wrapper(
         return async_wrapper
 
     @wraps(fn)
-    def sync_wrapper(self: Any, model: ReadModel | WriteModel) -> Any:
+    def sync_wrapper(self: Any, *args: Any, **kwargs: Any) -> Any:
         token = _CommitContext.set(True) if is_write else None
         exception: BaseException | None = None
         try:
             with EventCollector() as events:
                 try:
-                    result = fn(self, model)
+                    result = fn(self, *args, **kwargs)
                 except BaseException as e:
                     exception = e
                     result = None
@@ -192,7 +187,7 @@ class WriteProjection(WriteProjectionBase):
     session: Session | None = Field(default=None)
 
     @abstractmethod
-    def write(self, model: TWriteModel) -> Any: ...
+    def write(self, *args: Any, **kwargs: Any) -> Any: ...
 
 
 class ReadProjection(ReadProjectionBase):
@@ -200,17 +195,17 @@ class ReadProjection(ReadProjectionBase):
     session: Session | None = Field(default=None)
 
     @abstractmethod
-    def read(self, model: TReadModel) -> Any: ...
+    def read(self, *args: Any, **kwargs: Any) -> Any: ...
 
 
 class Projection(ReadProjection, WriteProjection):
     __skip_port_check__ = True
 
     @abstractmethod
-    def read(self, model: TReadModel) -> Any: ...
+    def read(self, *args: Any, **kwargs: Any) -> Any: ...
 
     @abstractmethod
-    def write(self, model: TWriteModel) -> Any: ...
+    def write(self, *args: Any, **kwargs: Any) -> Any: ...
 
 
 class AsyncReadProjection(AsyncReadProjectionBase):
@@ -218,7 +213,7 @@ class AsyncReadProjection(AsyncReadProjectionBase):
     session: Session | AsyncSession | None = Field(default=None)
 
     @abstractmethod
-    async def read(self, model: TReadModel) -> Any: ...
+    async def read(self, *args: Any, **kwargs: Any) -> Any: ...
 
 
 class AsyncWriteProjection(AsyncWriteProjectionBase):
@@ -226,14 +221,14 @@ class AsyncWriteProjection(AsyncWriteProjectionBase):
     session: Session | AsyncSession | None = Field(default=None)
 
     @abstractmethod
-    async def write(self, model: TWriteModel) -> Any: ...
+    async def write(self, *args: Any, **kwargs: Any) -> Any: ...
 
 
 class AsyncProjection(AsyncReadProjection, AsyncWriteProjection):
     __skip_port_check__ = True
 
     @abstractmethod
-    async def read(self, model: TReadModel) -> Any: ...
+    async def read(self, *args: Any, **kwargs: Any) -> Any: ...
 
     @abstractmethod
-    async def write(self, model: TWriteModel) -> Any: ...
+    async def write(self, *args: Any, **kwargs: Any) -> Any: ...

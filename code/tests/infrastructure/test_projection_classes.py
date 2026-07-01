@@ -1,10 +1,9 @@
 from __future__ import annotations
 
-
 from typing import cast
 
 import pytest
-from aod._internal.core.domain_exception import MutationForbiddenException
+from aod._internal.application.dto import DTO
 from aod._internal.core.event_emitter import Event
 from aod._internal.core.infrastructure_exception import InvalidPortFieldError
 from aod._internal.infrastructure.commit_context import _CommitContext
@@ -14,19 +13,17 @@ from aod._internal.infrastructure.projection import (
     AsyncWriteProjection,
     Projection,
     ProjectionBase,
-    ReadModel,
     ReadProjection,
-    WriteModel,
     WriteProjection,
 )
 from aod._internal.infrastructure.session import AsyncSession, Session
 
 
-class UserReadModel(ReadModel):
+class UserReadModel(DTO):
     user_id: int
 
 
-class UserWriteModel(WriteModel):
+class UserWriteModel(DTO):
     user_id: int
     name: str
 
@@ -92,29 +89,20 @@ class _TestAsyncSession(AsyncSession):
         pass
 
 
-class TestReadModel:
-    def test_can_instantiate(self) -> None:
+class TestDTO:
+    def test_can_instantiate_read_like(self) -> None:
         m = UserReadModel(user_id=1)
         assert m.user_id == 1
 
-    def test_is_immutable(self) -> None:
-        m = UserReadModel(user_id=1)
-
-        with pytest.raises(MutationForbiddenException):
-            m.user_id = 99
-
-
-class TestWriteModel:
-    def test_can_instantiate(self) -> None:
+    def test_can_instantiate_write_like(self) -> None:
         m = UserWriteModel(user_id=1, name="Alice")
         assert m.user_id == 1
         assert m.name == "Alice"
 
-    def test_is_immutable(self) -> None:
+    def test_is_mutable(self) -> None:
         m = UserWriteModel(user_id=1, name="Alice")
-
-        with pytest.raises(MutationForbiddenException):
-            m.name = "Bob"
+        m.name = "Bob"
+        assert m.name == "Bob"
 
 
 class TestProjectionBase:
@@ -140,7 +128,7 @@ class TestReadProjection:
 
     def test_read_returns_result(self) -> None:
         class GetUser(ReadProjection):
-            def read(self, model: ReadModel) -> str:  # type: ignore[override]
+            def read(self, model: DTO) -> str:  # type: ignore[override]
                 return f"user-{model.user_id}"  # type: ignore[attr-defined]
 
         p = GetUser()
@@ -149,7 +137,7 @@ class TestReadProjection:
 
     def test_read_captures_events(self) -> None:
         class GetUser(ReadProjection):
-            def read(self, model: ReadModel) -> str:  # type: ignore[override]
+            def read(self, model: DTO) -> str:  # type: ignore[override]
                 self._event_emitter.emit(UserCreated(user_id=model.user_id, name="test"))  # type: ignore[attr-defined]
                 return "ok"
 
@@ -160,7 +148,7 @@ class TestReadProjection:
 
     def test_events_cleared_on_new_read(self) -> None:
         class GetUser(ReadProjection):
-            def read(self, model: ReadModel) -> str:  # type: ignore[override]
+            def read(self, model: DTO) -> str:  # type: ignore[override]
                 self._event_emitter.emit(UserCreated(user_id=model.user_id, name="test"))  # type: ignore[attr-defined]
                 return "ok"
 
@@ -172,7 +160,7 @@ class TestReadProjection:
 
     def test_read_exception_is_logged_and_re_raised(self) -> None:
         class FailingRead(ReadProjection):
-            def read(self, model: ReadModel) -> str:  # type: ignore[override]
+            def read(self, model: DTO) -> str:  # type: ignore[override]
                 raise ValueError("read failed")
 
         p = FailingRead()
@@ -181,7 +169,7 @@ class TestReadProjection:
 
     def test_read_handles_model_with_defaults(self) -> None:
         class SearchUsers(ReadProjection):
-            def read(self, model: ReadModel) -> dict:  # type: ignore[override]
+            def read(self, model: DTO) -> dict:  # type: ignore[override]
                 return {"found": model.user_id > 0}  # type: ignore[attr-defined]
 
         p = SearchUsers()
@@ -203,7 +191,7 @@ class TestWriteProjection:
 
     def test_write_captures_events(self) -> None:
         class CreateUser(WriteProjection):
-            def write(self, model: WriteModel) -> str:  # type: ignore[override]
+            def write(self, model: DTO) -> str:  # type: ignore[override]
                 self._event_emitter.emit(UserCreated(user_id=model.user_id, name=model.name))  # type: ignore[attr-defined]
                 return "created"
 
@@ -215,7 +203,7 @@ class TestWriteProjection:
 
     def test_write_commit_context_enabled(self) -> None:
         class CreateUser(WriteProjection):
-            def write(self, model: WriteModel) -> str:  # type: ignore[override]
+            def write(self, model: DTO) -> str:  # type: ignore[override]
                 assert _CommitContext.get(False) is True
                 return "created"
 
@@ -225,7 +213,7 @@ class TestWriteProjection:
 
     def test_write_can_commit_session(self) -> None:
         class CreateUser(WriteProjection):
-            def write(self, model: WriteModel) -> str:  # type: ignore[override]
+            def write(self, model: DTO) -> str:  # type: ignore[override]
                 assert self.session is not None
                 self.session.commit()
                 return "created"
@@ -237,7 +225,7 @@ class TestWriteProjection:
 
     def test_write_rolls_back_session_on_error(self) -> None:
         class FailingWrite(WriteProjection):
-            def write(self, model: WriteModel) -> str:  # type: ignore[override]
+            def write(self, model: DTO) -> str:  # type: ignore[override]
                 raise ValueError("write failed")
 
         session = _TestSession()
@@ -248,7 +236,7 @@ class TestWriteProjection:
 
     def test_write_without_session_does_not_crash_on_error(self) -> None:
         class FailingWrite(WriteProjection):
-            def write(self, model: WriteModel) -> str:  # type: ignore[override]
+            def write(self, model: DTO) -> str:  # type: ignore[override]
                 raise ValueError("write failed")
 
         p = FailingWrite()
@@ -257,7 +245,7 @@ class TestWriteProjection:
 
     def test_commit_context_reset_after_error(self) -> None:
         class FailingWrite(WriteProjection):
-            def write(self, model: WriteModel) -> str:  # type: ignore[override]
+            def write(self, model: DTO) -> str:  # type: ignore[override]
                 raise ValueError("write failed")
 
         p = FailingWrite()
@@ -280,10 +268,10 @@ class TestProjection:
 
     def test_read_and_write_work(self) -> None:
         class UserProjection(Projection):
-            def read(self, model: ReadModel) -> dict:
+            def read(self, model: DTO) -> dict:
                 return {"action": "read", "id": model.user_id}
 
-            def write(self, model: WriteModel) -> str:
+            def write(self, model: DTO) -> str:
                 return "written"
 
         p = UserProjection()
@@ -295,11 +283,11 @@ class TestProjection:
 
     def test_read_captures_events(self) -> None:
         class UserProjection(Projection):
-            def read(self, model: ReadModel) -> str:
+            def read(self, model: DTO) -> str:
                 self._event_emitter.emit(UserCreated(user_id=1, name="from_read"))
                 return "ok"
 
-            def write(self, model: WriteModel) -> str:
+            def write(self, model: DTO) -> str:
                 return "ok"
 
         p = UserProjection()
@@ -309,10 +297,10 @@ class TestProjection:
 
     def test_write_captures_events(self) -> None:
         class UserProjection(Projection):
-            def read(self, model: ReadModel) -> str:
+            def read(self, model: DTO) -> str:
                 return "ok"
 
-            def write(self, model: WriteModel) -> str:
+            def write(self, model: DTO) -> str:
                 self._event_emitter.emit(UserCreated(user_id=2, name="from_write"))
                 return "ok"
 
@@ -323,10 +311,10 @@ class TestProjection:
 
     def test_commit_context_active_during_write(self) -> None:
         class UserProjection(Projection):
-            def read(self, model: ReadModel) -> str:
+            def read(self, model: DTO) -> str:
                 return "ok"
 
-            def write(self, model: WriteModel) -> str:
+            def write(self, model: DTO) -> str:
                 assert _CommitContext.get(False) is True
                 return "ok"
 
@@ -335,11 +323,11 @@ class TestProjection:
 
     def test_commit_context_not_active_during_read(self) -> None:
         class UserProjection(Projection):
-            def read(self, model: ReadModel) -> str:
+            def read(self, model: DTO) -> str:
                 assert _CommitContext.get(False) is False
                 return "ok"
 
-            def write(self, model: WriteModel) -> str:
+            def write(self, model: DTO) -> str:
                 return "ok"
 
         p = UserProjection()
@@ -360,7 +348,7 @@ class TestAsyncReadProjection:
 
     async def test_read_returns_result(self) -> None:
         class GetUser(AsyncReadProjection):
-            async def read(self, model: ReadModel) -> str:  # type: ignore[override]
+            async def read(self, model: DTO) -> str:  # type: ignore[override]
                 return f"user-{model.user_id}"  # type: ignore[attr-defined]
 
         p = GetUser()
@@ -369,7 +357,7 @@ class TestAsyncReadProjection:
 
     async def test_read_captures_events(self) -> None:
         class GetUser(AsyncReadProjection):
-            async def read(self, model: ReadModel) -> str:  # type: ignore[override]
+            async def read(self, model: DTO) -> str:  # type: ignore[override]
                 self._event_emitter.emit(UserCreated(user_id=model.user_id, name="test"))  # type: ignore[attr-defined]
                 return "ok"
 
@@ -380,7 +368,7 @@ class TestAsyncReadProjection:
 
     async def test_read_exception_is_logged_and_re_raised(self) -> None:
         class FailingRead(AsyncReadProjection):
-            async def read(self, model: ReadModel) -> str:  # type: ignore[override]
+            async def read(self, model: DTO) -> str:  # type: ignore[override]
                 raise ValueError("read failed")
 
         p = FailingRead()
@@ -402,7 +390,7 @@ class TestAsyncWriteProjection:
 
     async def test_write_captures_events(self) -> None:
         class CreateUser(AsyncWriteProjection):
-            async def write(self, model: WriteModel) -> str:  # type: ignore[override]
+            async def write(self, model: DTO) -> str:  # type: ignore[override]
                 self._event_emitter.emit(UserCreated(user_id=model.user_id, name=model.name))  # type: ignore[attr-defined]
                 return "created"
 
@@ -414,7 +402,7 @@ class TestAsyncWriteProjection:
 
     async def test_write_commit_context_enabled(self) -> None:
         class CreateUser(AsyncWriteProjection):
-            async def write(self, model: WriteModel) -> str:  # type: ignore[override]
+            async def write(self, model: DTO) -> str:  # type: ignore[override]
                 assert _CommitContext.get(False) is True
                 return "created"
 
@@ -424,7 +412,7 @@ class TestAsyncWriteProjection:
 
     async def test_write_can_commit_session(self) -> None:
         class CreateUser(AsyncWriteProjection):
-            async def write(self, model: WriteModel) -> str:  # type: ignore[override]
+            async def write(self, model: DTO) -> str:  # type: ignore[override]
                 assert self.session is not None
                 await cast(AsyncSession, self.session).commit()
                 return "created"
@@ -436,7 +424,7 @@ class TestAsyncWriteProjection:
 
     async def test_write_rolls_back_session_on_error(self) -> None:
         class FailingWrite(AsyncWriteProjection):
-            async def write(self, model: WriteModel) -> str:  # type: ignore[override]
+            async def write(self, model: DTO) -> str:  # type: ignore[override]
                 raise ValueError("write failed")
 
         session = _TestAsyncSession()
@@ -447,7 +435,7 @@ class TestAsyncWriteProjection:
 
     async def test_commit_context_reset_after_error(self) -> None:
         class FailingWrite(AsyncWriteProjection):
-            async def write(self, model: WriteModel) -> str:  # type: ignore[override]
+            async def write(self, model: DTO) -> str:  # type: ignore[override]
                 raise ValueError("write failed")
 
         p = FailingWrite()
@@ -463,10 +451,10 @@ class TestAsyncProjection:
 
     async def test_read_and_write_work(self) -> None:
         class UserProjection(AsyncProjection):
-            async def read(self, model: ReadModel) -> dict:
+            async def read(self, model: DTO) -> dict:
                 return {"action": "read", "id": model.user_id}
 
-            async def write(self, model: WriteModel) -> str:
+            async def write(self, model: DTO) -> str:
                 return "written"
 
         p = UserProjection()
@@ -478,10 +466,10 @@ class TestAsyncProjection:
 
     def test_write_rolls_back_on_error(self) -> None:
         class UserProjection(Projection):
-            def read(self, model: ReadModel) -> str:
+            def read(self, model: DTO) -> str:
                 return "ok"
 
-            def write(self, model: WriteModel) -> str:
+            def write(self, model: DTO) -> str:
                 raise ValueError("write failed")
 
         session = _TestSession()
@@ -492,10 +480,10 @@ class TestAsyncProjection:
 
     def test_write_commit_context_reset_after_error(self) -> None:
         class UserProjection(Projection):
-            def read(self, model: ReadModel) -> str:
+            def read(self, model: DTO) -> str:
                 return "ok"
 
-            def write(self, model: WriteModel) -> str:
+            def write(self, model: DTO) -> str:
                 raise ValueError("write failed")
 
         p = UserProjection()
@@ -512,5 +500,5 @@ class TestProjectionMultipleSessions:
                 session: Session
                 other_session: AsyncSession | None
 
-                def read(self, model: ReadModel) -> str:
+                def read(self, model: DTO) -> str:
                     return "ok"

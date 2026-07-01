@@ -5,9 +5,7 @@ from aod._internal.infrastructure.handlers import CommandHandler, QueryHandler
 from aod._internal.infrastructure.projection import (
     Projection,
     ProjectionBase,
-    ReadModel,
     ReadProjection,
-    WriteModel,
     WriteProjection,
 )
 from aod._internal.infrastructure.session import Session
@@ -21,10 +19,8 @@ __all__ = [
     "Projection",
     "ProjectionBase",
     "QueryHandler",
-    "ReadModel",
     "ReadProjection",
     "Session",
     "UnitOfWork",
-    "WriteModel",
     "WriteProjection",
 ]

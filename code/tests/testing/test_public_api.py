@@ -65,6 +65,7 @@ def test_aod_application_exports_documented_api() -> None:
         "Cache",
         "Command",
         "CommandPort",
+        "DTO",
         "EventBus",
         "Logger",
         "Port",
@@ -107,11 +108,9 @@ def test_aod_infrastructure_exports_documented_api() -> None:
         "Projection",
         "ProjectionBase",
         "QueryHandler",
-        "ReadModel",
         "ReadProjection",
         "Session",
         "UnitOfWork",
-        "WriteModel",
         "WriteProjection",
     ]
     assert aod.infrastructure.InfrastructureException.__name__ == "InfrastructureException"

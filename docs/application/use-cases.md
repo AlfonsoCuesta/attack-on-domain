@@ -2,10 +2,12 @@
 
 UseCases orchestrate domain objects through Ports. They are the central building block of the application layer, handling transaction management, logging, event publishing, and cache flushing automatically.
 
+Commands and Queries are **internal** — created by the UseCase, not passed by the caller. Use `DTO` subclasses for `run()` input.
+
 ## Import
 
 ```python
-from aod.application import UseCase
+from aod.application import UseCase, DTO
 ```
 
 For async operations:
@@ -16,10 +18,15 @@ from aod.application.async_ import UseCase
 
 ## Basic Usage
 
-Subclass `UseCase`, define `CommandPort[Command]` and `QueryPort[Query]` fields, and implement the `run()` method. Values are passed as parameters to `run()`, not as fields:
+Subclass `UseCase`, define `CommandPort[Command]` and `QueryPort[Query]` fields, and implement the `run()` method. Accept a `DTO` subclass as input:
 
 ```python
-from aod.application import UseCase, CommandPort, Command
+from aod.application import UseCase, DTO, CommandPort, Command
+
+class CreateUserInput(DTO):
+    user_id: str
+    name: str
+    email: str
 
 class CreateUser(Command[User, None]):
     user_id: str
@@ -29,12 +36,20 @@ class CreateUser(Command[User, None]):
 class CreateUserUseCase(UseCase):
     save_user: CommandPort[CreateUser]
 
-    def run(self, user_id: str, name: str, email: str) -> None:
-        user = User(id=user_id, name=name, email=email)
+    def run(self, dto: CreateUserInput) -> User:
+        user = User(id=dto.user_id, name=dto.name, email=dto.email)
         self.save_user.handle(CreateUser(
-            user_id=user_id, name=name, email=email,
+            user_id=user.id, name=user.name, email=user.email,
         ))
-        self._event_emitter.emit(UserCreated(user_id=user_id))
+        self._event_emitter.emit(UserCreated(user_id=dto.user_id))
+        return user
+```
+
+The caller never creates `Command` or `Query` objects. They pass a `DTO` to `run()`:
+
+```python
+uc = container.adapt_use_case(CreateUserUseCase)
+user = uc.run(CreateUserInput(user_id="1", name="Alice", email="alice@example.com"))
 ```
 
 ## Class Reference
@@ -143,14 +158,14 @@ Events emitted during `run()` are automatically collected. This includes events 
 class CreateUserUseCase(UseCase):
     save_user: CommandPort[CreateUser]
 
-    def run(self, user_id: str, name: str) -> None:
-        user = User(id=user_id)
+    def run(self, dto: CreateUserInput) -> None:
+        user = User(id=dto.user_id)
         user.register()  # emits UserRegistered
-        self.save_user.handle(CreateUser(user_id=user_id, name=name, email=""))
-        self._event_emitter.emit(UserCreated(user_id=user_id))
+        self.save_user.handle(CreateUser(user_id=user.id, name=dto.name, email=dto.email))
+        self._event_emitter.emit(UserCreated(user_id=dto.user_id))
 
 uc = CreateUserUseCase(save_user=handler)
-uc.run(user_id="1", name="Alice")
+uc.run(CreateUserInput(user_id="1", name="Alice", email="alice@example.com"))
 assert len(uc.events) == 2  # UserRegistered + UserCreated
 assert isinstance(uc.events[0], UserRegistered)
 assert isinstance(uc.events[1], UserCreated)
@@ -175,11 +190,11 @@ class CreateUserUseCase(UseCase):
     def _validate(self, name: str) -> bool:
         return len(name) > 0
 
-    def run(self, user_id: str, name: str) -> None:
-        if not self._validate(name):
+    def run(self, dto: CreateUserInput) -> None:
+        if not self._validate(dto.name):
             raise ValueError("Invalid name")
-        user = User(id=user_id, name=name)
-        self.save_user.handle(CreateUser(user_id=user_id, name=name, email=""))
+        user = User(id=dto.user_id, name=dto.name)
+        self.save_user.handle(CreateUser(user_id=user.id, name=dto.name, email=dto.email))
 ```
 
 ## Error Handling
@@ -215,7 +230,7 @@ from aod.testing.doubles import spy_adapter_container
 container = spy_adapter_container(AdapterContainer(sessions={MySession}, handlers=[CreateUserHandler]))
 use_case = container.adapt_use_case(CreateUserUseCase)
 
-use_case.run(user_id="1", name="Alice")
+use_case.run(CreateUserInput(user_id="1", name="Alice", email="alice@example.com"))
 
 assert use_case.events
 assert container.get_handler(CreateUser).handle.called
@@ -226,23 +241,30 @@ assert container.get_handler(CreateUser).handle.called
 ### Command Use Case
 
 ```python
+class PlaceOrderInput(DTO):
+    order_id: str
+    total: float
+
 class PlaceOrderUseCase(UseCase):
     place_order: CommandPort[PlaceOrder]
 
-    def run(self, order_id: str, total: float) -> None:
-        order = Order(id=order_id, total=total)
-        self.place_order.handle(PlaceOrder(order_id=order_id, total=total))
-        self._event_emitter.emit(OrderPlaced(order_id=order_id))
+    def run(self, dto: PlaceOrderInput) -> None:
+        order = Order(id=dto.order_id, total=dto.total)
+        self.place_order.handle(PlaceOrder(order_id=dto.order_id, total=dto.total))
+        self._event_emitter.emit(OrderPlaced(order_id=dto.order_id))
 ```
 
 ### Query Use Case
 
 ```python
+class GetUserInput(DTO):
+    user_id: str
+
 class GetUserUseCase(UseCase):
     get_user: QueryPort[GetUser]
 
-    def run(self, user_id: str) -> User | None:
-        return self.get_user.handle(GetUser(user_id=user_id))
+    def run(self, dto: GetUserInput) -> User | None:
+        return self.get_user.handle(GetUser(user_id=dto.user_id))
 ```
 
 ### Use Case with Custom Service Port
@@ -257,12 +279,16 @@ class NotificationClient(Port):
     def send_email(self, to: str, subject: str, body: str) -> None: ...
 
 
+class NotifyUserInput(DTO):
+    user_id: str
+    message: str
+
 class NotifyUser(UseCase):
     notification: NotificationClient
 
-    def run(self, user_id: str, message: str) -> None:
-        user = User(id=user_id)
-        self.notification.send_email(to=user.email, subject="Alert", body=message)
+    def run(self, dto: NotifyUserInput) -> None:
+        user = User(id=dto.user_id)
+        self.notification.send_email(to=user.email, subject="Alert", body=dto.message)
 ```
 
 ### Use Case with Validation
@@ -294,9 +320,9 @@ class User(RootEntity):
 class CreateUserUseCase(UseCase):
     save_user: CommandPort[CreateUser]
 
-    def run(self, user_id: str, name: str, email: str) -> None:
-        user = User(id=user_id, name=name, email=email)
-        self.save_user.handle(CreateUser(user_id=user_id, name=name, email=email))
+    def run(self, dto: CreateUserInput) -> None:
+        user = User(id=dto.user_id, name=dto.name, email=dto.email)
+        self.save_user.handle(CreateUser(user_id=user.id, name=user.name, email=user.email))
 ```
 
 ## Next Steps

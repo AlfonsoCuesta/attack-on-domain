@@ -4,6 +4,7 @@ import inspect
 
 from aod._internal.application.cache import AsyncCache, Cache
 from aod._internal.application.contracts import Command, Query
+from aod._internal.application.dto import DTO
 from aod._internal.application.event_bus import AsyncEventBus, EventBus
 from aod._internal.application.handler import (
     AsyncCommandPort,
@@ -28,7 +29,6 @@ from aod._internal.infrastructure.projection import (
     ReadProjection,
     WriteProjection,
 )
-from aod._internal.infrastructure.projection.models import ReadModel, WriteModel
 from aod._internal.infrastructure.session import AsyncSession, Session
 from aod._internal.schema.app import App
 from aod._internal.schema.bounded_context import BoundedContext
@@ -182,11 +182,11 @@ class AsyncPlaceOrderHandler(AsyncCommandHandler[PlaceOrder]):
 # ---- Projections ----
 
 
-class OrderListModel(ReadModel):
+class OrderListModel(DTO):
     customer_id: str
 
 
-class OrderSummary(WriteModel):
+class OrderSummary(DTO):
     order_id: str
     total: float
 

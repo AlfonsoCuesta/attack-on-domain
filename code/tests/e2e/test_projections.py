@@ -1,24 +1,21 @@
 from __future__ import annotations
 
-
 import pytest
+from aod._internal.application.dto import DTO
 from aod._internal.core.event_emitter import Event
+from aod._internal.core.infrastructure_exception import SessionNotFoundError
 from aod._internal.infrastructure.commit_context import _CommitContext
 from aod._internal.infrastructure.container import AdapterContainer
-from aod._internal.core.infrastructure_exception import SessionNotFoundError
 from aod._internal.infrastructure.projection import (
     AsyncProjection,
     AsyncReadProjection,
     AsyncWriteProjection,
     Projection,
-    ReadModel,
     ReadProjection,
-    WriteModel,
     WriteProjection,
 )
 from aod._internal.infrastructure.session import AsyncSession, Session
-from aod._internal.testing.doubles.application import SpyLogger, SpyEventBus
-
+from aod._internal.testing.doubles.application import SpyEventBus, SpyLogger
 
 # ---------------------------------------------------------------------------
 # Domain events
@@ -40,16 +37,16 @@ class OrderPlaced(Event):
 # ---------------------------------------------------------------------------
 
 
-class UserReadModel(ReadModel):
+class UserReadModel(DTO):
     user_id: int
 
 
-class UserWriteModel(WriteModel):
+class UserWriteModel(DTO):
     user_id: int
     name: str
 
 
-class OrderWriteModel(WriteModel):
+class OrderWriteModel(DTO):
     order_id: str
     items: list[str]
     total: int

@@ -42,12 +42,18 @@ class Order(RootEntity):
         self._event_emitter.emit(OrderPlaced(order_id=self.id, total=self.total))
 ```
 
-### Step 2: Application Layer — UseCases, Commands/Queries, Handlers (APPLICATION)
+### Step 2: Application Layer — UseCases, DTOs, Commands/Queries, Handlers (APPLICATION)
 
-Create Commands, Queries, and UseCases. UseCases depend on `CommandPort[Command]` and `QueryPort[Query]` from `aod.application` — NOT on repositories or custom ports for database access. All database communication goes through handlers.
+Create DTOs, Commands, Queries, and UseCases. UseCases depend on `CommandPort[Command]` and `QueryPort[Query]` from `aod.application` — NOT on repositories or custom ports for database access. All database communication goes through handlers. Commands and Queries are internal — created by the UseCase, not passed by the caller.
 
 ```python
-from aod.application import UseCase, Command, Query, CommandHandler, QueryHandler
+from aod.application import UseCase, DTO, Command, Query, CommandPort, QueryPort
+
+class PlaceOrderInput(DTO):
+    order_id: str
+    product_id: str
+    quantity: int
+    price: float
 
 class PlaceOrder(Command[Order, None]):
     order_id: str
@@ -62,14 +68,14 @@ class PlaceOrderUseCase(UseCase):
     place_order: CommandPort[PlaceOrder]
     get_order: QueryPort[GetOrder]
 
-    def run(self, order_id: str, product_id: str, quantity: int, price: float) -> None:
-        order = Order(id=OrderId(value=order_id))
-        order.add_line(product_id, quantity, price)
+    def run(self, dto: PlaceOrderInput) -> None:
+        order = Order(id=OrderId(value=dto.order_id))
+        order.add_line(dto.product_id, dto.quantity, dto.price)
         self.place_order.handle(PlaceOrder(
-            order_id=order_id,
-            product_id=product_id,
-            quantity=quantity,
-            price=price,
+            order_id=dto.order_id,
+            product_id=dto.product_id,
+            quantity=dto.quantity,
+            price=dto.price,
         ))
 ```
 
@@ -134,7 +140,7 @@ from aod.infrastructure import AdapterContainer
 
 container = AdapterContainer(sessions={PostgresSession}, handlers=[PlaceOrderHandler, GetOrderHandler])
 place_order = container.adapt_use_case(PlaceOrderUseCase)
-place_order.run(order_id="1", product_id="p1", quantity=2, price=9.99)
+place_order.run(PlaceOrderInput(order_id="1", product_id="p1", quantity=2, price=9.99))
 ```
 
 ## Public API
@@ -152,14 +158,14 @@ place_order.run(order_id="1", product_id="p1", quantity=2, price=9.99)
 | `from aod.application import Port` | Abstract port/gateway base class |
 | `from aod.application import Logger, EventBus, UnitOfWork, Cache` | Built-in port types (sync) |
 | `from aod.application.async_ import Cache, EventBus, Logger, UnitOfWork` | Async versions |
-| `from aod.application import Command, Query` | Application contracts |
+| `from aod.application import DTO` | Data Transfer Object (pure data carrier, FastAPI-compatible) |
+| `from aod.application import Command, Query` | Application contracts (internal — created by UseCase, not the user) |
 | `from aod.application import CommandPort, QueryPort` | Application handler protocols |
 | `from aod.infrastructure import CommandHandler, QueryHandler` | Infrastructure handler implementations |
 | `from aod.infrastructure import Session` | Database abstraction base |
 | `from aod.infrastructure.async_ import Session` | Async database abstraction |
 | `from aod.infrastructure import ReadProjection, WriteProjection, Projection` | Projection base classes |
 | `from aod.infrastructure import AsyncReadProjection, AsyncWriteProjection, AsyncProjection` | Async projection classes |
-| `from aod.infrastructure import ReadModel, WriteModel` | Projection data models |
 | `from aod.infrastructure import AdapterContainer` | Container with `adapt_use_case()` / `adapt_projection()` |
 | `from aod.domain import DomainException` | Domain base exception |
 | `from aod.application import ApplicationException` | Application base exception |
@@ -385,26 +391,32 @@ Application operations that orchestrate domain logic through handlers.
 **IMPORTANT**: 
 - UseCases work ONLY with `RootEntity` — not `Entity` or `ValueObject` directly
 - UseCases communicate with the database ONLY through `CommandPort[Command]` and `QueryPort[Query]`. Do NOT create repository ports or custom ports for database access.
+- `Command` and `Query` are **internal** — created by the UseCase, not passed by the caller.
+- Use `DTO` subclasses for `run()` input to avoid many-parameter signatures.
 
 ```python
-from aod.application import UseCase, CommandHandler, QueryHandler
+from aod.application import UseCase, DTO, CommandPort
+
+class PlaceOrderInput(DTO):
+    order_id: str
+    product_id: str
+    quantity: int
+    price: float
 
 class PlaceOrderUseCase(UseCase):
     place_order: CommandPort[PlaceOrder]
     get_order: QueryPort[GetOrder]
 
-    def run(self, order_id: str, product_id: str, quantity: int, price: float) -> None:
-        # Query existing order
-        existing = self.get_order.handle(GetOrder(order_id=order_id))
+    def run(self, dto: PlaceOrderInput) -> None:
+        existing = self.get_order.handle(GetOrder(order_id=dto.order_id))
 
-        # Create and save
-        order = Order(id=OrderId(value=order_id))
-        order.add_line(product_id, quantity, price)
+        order = Order(id=OrderId(value=dto.order_id))
+        order.add_line(dto.product_id, dto.quantity, dto.price)
         self.place_order.handle(PlaceOrder(
-            order_id=order_id,
-            product_id=product_id,
-            quantity=quantity,
-            price=price,
+            order_id=dto.order_id,
+            product_id=dto.product_id,
+            quantity=dto.quantity,
+            price=dto.price,
         ))
 ```
 
@@ -413,10 +425,11 @@ class PlaceOrderUseCase(UseCase):
 - Values are passed as parameters to `run()`, not declared as fields
 - `Session` and `AsyncSession` are NOT allowed as fields
 - Events emitted via `self._event_emitter.emit(...)` are auto-collected in `self.events`
+- Prefer a single `DTO` parameter over many individual parameters
 
 ### Command / Query
 
-Immutable contracts for writes and reads.
+Internal immutable contracts for writes and reads. Created by the UseCase, NOT by the caller.
 
 ```python
 from aod.application import Command, Query
@@ -431,10 +444,18 @@ class GetOrder(Query[Order, Order | None]):
     order_id: str
 ```
 
+The caller never creates Command/Query objects. Instead, pass a `DTO` to `run()`:
+
+```python
+uc = container.adapt_use_case(PlaceOrderUseCase)
+uc.run(PlaceOrderInput(order_id="1", product_id="p1", quantity=2, price=9.99))
+```
+
 **Rules**:
 - `Command[TEntity, TResult]` — TEntity must be a RootEntity subclass
 - `Query[TEntity, TResult]` — same, and TResult must contain a RootEntity
 - Fields cannot reference non-root Entity types
+- Callers never see or create `Command`/`Query` objects
 
 ### Handler Types
 
@@ -590,31 +611,46 @@ class SendEmailUseCase(UseCase):
         self.email.send("user@example.com", "Hello", "World")
 ```
 
-### Projection
+### DTO
 
-Read and write data efficiently.
+`DTO` (Data Transfer Object) inherits directly from Pydantic's `BaseModel`. Pure data carrier — no mutation guards, no event emission, no identity. FastAPI-compatible.
 
 ```python
-from aod.infrastructure import ReadProjection, WriteProjection, Projection, ReadModel, WriteModel
+from aod.application import DTO
 
-class UserReadModel(ReadModel):
+class CreateUserInput(DTO):
+    name: str
+    email: str
+```
+
+Use `DTO` for UseCase `run()` input and Projection input models.
+
+### Projection
+
+Read and write data efficiently. Projections accept `DTO` subclasses (or any type) as input.
+
+```python
+from aod.infrastructure import ReadProjection, WriteProjection, Projection
+from aod.application import DTO
+
+class UserSearch(DTO):
     user_id: str
 
 class UserListProjection(ReadProjection):
     session: MongoSession  # Always called 'session', with specific type
 
-    def read(self, model: ReadModel) -> list[User]:
-        raw = self.session.query("SELECT * FROM users")
+    def read(self, model: UserSearch) -> list[User]:
+        raw = self.session.query(f"SELECT * FROM users WHERE id = '{model.user_id}'")
         return [User(**item) for item in raw]
 
-class UserWriteModel(WriteModel):
+class UpdateUserInput(DTO):
     user_id: str
     name: str
 
 class UserUpdateProjection(WriteProjection):
     session: MongoSession  # Always called 'session', with specific type
 
-    def write(self, model: UserWriteModel) -> None:
+    def write(self, model: UpdateUserInput) -> None:
         self.session.execute(f"UPDATE users SET name = '{model.name}' WHERE id = '{model.user_id}'")
 ```
 
@@ -622,7 +658,7 @@ class UserUpdateProjection(WriteProjection):
 - The field MUST be named `session` with a specific type (e.g., `MongoSession`, `SqlSession`)
 - If the projection doesn't need a session, simply don't declare one
 - Fields must be `Port` subclasses (no `HandlerProtocol`)
-- `ReadModel` / `WriteModel` are input data classes
+- Use `DTO` subclasses for projection input models
 - `read()` must return the actual domain objects (e.g., `list[User]`), not raw data
 
 ## Infrastructure Layer
@@ -665,7 +701,7 @@ Creates a Projection instance with dependencies:
 
 ```python
 projection = container.adapt_projection(UserListProjection)
-users = projection.read(UserReadModel(user_id="1"))
+users = projection.read(UserSearch(user_id="1"))
 ```
 
 #### Overrides
@@ -843,6 +879,48 @@ from aod.application import Command
 class BookAppointment(Command[Appointment, None]):
     professional_id: str
     start_time: datetime
+```
+
+### WRONG: Exposing Command/Query to the user
+
+```python
+# WRONG — caller creates and passes Command directly
+from aod.application import Command
+
+class CreateUser(Command[User, None]):
+    user_id: str
+    name: str
+
+class CreateUserUseCase(UseCase):
+    save_user: CommandPort[CreateUser]
+
+    def run(self, command: CreateUser) -> None:  # NO!
+        self.save_user.handle(command)
+
+# Caller:
+uc.run(CreateUser(user_id="1", name="Alice"))  # NO!
+```
+
+```python
+# CORRECT — UseCase creates Command internally, caller passes DTO
+from aod.application import DTO
+
+class CreateUserInput(DTO):
+    user_id: str
+    name: str
+
+class CreateUserUseCase(UseCase):
+    save_user: CommandPort[CreateUser]
+
+    def run(self, dto: CreateUserInput) -> User:
+        user = User(id=dto.user_id, name=dto.name)
+        self.save_user.handle(CreateUser(
+            user_id=user.id, name=user.name,
+        ))
+        return user
+
+# Caller:
+uc.run(CreateUserInput(user_id="1", name="Alice"))
 ```
 
 ### WRONG: Creating handlers without UseCase

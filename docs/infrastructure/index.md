@@ -20,8 +20,6 @@ from aod.infrastructure import (
     ReadProjection,
     WriteProjection,
     Projection,
-    ReadModel,
-    WriteModel,
     AdapterContainer,
     CommandHandler,
     QueryHandler,
@@ -104,10 +102,11 @@ Each subclass defines its own data interface — `RedisSession` exposes `get`/`s
 
 ### Projections
 
-Projections read and write data. Declare a concrete session type:
+Projections read and write data. Declare a concrete session type and use `DTO` subclasses for input:
 
 ```python
-from aod.infrastructure import ReadProjection, ReadModel
+from aod.application import DTO
+from aod.infrastructure import ReadProjection
 from aod.infrastructure import Session
 
 # Define your session first
@@ -120,11 +119,13 @@ class PostgresSession(Session):
     def close(self) -> None: ...
     def is_dirty(self) -> bool: ...
 
+class UserSearch(DTO):
+    user_id: str
 
 class UserListProjection(ReadProjection):
     session: PostgresSession
 
-    def read(self, model: ReadModel) -> list[User]:
+    def read(self, model: UserSearch) -> list[User]:
         return self.session.query("SELECT * FROM users")
 ```
 

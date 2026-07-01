@@ -4,33 +4,22 @@ Projections provide a structured way to read and write data efficiently. They ha
 
 ## Data Models
 
+Projections accept `DTO` subclasses (or any type) as input. Use `DTO` from `aod.application` for type-safe input models:
+
 ```python
-from aod.infrastructure import ReadModel, WriteModel
+from aod.application import DTO
+
+class UserSearch(DTO):
+    query: str
+    page: int = 1
+
+class UserUpdate(DTO):
+    user_id: str
+    name: str
+    email: str
 ```
 
-### ReadModel
-
-`ReadModel` — An immutable input model for read projections. Fields can reference any type.
-
-#### Constructor
-
-`ReadModel(**fields)`
-
-| Parameter | Type | Description |
-|-----------|------|-------------|
-| `**fields` | `Any` | Keyword arguments matching declared fields. All fields are required unless they have defaults. |
-
-### WriteModel
-
-`WriteModel` — An immutable input model for write projections. Fields can reference any type.
-
-#### Constructor
-
-`WriteModel(**fields)`
-
-| Parameter | Type | Description |
-|-----------|------|-------------|
-| `**fields` | `Any` | Keyword arguments matching declared fields. All fields are required unless they have defaults. |
+`DTO` inherits directly from Pydantic's `BaseModel` — a pure data carrier with no mutation guards, event emission, or identity. Fully FastAPI-compatible (`Depends()`, OpenAPI schema generation, `model_validate_json()`, etc.).
 
 ## ReadProjection
 
@@ -53,13 +42,13 @@ from aod.infrastructure import ReadProjection
 
 | Method | Signature | Description |
 |--------|-----------|-------------|
-| `read` | `read(self, model: ReadModel) -> Any` | Abstract. Execute a read operation. Auto-wrapped with `EventCollector`, logging, and event bus publish. |
+| `read` | `read(self, model: Any) -> Any` | Abstract. Execute a read operation. Auto-wrapped with `EventCollector`, logging, and event bus publish. |
 
 #### `read` Parameters
 
 | Parameter | Type | Description |
 |-----------|------|-------------|
-| `model` | `ReadModel` | The input data model for the read operation. |
+| `model` | `Any` | The input data model for the read operation. Typically a `DTO` subclass. |
 
 #### Auto-Wrapping Behavior
 
@@ -68,6 +57,26 @@ When `read()` is called:
 1. Events are collected via `EventCollector` during execution.
 2. On success: events are logged, cache is flushed, events are published on the event bus.
 3. On failure: the exception is logged and re-raised.
+
+### Example
+
+```python
+from aod.application import DTO
+from aod.infrastructure import ReadProjection
+
+class UserSearch(DTO):
+    user_id: str
+
+class UserListProjection(ReadProjection):
+    session: PostgresSession
+
+    def read(self, model: UserSearch) -> list[User]:
+        rows = self.session.query(
+            "SELECT * FROM users WHERE id = :id",
+            {"id": model.user_id},
+        )
+        return [User(**row) for row in rows]
+```
 
 ## WriteProjection
 
@@ -90,13 +99,13 @@ from aod.infrastructure import WriteProjection
 
 | Method | Signature | Description |
 |--------|-----------|-------------|
-| `write` | `write(self, model: WriteModel) -> Any` | Abstract. Execute a write operation. Auto-wrapped with `CommitContext`, `EventCollector`, logging, rollback, and event bus publish. |
+| `write` | `write(self, model: Any) -> Any` | Abstract. Execute a write operation. Auto-wrapped with `CommitContext`, `EventCollector`, logging, rollback, and event bus publish. |
 
 #### `write` Parameters
 
 | Parameter | Type | Description |
 |-----------|------|-------------|
-| `model` | `WriteModel` | The input data model for the write operation. |
+| `model` | `Any` | The input data model for the write operation. Typically a `DTO` subclass. |
 
 #### Auto-Wrapping Behavior
 
@@ -108,6 +117,26 @@ When `write()` is called:
 4. On success: events are logged, cache is flushed, events are published on the event bus.
 5. On failure: `session.rollback()` is called (if session is dirty), the exception is logged and re-raised.
 6. The `CommitContext` is always reset in the `finally` block.
+
+### Example
+
+```python
+from aod.application import DTO
+from aod.infrastructure import WriteProjection
+
+class UpdateUserInput(DTO):
+    user_id: str
+    name: str
+
+class UserUpdateProjection(WriteProjection):
+    session: PostgresSession
+
+    def write(self, model: UpdateUserInput) -> None:
+        self.session.execute(
+            "UPDATE users SET name = :name WHERE id = :id",
+            {"name": model.name, "id": model.user_id},
+        )
+```
 
 ## Projection
 
@@ -128,7 +157,7 @@ from aod.infrastructure import Projection
 
 ### Methods
 
-Includes both `read(self, model: ReadModel) -> Any` and `write(self, model: WriteModel) -> Any`.
+Includes both `read(self, model: Any) -> Any` and `write(self, model: Any) -> Any`.
 
 ## Async Variants
 
@@ -145,8 +174,8 @@ Includes both `read(self, model: ReadModel) -> Any` and `write(self, model: Writ
 - `AsyncProjection`: `session: Session | AsyncSession | None = None`
 
 All async variants expose the same methods but as `async`:
-- `async read(self, model: ReadModel) -> Any`
-- `async write(self, model: WriteModel) -> Any`
+- `async read(self, model: Any) -> Any`
+- `async write(self, model: Any) -> Any`
 
 ## Field Validation
 
@@ -168,14 +197,18 @@ Events emitted during `read()` or `write()` are automatically collected:
 
 ```python
 from aod.testing.doubles import SpySession
+from aod.application import DTO
+
+class UserSearch(DTO):
+    user_id: int
 
 class MyReadProjection(ReadProjection):
-    def read(self, model: ReadModel) -> Any:
+    def read(self, model: UserSearch) -> Any:
         result = self.session.query("SELECT * FROM users")
         ...
 
 proj = MyReadProjection(session=SpySession())
-result = proj.read(ReadModel())
+result = proj.read(UserSearch(user_id=42))
 assert proj.session.is_dirty.called
 ```
 
