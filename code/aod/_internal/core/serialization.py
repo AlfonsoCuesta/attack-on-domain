@@ -4,12 +4,11 @@ from typing import TypeVar
 
 from aod._internal.core.base_validator import BaseValidator
 from aod._internal.core.model_maker import CONSTRAINED_MODEL_KEY
-from pydantic import BaseModel
 
 T = TypeVar("T", bound=BaseValidator)
 
 
-def get_base_model(cls: type[T]) -> type[BaseModel]:
+def get_base_model(cls: type[T]) -> type[T]:
     """Return the constrained Pydantic BaseModel for a BaseGuarded subclass.
 
     Every BaseGuarded class (Entity, RootEntity, ValueObject) has an internal
@@ -22,6 +21,7 @@ def get_base_model(cls: type[T]) -> type[BaseModel]:
         from aod.domain.validation import get_base_model
 
         UserDTO = get_base_model(User)
-        data = UserDTO(id=1, name="Alice", address={"street": "Main"})
+        data = UserDTO(id=1, name="Alice", address=Address(street="Main", city="SF"))
+        data.id  # type-safe, no cast needed
     """
     return getattr(cls, CONSTRAINED_MODEL_KEY)
