@@ -42,14 +42,15 @@ class Order(RootEntity):
         self._event_emitter.emit(OrderPlaced(order_id=self.id.value, total=self.total))
 ```
 
-### Step 2: Application Layer — DTOs, UseCases, Commands/Queries, Handlers
+### Step 2: Application Layer — UseCases, Commands/Queries, Handlers
 
-Create DTOs for UseCase input, and Commands/Queries for handlers. **Commands and Queries are internal** — created by the UseCase, never by the user. DTOs (from `aod.application`) are the public contract for `run()`.
+Use Pydantic `BaseModel` for UseCase input, and Commands/Queries for handlers. **Commands and Queries are internal** — created by the UseCase, never by the user. `BaseModel` subclasses are the public contract for `run()`. Use `get_base_model(cls)` from `aod.domain.validation` to get a BaseModel from a domain class (Entity, RootEntity, ValueObject).
 
 ```python
-from aod.application import UseCase, Command, Query, CommandPort, QueryPort, DTO
+from aod.application import UseCase, Command, Query, CommandPort, QueryPort
+from pydantic import BaseModel
 
-class PlaceOrderInput(DTO):
+class PlaceOrderInput(BaseModel):
     order_id: str
     product_id: str
     quantity: int
@@ -404,7 +405,7 @@ BaseValidator (metaclass: ValidationModelMeta → ABCMeta)
     └── BaseGuarded (direct inheritance for Port, Session, etc.)
 ```
 
-`DTO` inherits directly from `pydantic.BaseModel` — it is not part of this hierarchy. No mutation guards, no events, no identity.
+Use `pydantic.BaseModel` directly for DTOs. Use `get_base_model(cls)` from `aod.domain.validation` to get a constrained BaseModel from a domain class.
 
 `ReconstructMixin` is only mixed into `Entity` and `ValueObject`. `Service` and `UseCase` never see `reconstruct()`.
 

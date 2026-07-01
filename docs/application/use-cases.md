@@ -2,12 +2,13 @@
 
 UseCases orchestrate domain objects through Ports. They are the central building block of the application layer, handling transaction management, logging, event publishing, and cache flushing automatically.
 
-Commands and Queries are **internal** — created by the UseCase, not passed by the caller. Use `DTO` subclasses for `run()` input.
+Commands and Queries are **internal** — created by the UseCase, not passed by the caller. Use Pydantic `BaseModel` subclasses for `run()` input.
 
 ## Import
 
 ```python
-from aod.application import UseCase, DTO
+from aod.application import UseCase
+from pydantic import BaseModel
 ```
 
 For async operations:
@@ -18,12 +19,13 @@ from aod.application.async_ import UseCase
 
 ## Basic Usage
 
-Subclass `UseCase`, define `CommandPort[Command]` and `QueryPort[Query]` fields, and implement the `run()` method. Accept a `DTO` subclass as input:
+Subclass `UseCase`, define `CommandPort[Command]` and `QueryPort[Query]` fields, and implement the `run()` method.
 
 ```python
-from aod.application import UseCase, DTO, CommandPort, Command
+from aod.application import UseCase, CommandPort, Command
+from pydantic import BaseModel
 
-class CreateUserInput(DTO):
+class CreateUserInput(BaseModel):
     user_id: str
     name: str
     email: str
@@ -45,7 +47,7 @@ class CreateUserUseCase(UseCase):
         return user
 ```
 
-The caller never creates `Command` or `Query` objects. They pass a `DTO` to `run()`:
+
 
 ```python
 uc = container.adapt_use_case(CreateUserUseCase)
@@ -241,7 +243,7 @@ assert container.get_handler(CreateUser).handle.called
 ### Command Use Case
 
 ```python
-class PlaceOrderInput(DTO):
+class PlaceOrderInput(BaseModel):
     order_id: str
     total: float
 
@@ -257,7 +259,7 @@ class PlaceOrderUseCase(UseCase):
 ### Query Use Case
 
 ```python
-class GetUserInput(DTO):
+class GetUserInput(BaseModel):
     user_id: str
 
 class GetUserUseCase(UseCase):
@@ -279,7 +281,7 @@ class NotificationClient(Port):
     def send_email(self, to: str, subject: str, body: str) -> None: ...
 
 
-class NotifyUserInput(DTO):
+class NotifyUserInput(BaseModel):
     user_id: str
     message: str
 

@@ -4,22 +4,21 @@ Projections provide a structured way to read and write data efficiently. They ha
 
 ## Data Models
 
-Projections accept `DTO` subclasses (or any type) as input. Use `DTO` from `aod.application` for type-safe input models:
+
 
 ```python
-from aod.application import DTO
+from pydantic import BaseModel
 
-class UserSearch(DTO):
+class UserSearch(BaseModel):
     query: str
     page: int = 1
 
-class UserUpdate(DTO):
+class UserUpdate(BaseModel):
     user_id: str
     name: str
     email: str
 ```
 
-`DTO` inherits directly from Pydantic's `BaseModel` — a pure data carrier with no mutation guards, event emission, or identity. Fully FastAPI-compatible (`Depends()`, OpenAPI schema generation, `model_validate_json()`, etc.).
 
 ## ReadProjection
 
@@ -42,13 +41,14 @@ from aod.infrastructure import ReadProjection
 
 | Method | Signature | Description |
 |--------|-----------|-------------|
-| `read` | `read(self, model: Any) -> Any` | Abstract. Execute a read operation. Auto-wrapped with `EventCollector`, logging, and event bus publish. |
+| `read` | `read(self, *args, **kwargs) -> Any` | Abstract. Execute a read operation. Auto-wrapped with `EventCollector`, logging, and event bus publish. |
 
 #### `read` Parameters
 
 | Parameter | Type | Description |
 |-----------|------|-------------|
-| `model` | `Any` | The input data model for the read operation. Typically a `DTO` subclass. |
+| `*args` | `Any` | Positional arguments for the read operation. |
+| `**kwargs` | `Any` | Keyword arguments for the read operation. |
 
 #### Auto-Wrapping Behavior
 
@@ -61,10 +61,10 @@ When `read()` is called:
 ### Example
 
 ```python
-from aod.application import DTO
+from pydantic import BaseModel
 from aod.infrastructure import ReadProjection
 
-class UserSearch(DTO):
+class UserSearch(BaseModel):
     user_id: str
 
 class UserListProjection(ReadProjection):
@@ -99,13 +99,14 @@ from aod.infrastructure import WriteProjection
 
 | Method | Signature | Description |
 |--------|-----------|-------------|
-| `write` | `write(self, model: Any) -> Any` | Abstract. Execute a write operation. Auto-wrapped with `CommitContext`, `EventCollector`, logging, rollback, and event bus publish. |
+| `write` | `write(self, *args, **kwargs) -> Any` | Abstract. Execute a write operation. Auto-wrapped with `CommitContext`, `EventCollector`, logging, rollback, and event bus publish. |
 
 #### `write` Parameters
 
 | Parameter | Type | Description |
 |-----------|------|-------------|
-| `model` | `Any` | The input data model for the write operation. Typically a `DTO` subclass. |
+| `*args` | `Any` | Positional arguments for the write operation. |
+| `**kwargs` | `Any` | Keyword arguments for the write operation. |
 
 #### Auto-Wrapping Behavior
 
@@ -121,10 +122,10 @@ When `write()` is called:
 ### Example
 
 ```python
-from aod.application import DTO
+from pydantic import BaseModel
 from aod.infrastructure import WriteProjection
 
-class UpdateUserInput(DTO):
+class UpdateUserInput(BaseModel):
     user_id: str
     name: str
 
@@ -174,8 +175,8 @@ Includes both `read(self, model: Any) -> Any` and `write(self, model: Any) -> An
 - `AsyncProjection`: `session: Session | AsyncSession | None = None`
 
 All async variants expose the same methods but as `async`:
-- `async read(self, model: Any) -> Any`
-- `async write(self, model: Any) -> Any`
+- `async read(self, *args, **kwargs) -> Any`
+- `async write(self, *args, **kwargs) -> Any`
 
 ## Field Validation
 
@@ -197,9 +198,9 @@ Events emitted during `read()` or `write()` are automatically collected:
 
 ```python
 from aod.testing.doubles import SpySession
-from aod.application import DTO
+from pydantic import BaseModel
 
-class UserSearch(DTO):
+class UserSearch(BaseModel):
     user_id: int
 
 class MyReadProjection(ReadProjection):

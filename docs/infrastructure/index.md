@@ -102,10 +102,10 @@ Each subclass defines its own data interface — `RedisSession` exposes `get`/`s
 
 ### Projections
 
-Projections read and write data. Declare a concrete session type and use `DTO` subclasses for input:
+Projections read and write data. Declare a concrete session type.
 
 ```python
-from aod.application import DTO
+from pydantic import BaseModel
 from aod.infrastructure import ReadProjection
 from aod.infrastructure import Session
 
@@ -119,7 +119,7 @@ class PostgresSession(Session):
     def close(self) -> None: ...
     def is_dirty(self) -> bool: ...
 
-class UserSearch(DTO):
+class UserSearch(BaseModel):
     user_id: str
 
 class UserListProjection(ReadProjection):

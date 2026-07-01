@@ -42,14 +42,15 @@ class Order(RootEntity):
         self._event_emitter.emit(OrderPlaced(order_id=self.id, total=self.total))
 ```
 
-### Step 2: Application Layer — UseCases, DTOs, Commands/Queries, Handlers (APPLICATION)
+### Step 2: Application Layer — UseCases, Commands/Queries, Handlers (APPLICATION)
 
-Create DTOs, Commands, Queries, and UseCases. UseCases depend on `CommandPort[Command]` and `QueryPort[Query]` from `aod.application` — NOT on repositories or custom ports for database access. All database communication goes through handlers. Commands and Queries are internal — created by the UseCase, not passed by the caller.
+Create BaseModel input types, Commands, Queries, and UseCases. UseCases depend on `CommandPort[Command]` and `QueryPort[Query]` from `aod.application` — NOT on repositories or custom ports for database access. All database communication goes through handlers. Commands and Queries are internal — created by the UseCase, not passed by the caller.
 
 ```python
-from aod.application import UseCase, DTO, Command, Query, CommandPort, QueryPort
+from aod.application import UseCase, Command, Query, CommandPort, QueryPort
+from pydantic import BaseModel
 
-class PlaceOrderInput(DTO):
+class PlaceOrderInput(BaseModel):
     order_id: str
     product_id: str
     quantity: int
@@ -158,7 +159,7 @@ place_order.run(PlaceOrderInput(order_id="1", product_id="p1", quantity=2, price
 | `from aod.application import Port` | Abstract port/gateway base class |
 | `from aod.application import Logger, EventBus, UnitOfWork, Cache` | Built-in port types (sync) |
 | `from aod.application.async_ import Cache, EventBus, Logger, UnitOfWork` | Async versions |
-| `from aod.application import DTO` | Data Transfer Object (pure data carrier, FastAPI-compatible) |
+| `from aod.domain.validation import get_base_model` | Get BaseModel from a Entity, RootEntity or ValueObject |
 | `from aod.application import Command, Query` | Application contracts (internal — created by UseCase, not the user) |
 | `from aod.application import CommandPort, QueryPort` | Application handler protocols |
 | `from aod.infrastructure import CommandHandler, QueryHandler` | Infrastructure handler implementations |
@@ -392,12 +393,13 @@ Application operations that orchestrate domain logic through handlers.
 - UseCases work ONLY with `RootEntity` — not `Entity` or `ValueObject` directly
 - UseCases communicate with the database ONLY through `CommandPort[Command]` and `QueryPort[Query]`. Do NOT create repository ports or custom ports for database access.
 - `Command` and `Query` are **internal** — created by the UseCase, not passed by the caller.
-- Use `DTO` subclasses for `run()` input to avoid many-parameter signatures.
+
 
 ```python
-from aod.application import UseCase, DTO, CommandPort
+from aod.application import UseCase, CommandPort
+from pydantic import BaseModel
 
-class PlaceOrderInput(DTO):
+class PlaceOrderInput(BaseModel):
     order_id: str
     product_id: str
     quantity: int
@@ -425,7 +427,7 @@ class PlaceOrderUseCase(UseCase):
 - Values are passed as parameters to `run()`, not declared as fields
 - `Session` and `AsyncSession` are NOT allowed as fields
 - Events emitted via `self._event_emitter.emit(...)` are auto-collected in `self.events`
-- Prefer a single `DTO` parameter over many individual parameters
+- Prefer a single `BaseModel` parameter over many individual parameters
 
 ### Command / Query
 
@@ -444,7 +446,7 @@ class GetOrder(Query[Order, Order | None]):
     order_id: str
 ```
 
-The caller never creates Command/Query objects. Instead, pass a `DTO` to `run()`:
+
 
 ```python
 uc = container.adapt_use_case(PlaceOrderUseCase)
@@ -611,29 +613,29 @@ class SendEmailUseCase(UseCase):
         self.email.send("user@example.com", "Hello", "World")
 ```
 
-### DTO
+### get_base_model
 
-`DTO` (Data Transfer Object) inherits directly from Pydantic's `BaseModel`. Pure data carrier — no mutation guards, no event emission, no identity. FastAPI-compatible.
+`get_base_model(cls)` returns the constrained Pydantic `BaseModel` for any Entity, RootEntity or ValueObject. Use it to convert domain classes into plain BaseModels for API use, DTO creation, or direct instantiation without mutation guards.
 
 ```python
-from aod.application import DTO
+from aod.domain.validation import get_base_model
+from pydantic import BaseModel
 
-class CreateUserInput(DTO):
-    name: str
-    email: str
+UserDTO = get_base_model(User)
+data = UserDTO(id=1, name="Alice", address=Address(street="Main", city="SF"))
 ```
 
-Use `DTO` for UseCase `run()` input and Projection input models.
+The returned class is a Pydantic `BaseModel` with all field definitions and validators from the original domain class.
 
 ### Projection
 
-Read and write data efficiently. Projections accept `DTO` subclasses (or any type) as input.
+Read and write data efficiently. Projections accept Pydantic `BaseModel` subclasses (or any type) as input.
 
 ```python
 from aod.infrastructure import ReadProjection, WriteProjection, Projection
-from aod.application import DTO
+from pydantic import BaseModel
 
-class UserSearch(DTO):
+class UserSearch(BaseModel):
     user_id: str
 
 class UserListProjection(ReadProjection):
@@ -643,7 +645,7 @@ class UserListProjection(ReadProjection):
         raw = self.session.query(f"SELECT * FROM users WHERE id = '{model.user_id}'")
         return [User(**item) for item in raw]
 
-class UpdateUserInput(DTO):
+class UpdateUserInput(BaseModel):
     user_id: str
     name: str
 
@@ -658,7 +660,7 @@ class UserUpdateProjection(WriteProjection):
 - The field MUST be named `session` with a specific type (e.g., `MongoSession`, `SqlSession`)
 - If the projection doesn't need a session, simply don't declare one
 - Fields must be `Port` subclasses (no `HandlerProtocol`)
-- Use `DTO` subclasses for projection input models
+- Use `BaseModel` subclasses for projection input models
 - `read()` must return the actual domain objects (e.g., `list[User]`), not raw data
 
 ## Infrastructure Layer
@@ -902,10 +904,10 @@ uc.run(CreateUser(user_id="1", name="Alice"))  # NO!
 ```
 
 ```python
-# CORRECT — UseCase creates Command internally, caller passes DTO
-from aod.application import DTO
+# CORRECT — UseCase creates Command internally, caller passes BaseModel
+from pydantic import BaseModel
 
-class CreateUserInput(DTO):
+class CreateUserInput(BaseModel):
     user_id: str
     name: str
 

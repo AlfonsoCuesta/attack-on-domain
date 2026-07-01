@@ -9,7 +9,7 @@ Comprehensive reference for all publicly importable classes, grouped by layer.
 ```python
 from aod.domain import Entity, RootEntity, ValueObject, Service, Event, BoundedContext, App
 from aod.domain import Field, PrivateField
-from aod.domain.validation import AfterValidator, BeforeValidator, field_invariance, invariance, mutable
+from aod.domain.validation import AfterValidator, BeforeValidator, field_invariance, invariance, mutable, get_base_model
 ```
 
 ### Entity
@@ -257,13 +257,14 @@ from aod.domain.validation import field_invariance, invariance, AfterValidator, 
 | `AfterValidator` | Pydantic `AfterValidator` wrapper. |
 | `BeforeValidator` | Pydantic `BeforeValidator` wrapper. |
 | `mutable` | Marks a method to bypass the `can_mutate()` guard on entities (inherits mutation context from caller). |
+| `get_base_model` | Returns the constrained Pydantic `BaseModel` for any Entity, RootEntity or ValueObject. |
 
 ---
 
 ## Application Layer
 
 ```python
-from aod.application import UseCase, Port, DTO, Logger, EventBus, UnitOfWork, Cache, Command, Query
+from aod.application import UseCase, Port, Logger, EventBus, UnitOfWork, Cache, Command, Query
 from aod.application import CommandPort, QueryPort
 from aod.application import ApplicationException
 from aod.application.async_ import UseCase, Logger, EventBus, UnitOfWork, Cache
@@ -568,27 +569,6 @@ Immutable query contract for read operations.
 
 - Same field restrictions as `Command`.
 - `TResult` is validated to contain at least one `RootEntity` type.
-
-### DTO
-
-```python
-class DTO(BaseModel)
-```
-
-Data Transfer Object. Inherits directly from Pydantic's `BaseModel` — a pure data carrier with no mutation guards, no event emission, and no identity. Fully FastAPI-compatible.
-
-#### Constructor
-
-`DTO(**fields)` — All fields are keyword-only. `extra="forbid"` by default.
-
-#### Constraints
-
-- Not part of the domain layer — does not inherit from `BaseValidator`, `BaseGuarded`, or any domain framework class.
-- No `_event_emitter`, no mutation restrictions, no identity field.
-
-#### Usage
-
-Use `DTO` for UseCase `run()` input and Projection input models.
 
 ---
 
