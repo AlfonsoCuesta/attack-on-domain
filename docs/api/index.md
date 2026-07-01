@@ -257,7 +257,7 @@ from aod.domain.validation import field_invariance, invariance, AfterValidator, 
 | `AfterValidator` | Pydantic `AfterValidator` wrapper. |
 | `BeforeValidator` | Pydantic `BeforeValidator` wrapper. |
 | `mutable` | Marks a method to bypass the `can_mutate()` guard on entities (inherits mutation context from caller). |
-| `get_base_model` | Returns the constrained Pydantic `BaseModel` for any Entity, RootEntity or ValueObject. |
+| `get_base_model` | Returns the constrained Pydantic ``BaseModel`` for any Entity, RootEntity or ValueObject. Field access is type-safe. Use ``cast(BaseModel, dto)`` to call Pydantic methods (``model_dump_json``, etc.) |
 
 ---
 

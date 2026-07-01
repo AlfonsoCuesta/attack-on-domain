@@ -625,7 +625,15 @@ UserDTO = get_base_model(User)
 data = UserDTO(id=1, name="Alice", address=Address(street="Main", city="SF"))
 ```
 
-The returned class is a Pydantic `BaseModel` with all field definitions and validators from the original domain class.
+The returned class is a Pydantic ``BaseModel`` with all field definitions and validators from the original domain class.
+
+**Type-safe fields vs Pydantic methods**: The return type preserves field-level type inference so you can access fields without casts. To use Pydantic-specific methods (``model_dump_json``, ``model_validate``, etc.), cast to ``BaseModel``::
+
+    from typing import cast
+    from pydantic import BaseModel
+
+    dto = UserDTO(id=1, name="Alice")
+    json_str = cast(BaseModel, dto).model_dump_json()
 
 ### Projection
 

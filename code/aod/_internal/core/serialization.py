@@ -23,5 +23,15 @@ def get_base_model(cls: type[T]) -> type[T]:
         UserDTO = get_base_model(User)
         data = UserDTO(id=1, name="Alice", address=Address(street="Main", city="SF"))
         data.id  # type-safe, no cast needed
+
+    The return type is ``type[T]`` so the type checker infers field access.
+    To use Pydantic methods (``model_dump_json``, ``model_validate``, etc.),
+    cast to ``BaseModel``::
+
+        from typing import cast
+        from pydantic import BaseModel
+
+        dto = UserDTO(id=1, name="Alice")
+        cast(BaseModel, dto).model_dump_json()
     """
     return getattr(cls, CONSTRAINED_MODEL_KEY)

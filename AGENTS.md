@@ -405,7 +405,7 @@ BaseValidator (metaclass: ValidationModelMeta → ABCMeta)
     └── BaseGuarded (direct inheritance for Port, Session, etc.)
 ```
 
-Use `pydantic.BaseModel` directly for DTOs. Use `get_base_model(cls)` from `aod.domain.validation` to get a constrained BaseModel from a domain class.
+Use `pydantic.BaseModel` directly for DTOs. Use `get_base_model(cls)` from `aod.domain.validation` to get a constrained BaseModel from a domain class. The return type preserves field inference; to use Pydantic methods (`model_dump_json`, etc.), cast to `BaseModel`: `cast(BaseModel, dto).model_dump_json()`.
 
 `ReconstructMixin` is only mixed into `Entity` and `ValueObject`. `Service` and `UseCase` never see `reconstruct()`.
 

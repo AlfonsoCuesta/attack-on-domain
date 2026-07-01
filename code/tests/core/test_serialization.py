@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from typing import cast
+
 from aod._internal.core.serialization import get_base_model
 from aod._internal.domain.entity import RootEntity
 from aod._internal.domain.value_object import ValueObject
@@ -26,12 +28,12 @@ class TestGetBaseModel:
         assert issubclass(model, BaseModel)
 
     def test_fields_match_source(self) -> None:
-        model = get_base_model(User)
+        model = cast(BaseModel, get_base_model(User))
         field_names = set(model.model_fields.keys())
         assert field_names >= {"id", "name", "address"}
 
     def test_field_types_preserved(self) -> None:
-        model = get_base_model(User)
+        model = cast(BaseModel, get_base_model(User))
         assert model.model_fields["id"].annotation is int
         assert model.model_fields["name"].annotation is str
         assert model.model_fields["address"].annotation is Address
