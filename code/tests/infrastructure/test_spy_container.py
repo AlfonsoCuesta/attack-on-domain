@@ -3,7 +3,6 @@ from __future__ import annotations
 from typing import Any, cast
 
 import pytest
-from aod._internal.application.dto import DTO
 from aod._internal.application.event_bus import EventBus
 from aod._internal.application.handler import CommandPort
 from aod._internal.application.logger import Logger
@@ -20,6 +19,11 @@ from aod._internal.testing.doubles.infrastructure.container import spy_adapter_c
 from aod.application import Command, Query
 from aod.domain import RootEntity
 from aod.infrastructure import CommandHandler, QueryHandler
+from pydantic import BaseModel
+
+
+class DTO(BaseModel):
+    model_config = {"arbitrary_types_allowed": True}
 
 
 class User(RootEntity):

@@ -4,7 +4,6 @@ import inspect
 
 from aod._internal.application.cache import AsyncCache, Cache
 from aod._internal.application.contracts import Command, Query
-from aod._internal.application.dto import DTO
 from aod._internal.application.event_bus import AsyncEventBus, EventBus
 from aod._internal.application.handler import (
     AsyncCommandPort,
@@ -58,6 +57,7 @@ from aod._internal.schema.docs.value_object_doc import ValueObjectDoc
 from aod._internal.schema.infrastructure import Infrastructure
 from aod._internal.schema.module import Module
 from aod.domain import Field
+from pydantic import BaseModel as DTO
 from pydantic.fields import FieldInfo
 
 # ---- Domain types for tests ----

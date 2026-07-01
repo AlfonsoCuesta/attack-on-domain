@@ -3,7 +3,6 @@ from __future__ import annotations
 from typing import cast
 
 import pytest
-from aod._internal.application.dto import DTO
 from aod._internal.core.event_emitter import Event
 from aod._internal.core.infrastructure_exception import InvalidPortFieldError
 from aod._internal.infrastructure.commit_context import _CommitContext
@@ -17,6 +16,7 @@ from aod._internal.infrastructure.projection import (
     WriteProjection,
 )
 from aod._internal.infrastructure.session import AsyncSession, Session
+from pydantic import BaseModel as DTO
 
 
 class UserReadModel(DTO):

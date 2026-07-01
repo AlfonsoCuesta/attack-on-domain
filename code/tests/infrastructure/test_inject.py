@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import pytest
-from aod._internal.application.dto import DTO
 from aod._internal.application.logger.null_logger import NullLogger
 from aod._internal.application.port import Port
 from aod._internal.core.fields.fields import Field
@@ -14,6 +13,7 @@ from aod.application import Command, Query, UseCase
 from aod.application.async_ import UseCase as AsyncUseCase
 from aod.domain import RootEntity
 from aod.infrastructure import CommandHandler, QueryHandler
+from pydantic import BaseModel as DTO
 
 
 class User(RootEntity):

@@ -1,6 +1,5 @@
 from aod._internal.application.cache import Cache
 from aod._internal.application.contracts import Command, Query
-from aod._internal.application.dto import DTO
 from aod._internal.application.event_bus import EventBus
 from aod._internal.application.handler import CommandPort, QueryPort
 from aod._internal.application.logger import Logger
@@ -14,7 +13,6 @@ __all__ = [
     "Cache",
     "Command",
     "CommandPort",
-    "DTO",
     "EventBus",
     "Logger",
     "Port",

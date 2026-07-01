@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import pytest
-from aod._internal.application.dto import DTO
 from aod._internal.core.event_emitter import Event
 from aod._internal.core.infrastructure_exception import SessionNotFoundError
 from aod._internal.infrastructure.commit_context import _CommitContext
@@ -16,6 +15,7 @@ from aod._internal.infrastructure.projection import (
 )
 from aod._internal.infrastructure.session import AsyncSession, Session
 from aod._internal.testing.doubles.application import SpyEventBus, SpyLogger
+from pydantic import BaseModel as DTO
 
 # ---------------------------------------------------------------------------
 # Domain events

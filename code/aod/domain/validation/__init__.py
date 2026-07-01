@@ -6,11 +6,13 @@ from aod._internal.core.invariances import (
     field_invariance,
     invariance,
 )
+from aod._internal.core.serialization import get_base_model
 
 __all__ = [
     "AfterValidator",
     "BeforeValidator",
     "field_invariance",
+    "get_base_model",
     "invariance",
     "mutable",
     "make_base_model",
