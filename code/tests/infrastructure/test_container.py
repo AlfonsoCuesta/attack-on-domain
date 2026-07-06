@@ -92,9 +92,6 @@ class _AsyncSession(AsyncSession):
 def test_can_instantiate_with_defaults() -> None:
     container = AdapterContainer()
     assert container.sessions == set()
-    assert container.logger is not None
-    assert container.event_bus is not None
-    assert container.cache is not None
     assert container.handlers == []
 
 
@@ -156,10 +153,15 @@ def test_subclass_non_port_optional_raises() -> None:
 
 
 def test_inherited_fields_are_not_revalidated() -> None:
-    class _Custom(AdapterContainer):
-        logger: _FakePort | None = None
+    class _BaseContainer(AdapterContainer):
+        base_port: _FakePort
 
-    assert hasattr(_Custom, "logger")
+    class _Custom(_BaseContainer):
+        base_port: _FakePort
+
+    port = _FakePort()
+    container = _Custom(base_port=port)
+    assert isinstance(container.base_port, _FakePort)
 
 
 def test_subclass_with_generic_port_field_works() -> None:
@@ -174,13 +176,13 @@ class TestGetPort:
     def test_finds_existing_port(self) -> None:
         port = _FakePort()
         container = _CustomContainer(weather_client=port)
-        result = container.get_port(_FakePort)
+        result = container.get_port("weather_client")
         assert isinstance(result, _FakePort)
 
     def test_raises_when_port_not_found(self) -> None:
         container = _CustomContainer(weather_client=_FakePort())
-        with pytest.raises(PortNotFoundError, match="No port of type"):
-            container.get_port(_OtherPort)
+        with pytest.raises(PortNotFoundError, match="No port named"):
+            container.get_port("other_port")
 
     def test_finds_port_with_plain_type(self) -> None:
         class _PlainPortContainer(AdapterContainer):
@@ -188,7 +190,7 @@ class TestGetPort:
 
         port = _FakePort()
         container = _PlainPortContainer(client=port)
-        result = container.get_port(_FakePort)
+        result = container.get_port("client")
         assert result is port
 
     def test_get_port_from_cache(self) -> None:
@@ -197,7 +199,7 @@ class TestGetPort:
 
         port = _FakePort()
         container = _PlainPortContainer(client=port)
-        result = container.get_port(_FakePort)
+        result = container.get_port("client")
         assert result is port
 
 

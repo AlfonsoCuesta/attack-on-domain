@@ -18,10 +18,7 @@ from aod.infrastructure import AdapterContainer
 |-----------|------|-------------|
 | `sessions` | `set[type[Session] \| type[AsyncSession]]` | Session classes (not instances) to manage. Default: `set()`. |
 | `handlers` | `list[AnyHandler]` | Handler classes to register. Default: `[]`. |
-| `logger` | `Logger \| AsyncLogger` | Logger instance. Default: `NullLogger`. |
-| `event_bus` | `EventBus \| AsyncEventBus` | Event bus instance. Default: `NullEventBus`. |
-| `cache` | `Cache \| AsyncCache` | Cache instance. Default: `NullCache`. |
-| `**overrides` | `Any` | Override any field (ports, etc.). |
+| `**fields` | `Port` | Custom ports registered by field name. |
 
 ### Default Fields
 
@@ -29,9 +26,7 @@ from aod.infrastructure import AdapterContainer
 |-------|------|---------|
 | `sessions` | `set[type[Session] \| type[AsyncSession]]` | `set()` |
 | `_sessions_needed` | `dict[type[Session] \| type[AsyncSession], Session \| AsyncSession]` | `{}` (PrivateField) |
-| `logger` | `Logger \| AsyncLogger` | `NullLogger()` |
-| `event_bus` | `EventBus \| AsyncEventBus` | `NullEventBus()` |
-| `cache` | `Cache \| AsyncCache` | `NullCache()` |
+| `_ports_by_name` | `dict[str, Port]` | `{}` (PrivateField) |
 | `handlers` | `list[AnyHandler]` | `[]` |
 
 ### Methods
@@ -72,17 +67,17 @@ Create a unit-of-work with all sessions that have been instantiated.
 - Collects all session instances from `_sessions_needed`.
 - Returns `AsyncUnitOfWork` if any session is async, otherwise `UnitOfWork`.
 
-#### `get_port(port: type[Port]) -> Port`
+#### `get_port(name: str) -> Port`
 
-Find a port implementation by type.
+Find a port implementation by field name.
 
 | Parameter | Type | Description |
 |-----------|------|-------------|
-| `port` | `type[Port]` | The port type to find. |
+| `name` | `str` | The field name registered on the container. |
 
-- Iterates container fields looking for one whose type is a subclass of the requested port.
+- Looks up `_ports_by_name` for the registered field name.
 - Returns the field value.
-- Raises `PortNotFoundError` if no matching port is found.
+- Raises `PortNotFoundError` if no port with that name is found.
 
 #### `adapt_use_case(use_case_cls: type[UseCase | AsyncUseCase], **overrides: Any) -> UseCase | AsyncUseCase`
 
@@ -93,8 +88,9 @@ Create a use case instance with all dependencies wired automatically.
 | `use_case_cls` | `type[UseCase \| AsyncUseCase]` | The use case class to instantiate. |
 | `**overrides` | `Any` | Optional field overrides for the container copy. |
 
-- Resolves `logger`, `event_bus`, `cache`, and `uow` automatically.
-- Injects matching handler ports (`CommandPort[C]`, `QueryPort[Q]`) and custom ports.
+- Resolves `uow` automatically.
+- Injects matching handler ports (`CommandPort[C]`, `QueryPort[Q]`) and custom ports by field name.
+- Injects `Logger`, `EventBus`, `Cache` and other ports by field name.
 - When `**overrides` are provided, creates a container copy before injection.
 
 #### `adapt_projection(projection_cls: type[ProjectionBase], **overrides: Any) -> ProjectionBase`
@@ -106,9 +102,9 @@ Create a projection instance with all dependencies wired automatically.
 | `projection_cls` | `type[ProjectionBase]` | The projection class to instantiate. |
 | `**overrides` | `Any` | Optional field overrides for the container copy. |
 
-- Resolves `logger`, `event_bus`, `cache`, and `session` automatically.
+- Resolves `session` automatically.
 - The session type is extracted from the projection's `session` field annotation.
-- Injects matching custom ports.
+- Injects matching custom ports by field name.
 - When `**overrides` are provided, creates a container copy before injection.
 
 #### `with_adapters(**overrides: Any) -> Self`
@@ -143,16 +139,6 @@ The container supports both sync and async sessions simultaneously. `get_uow()` 
 
 ## Auto-Wiring Logic
 
-### Framework Services
-
-All operations receive these from the container:
-
-| Field | Container Source |
-|-------|-----------------|
-| `logger` | `container.logger` |
-| `event_bus` | `container.event_bus` |
-| `cache` | `container.cache` |
-
 ### Use Case Wiring
 
 When adapting a `UseCase` or `AsyncUseCase`:
@@ -173,18 +159,23 @@ The session type is extracted from the projection's `session` field annotation. 
 
 ### Port Wiring
 
-All non-framework fields are scanned:
+All public fields are scanned:
 
-1. Each field's type is checked against all registered ports via `container.get_port()`.
+1. Each field's name is looked up in `_ports_by_name`.
 2. `HandlerProtocol` subclasses are excluded (not injected as ports).
-3. Special types (`UnitOfWork`, `Logger`, `EventBus`, `Cache`, and their async counterparts) are skipped -- they are handled separately above.
+3. If the field name is not registered, `PortNotFoundError` is raised.
+
+This applies to custom ports as well as `Logger`, `EventBus`, `Cache` and their async counterparts.
 
 ### Override Support
 
 ```python
+class MyContainer(AdapterContainer):
+    logger: Logger
+
 use_case = container.adapt_use_case(
     MyUseCase,
-    logger=SpyLogger(),  # override logger for testing
+    logger=SpyLogger(),  # override container field for testing
 )
 ```
 

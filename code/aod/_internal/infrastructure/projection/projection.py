@@ -54,20 +54,23 @@ def _make_projection_wrapper(
                 if exception is not None:
                     if is_write and self.session is not None:
                         await should_await(self.session.rollback())
-                    await should_await(
-                        self.logger.error(
-                            f"{type(self).__name__} {operation} failed with exception: {exception}"
+                    for logger in self._loggers:
+                        await should_await(
+                            logger.error(
+                                f"{type(self).__name__} {operation} failed with exception: {exception}"
+                            )
                         )
-                    )
                     raise exception
-                await should_await(
-                    self.logger.info(
-                        f"{type(self).__name__} {operation} events", events=self.events
+                for logger in self._loggers:
+                    await should_await(
+                        logger.info(f"{type(self).__name__} {operation} events", events=self.events)
                     )
-                )
-                await should_await(self.cache.flush())
-                await should_await(self.event_bus.publish(*self.events))
-                await should_await(self.logger.info(f"{type(self).__name__} {operation} completed"))
+                for cache in self._caches:
+                    await should_await(cache.flush())
+                for bus in self._event_buses:
+                    await should_await(bus.publish(*self.events))
+                for logger in self._loggers:
+                    await should_await(logger.info(f"{type(self).__name__} {operation} completed"))
                 return result
             finally:
                 if token is not None:
@@ -90,14 +93,19 @@ def _make_projection_wrapper(
             if exception is not None:
                 if is_write and self.session is not None and self.session.is_dirty():
                     self.session.rollback()
-                self.logger.error(
-                    f"{type(self).__name__} {operation} failed with exception: {exception}"
-                )
+                for logger in self._loggers:
+                    logger.error(
+                        f"{type(self).__name__} {operation} failed with exception: {exception}"
+                    )
                 raise exception
-            self.logger.info(f"{type(self).__name__} {operation} events", events=self.events)
-            self.cache.flush()
-            self.event_bus.publish(*self.events)
-            self.logger.info(f"{type(self).__name__} {operation} completed")
+            for logger in self._loggers:
+                logger.info(f"{type(self).__name__} {operation} events", events=self.events)
+            for cache in self._caches:
+                cache.flush()
+            for bus in self._event_buses:
+                bus.publish(*self.events)
+            for logger in self._loggers:
+                logger.info(f"{type(self).__name__} {operation} completed")
             return result
         finally:
             if token is not None:

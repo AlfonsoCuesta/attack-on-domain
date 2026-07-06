@@ -109,10 +109,6 @@ class TestProjectionBase:
     def test_can_instantiate(self) -> None:
         ProjectionBase()
 
-    def test_has_default_logger(self) -> None:
-        p = ProjectionBase()
-        assert p.logger is not None
-
 
 class TestReadProjection:
     def test_is_abstract(self) -> None:

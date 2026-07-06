@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import pytest
+from aod._internal.application.event_bus import AsyncEventBus, EventBus
+from aod._internal.application.logger import AsyncLogger, Logger
 from aod._internal.application.use_case import AsyncUseCase as UseCase
 from aod._internal.core.domain_exception import MutationForbiddenException
 from aod.testing.doubles.application import (
@@ -249,6 +251,8 @@ async def test_uow_auto_rollback_on_failure() -> None:
 
 async def test_logger_auto_logs_completion() -> None:
     class Simple(UseCase):
+        logger: Logger
+
         async def run(self) -> None:
             pass
 
@@ -261,6 +265,8 @@ async def test_logger_auto_logs_completion() -> None:
 
 async def test_event_bus_auto_publishes_on_success() -> None:
     class Emit(UseCase):
+        event_bus: EventBus
+
         async def run(self) -> None:
             self._event_emitter.emit(UserCreated(user_id=1, name="test"))
 
@@ -276,6 +282,8 @@ async def test_commit_failure_rolls_back_and_logs() -> None:
             raise RuntimeError("commit failed")
 
     class Simple(UseCase):
+        logger: Logger
+
         async def run(self) -> None:
             pass
 
@@ -314,6 +322,9 @@ async def test_post_init_runs_on_use_case() -> None:
 
 async def test_mixed_all_sync_ports_on_success() -> None:
     class Simple(UseCase):
+        logger: Logger
+        event_bus: EventBus
+
         async def run(self) -> None:
             pass
 
@@ -330,6 +341,8 @@ async def test_mixed_all_sync_ports_on_success() -> None:
 
 async def test_mixed_all_sync_ports_on_failure() -> None:
     class Fail(UseCase):
+        logger: Logger
+
         async def run(self) -> None:
             raise ValueError("oops")
 
@@ -346,6 +359,8 @@ async def test_mixed_all_sync_ports_on_failure() -> None:
 
 async def test_mixed_sync_uow_async_event_bus() -> None:
     class Emit(UseCase):
+        event_bus: AsyncEventBus
+
         async def run(self) -> None:
             self._event_emitter.emit(UserCreated(user_id=1, name="test"))
 
@@ -359,6 +374,8 @@ async def test_mixed_sync_uow_async_event_bus() -> None:
 
 async def test_mixed_async_uow_sync_logger() -> None:
     class Simple(UseCase):
+        logger: Logger
+
         async def run(self) -> None:
             pass
 
@@ -374,6 +391,9 @@ async def test_mixed_async_uow_sync_logger() -> None:
 
 async def test_mixed_sync_event_bus_async_logger() -> None:
     class Emit(UseCase):
+        event_bus: EventBus
+        logger: AsyncLogger
+
         async def run(self) -> None:
             self._event_emitter.emit(UserCreated(user_id=1, name="test"))
 

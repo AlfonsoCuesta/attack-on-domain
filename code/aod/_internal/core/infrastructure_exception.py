@@ -38,10 +38,10 @@ class InvalidPortFieldError(InfrastructureException):
 
 
 class PortNotFoundError(InfrastructureException):
-    """No port of the requested type is registered on the container."""
+    """No port with the requested name is registered on the container."""
 
-    def __init__(self, port_type: type) -> None:
-        super().__init__(f"No port of type {port_type.__name__} registered")
+    def __init__(self, name: str) -> None:
+        super().__init__(f"No port named '{name}' registered")
 
 
 class SessionNotFoundError(InfrastructureException):

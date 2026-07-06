@@ -3,17 +3,24 @@ from __future__ import annotations
 from typing import Any, ClassVar, get_origin, get_type_hints
 
 from aod._internal.application.cache import AsyncCache, Cache
-from aod._internal.application.cache.null_cache import NullCache
 from aod._internal.application.event_bus import AsyncEventBus, EventBus
-from aod._internal.application.event_bus.null_event_bus import NullEventBus
 from aod._internal.application.logger import AsyncLogger, Logger
-from aod._internal.application.logger.null_logger import NullLogger
 from aod._internal.application.port import Port
 from aod._internal.core.application_exception import InvalidUseCasePortFieldError
 from aod._internal.core.base_behaviour import BaseBehaviour
 from aod._internal.core.event_emitter import Event, EventEmitter
 from aod._internal.core.fields.fields import Field, PrivateField
 from aod._internal.infrastructure.handlers.handlers import AsyncBaseHandler, BaseHandler
+
+
+_SPECIAL_PORT_TYPES = (
+    Logger,
+    AsyncLogger,
+    EventBus,
+    AsyncEventBus,
+    Cache,
+    AsyncCache,
+)
 
 
 def _resolve_port_class(tp: Any) -> type | None:
@@ -31,9 +38,13 @@ class BaseOperation(BaseBehaviour):
     __not_allowed_port_types__ = ()
     _event_emitter: EventEmitter = PrivateField(default_factory=EventEmitter)
     events: list[Event] = Field(default_factory=list, init=False)
-    logger: Logger | AsyncLogger = Field(default_factory=NullLogger)
-    event_bus: EventBus | AsyncEventBus = Field(default_factory=NullEventBus)
-    cache: Cache | AsyncCache = Field(default_factory=NullCache)
+    _loggers: list[Logger | AsyncLogger] = PrivateField(default_factory=list)
+    _event_buses: list[EventBus | AsyncEventBus] = PrivateField(default_factory=list)
+    _caches: list[Cache | AsyncCache] = PrivateField(default_factory=list)
+
+    def __init__(self, **kwargs: Any) -> None:
+        super().__init__(**kwargs)
+        self._collect_special_ports()
 
     def __init_subclass__(cls, **kwargs: object) -> None:
         super().__init_subclass__(**kwargs)
@@ -65,3 +76,21 @@ class BaseOperation(BaseBehaviour):
                     cls.__name__,
                     str(tp),
                 )
+
+    def _collect_special_ports(self) -> None:
+        loggers: list[Logger | AsyncLogger] = []
+        event_buses: list[EventBus | AsyncEventBus] = []
+        caches: list[Cache | AsyncCache] = []
+
+        for field_name in self.__model_fields__:
+            value = getattr(self, field_name)
+            if isinstance(value, (Logger, AsyncLogger)):
+                loggers.append(value)
+            elif isinstance(value, (EventBus, AsyncEventBus)):
+                event_buses.append(value)
+            elif isinstance(value, (Cache, AsyncCache)):
+                caches.append(value)
+
+        object.__setattr__(self, "_loggers", loggers)
+        object.__setattr__(self, "_event_buses", event_buses)
+        object.__setattr__(self, "_caches", caches)

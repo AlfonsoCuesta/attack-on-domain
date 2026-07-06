@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import pytest
 from aod._internal.core.event_emitter import Event
+from aod._internal.core.fields.fields import Field
 from aod._internal.core.infrastructure_exception import SessionNotFoundError
 from aod._internal.infrastructure.commit_context import _CommitContext
 from aod._internal.infrastructure.container import AdapterContainer
@@ -14,6 +15,10 @@ from aod._internal.infrastructure.projection import (
     WriteProjection,
 )
 from aod._internal.infrastructure.session import AsyncSession, Session
+from aod._internal.application.event_bus import EventBus
+from aod._internal.application.event_bus.null_event_bus import NullEventBus
+from aod._internal.application.logger import Logger
+from aod._internal.application.logger.null_logger import NullLogger
 from aod._internal.testing.doubles.application import SpyEventBus, SpyLogger
 from pydantic import BaseModel as DTO
 
@@ -105,11 +110,17 @@ class _TestAsyncSession(AsyncSession):
 
 
 class GetUserProjection(ReadProjection):
+    logger: Logger = Field(default_factory=NullLogger)
+    event_bus: EventBus = Field(default_factory=NullEventBus)
+
     def read(self, model: UserReadModel) -> dict:
         return {"id": model.user_id, "name": "Alice"}
 
 
 class CreateUserProjection(WriteProjection):
+    logger: Logger = Field(default_factory=NullLogger)
+    event_bus: EventBus = Field(default_factory=NullEventBus)
+
     def write(self, model: UserWriteModel) -> str:
         self._event_emitter.emit(UserCreated(user_id=model.user_id, name=model.name))
         return "created"
@@ -150,7 +161,8 @@ class AsyncFullUserProjection(AsyncProjection):
 
 
 class ProjectionContainer(AdapterContainer):
-    pass
+    logger: Logger = Field(default_factory=NullLogger)
+    event_bus: EventBus = Field(default_factory=NullEventBus)
 
 
 # ===========================================================================
@@ -390,12 +402,16 @@ class TestAsyncFullProjection:
 
 class TestProjectionInjection:
     def test_inject_read_projection(self) -> None:
-        container = ProjectionContainer(sessions={_TestSession})
+        container = ProjectionContainer(
+            sessions={_TestSession},
+            logger=NullLogger(),
+            event_bus=NullEventBus(),
+        )
         uc = container.adapt_projection(GetUserProjection)
         p = uc
         assert isinstance(p.session, Session)
-        assert p.logger is not None
-        assert p.event_bus is not None
+        assert isinstance(p.logger, NullLogger)
+        assert isinstance(p.event_bus, NullEventBus)
 
     def test_inject_write_projection(self) -> None:
         container = ProjectionContainer(sessions={_TestSession})
@@ -412,8 +428,12 @@ class TestProjectionInjection:
     def test_inject_with_logger_and_event_bus(self) -> None:
         logger = SpyLogger()
         bus = SpyEventBus()
-        container = ProjectionContainer(sessions={_TestSession})
-        uc = container.adapt_projection(GetUserProjection, logger=logger, event_bus=bus)
+        container = ProjectionContainer(
+            sessions={_TestSession},
+            logger=logger,
+            event_bus=bus,
+        )
+        uc = container.adapt_projection(GetUserProjection)
         p = uc
         p.read(UserReadModel(user_id=1))
         completions = [e for e in logger.entries if "completed" in str(e.msg)]

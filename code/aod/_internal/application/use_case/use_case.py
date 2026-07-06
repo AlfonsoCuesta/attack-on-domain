@@ -45,20 +45,26 @@ class UseCase(BaseOperation):
 
             if exception is not None:
                 self.uow.rollback()
-                self.logger.error(f"{type(self).__name__} failed with exception: {exception}")
+                for logger in self._loggers:
+                    logger.error(f"{type(self).__name__} failed with exception: {exception}")
                 raise exception
 
             try:
                 self.uow.commit()
             except BaseException:
                 self.uow.rollback()
-                self.logger.error(f"{type(self).__name__} commit failed")
+                for logger in self._loggers:
+                    logger.error(f"{type(self).__name__} commit failed")
                 raise
 
-            self.logger.info(f"{type(self).__name__} events", events=self.events)
-            self.cache.flush()
-            self.event_bus.publish(*self.events)
-            self.logger.info(f"{type(self).__name__} completed")
+            for logger in self._loggers:
+                logger.info(f"{type(self).__name__} events", events=self.events)
+            for cache in self._caches:
+                cache.flush()
+            for bus in self._event_buses:
+                bus.publish(*self.events)
+            for logger in self._loggers:
+                logger.info(f"{type(self).__name__} completed")
 
         return wrapper
 
@@ -68,6 +74,7 @@ class UseCase(BaseOperation):
 
 class AsyncUseCase(BaseOperation):
     __skip_port_check__ = True
+    __not_allowed_port_types__ = (Session, AsyncSession)
     uow: UnitOfWork | AsyncUnitOfWork = Field(default_factory=NullUnitOfWork)
 
     def __init_subclass__(cls, **kwargs: Any) -> None:
@@ -95,24 +102,28 @@ class AsyncUseCase(BaseOperation):
 
             if exception is not None:
                 await should_await(self.uow.rollback())
-                await should_await(
-                    self.logger.error(f"{type(self).__name__} failed with exception: {exception}")
-                )
+                for logger in self._loggers:
+                    await should_await(
+                        logger.error(f"{type(self).__name__} failed with exception: {exception}")
+                    )
                 raise exception
 
             try:
                 await should_await(self.uow.commit())
             except BaseException:
                 await should_await(self.uow.rollback())
-                await should_await(self.logger.error(f"{type(self).__name__} commit failed"))
+                for logger in self._loggers:
+                    await should_await(logger.error(f"{type(self).__name__} commit failed"))
                 raise
 
-            await should_await(
-                self.logger.info(f"{type(self).__name__} events", events=self.events)
-            )
-            await should_await(self.cache.flush())
-            await should_await(self.event_bus.publish(*self.events))
-            await should_await(self.logger.info(f"{type(self).__name__} completed"))
+            for logger in self._loggers:
+                await should_await(logger.info(f"{type(self).__name__} events", events=self.events))
+            for cache in self._caches:
+                await should_await(cache.flush())
+            for bus in self._event_buses:
+                await should_await(bus.publish(*self.events))
+            for logger in self._loggers:
+                await should_await(logger.info(f"{type(self).__name__} completed"))
 
         return wrapper
 

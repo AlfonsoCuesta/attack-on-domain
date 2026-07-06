@@ -65,21 +65,30 @@ Base class for synchronous use cases. Inherits from `BaseOperation`.
 | Parameter | Type | Description |
 |-----------|------|-------------|
 | `*port_fields` | `Port` subclass | All declared Port fields as keyword arguments |
-| `logger` | `Logger \| AsyncLogger` | Optional override (default: `NullLogger` no-op) |
-| `event_bus` | `EventBus \| AsyncEventBus` | Optional override (default: `NullEventBus` no-op) |
-| `cache` | `Cache \| AsyncCache` | Optional override (default: `NullCache` no-op) |
 | `uow` | `UnitOfWork` | Optional override (default: `NullUnitOfWork` no-op) |
 
-**Auto-wired fields** (set automatically, no need to pass unless overriding):
+**Auto-wired fields**:
 
 | Field | Type | Default | Description |
 |-------|------|---------|-------------|
 | `uow` | `UnitOfWork` | `NullUnitOfWork` | Transaction boundary. Auto-commits on success, rollbacks on failure |
-| `logger` | `Logger \| AsyncLogger` | `NullLogger` | Logs completion (with event count) and failure messages |
-| `event_bus` | `EventBus \| AsyncEventBus` | `NullEventBus` | Publishes collected events after successful commit |
-| `cache` | `Cache \| AsyncCache` | `NullCache` | Flushed after successful commit |
 | `events` | `list[Event]` | `[]` | Collected events from last `run()` call. Read-only outside mutation context |
 | `_event_emitter` | `EventEmitter` | `EventEmitter()` | Private event emitter for emitting events during `run()` |
+| `_loggers` | `list[Logger \| AsyncLogger]` | `[]` | Private list of declared logger ports |
+| `_event_buses` | `list[EventBus \| AsyncEventBus]` | `[]` | Private list of declared event bus ports |
+| `_caches` | `list[Cache \| AsyncCache]` | `[]` | Private list of declared cache ports |
+
+**Optional ports** (declare explicitly when needed):
+
+```python
+class CreateUserUseCase(UseCase):
+    save_user: CommandPort[CreateUser]
+    logger: Logger
+    event_bus: EventBus
+
+    def run(self, dto: CreateUserInput) -> User:
+        ...
+```
 
 #### `run(self, *args, **kwargs) -> Any`
 
@@ -105,9 +114,6 @@ Base class for asynchronous use cases. Inherits from `BaseOperation`.
 | Parameter | Type | Description |
 |-----------|------|-------------|
 | `*port_fields` | `Port` subclass | All declared Port fields as keyword arguments |
-| `logger` | `Logger \| AsyncLogger` | Optional override (default: `NullLogger` no-op) |
-| `event_bus` | `EventBus \| AsyncEventBus` | Optional override (default: `NullEventBus` no-op) |
-| `cache` | `Cache \| AsyncCache` | Optional override (default: `NullCache` no-op) |
 | `uow` | `UnitOfWork \| AsyncUnitOfWork` | Optional override (default: `NullUnitOfWork` no-op) |
 
 **Auto-wired fields:** Same as `UseCase`, except `uow` accepts `UnitOfWork \| AsyncUnitOfWork`.

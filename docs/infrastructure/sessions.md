@@ -96,8 +96,10 @@ uow.begin()                             # calls session.begin() on ALL sessions
     # QueryHandlers read via session.query()
 if run() succeeds:
     uow.commit()                        # calls session.commit() ONLY on dirty sessions
-    event_bus.publish(*events)          # publishes collected events
-    cache.flush()                       # clears cache
+    for bus in _event_buses:
+        bus.publish(*events)            # publishes collected events
+    for cache in _caches:
+        cache.flush()                   # clears cache
 if run() fails:
     uow.rollback()                      # calls session.rollback() ONLY on dirty sessions
     error re-raised                     # exception propagates to caller

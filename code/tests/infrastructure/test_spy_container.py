@@ -3,6 +3,7 @@ from __future__ import annotations
 from typing import Any, cast
 
 import pytest
+from aod._internal.application.cache import Cache
 from aod._internal.application.event_bus import EventBus
 from aod._internal.application.handler import CommandPort
 from aod._internal.application.logger import Logger
@@ -57,14 +58,34 @@ class _MyContainer(AdapterContainer):
     weather: _FakePort
 
 
+class _FullContainer(AdapterContainer):
+    weather: _FakePort
+    logger: Logger
+    event_bus: EventBus
+    cache: Cache
+
+
 def test_returns_instance_of_original_class() -> None:
     container = spy_adapter_container(_MyContainer(weather=_FakePort()))
     assert isinstance(container, _MyContainer)
 
 
+def _full_container(**overrides: Any) -> _FullContainer:
+    from aod.testing.doubles.application import SpyCache, SpyEventBus, SpyLogger
+
+    defaults: dict[str, Port] = {
+        "weather": _FakePort(),
+        "logger": SpyLogger(),
+        "event_bus": SpyEventBus(),
+        "cache": SpyCache(),
+    }
+    defaults.update(overrides)
+    return _FullContainer(**cast(Any, defaults))
+
+
 def test_spy_bundle_provides_port_and_session_stubs() -> None:
-    container = spy_adapter_container(_MyContainer(weather=_FakePort()))
-    assert container.get_port_stub(Logger) is not None
+    container = spy_adapter_container(_full_container())
+    assert container.get_port_stub("logger") is not None
     assert container.get_session_stub(Session) is not None
 
 
@@ -75,15 +96,15 @@ def test_get_session_stub() -> None:
 
 
 def test_get_port_stub() -> None:
-    container = spy_adapter_container(_MyContainer(weather=_FakePort()))
-    stub = container.get_port_stub(Logger)
+    container = spy_adapter_container(_full_container())
+    stub = container.get_port_stub("logger")
     assert stub is not None
 
 
 def test_spy_get_port_raises_when_port_not_registered() -> None:
     container = spy_adapter_container(_MyContainer(weather=_FakePort()))
     with pytest.raises(PortNotFoundError):
-        container.get_port(Logger)
+        container.get_port("logger")
 
 
 def test_get_session_returns_stub_instance() -> None:
@@ -130,8 +151,8 @@ def test_spy_session_commit_inside_uow_succeeds() -> None:
 
 
 def test_spy_logger_records_calls() -> None:
-    container = spy_adapter_container(_MyContainer(weather=_FakePort()))
-    logger_stub = container.get_port_stub(Logger)
+    container = spy_adapter_container(_full_container())
+    logger_stub = container.get_port_stub("logger")
     logger_stub.info("test message")
     assert logger_stub.info.call_count == 1
     assert logger_stub.info.calls[0].args() == ("test message",)
@@ -141,8 +162,8 @@ def test_spy_event_bus_records_calls() -> None:
     class _TestEvent(Event):
         pass
 
-    container = spy_adapter_container(_MyContainer(weather=_FakePort()))
-    event_bus_stub = container.get_port_stub(EventBus)
+    container = spy_adapter_container(_full_container())
+    event_bus_stub = container.get_port_stub("event_bus")
     event_bus_stub.publish(_TestEvent())
     assert event_bus_stub.publish.call_count == 1
 

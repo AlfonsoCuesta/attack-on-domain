@@ -286,10 +286,7 @@ Base class for synchronous application use cases.
 | Parameter | Type | Description |
 |-----------|------|-------------|
 | `uow` | `UnitOfWork` | Unit of work for transaction management. Default: `NullUnitOfWork`. |
-| `logger` | `Logger \| AsyncLogger` | Logger instance. Default: `NullLogger`. |
-| `event_bus` | `EventBus \| AsyncEventBus` | Event bus instance. Default: `NullEventBus`. |
-| `cache` | `Cache \| AsyncCache` | Cache instance. Default: `NullCache`. |
-| `**ports` | `Port` | Additional port dependencies. |
+| `**ports` | `Port` | Additional port dependencies declared on the subclass. |
 
 #### Fields
 
@@ -297,9 +294,9 @@ Base class for synchronous application use cases.
 |-------|------|---------|-------------|
 | `uow` | `UnitOfWork` | `NullUnitOfWork()` | Transactional unit of work. |
 | `events` | `list[Event]` | `[]` | Events collected during the last `run()` call. `init=False`. |
-| `logger` | `Logger \| AsyncLogger` | `NullLogger()` | Logger. |
-| `event_bus` | `EventBus \| AsyncEventBus` | `NullEventBus()` | Event bus. |
-| `cache` | `Cache \| AsyncCache` | `NullCache()` | Cache. |
+| `_loggers` | `list[Logger \| AsyncLogger]` | `[]` | Collected logger ports. Private. |
+| `_event_buses` | `list[EventBus \| AsyncEventBus]` | `[]` | Collected event bus ports. Private. |
+| `_caches` | `list[Cache \| AsyncCache]` | `[]` | Collected cache ports. Private. |
 
 #### Methods
 
@@ -313,9 +310,9 @@ When `run()` is called:
 
 1. `uow.begin()` starts a transaction.
 2. Events are collected via `EventCollector` during execution.
-3. On success: `uow.commit()`, events logged, cache flushed, events published on event bus.
-4. On failure: `uow.rollback()`, exception logged, exception re-raised.
-5. If commit fails: `uow.rollback()`, commit failure logged, exception re-raised.
+3. On success: `uow.commit()`, events logged on each declared logger, each declared cache flushed, events published on each declared event bus.
+4. On failure: `uow.rollback()`, exception logged on each declared logger, exception re-raised.
+5. If commit fails: `uow.rollback()`, commit failure logged on each declared logger, exception re-raised.
 
 #### Field Validation
 
@@ -337,9 +334,7 @@ class AsyncUseCase(BaseOperation)
 | Parameter | Type | Description |
 |-----------|------|-------------|
 | `uow` | `UnitOfWork \| AsyncUnitOfWork` | Unit of work. Default: `NullUnitOfWork`. |
-| `logger` | `Logger \| AsyncLogger` | Logger. Default: `NullLogger`. |
-| `event_bus` | `EventBus \| AsyncEventBus` | Event bus. Default: `NullEventBus`. |
-| `cache` | `Cache \| AsyncCache` | Cache. Default: `NullCache`. |
+| `**ports` | `Port` | Additional port dependencies declared on the subclass. |
 
 #### Methods
 
@@ -810,9 +805,7 @@ Dependency injection container.
 |-----------|------|---------|-------------|
 | `sessions` | `set[type[Session] \| type[AsyncSession]]` | `set()` | Session classes to manage. |
 | `handlers` | `list[type[CommandHandler \| QueryHandler \| AsyncCommandHandler \| AsyncQueryHandler]]` | `[]` | Handler classes to register. |
-| `logger` | `Logger \| AsyncLogger` | `NullLogger()` | Logger instance. |
-| `event_bus` | `EventBus \| AsyncEventBus` | `NullEventBus()` | Event bus instance. |
-| `cache` | `Cache \| AsyncCache` | `NullCache()` | Cache instance. |
+| `_ports_by_name` | `dict[str, Port]` | `{}` | Private index of registered ports by field name. |
 | `_sessions_needed` | `dict` | `{}` | Private cache of instantiated sessions. |
 
 #### Methods
@@ -822,7 +815,7 @@ Dependency injection container.
 | `get_session` | `get_session(self, session_cls: type) -> Session \| AsyncSession` | Retrieve or instantiate a session. Raises `SessionNotFoundError`. |
 | `get_handler` | `get_handler(self, contract: type[Command \| Query]) -> handler` | Find handler by command/query type. Raises `HandlerNotFoundError`. |
 | `get_uow` | `get_uow(self) -> UnitOfWork \| AsyncUnitOfWork` | Create a UoW with all instantiated sessions. |
-| `get_port` | `get_port(self, port: type[Port]) -> Port` | Find port by type. Raises `PortNotFoundError`. |
+| `get_port` | `get_port(self, name: str) -> Port` | Find port by registered field name. Raises `PortNotFoundError`. |
 | `with_adapters` | `with_adapters(self, **overrides) -> Self` | Create a copy with overridden fields. |
 | `adapt_use_case` | `adapt_use_case(self, use_case_cls, *, returns=UNSET, **overrides) -> UseCase \| AsyncUseCase` | Create a use case with all dependencies wired. `returns=` stubs `run()` return value (spy container only). |
 | `adapt_projection` | `adapt_projection(self, projection_cls, *, read_returns=UNSET, write_returns=UNSET, **overrides) -> ProjectionBase` | Create a projection with all dependencies wired. `read_returns=`/`write_returns=` stub projection methods (spy container only). |
@@ -987,7 +980,7 @@ Create a version of a container where sessions and ports are replaced with stubs
 | Method | Signature | Description |
 |--------|-----------|-------------|
 | `get_session_stub` | `get_session_stub(session_cls) -> Any` | Returns a stub for the given session class |
-| `get_port_stub` | `get_port_stub(port_cls) -> Any` | Returns a stub for the given port class |
+| `get_port_stub` | `get_port_stub(name: str) -> Any` | Returns a stub for the port registered under the given field name |
 | `get_handler_stub` | `get_handler_stub(handler_cls) -> Any` | Returns a stub for the given handler class |
 | `get_handler` | `get_handler(contract) -> Any` | Returns the handler for a contract (handle is a stub) |
 | `adapt_use_case` | `adapt_use_case(cls, *, returns=UNSET, **overrides)` | `returns=` stubs `instance.run` to return the given value |

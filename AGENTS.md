@@ -238,7 +238,7 @@ code/
 │       │   ├── base_sealed.py        # BaseSealed (always-blocked mutation)
 │       │   ├── base_guarded/         # BaseGuarded, MutatingContext, make_immutable subsystem
 │       │   ├── base_behaviour.py     # BaseBehaviour (allows mutation inside methods)
-│       │   ├── base_operation.py     # BaseOperation(BaseBehaviour) — adds _event_emitter, events, logger, event_bus, cache
+│       │   ├── base_operation.py     # BaseOperation(BaseBehaviour) — adds _event_emitter, events, _loggers, _event_buses, _caches
 │       │   ├── event_emitter.py      # Event, EventEmitter, EventCollector
 │       │   ├── model_maker.py        # Dual Pydantic model generation
 │       │   ├── domain_exception.py       # DomainException hierarchy
@@ -384,7 +384,7 @@ code/
 BaseValidator (metaclass: ValidationModelMeta → ABCMeta)
 └── BaseGuarded                     (mutation-guarded)
     ├── BaseBehaviour               (extends BaseGuarded — allows mutation inside methods)
-    │   ├── BaseOperation           (adds _event_emitter, events, logger, event_bus, cache)
+    │   ├── BaseOperation           (adds _event_emitter, events, _loggers, _event_buses, _caches)
     │   │   ├── UseCase             → +uow, +run()
     │   │   ├── AsyncUseCase        → +uow, +async run()
     │   │   ├── ProjectionBase
@@ -670,11 +670,13 @@ Public modules re-export from `_internal`; they contain no logic of their own. T
 - **`run()` signature** — `run()` receives values as parameters. The wrapper passes `*args, **kwargs` through to the original method.
 - The class has **no public methods** other than `run`; subclasses may add private helpers
 - `_event_emitter` is a `PrivateField(default_factory=EventEmitter)`, ready for direct event emission
-- Auto-wired fields with Null Object defaults (no `is not None` checks):
-  - `uow: UnitOfWork` — auto-commits on success (only if `is_dirty`), auto-rollbacks on failure; defaults to `_NullUnitOfWork` (no-op)
-  - `logger: Logger` — auto-logs completion (with event count) and failure; defaults to `_NullLogger` (no-op)
-  - `event_bus: EventBus` — auto-publishes collected events after successful commit; defaults to `_NullEventBus` (no-op)
-  - `cache: Cache` — auto-flushed after successful commit; defaults to `_NullCache` (no-op)
+- Auto-wired field:
+  - `uow: UnitOfWork` — auto-commits on success (only if `is_dirty`), auto-rollbacks on failure; defaults to `NullUnitOfWork` (no-op)
+- Optional ports that must be declared explicitly when needed:
+  - `logger: Logger` — auto-logs completion (with event count) and failure
+  - `event_bus: EventBus` — auto-publishes collected events after successful commit
+  - `cache: Cache` — auto-flushed after successful commit
+  - Multiple instances of each type are supported; they are collected into `_loggers`, `_event_buses`, and `_caches` and iterated by the wrapper.
 
 - `__init_subclass__` automatically wraps any subclass's `run` to:
   1. Open an `EventCollector` context

@@ -3,16 +3,9 @@ from __future__ import annotations
 from types import UnionType
 from typing import Any, ClassVar, Self, TypeVar, Union, cast, get_args, get_origin, get_type_hints
 
-from aod._internal.application.cache import AsyncCache, Cache
-from aod._internal.application.cache.null_cache import NullCache
 from aod._internal.application.contracts import Command, Query
-from aod._internal.application.event_bus import AsyncEventBus, EventBus
-from aod._internal.application.event_bus.null_event_bus import NullEventBus
 from aod._internal.application.handler.handler import HandlerProtocol
-from aod._internal.application.logger import AsyncLogger, Logger
-from aod._internal.application.logger.null_logger import NullLogger
 from aod._internal.application.port import Port
-from aod._internal.application.unit_of_work import UnitOfWork as AppUnitOfWork
 from aod._internal.application.use_case import AsyncUseCase, UseCase
 from aod._internal.core.application_exception import InvalidHandlerPortFieldError
 from aod._internal.core.base_behaviour import BaseBehaviour
@@ -44,16 +37,6 @@ AnyHandler = (
     type[CommandHandler] | type[QueryHandler] | type[AsyncCommandHandler] | type[AsyncQueryHandler]
 )
 
-_SPECIAL_PORT_TYPES = (
-    AppUnitOfWork,
-    AsyncLogger,
-    Logger,
-    AsyncEventBus,
-    EventBus,
-    AsyncCache,
-    Cache,
-)
-
 TUseCase = TypeVar("TUseCase", bound=UseCase | AsyncUseCase)
 TProjection = TypeVar("TProjection", bound=ProjectionBase)
 
@@ -67,10 +50,6 @@ def _is_port_type(tp: object) -> bool:
     return isinstance(tp, type) and issubclass(tp, Port)
 
 
-def is_special_port_type(tp: object) -> bool:
-    return isinstance(tp, type) and issubclass(tp, _SPECIAL_PORT_TYPES)
-
-
 def extract_port_type(tp: object) -> type[Port] | None:
     origin = get_origin(tp)
     if origin is not None:
@@ -82,14 +61,11 @@ def extract_port_type(tp: object) -> type[Port] | None:
 
 class AdapterContainer(BaseBehaviour):
     sessions: set[type[Session] | type[AsyncSession]] = Field(default_factory=set)
-    logger: Logger | AsyncLogger = Field(default_factory=NullLogger)
-    event_bus: EventBus | AsyncEventBus = Field(default_factory=NullEventBus)
-    cache: Cache | AsyncCache = Field(default_factory=NullCache)
     handlers: list[AnyHandler] = Field(default_factory=list)
+    _ports_by_name: dict[str, Port] = PrivateField(default_factory=dict)
     _sessions_needed: dict[type[Session] | type[AsyncSession], Session | AsyncSession] = (
         PrivateField(default_factory=dict)
     )
-    _ports_by_type: dict[type[Port], Port] = PrivateField(default_factory=dict)
 
     def __init_subclass__(cls, **kwargs: object) -> None:
         super().__init_subclass__(**kwargs)
@@ -104,13 +80,20 @@ class AdapterContainer(BaseBehaviour):
             if not _is_port_type(tp):
                 raise InvalidPortFieldError(name, str(tp))
 
-    def __post_init__(self) -> None:
+    def __init__(self, **kwargs: Any) -> None:
+        super().__init__(**kwargs)
         self._validate_no_duplicate_handlers()
+        self._build_port_index()
+
+    def _build_port_index(self) -> None:
         hints = get_type_hints(self.__class__)
         for name in self.__model_fields__:
             tp = hints.get(name)
-            if tp is not None and _is_port_type(tp):
-                self._ports_by_type[tp] = getattr(self, name)
+            if tp is None or not _is_port_type(tp):
+                continue
+            value = getattr(self, name)
+            if isinstance(value, Port):
+                self._ports_by_name[name] = value
 
     @staticmethod
     def _contract_from_handler(h_cls: AnyHandler) -> type[Command] | type[Query]:
@@ -140,17 +123,10 @@ class AdapterContainer(BaseBehaviour):
     def with_adapters(self, **overrides: Any) -> Self:
         return self.copy(**overrides)
 
-    def get_port(self, port: type[Port]) -> Port:
-        port_instance = self._get_port_instance(port)
-        if port_instance is not None:
-            return port_instance
-        raise PortNotFoundError(port)
-
-    def _get_port_instance(self, port: type[Port]) -> Port | None:
-        for tp, instance in self._ports_by_type.items():
-            if isinstance(tp, type) and issubclass(tp, port):
-                return instance
-        return None
+    def get_port(self, name: str) -> Port:
+        if name in self._ports_by_name:
+            return self._ports_by_name[name]
+        raise PortNotFoundError(name)
 
     def _find_handler(self, contract: type[Command] | type[Query]) -> AnyHandler:
         for h_cls in self.handlers:
@@ -206,9 +182,6 @@ class AdapterContainer(BaseBehaviour):
         container = self.with_adapters(**overrides) if overrides else self
 
         kwargs: dict[str, Any] = {
-            "logger": container.logger,
-            "event_bus": container.event_bus,
-            "cache": container.cache,
             "uow": container.get_uow(),
         }
 
@@ -220,9 +193,6 @@ class AdapterContainer(BaseBehaviour):
         container = self.with_adapters(**overrides) if overrides else self
 
         kwargs: dict[str, Any] = {
-            "logger": container.logger,
-            "event_bus": container.event_bus,
-            "cache": container.cache,
             **container._inject_projection(projection_cls),
         }
 
@@ -231,12 +201,14 @@ class AdapterContainer(BaseBehaviour):
 
     def _inject_ports(self, operation_cls: type[BaseOperation], kwargs: dict[str, Any]) -> None:
         for field_name, field_info in operation_cls.__model_fields__.items():
-            field_type = field_info.annotation
-            if field_type is None or is_special_port_type(field_type):
+            if field_name in kwargs:
                 continue
-            port_type = extract_port_type(field_type)
-            if port_type is not None:
-                kwargs[field_name] = self.get_port(port_type)
+            field_type = field_info.annotation
+            if field_type is None or not _is_port_type(field_type):
+                continue
+            if field_name not in self._ports_by_name:
+                raise PortNotFoundError(field_name)
+            kwargs[field_name] = self._ports_by_name[field_name]
 
     def _inject_handlers(self, use_case_cls: type[TUseCase], kwargs: dict[str, Any]) -> None:
         for field_name, field_info in use_case_cls.__model_fields__.items():

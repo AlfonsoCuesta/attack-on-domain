@@ -688,11 +688,9 @@ class AppContainer(AdapterContainer):
 
 Creates a UseCase instance with all dependencies injected:
 
-- `logger` — from container
-- `event_bus` — from container
-- `cache` — from container
 - `uow` — a `UnitOfWork` wrapping all registered sessions (begin/commit/rollback orchestrated by the wrapper)
-- Custom ports — resolved by type from container fields
+- Custom ports — resolved by field name from container fields
+- `Logger`, `EventBus`, `Cache` and other ports — resolved by field name from container fields
 
 ```python
 use_case = container.adapt_use_case(PlaceOrderUseCase)
@@ -705,9 +703,9 @@ use_case.run(order_id="1", product_id="p1", quantity=2, price=9.99)
 
 Creates a Projection instance with dependencies:
 
-- `logger`, `event_bus`, `cache` — from container
 - `session` — resolved by type from container's registered sessions
-- Custom ports — resolved by type from container fields
+- Custom ports — resolved by field name from container fields
+- `Logger`, `EventBus`, `Cache` and other ports — resolved by field name from container fields
 
 ```python
 projection = container.adapt_projection(UserListProjection)
@@ -719,8 +717,11 @@ users = projection.read(UserSearch(user_id="1"))
 Both methods accept keyword overrides to replace specific dependencies for testing:
 
 ```python
-# Override just the logger for this specific use case
-uc = container.adapt_use_case(PlaceOrderUseCase, logger=SpyLogger())
+class AppContainer(AdapterContainer):
+    logger: Logger
+
+container = AppContainer(logger=SpyLogger())
+uc = container.adapt_use_case(PlaceOrderUseCase)
 ```
 
 ## Validation

@@ -1,7 +1,9 @@
 from __future__ import annotations
 
 import pytest
-from aod._internal.application.logger.null_logger import NullLogger
+from aod._internal.application.cache import Cache
+from aod._internal.application.event_bus import EventBus
+from aod._internal.application.logger import Logger
 from aod._internal.application.port import Port
 from aod._internal.core.fields.fields import Field
 from aod._internal.core.infrastructure_exception import PortNotFoundError, SessionNotFoundError
@@ -13,6 +15,7 @@ from aod.application import Command, Query, UseCase
 from aod.application.async_ import UseCase as AsyncUseCase
 from aod.domain import RootEntity
 from aod.infrastructure import CommandHandler, QueryHandler
+from aod.testing.doubles.application import SpyCache, SpyEventBus, SpyLogger
 from pydantic import BaseModel as DTO
 
 
@@ -78,6 +81,18 @@ class _CustomContainer(AdapterContainer):
     weather_client: _FakePort
 
 
+class _FullContainer(AdapterContainer):
+    weather_client: _FakePort
+    logger: Logger
+    event_bus: EventBus
+    cache: Cache
+
+
+class _MultiCacheContainer(AdapterContainer):
+    user_cache: Cache
+    admin_cache: Cache
+
+
 class TestExtractPortType:
     def test_returns_port_type(self) -> None:
         assert extract_port_type(_FakePort) is _FakePort
@@ -90,17 +105,6 @@ class TestExtractPortType:
 
 
 class TestInjectAdapters:
-    def test_injects_special_fields(self) -> None:
-        class SimpleUseCase(UseCase):
-            def run(self) -> None: ...
-
-        container = _CustomContainer(weather_client=_FakePort())
-        uc = container.adapt_use_case(SimpleUseCase)
-        assert uc.uow is not None
-        assert uc.logger is not None
-        assert uc.event_bus is not None
-        assert uc.cache is not None
-
     def test_injects_port_field(self) -> None:
         class PortUseCase(UseCase):
             weather_client: _FakePort
@@ -112,13 +116,24 @@ class TestInjectAdapters:
         uc = container.adapt_use_case(PortUseCase)
         assert isinstance(uc.weather_client, _FakePort)
 
-    def test_overrides_special_field(self) -> None:
+    def test_injects_special_fields(self) -> None:
         class SimpleUseCase(UseCase):
+            logger: Logger
+            event_bus: EventBus
+            cache: Cache
+
             def run(self) -> None: ...
 
-        container = _CustomContainer(weather_client=_FakePort())
-        uc = container.adapt_use_case(SimpleUseCase, logger=NullLogger())
-        assert isinstance(uc.logger, NullLogger)
+        container = _FullContainer(
+            weather_client=_FakePort(),
+            logger=SpyLogger(),
+            event_bus=SpyEventBus(),
+            cache=SpyCache(),
+        )
+        uc = container.adapt_use_case(SimpleUseCase)
+        assert isinstance(uc.logger, SpyLogger)
+        assert isinstance(uc.event_bus, SpyEventBus)
+        assert isinstance(uc.cache, SpyCache)
 
     def test_overrides_port_field(self) -> None:
         class PortUseCase(UseCase):
@@ -139,7 +154,7 @@ class TestInjectAdapters:
             def run(self) -> None: ...
 
         container = _CustomContainer(weather_client=_FakePort())
-        with pytest.raises(PortNotFoundError, match="No port of type"):
+        with pytest.raises(PortNotFoundError, match="No port named"):
             container.adapt_use_case(PortUseCase)
 
     def test_ignores_private_fields(self) -> None:
@@ -171,19 +186,45 @@ class TestInjectAdapters:
         uc = container.adapt_use_case(AsyncPortUseCase)
         assert isinstance(uc.weather_client, _FakePort)
 
+    def test_injects_multiple_ports_of_same_type(self) -> None:
+        class _UserCache(SpyCache):
+            pass
+
+        class _AdminCache(SpyCache):
+            pass
+
+        class CacheUseCase(UseCase):
+            user_cache: Cache
+            admin_cache: Cache
+
+            def run(self) -> None: ...
+
+        user_cache = _UserCache()
+        admin_cache = _AdminCache()
+        container = _MultiCacheContainer(user_cache=user_cache, admin_cache=admin_cache)
+        uc = container.adapt_use_case(CacheUseCase)
+        assert isinstance(uc.user_cache, _UserCache)
+        assert isinstance(uc.admin_cache, _AdminCache)
+
 
 class TestInjectProjection:
     def test_injects_session_and_logger(self) -> None:
         class TestProjection(ReadProjection):
+            logger: Logger
+
             def read(self, model: DTO) -> str:
                 return "ok"
 
-        container = _CustomContainer(weather_client=_FakePort(), sessions={_SyncSession})
+        container = _FullContainer(
+            weather_client=_FakePort(),
+            sessions={_SyncSession},
+            logger=SpyLogger(),
+            event_bus=SpyEventBus(),
+            cache=SpyCache(),
+        )
         p = container.adapt_projection(TestProjection)
         assert isinstance(p.session, Session)
-        assert p.logger is not None
-        assert p.event_bus is not None
-        assert p.cache is not None
+        assert isinstance(p.logger, SpyLogger)
 
     def test_injects_session_from_container(self) -> None:
         class TestProjection(ReadProjection):

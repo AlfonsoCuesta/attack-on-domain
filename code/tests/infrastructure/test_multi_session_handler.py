@@ -2,12 +2,9 @@ from __future__ import annotations
 
 from typing import Any, cast
 
-from aod._internal.application.cache import Cache
 from aod._internal.application.contracts import Command, Query
-from aod._internal.application.event_bus import EventBus
 from aod._internal.application.handler import CommandPort as AppCommandPort
 from aod._internal.application.handler import QueryPort as AppQueryPort
-from aod._internal.application.logger import Logger
 from aod._internal.application.use_case import UseCase
 from aod._internal.core.fields.fields import Field, PrivateField
 from aod._internal.domain.entity import RootEntity
@@ -187,9 +184,6 @@ def test_spy_bundle_tracks_handler_calls() -> None:
 
     assert container.get_session_stub(MongoSession) is not None
     assert container.get_session_stub(PSQLSession) is not None
-    assert container.get_port_stub(Logger) is not None
-    assert container.get_port_stub(EventBus) is not None
-    assert container.get_port_stub(Cache) is not None
 
     save_handler = container.get_handler(SaveUser)
     get_handler = container.get_handler(GetUser)

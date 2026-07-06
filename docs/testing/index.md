@@ -119,17 +119,28 @@ check_invariant(User, "valid_email", email="not-an-email")
 The recommended approach for testing use cases is to create a spy version of your container. This replaces sessions and ports with stubs that record calls and let you configure return values.
 
 ```python
+from aod.application import Logger
+from aod.infrastructure import AdapterContainer
 from aod.testing.doubles import spy_adapter_container
 
 
-container = spy_adapter_container(AdapterContainer(sessions={MySession}, handlers=[CreateUserHandler, GetUserHandler]))
+class TestContainer(AdapterContainer):
+    logger: Logger
+
+container = spy_adapter_container(
+    TestContainer(
+        sessions={MySession},
+        handlers=[CreateUserHandler, GetUserHandler],
+        logger=SpyLogger(),
+    )
+)
 
 # Configure session behavior
 container.get_session_stub(MySession).is_dirty.returns(True)
 container.get_session_stub(MySession).begin.always_returns(None)
 
 # Configure port behavior (optional)
-container.get_port_stub(Logger).info.always_returns(None)
+container.get_port_stub("logger").info.always_returns(None)
 
 # Configure handler stub
 container.get_handler_stub(CreateUserHandler).handle.returns(None)
@@ -160,10 +171,14 @@ stub.commit.called                    # commit is called by the UseCase wrapper
 
 ### `get_port_stub`
 
-Access the stub for a given port class. Works with any `Port` subclass:
+Access the stub for a given port field name. Works with any `Port` subclass registered on the container:
 
 ```python
-stub = container.get_port_stub(Logger)
+class MyContainer(AdapterContainer):
+    logger: Logger
+
+container = spy_adapter_container(MyContainer(logger=SpyLogger()))
+stub = container.get_port_stub("logger")
 stub.info.always_returns(None)
 stub.info.called
 stub.info.calls

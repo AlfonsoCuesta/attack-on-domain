@@ -16,8 +16,8 @@ class _MyContainer(AdapterContainer):
 
 def test_get_port_stub_cached() -> None:
     container = spy_adapter_container(_MyContainer(weather=_CustomPort()))
-    first = container.get_port_stub(_CustomPort)
-    second = container.get_port_stub(_CustomPort)
+    first = container.get_port_stub("weather")
+    second = container.get_port_stub("weather")
     assert first is second
 
 
@@ -26,10 +26,3 @@ def test_get_session_stub_cached() -> None:
     first = container.get_session_stub(Session)
     second = container.get_session_stub(Session)
     assert first is second
-
-
-def test_get_port_instance_returns_stub_for_matching_type() -> None:
-    container = spy_adapter_container(_MyContainer(weather=_CustomPort()))
-    stub = container.get_port_stub(_CustomPort)
-    result = container._get_port_instance(_CustomPort)
-    assert result is stub

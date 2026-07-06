@@ -138,18 +138,26 @@ class CreateUserUseCase(UseCase):
 
 ### Auto-Wired Fields
 
-Use cases have auto-wired fields with Null Object defaults:
+Use cases have one built-in auto-wired field:
 
 ```python
 class CreateUser(UseCase):
-    # These are auto-wired, no need to declare
-    # uow: UnitOfWork      — auto-commits on success
-    # logger: Logger        — auto-logs completion
-    # event_bus: EventBus   — auto-publishes events
-    # cache: Cache          — auto-flushes after commit
+    # uow is auto-wired, no need to declare
+    # uow: UnitOfWork — auto-commits on success
 
     def run(self) -> None:
         pass
+```
+
+`Logger`, `EventBus` and `Cache` are no longer auto-wired. Declare them as normal ports when you need them:
+
+```python
+class CreateUser(UseCase):
+    logger: Logger
+    event_bus: EventBus
+
+    def run(self, user_id: str, name: str) -> None:
+        ...
 ```
 
 ### Event Collection

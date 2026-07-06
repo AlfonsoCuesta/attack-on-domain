@@ -7,6 +7,8 @@ from aod._internal.core.domain_exception import MutationForbiddenException
 from aod._internal.core.event_emitter import EventCollector
 from aod._internal.core.fields.fields import PrivateField
 from aod.application import UseCase
+from aod._internal.application.event_bus import EventBus
+from aod._internal.application.logger import Logger
 from aod.testing.doubles.application import SpyEventBus, SpyLogger, SpyUnitOfWork
 from tests.application._use_case_scenarios import (
     _RUN_BODIES,
@@ -433,6 +435,8 @@ def test_uow_auto_rollback_on_failure() -> None:
 
 def test_logger_auto_logs_completion() -> None:
     class Simple(UseCase):
+        logger: Logger
+
         def run(self) -> None:
             pass
 
@@ -445,6 +449,8 @@ def test_logger_auto_logs_completion() -> None:
 
 def test_logger_auto_logs_events_count() -> None:
     class Emit(UseCase):
+        logger: Logger
+
         def run(self) -> None:
             self._event_emitter.emit(UserCreated(user_id=1, name="test"))
 
@@ -462,6 +468,8 @@ def test_logger_auto_logs_events_count() -> None:
 
 def test_logger_auto_logs_failure() -> None:
     class Fail(UseCase):
+        logger: Logger
+
         def run(self) -> None:
             raise ValueError("oops")
 
@@ -476,6 +484,8 @@ def test_logger_auto_logs_failure() -> None:
 
 def test_event_bus_auto_publishes_on_success() -> None:
     class Emit(UseCase):
+        event_bus: EventBus
+
         def run(self) -> None:
             self._event_emitter.emit(UserCreated(user_id=1, name="test"))
 
@@ -491,6 +501,8 @@ def test_commit_failure_rolls_back_and_logs() -> None:
             raise RuntimeError("commit failed")
 
     class Simple(UseCase):
+        logger: Logger
+
         def run(self) -> None:
             pass
 

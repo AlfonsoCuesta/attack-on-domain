@@ -4,7 +4,7 @@ from typing import Any, TypeVar, cast
 
 from aod._internal.application.port import Port
 from aod._internal.application.use_case import AsyncUseCase, UseCase
-from aod._internal.infrastructure.container import AdapterContainer
+from aod._internal.infrastructure.container import AdapterContainer, _is_port_type
 from aod._internal.infrastructure.projection import ProjectionBase
 from aod._internal.infrastructure.session import AsyncSession, Session
 from aod._internal.testing.doubles.infrastructure.session import session_stub
@@ -23,7 +23,7 @@ def spy_adapter_container(container: T) -> T:
 
         container = spy_adapter_container(MyContainer())
         container.get_session_stub(Session).is_dirty.returns(True)
-        container.get_port_stub(Logger).info.returns(None)
+        container.get_port_stub("logger").info.returns(None)
         handler = container.get_handler(GetUser)
         handler.handle(GetUser(user_id=1))
 
@@ -38,10 +38,11 @@ def spy_adapter_container(container: T) -> T:
 
 
 def _create_spy_adapter(container_cls: type[T]) -> type[T]:
-    def get_port_stub(self: Any, port_cls: type[Port]) -> Any:
-        if port_cls not in self._port_stubs:
-            self._port_stubs[port_cls] = port_stub(port_cls)()
-        return self._port_stubs[port_cls]
+    def get_port_stub(self: Any, name: str) -> Any:
+        if name not in self._port_stubs:
+            port_cls = type(self._ports_by_name[name])
+            self._port_stubs[name] = port_stub(port_cls)()
+        return self._port_stubs[name]
 
     def get_session_stub(self: Any, session_cls: type[Session] | type[AsyncSession]) -> Any:
         if session_cls not in self._session_stubs:
@@ -53,11 +54,17 @@ def _create_spy_adapter(container_cls: type[T]) -> type[T]:
     ) -> Session | AsyncSession:
         return self.get_session_stub(session_cls)
 
-    def get_port_instance(self: Any, port: type[Port]) -> Port | None:
-        for tp in self._ports_by_type:
-            if isinstance(tp, type) and issubclass(tp, port):
-                return self.get_port_stub(port)
-        return None
+    def build_port_index(self: Any) -> None:
+        from typing import get_type_hints
+
+        hints = get_type_hints(self.__class__)
+        for name in self.__model_fields__:
+            tp = hints.get(name)
+            if tp is None or not _is_port_type(tp):
+                continue
+            value = getattr(self, name)
+            if isinstance(value, Port):
+                self._ports_by_name[name] = port_stub(tp)()
 
     def instantiate_handler(self: Any, handler: type[Port], _: Any) -> Any:
         return self.get_handler_stub(handler)
@@ -116,7 +123,7 @@ def _create_spy_adapter(container_cls: type[T]) -> type[T]:
                 "_handler_stubs": {},
                 "_instantiate_session": instantiate_session,
                 "_instantiate_handler": instantiate_handler,
-                "_get_port_instance": get_port_instance,
+                "_build_port_index": build_port_index,
                 "get_port_stub": get_port_stub,
                 "get_session_stub": get_session_stub,
                 "get_handler_stub": get_handler_stub,
