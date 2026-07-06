@@ -17,6 +17,7 @@ from aod._internal.infrastructure.projection import ReadProjection
 from aod._internal.infrastructure.session import AsyncSession, Session
 from aod._internal.infrastructure.unit_of_work import UnitOfWork
 from aod._internal.testing.doubles.infrastructure.container import spy_adapter_container
+from aod.testing.doubles import port_stub
 from aod.application import Command, Query
 from aod.domain import RootEntity
 from aod.infrastructure import CommandHandler, QueryHandler
@@ -71,13 +72,11 @@ def test_returns_instance_of_original_class() -> None:
 
 
 def _full_container(**overrides: Any) -> _FullContainer:
-    from aod.testing.doubles.application import SpyCache, SpyEventBus, SpyLogger
-
     defaults: dict[str, Port] = {
         "weather": _FakePort(),
-        "logger": SpyLogger(),
-        "event_bus": SpyEventBus(),
-        "cache": SpyCache(),
+        "logger": port_stub(Logger)(),
+        "event_bus": port_stub(EventBus)(),
+        "cache": port_stub(Cache)(),
     }
     defaults.update(overrides)
     return _FullContainer(**cast(Any, defaults))

@@ -128,7 +128,7 @@ from aod.infrastructure import AdapterContainer
 container = AdapterContainer(
     sessions={SqlSession},
     handlers=[PlaceOrderHandler, GetOrderHandler],
-    ports={Logger: SpyLogger()},
+    ports={Logger: port_stub(Logger)()},
 )
 place_order = container.adapt(PlaceOrderUseCase)
 place_order.run(PlaceOrderInput(order_id="1", product_id="p1", quantity=2, price=9.99))
@@ -231,9 +231,10 @@ code/
 │   │   └── doubles/
 │   │       ├── __init__.py            # Empty (package marker)
 │   │       ├── application/
-│   │       │   ├── __init__.py        # Sync: LogEntry, SpyLogger, SpyEventBus, SpyUnitOfWork
+│   │       │   ├── __init__.py        # SpyLogger, SpyEventBus, SpyUnitOfWork, SpyCache
+│   │       │   ├── spies.py          # Generated via port_stub (replaces hand-written spies)
 │   │       │   └── async_/
-│   │       │       └── __init__.py    # Async (plain name): SpyLogger, SpyEventBus, SpyUnitOfWork
+│   │       │       └── __init__.py    # Async re-exports (plain names)
 │   └── _internal/                    # Private — not semver-stable
 │       ├── core/                     # Framework internals
 │       │   ├── async_utils.py        # should_await (sync/async bridge)
@@ -306,9 +307,7 @@ code/
 │           │   │   └── __init__.py   # Re-exports async spies from application
 │           │   └── application/
 │           │       ├── __init__.py
-│           │       ├── logger.py     # LogEntry, SpyLogger, AsyncSpyLogger
-│           │       ├── event_bus.py  # SpyEventBus, AsyncSpyEventBus
-│           │       └── unit_of_work.py  # SpyUnitOfWork, AsyncSpyUnitOfWork
+│           │       └── spies.py      # All Spy* classes via port_stub (replaces 4 hand-written files)
 │           └── faker/
 │               ├── __init__.py
 │               └── faker.py          # DomainType, FakeDomain
@@ -835,10 +834,7 @@ aod/_internal/testing/
 │   ├── async_/__init__.py          # Async spy re-exports
 │   ├── application/
 │   │   ├── __init__.py
-│   │   ├── cache.py                # SpyCache, AsyncSpyCache
-│   │   ├── logger.py               # LogEntry, SpyLogger, AsyncSpyLogger
-│   │   ├── event_bus.py            # SpyEventBus, AsyncSpyEventBus
-│   │   └── unit_of_work.py         # SpyUnitOfWork, AsyncSpyUnitOfWork
+│   │   └── spies.py                # All Spy* classes via port_stub
 │   └── infrastructure/
 │       ├── __init__.py
 │       └── session.py              # SpySession, SpyAsyncSession
@@ -849,7 +845,7 @@ aod/_internal/testing/
 
 Public re-exports live at `aod/testing/`:
 - `from aod.testing import FakeDomain, build, events_of, assert_event_emitted, assert_no_events, check_invariant`
-- `from aod.testing.doubles import SpyLogger, SpyEventBus, SpyUnitOfWork, SpyCache, SpySession, SpyAsyncSession` (sync)
+- `from aod.testing.doubles import SpyLogger, SpyEventBus, SpyUnitOfWork, SpyCache, SpySession, SpyAsyncSession` (all backed by `port_stub`)
 - `from aod.testing.doubles.application.async_ import SpyLogger, SpyEventBus, SpyUnitOfWork, SpyCache` (async variants, plain names)
 
 ### Testing Utilities (`aod.testing`)
@@ -861,8 +857,8 @@ Public re-exports live at `aod/testing/`:
 | `from aod.testing import events_of` | Extract events emitted by an entity/service/vo |
 | `from aod.testing import assert_event_emitted, assert_no_events` | Event assertions |
 | `from aod.testing import check_invariant` | Run a single invariant validator |
-| `from aod.testing.doubles import SpyLogger, SpyEventBus, SpyUnitOfWork, SpyCache, SpySession, SpyAsyncSession` | Sync test doubles |
-| `from aod.testing.doubles.application.async_ import SpyLogger, SpyEventBus, SpyUnitOfWork, SpyCache` | Async test doubles (same names) |
+| `from aod.testing.doubles import SpyLogger, SpyEventBus, SpyUnitOfWork, SpyCache, SpySession, SpyAsyncSession` | All backed by `port_stub` |
+| `from aod.testing.doubles.application.async_ import SpyLogger, SpyEventBus, SpyUnitOfWork, SpyCache` | Async variants (same names, backed by `port_stub`) |
 
 ## Development Commands
 
@@ -913,7 +909,7 @@ uv run pytest code/tests -q
 
 ## Test Count
 
-1146 tests (no `patch`/`mock.patch` in any test file)
+1085 tests (no `patch`/`mock.patch` in any test file)
 
 ## At the end of a task
 

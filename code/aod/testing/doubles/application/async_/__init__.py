@@ -1,4 +1,3 @@
-from aod._internal.testing.doubles import LogEntry
 from aod._internal.testing.doubles.async_ import (
     AsyncSpyCache as SpyCache,
 )
@@ -13,7 +12,6 @@ from aod._internal.testing.doubles.async_ import (
 )
 
 __all__ = [
-    "LogEntry",
     "SpyCache",
     "SpyEventBus",
     "SpyLogger",

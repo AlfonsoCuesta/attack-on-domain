@@ -5,6 +5,7 @@ from aod._internal.application.contracts import Command, Query
 from aod._internal.application.event_bus import EventBus
 from aod._internal.application.event_bus.null_event_bus import NullEventBus
 from aod._internal.application.logger import Logger
+from aod._internal.application.unit_of_work import UnitOfWork
 from aod._internal.application.logger.null_logger import NullLogger
 from aod._internal.application.port import Port
 from aod._internal.application.use_case import UseCase
@@ -18,7 +19,7 @@ from aod._internal.domain.service import Service
 from aod._internal.domain.value_object import ValueObject
 from aod._internal.infrastructure.container import AdapterContainer
 from aod._internal.infrastructure.session import Session
-from aod._internal.testing.doubles.application import SpyEventBus, SpyLogger, SpyUnitOfWork
+from aod._internal.testing.doubles.stubs import port_stub
 from aod._internal.testing.faker import FakeDomain
 from aod._internal.testing.helpers import assert_event_emitted, build, events_of
 
@@ -435,9 +436,9 @@ class TestUseCase:
     def test_use_case_with_uow_logger_event_bus(self) -> None:
         email_sender = FakeEmailSender()
         inventory = FakeInventoryClient()
-        uow = SpyUnitOfWork()
-        logger = SpyLogger()
-        bus = SpyEventBus()
+        uow = port_stub(UnitOfWork)()
+        logger = port_stub(Logger)()
+        bus = port_stub(EventBus)()
         uc = PlaceOrderUseCase(
             email_sender=email_sender,
             inventory=inventory,
@@ -446,11 +447,11 @@ class TestUseCase:
             event_bus=bus,
         )
         uc.run()
-        assert uow.committed
-        assert not uow.rolled_back
-        completions = [e for e in logger.entries if "completed" in str(e.msg)]
+        assert uow.commit.called
+        assert not uow.rollback.called
+        completions = [c for c in logger.info.calls if "completed" in str(c.args()[0])]
         assert len(completions) == 1
-        assert len(bus.published) >= 1
+        assert bus.publish.call_count >= 1
 
     def test_use_case_events_immutable_from_outside(self) -> None:
         uc = PlaceOrderUseCase(
@@ -509,8 +510,8 @@ class TestContainerAndInjection:
     def test_full_integration_via_container(self) -> None:
         email_sender = FakeEmailSender()
         inventory = FakeInventoryClient()
-        logger = SpyLogger()
-        bus = SpyEventBus()
+        logger = port_stub(Logger)()
+        bus = port_stub(EventBus)()
         container = EcommerceContainer(
             email_sender=email_sender,
             inventory=inventory,
@@ -523,8 +524,8 @@ class TestContainerAndInjection:
         assert len(inventory.reserved) == 1
         assert len(email_sender.sent) == 1
         assert len(uc.events) >= 1
-        assert len(bus.published) >= 1
-        completions = [e for e in logger.entries if "completed" in str(e.msg)]
+        assert bus.publish.call_count >= 1
+        completions = [c for c in logger.info.calls if "completed" in str(c.args()[0])]
         assert len(completions) == 1
 
 

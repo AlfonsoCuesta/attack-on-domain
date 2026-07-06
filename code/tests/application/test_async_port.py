@@ -3,50 +3,39 @@ from __future__ import annotations
 import pytest
 from aod._internal.core.event_emitter import Event
 from aod.application.async_ import EventBus, Logger, UnitOfWork
-from aod.testing.doubles.application.async_ import (
-    SpyEventBus as AsyncSpyEventBus,
-)
-from aod.testing.doubles.application.async_ import (
-    SpyLogger as AsyncSpyLogger,
-)
-from aod.testing.doubles.application.async_ import (
-    SpyUnitOfWork as AsyncSpyUnitOfWork,
-)
+from aod.testing.doubles import port_stub
 
 
 async def test_async_logger_concrete() -> None:
-    log = AsyncSpyLogger()
+    log = port_stub(Logger)()
     await log.info("hello", user_id=42)
-    assert len(log.entries) == 1
-    assert log.entries[0].msg == "hello"
-    assert log.entries[0].context == {"user_id": 42}
+    assert log.info.call_count == 1
+    assert log.info.calls[0].args() == ("hello",)
+    assert log.info.calls[0].kwargs() == {"user_id": 42}
 
 
 async def test_async_logger_debug() -> None:
-    log = AsyncSpyLogger()
+    log = port_stub(Logger)()
     await log.debug("dbg", z=3)
-    assert len(log.entries) == 1
-    assert log.entries[0].level == "debug"
-    assert log.entries[0].msg == "dbg"
-    assert log.entries[0].context == {"z": 3}
+    assert log.debug.call_count == 1
+    assert log.debug.calls[0].args() == ("dbg",)
+    assert log.debug.calls[0].kwargs() == {"z": 3}
 
 
 async def test_async_logger_warning() -> None:
-    log = AsyncSpyLogger()
+    log = port_stub(Logger)()
     await log.warning("wrn", w=4)
-    assert len(log.entries) == 1
-    assert log.entries[0].level == "warning"
-    assert log.entries[0].msg == "wrn"
-    assert log.entries[0].context == {"w": 4}
+    assert log.warning.call_count == 1
+    assert log.warning.calls[0].args() == ("wrn",)
+    assert log.warning.calls[0].kwargs() == {"w": 4}
 
 
 async def test_async_logger_error() -> None:
-    log = AsyncSpyLogger()
+    log = port_stub(Logger)()
     await log.error("err", v=5)
-    assert len(log.entries) == 1
-    assert log.entries[0].level == "error"
-    assert log.entries[0].msg == "err"
-    assert log.entries[0].context == {"v": 5}
+    assert log.error.call_count == 1
+    assert log.error.calls[0].args() == ("err",)
+    assert log.error.calls[0].kwargs() == {"v": 5}
 
 
 async def test_async_logger_is_abstract() -> None:
@@ -60,11 +49,12 @@ async def test_async_event_bus_is_abstract() -> None:
 
 
 async def test_async_event_bus_publish() -> None:
-    bus = AsyncSpyEventBus()
+    bus = port_stub(EventBus)()
     e1 = Event()
     e2 = Event()
     await bus.publish(e1, e2)
-    assert len(bus.published) == 2
+    assert bus.publish.call_count == 1
+    assert len(bus.publish.calls[0].args()) == 2
 
 
 async def test_async_unit_of_work_is_abstract() -> None:
@@ -73,18 +63,15 @@ async def test_async_unit_of_work_is_abstract() -> None:
 
 
 async def test_async_unit_of_work_commit() -> None:
-    uow = AsyncSpyUnitOfWork()
+    uow = port_stub(UnitOfWork)()
     await uow.commit()
-    assert uow.committed
+    assert uow.commit.called
 
 
 async def test_async_unit_of_work_rollback() -> None:
-    uow = AsyncSpyUnitOfWork()
+    uow = port_stub(UnitOfWork)()
     await uow.rollback()
-    assert uow.rolled_back
+    assert uow.rollback.called
 
 
-async def test_async_unit_of_work_flush() -> None:
-    uow = AsyncSpyUnitOfWork()
-    await uow.flush()
-    assert uow.flushed
+

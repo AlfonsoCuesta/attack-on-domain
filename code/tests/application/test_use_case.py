@@ -6,10 +6,10 @@ import pytest
 from aod._internal.core.domain_exception import MutationForbiddenException
 from aod._internal.core.event_emitter import EventCollector
 from aod._internal.core.fields.fields import PrivateField
-from aod.application import UseCase
+from aod.application import UnitOfWork, UseCase
 from aod._internal.application.event_bus import EventBus
 from aod._internal.application.logger import Logger
-from aod.testing.doubles.application import SpyEventBus, SpyLogger, SpyUnitOfWork
+from aod.testing.doubles import port_stub
 from tests.application._use_case_scenarios import (
     _RUN_BODIES,
     SCENARIOS,
@@ -401,11 +401,11 @@ def test_uow_auto_commit_on_success() -> None:
         def run(self) -> None:
             pass
 
-    uow = SpyUnitOfWork()
+    uow = port_stub(UnitOfWork)()
     uc = Create(uow=uow)
     uc.run()
-    assert uow.committed
-    assert not uow.rolled_back
+    assert uow.commit.called
+    assert not uow.rollback.called
 
 
 def test_uow_always_commits_on_success() -> None:
@@ -413,11 +413,11 @@ def test_uow_always_commits_on_success() -> None:
         def run(self) -> None:
             pass
 
-    uow = SpyUnitOfWork()
+    uow = port_stub(UnitOfWork)()
     uc = NoOp(uow=uow)
     uc.run()
-    assert uow.committed
-    assert not uow.rolled_back
+    assert uow.commit.called
+    assert not uow.rollback.called
 
 
 def test_uow_auto_rollback_on_failure() -> None:
@@ -425,12 +425,12 @@ def test_uow_auto_rollback_on_failure() -> None:
         def run(self) -> None:
             raise ValueError("oops")
 
-    uow = SpyUnitOfWork()
+    uow = port_stub(UnitOfWork)()
     uc = Fail(uow=uow)
     with pytest.raises(ValueError):
         uc.run()
-    assert uow.rolled_back
-    assert not uow.committed
+    assert uow.rollback.called
+    assert not uow.commit.called
 
 
 def test_logger_auto_logs_completion() -> None:
@@ -440,10 +440,10 @@ def test_logger_auto_logs_completion() -> None:
         def run(self) -> None:
             pass
 
-    logger = SpyLogger()
+    logger = port_stub(Logger)()
     uc = Simple(logger=logger)
     uc.run()
-    completions = [e for e in logger.entries if "completed" in str(e.msg)]
+    completions = [c for c in logger.info.calls if "completed" in str(c.args()[0])]
     assert len(completions) == 1
 
 
@@ -454,16 +454,16 @@ def test_logger_auto_logs_events_count() -> None:
         def run(self) -> None:
             self._event_emitter.emit(UserCreated(user_id=1, name="test"))
 
-    logger = SpyLogger()
+    logger = port_stub(Logger)()
     uc = Emit(logger=logger)
     uc.run()
-    completions = [e for e in logger.entries if "completed" in str(e.msg)]
+    completions = [c for c in logger.info.calls if "completed" in str(c.args()[0])]
     assert len(completions) == 1
-    events_logs = [e for e in logger.entries if "events" in str(e.msg)]
+    events_logs = [c for c in logger.info.calls if "events" in str(c.args()[0])]
     assert len(events_logs) == 1
-    evts = events_logs[0].context.get("events")
+    evts = events_logs[0].kwargs().get("events")
     assert evts is not None
-    assert len(evts) == 1  # type: ignore
+    assert len(evts) == 1
 
 
 def test_logger_auto_logs_failure() -> None:
@@ -473,13 +473,12 @@ def test_logger_auto_logs_failure() -> None:
         def run(self) -> None:
             raise ValueError("oops")
 
-    logger = SpyLogger()
+    logger = port_stub(Logger)()
     uc = Fail(logger=logger)
     with pytest.raises(ValueError):
         uc.run()
-    errors = [e for e in logger.entries if e.level == "error"]
+    errors = [c for c in logger.error.calls if "failed" in str(c.args()[0])]
     assert len(errors) >= 1
-    assert "failed" in str(errors[0].msg)
 
 
 def test_event_bus_auto_publishes_on_success() -> None:
@@ -489,28 +488,25 @@ def test_event_bus_auto_publishes_on_success() -> None:
         def run(self) -> None:
             self._event_emitter.emit(UserCreated(user_id=1, name="test"))
 
-    bus = SpyEventBus()
+    bus = port_stub(EventBus)()
     uc = Emit(event_bus=bus)
     uc.run()
-    assert len(bus.published) == 1
+    assert bus.publish.call_count == 1
 
 
 def test_commit_failure_rolls_back_and_logs() -> None:
-    class FailingUoW(SpyUnitOfWork):
-        def commit(self) -> None:
-            raise RuntimeError("commit failed")
-
     class Simple(UseCase):
         logger: Logger
 
         def run(self) -> None:
             pass
 
-    uow = FailingUoW()
-    logger = SpyLogger()
+    uow = port_stub(UnitOfWork)()
+    uow.commit.raises(RuntimeError("commit failed"))
+    logger = port_stub(Logger)()
     uc = Simple(uow=uow, logger=logger)
     with pytest.raises(RuntimeError):
         uc.run()
-    assert uow.rolled_back
-    errors = [e for e in logger.entries if e.level == "error"]
-    assert any("commit failed" in str(e.msg) for e in errors)
+    assert uow.rollback.called
+    errors = [c for c in logger.error.calls if "commit failed" in str(c.args()[0])]
+    assert len(errors) >= 1

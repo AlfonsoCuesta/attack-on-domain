@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from typing import Any
+
 import pytest
 from aod._internal.application.cache import Cache
 from aod._internal.application.event_bus import EventBus
@@ -15,7 +17,7 @@ from aod.application import Command, Query, UseCase
 from aod.application.async_ import UseCase as AsyncUseCase
 from aod.domain import RootEntity
 from aod.infrastructure import CommandHandler, QueryHandler
-from aod.testing.doubles.application import SpyCache, SpyEventBus, SpyLogger
+from aod.testing.doubles import port_stub
 from pydantic import BaseModel as DTO
 
 
@@ -126,14 +128,14 @@ class TestInjectAdapters:
 
         container = _FullContainer(
             weather_client=_FakePort(),
-            logger=SpyLogger(),
-            event_bus=SpyEventBus(),
-            cache=SpyCache(),
+            logger=port_stub(Logger)(),
+            event_bus=port_stub(EventBus)(),
+            cache=port_stub(Cache)(),
         )
         uc = container.adapt(SimpleUseCase)
-        assert isinstance(uc.logger, SpyLogger)
-        assert isinstance(uc.event_bus, SpyEventBus)
-        assert isinstance(uc.cache, SpyCache)
+        assert isinstance(uc.logger, Logger)
+        assert isinstance(uc.event_bus, EventBus)
+        assert isinstance(uc.cache, Cache)
 
     def test_overrides_port_field(self) -> None:
         class PortUseCase(UseCase):
@@ -187,11 +189,13 @@ class TestInjectAdapters:
         assert isinstance(uc.weather_client, _FakePort)
 
     def test_injects_multiple_ports_of_same_type(self) -> None:
-        class _UserCache(SpyCache):
-            pass
-
-        class _AdminCache(SpyCache):
-            pass
+        class _FakeCache(Cache):
+            def get(self, key: str) -> Any: return None
+            def set(self, key: str, value: Any, ttl: float | None = None) -> None: pass
+            def delete(self, key: str) -> None: pass
+            def flush(self) -> None: pass
+            def delete_promise(self, key: str) -> None: pass
+            def set_promise(self, key: str, value: Any, ttl: float | None = None) -> None: pass
 
         class CacheUseCase(UseCase):
             user_cache: Cache
@@ -199,12 +203,14 @@ class TestInjectAdapters:
 
             def run(self) -> None: ...
 
-        user_cache = _UserCache()
-        admin_cache = _AdminCache()
-        container = _MultiCacheContainer(user_cache=user_cache, admin_cache=admin_cache)
+        container = _MultiCacheContainer(
+            user_cache=_FakeCache(),
+            admin_cache=_FakeCache(),
+        )
         uc = container.adapt(CacheUseCase)
-        assert isinstance(uc.user_cache, _UserCache)
-        assert isinstance(uc.admin_cache, _AdminCache)
+        assert isinstance(uc.user_cache, Cache)
+        assert isinstance(uc.admin_cache, Cache)
+        assert uc.user_cache is not uc.admin_cache
 
 
 class TestInjectProjection:
@@ -219,13 +225,13 @@ class TestInjectProjection:
         container = _FullContainer(
             weather_client=_FakePort(),
             sessions={_SyncSession},
-            logger=SpyLogger(),
-            event_bus=SpyEventBus(),
-            cache=SpyCache(),
+            logger=port_stub(Logger)(),
+            event_bus=port_stub(EventBus)(),
+            cache=port_stub(Cache)(),
         )
         p = container.adapt(TestProjection)
         assert isinstance(p.session, _SyncSession)
-        assert isinstance(p.logger, SpyLogger)
+        assert isinstance(p.logger, Logger)
 
     def test_injects_session_from_container(self) -> None:
         class TestProjection(ReadProjection):

@@ -1,5 +1,4 @@
 from aod._internal.testing.doubles.application import (
-    LogEntry,
     SpyCache,
     SpyEventBus,
     SpyLogger,
@@ -7,7 +6,6 @@ from aod._internal.testing.doubles.application import (
 )
 
 __all__ = [
-    "LogEntry",
     "SpyCache",
     "SpyEventBus",
     "SpyLogger",

@@ -5,20 +5,8 @@ from aod._internal.application.event_bus import AsyncEventBus, EventBus
 from aod._internal.application.logger import AsyncLogger, Logger
 from aod._internal.application.use_case import AsyncUseCase as UseCase
 from aod._internal.core.domain_exception import MutationForbiddenException
-from aod.testing.doubles.application import (
-    SpyEventBus,
-    SpyLogger,
-    SpyUnitOfWork,
-)
-from aod.testing.doubles.application.async_ import (
-    SpyEventBus as AsyncSpyEventBus,
-)
-from aod.testing.doubles.application.async_ import (
-    SpyLogger as AsyncSpyLogger,
-)
-from aod.testing.doubles.application.async_ import (
-    SpyUnitOfWork as AsyncSpyUnitOfWork,
-)
+from aod._internal.application.unit_of_work import AsyncUnitOfWork, UnitOfWork
+from aod.testing.doubles import port_stub
 from tests.application._use_case_scenarios import (
     _RUN_BODIES,
     SCENARIOS,
@@ -217,11 +205,11 @@ async def test_uow_auto_commit_on_success() -> None:
         async def run(self) -> None:
             pass
 
-    uow = AsyncSpyUnitOfWork()
+    uow = port_stub(AsyncUnitOfWork)()
     uc = Create(uow=uow)
     await uc.run()
-    assert uow.committed
-    assert not uow.rolled_back
+    assert uow.commit.called
+    assert not uow.rollback.called
 
 
 async def test_uow_always_commits_on_success() -> None:
@@ -229,11 +217,11 @@ async def test_uow_always_commits_on_success() -> None:
         async def run(self) -> None:
             pass
 
-    uow = AsyncSpyUnitOfWork()
+    uow = port_stub(AsyncUnitOfWork)()
     uc = NoOp(uow=uow)
     await uc.run()
-    assert uow.committed
-    assert not uow.rolled_back
+    assert uow.commit.called
+    assert not uow.rollback.called
 
 
 async def test_uow_auto_rollback_on_failure() -> None:
@@ -241,12 +229,12 @@ async def test_uow_auto_rollback_on_failure() -> None:
         async def run(self) -> None:
             raise ValueError("oops")
 
-    uow = AsyncSpyUnitOfWork()
+    uow = port_stub(AsyncUnitOfWork)()
     uc = Fail(uow=uow)
     with pytest.raises(ValueError):
         await uc.run()
-    assert uow.rolled_back
-    assert not uow.committed
+    assert uow.rollback.called
+    assert not uow.commit.called
 
 
 async def test_logger_auto_logs_completion() -> None:
@@ -256,10 +244,10 @@ async def test_logger_auto_logs_completion() -> None:
         async def run(self) -> None:
             pass
 
-    logger = SpyLogger()
+    logger = port_stub(Logger)()
     uc = Simple(logger=logger)
     await uc.run()
-    completions = [e for e in logger.entries if "completed" in str(e.msg)]
+    completions = [c for c in logger.info.calls if "completed" in str(c.args()[0])]
     assert len(completions) == 1
 
 
@@ -270,29 +258,26 @@ async def test_event_bus_auto_publishes_on_success() -> None:
         async def run(self) -> None:
             self._event_emitter.emit(UserCreated(user_id=1, name="test"))
 
-    bus = SpyEventBus()
+    bus = port_stub(EventBus)()
     uc = Emit(event_bus=bus)
     await uc.run()
-    assert len(bus.published) == 1
+    assert bus.publish.call_count == 1
 
 
 async def test_commit_failure_rolls_back_and_logs() -> None:
-    class FailingUoW(AsyncSpyUnitOfWork):
-        async def commit(self) -> None:
-            raise RuntimeError("commit failed")
-
     class Simple(UseCase):
         logger: Logger
 
         async def run(self) -> None:
             pass
 
-    uow = FailingUoW()
-    logger = SpyLogger()
+    uow = port_stub(AsyncUnitOfWork)()
+    uow.commit.raises(RuntimeError("commit failed"))
+    logger = port_stub(Logger)()
     uc = Simple(uow=uow, logger=logger)
     with pytest.raises(RuntimeError):
         await uc.run()
-    assert uow.rolled_back
+    assert uow.rollback.called
 
 
 async def test_use_case_can_emit_events_directly() -> None:
@@ -328,14 +313,14 @@ async def test_mixed_all_sync_ports_on_success() -> None:
         async def run(self) -> None:
             pass
 
-    uow = SpyUnitOfWork()
-    logger = SpyLogger()
-    bus = SpyEventBus()
+    uow = port_stub(UnitOfWork)()
+    logger = port_stub(Logger)()
+    bus = port_stub(EventBus)()
     uc = Simple(uow=uow, logger=logger, event_bus=bus)
     await uc.run()
-    assert uow.committed
-    assert not uow.rolled_back
-    completions = [e for e in logger.entries if "completed" in str(e.msg)]
+    assert uow.commit.called
+    assert not uow.rollback.called
+    completions = [c for c in logger.info.calls if "completed" in str(c.args()[0])]
     assert len(completions) == 1
 
 
@@ -346,15 +331,15 @@ async def test_mixed_all_sync_ports_on_failure() -> None:
         async def run(self) -> None:
             raise ValueError("oops")
 
-    uow = SpyUnitOfWork()
-    logger = SpyLogger()
+    uow = port_stub(UnitOfWork)()
+    logger = port_stub(Logger)()
     uc = Fail(uow=uow, logger=logger)
     with pytest.raises(ValueError):
         await uc.run()
-    assert uow.rolled_back
-    assert not uow.committed
-    errors = [e for e in logger.entries if e.level == "error"]
-    assert any("failed" in str(e.msg) for e in errors)
+    assert uow.rollback.called
+    assert not uow.commit.called
+    errors = [c for c in logger.error.calls if "failed" in str(c.args()[0])]
+    assert any("failed" in str(e) for e in [str(c.args()[0]) for c in logger.error.calls])
 
 
 async def test_mixed_sync_uow_async_event_bus() -> None:
@@ -364,12 +349,12 @@ async def test_mixed_sync_uow_async_event_bus() -> None:
         async def run(self) -> None:
             self._event_emitter.emit(UserCreated(user_id=1, name="test"))
 
-    uow = SpyUnitOfWork()
-    bus = AsyncSpyEventBus()
+    uow = port_stub(UnitOfWork)()
+    bus = port_stub(AsyncEventBus)()
     uc = Emit(uow=uow, event_bus=bus)
     await uc.run()
-    assert uow.committed
-    assert len(bus.published) == 1
+    assert uow.commit.called
+    assert bus.publish.call_count == 1
 
 
 async def test_mixed_async_uow_sync_logger() -> None:
@@ -379,13 +364,13 @@ async def test_mixed_async_uow_sync_logger() -> None:
         async def run(self) -> None:
             pass
 
-    uow = AsyncSpyUnitOfWork()
-    logger = SpyLogger()
+    uow = port_stub(AsyncUnitOfWork)()
+    logger = port_stub(Logger)()
     uc = Simple(uow=uow, logger=logger)
     await uc.run()
-    assert uow.committed
-    assert not uow.rolled_back
-    completions = [e for e in logger.entries if "completed" in str(e.msg)]
+    assert uow.commit.called
+    assert not uow.rollback.called
+    completions = [c for c in logger.info.calls if "completed" in str(c.args()[0])]
     assert len(completions) == 1
 
 
@@ -397,10 +382,10 @@ async def test_mixed_sync_event_bus_async_logger() -> None:
         async def run(self) -> None:
             self._event_emitter.emit(UserCreated(user_id=1, name="test"))
 
-    bus = SpyEventBus()
-    logger = AsyncSpyLogger()
+    bus = port_stub(EventBus)()
+    logger = port_stub(AsyncLogger)()
     uc = Emit(event_bus=bus, logger=logger)
     await uc.run()
-    assert len(bus.published) == 1
-    completions = [e for e in logger.entries if "completed" in str(e.msg)]
+    assert bus.publish.call_count == 1
+    completions = [c for c in logger.info.calls if "completed" in str(c.args()[0])]
     assert len(completions) == 1

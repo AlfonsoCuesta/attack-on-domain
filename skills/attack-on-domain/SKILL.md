@@ -183,9 +183,9 @@ place_order.run(PlaceOrderInput(order_id="1", product_id="p1", quantity=2, price
 | `from aod.testing.doubles import Params` | `Params` objects with `.args()` and `.kwargs()` from stub calls |
 | `from aod.testing.doubles import port_stub` | Create stub class from any `Port` subclass |
 | `from aod.testing.doubles import spy_adapter_container` | Container with stubbed sessions/ports/handlers |
-| `from aod.testing.doubles.application import SpyLogger, SpyEventBus, SpyUnitOfWork, SpyCache` | Sync test doubles |
-| `from aod.testing.doubles import SpySession, SpyAsyncSession` | Session test doubles |
-| `from aod.testing.doubles.application.async_ import SpyLogger, SpyEventBus, SpyUnitOfWork, SpyCache` | Async test doubles |
+| `from aod.testing.doubles import SpyLogger, SpyEventBus, SpyUnitOfWork, SpyCache` | Generated via `port_stub` |
+| `from aod.testing.doubles import SpySession, SpyAsyncSession` | Session stubs (generated via `session_stub`) |
+| `from aod.testing.doubles.application.async_ import SpyLogger, SpyEventBus, SpyUnitOfWork, SpyCache` | Async variants (backed by `port_stub`) |
 
 ## Domain Primitives
 

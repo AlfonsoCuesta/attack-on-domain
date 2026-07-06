@@ -18,7 +18,7 @@ from aod._internal.application.event_bus import EventBus
 from aod._internal.application.event_bus.null_event_bus import NullEventBus
 from aod._internal.application.logger import Logger
 from aod._internal.application.logger.null_logger import NullLogger
-from aod._internal.testing.doubles.application import SpyEventBus, SpyLogger
+from aod._internal.testing.doubles.stubs import port_stub
 from pydantic import BaseModel as DTO
 
 # ---------------------------------------------------------------------------
@@ -208,11 +208,11 @@ class TestReadProjection:
             p.read(UserReadModel(user_id=1))
 
     def test_read_with_logger_and_event_bus(self) -> None:
-        logger = SpyLogger()
-        bus = SpyEventBus()
+        logger = port_stub(Logger)()
+        bus = port_stub(EventBus)()
         p = GetUserProjection(logger=logger, event_bus=bus)
         p.read(UserReadModel(user_id=1))
-        completions = [e for e in logger.entries if "completed" in str(e.msg)]
+        completions = [c for c in logger.info.calls if "completed" in str(c.args()[0])]
         assert len(completions) >= 1
 
     def test_read_with_session(self) -> None:
@@ -283,12 +283,12 @@ class TestWriteProjection:
         assert _CommitContext.get(False) is False
 
     def test_write_with_logger_and_event_bus(self) -> None:
-        logger = SpyLogger()
-        bus = SpyEventBus()
+        logger = port_stub(Logger)()
+        bus = port_stub(EventBus)()
         p = CreateUserProjection(logger=logger, event_bus=bus)
         p.write(UserWriteModel(user_id=1, name="Alice"))
-        assert len(bus.published) >= 1
-        completions = [e for e in logger.entries if "completed" in str(e.msg)]
+        assert bus.publish.call_count >= 1
+        completions = [c for c in logger.info.calls if "completed" in str(c.args()[0])]
         assert len(completions) >= 1
 
 
@@ -463,8 +463,8 @@ class TestProjectionInjection:
             def read(self, model: UserReadModel) -> str:
                 return "ok"
 
-        logger = SpyLogger()
-        bus = SpyEventBus()
+        logger = port_stub(Logger)()
+        bus = port_stub(EventBus)()
         container = ProjectionContainer(
             sessions={_TestSession},
             logger=logger,
@@ -472,7 +472,7 @@ class TestProjectionInjection:
         )
         p = container.adapt(TestP)
         p.read(UserReadModel(user_id=1))
-        completions = [e for e in logger.entries if "completed" in str(e.msg)]
+        completions = [c for c in logger.info.calls if "completed" in str(c.args()[0])]
         assert len(completions) >= 1
 
     def test_inject_without_session(self) -> None:
