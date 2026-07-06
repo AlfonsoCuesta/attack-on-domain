@@ -233,7 +233,7 @@ class SaveUserHandler(CommandHandler[CreateUser]):
 | Primary port | `UseCase` (driving) |
 | Secondary port | `CommandPort[T]`, `QueryPort[T]`, custom `Port` |
 | Adapter | Infrastructure handlers, `CommandHandler[C]`, `QueryHandler[Q]` |
-| DI container | `AdapterContainer.adapt_use_case()` / `adapt_projection()` |
+| DI container | `AdapterContainer.adapt()` |
 
 ## Mapping Summary
 

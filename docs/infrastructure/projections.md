@@ -34,8 +34,7 @@ from aod.infrastructure import ReadProjection
 
 | Parameter | Type | Description |
 |-----------|------|-------------|
-| `session` | `Session \| None` | Optional database session. Default: `None`. |
-| `**ports` | `Port` | Additional port dependencies. All fields (except `session`) must be `Port` subclasses. |
+| `**fields` | `Port \| Session` | Field dependencies. Includes optional session fields (concrete type, e.g. `session: PostgresSession`) and port dependencies. All fields (except sessions) must be `Port` subclasses. |
 
 ### Methods
 
@@ -92,8 +91,7 @@ from aod.infrastructure import WriteProjection
 
 | Parameter | Type | Description |
 |-----------|------|-------------|
-| `session` | `Session \| None` | Optional database session. Default: `None`. |
-| `**ports` | `Port` | Additional port dependencies. All fields (except `session`) must be `Port` subclasses. |
+| `**fields` | `Port \| Session` | Field dependencies. Includes optional session fields (concrete type, e.g. `session: PostgresSession`) and port dependencies. All fields (except sessions) must be `Port` subclasses. |
 
 ### Methods
 
@@ -153,8 +151,7 @@ from aod.infrastructure import Projection
 
 | Parameter | Type | Description |
 |-----------|------|-------------|
-| `session` | `Session \| None` | Optional database session. Default: `None`. |
-| `**ports` | `Port` | Additional port dependencies. All fields (except `session`) must be `Port` subclasses. |
+| `**fields` | `Port \| Session` | Field dependencies. Includes optional session fields (concrete type, e.g. `session: PostgresSession`) and port dependencies. All fields (except sessions) must be `Port` subclasses. |
 
 ### Methods
 
@@ -168,11 +165,9 @@ Includes both `read(self, model: Any) -> Any` and `write(self, model: Any) -> An
 | `AsyncWriteProjection` | `from aod.infrastructure import AsyncWriteProjection` | `AsyncWriteProjectionBase` |
 | `AsyncProjection` | `from aod.infrastructure import AsyncProjection` | `AsyncReadProjection + AsyncWriteProjection` |
 
-### Constructor Differences
+### Constructor
 
-- `AsyncReadProjection`: `session: Session | AsyncSession | None = None`
-- `AsyncWriteProjection`: `session: Session | AsyncSession | None = None`
-- `AsyncProjection`: `session: Session | AsyncSession | None = None`
+Async variants accept the same fields as their sync counterparts. Session fields must use concrete types (e.g., `session: AsyncPostgresSession`). Multiple session fields are supported.
 
 All async variants expose the same methods but as `async`:
 - `async read(self, *args, **kwargs) -> Any`
@@ -182,9 +177,10 @@ All async variants expose the same methods but as `async`:
 
 Projections enforce these rules at class creation time:
 
-1. **Port subclasses only** — All fields must be `Port` subclasses (except `session`).
-2. **Max one Session** — At most one field of type `Session` or `AsyncSession` is allowed. A second session field raises `InvalidPortFieldError`.
-3. **No HandlerProtocol** — Fields typed as `HandlerProtocol` or its subclasses raise `InvalidUseCasePortFieldError`.
+1. **Port subclasses only** — All fields must be `Port` subclasses (except session fields).
+2. **Concrete session types** — Session fields must use concrete types (e.g., `session: PostgresSession`), never `Session | None`.
+3. **Multiple sessions allowed** — Projections can declare multiple session fields with different types.
+4. **No HandlerProtocol** — Fields typed as `HandlerProtocol` or its subclasses raise `InvalidUseCasePortFieldError`.
 
 ## Event Collection
 
@@ -206,6 +202,12 @@ class UserSearch(BaseModel):
 class MyReadProjection(ReadProjection):
     def read(self, model: UserSearch) -> Any:
         result = self.session.query("SELECT * FROM users")
+        ...
+
+class MyReadProjection(ReadProjection):
+    session: SpySession
+
+    def read(self, model: UserSearch) -> Any:
         ...
 
 proj = MyReadProjection(session=SpySession())

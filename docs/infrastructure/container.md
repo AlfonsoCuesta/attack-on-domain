@@ -8,7 +8,7 @@
 from aod.infrastructure import AdapterContainer
 ```
 
-`AdapterContainer` is the dependency injection container.
+`AdapterContainer` is the dependency injection container. It can be used directly without subclassing, or subclassed to declare custom ports.
 
 ### Constructor
 
@@ -18,16 +18,18 @@ from aod.infrastructure import AdapterContainer
 |-----------|------|-------------|
 | `sessions` | `set[type[Session] \| type[AsyncSession]]` | Session classes (not instances) to manage. Default: `set()`. |
 | `handlers` | `list[AnyHandler]` | Handler classes to register. Default: `[]`. |
-| `**fields` | `Port` | Custom ports registered by field name. |
+| `ports` | `dict[type[Port], Port]` | Type-based port resolution fallback. When a port field type is not found by name, the container checks this dict. Default: `{}`. |
+| `**fields` | `Port` | Custom ports registered by field name. Any keyword argument that is a `Port` instance is registered by name. |
 
 ### Default Fields
 
 | Field | Type | Default |
 |-------|------|---------|
 | `sessions` | `set[type[Session] \| type[AsyncSession]]` | `set()` |
-| `_sessions_needed` | `dict[type[Session] \| type[AsyncSession], Session \| AsyncSession]` | `{}` (PrivateField) |
-| `_ports_by_name` | `dict[str, Port]` | `{}` (PrivateField) |
 | `handlers` | `list[AnyHandler]` | `[]` |
+| `ports` | `dict[type[Port], Port]` | `{}` |
+| `_ports_by_name` | `dict[str, Port]` | `{}` (PrivateField) |
+| `_sessions_needed` | `dict[type[Session] \| type[AsyncSession], Session \| AsyncSession]` | `{}` (PrivateField) |
 
 ### Methods
 
@@ -79,33 +81,25 @@ Find a port implementation by field name.
 - Returns the field value.
 - Raises `PortNotFoundError` if no port with that name is found.
 
-#### `adapt_use_case(use_case_cls: type[UseCase | AsyncUseCase], **overrides: Any) -> UseCase | AsyncUseCase`
+#### `adapt(operation_cls: type[TOperation], **overrides: Any) -> TOperation`
 
-Create a use case instance with all dependencies wired automatically.
+Create a use case or projection instance with all dependencies wired automatically. This is the single public entry point for dependency injection — it dispatches to the appropriate internal method based on the class type.
 
 | Parameter | Type | Description |
 |-----------|------|-------------|
-| `use_case_cls` | `type[UseCase \| AsyncUseCase]` | The use case class to instantiate. |
+| `operation_cls` | `type[UseCase \| AsyncUseCase \| ProjectionBase]` | The use case or projection class to instantiate. |
 | `**overrides` | `Any` | Optional field overrides for the container copy. |
 
+For use cases:
 - Resolves `uow` automatically.
-- Injects matching handler ports (`CommandPort[C]`, `QueryPort[Q]`) and custom ports by field name.
-- Injects `Logger`, `EventBus`, `Cache` and other ports by field name.
-- When `**overrides` are provided, creates a container copy before injection.
+- Injects matching handler ports (`CommandPort[C]`, `QueryPort[Q]`) by contract type.
+- Injects custom ports by field name, with type-based fallback from `ports` dict.
 
-#### `adapt_projection(projection_cls: type[ProjectionBase], **overrides: Any) -> ProjectionBase`
+For projections:
+- Injects sessions by type annotation for any field with a `Session`/`AsyncSession` annotation.
+- Injects custom ports by field name, with type-based fallback from `ports` dict.
 
-Create a projection instance with all dependencies wired automatically.
-
-| Parameter | Type | Description |
-|-----------|------|-------------|
-| `projection_cls` | `type[ProjectionBase]` | The projection class to instantiate. |
-| `**overrides` | `Any` | Optional field overrides for the container copy. |
-
-- Resolves `session` automatically.
-- The session type is extracted from the projection's `session` field annotation.
-- Injects matching custom ports by field name.
-- When `**overrides` are provided, creates a container copy before injection.
+When `**overrides` are provided, creates a container copy before injection.
 
 #### `with_adapters(**overrides: Any) -> Self`
 
@@ -114,6 +108,14 @@ Create a copy of the container with overridden fields.
 | Parameter | Type | Description |
 |-----------|------|-------------|
 | `**overrides` | `Any` | Field values to override in the copy. |
+
+### Port Resolution Order
+
+When injecting ports into a use case or projection, the container resolves each port field in this order:
+
+1. **Named port** — looks up the field name in `_ports_by_name` (from container subclass fields or keyword arguments).
+2. **Type-based fallback** — looks up the field's type annotation in `self.ports` dict.
+3. If neither resolves, raises `PortNotFoundError`.
 
 ### Subclass Field Validation
 
@@ -146,6 +148,8 @@ When adapting a `UseCase` or `AsyncUseCase`:
 | Field | Source |
 |-------|--------|
 | `uow` | `container.get_uow()` |
+| `CommandPort[C]` / `QueryPort[Q]` | `container.get_handler(contract_type)` |
+| Custom ports | Named ports or `ports` dict (see Port Resolution Order) |
 
 ### Projection Wiring
 
@@ -153,29 +157,19 @@ When adapting a `ProjectionBase` subclass:
 
 | Field | Source |
 |-------|--------|
-| `session` | `container.get_session(session_type)` |
+| Session fields | `container.get_session(session_type)` for each field with a `Session`/`AsyncSession` type annotation |
+| Custom ports | Named ports or `ports` dict (see Port Resolution Order) |
 
-The session type is extracted from the projection's `session` field annotation. If the field type is `None`, `session` is set to `None`.
-
-### Port Wiring
-
-All public fields are scanned:
-
-1. Each field's name is looked up in `_ports_by_name`.
-2. `HandlerProtocol` subclasses are excluded (not injected as ports).
-3. If the field name is not registered, `PortNotFoundError` is raised.
-
-This applies to custom ports as well as `Logger`, `EventBus`, `Cache` and their async counterparts.
+Projections do not have a default `session` field. Each session must be declared as a concrete type annotation (e.g., `session: PostgresSession`). Multiple session fields are supported.
 
 ### Override Support
 
 ```python
-class MyContainer(AdapterContainer):
-    logger: Logger
+container = AdapterContainer(sessions={MySession}, handlers=[MyHandler])
 
-use_case = container.adapt_use_case(
+use_case = container.adapt(
     MyUseCase,
-    logger=SpyLogger(),  # override container field for testing
+    logger=SpyLogger(),  # override for testing
 )
 ```
 
@@ -194,23 +188,39 @@ from aod.application.async_ import UseCase
 class MyAsyncUseCase(UseCase):
     ...
 
-use_case = container.adapt_use_case(MyAsyncUseCase)
+use_case = container.adapt(MyAsyncUseCase)
 assert isinstance(use_case.uow, AsyncUnitOfWork)
 ```
 
 ## Common Patterns
 
-### Manual Injection
+### Base Container (No Subclassing)
 
 ```python
 container = AdapterContainer(
     sessions={MySession},
     handlers=[MyHandler],
+    ports={Logger: SpyLogger()},
     user_client=MyUserClient(),
 )
 
-use_case = container.adapt_use_case(CreateUser)
+use_case = container.adapt(CreateUser)
 use_case.run(user_id=42, name="Alice")
+```
+
+### Subclassed Container
+
+```python
+class AppContainer(AdapterContainer):
+    logger: Logger
+
+container = AppContainer(
+    sessions={MySession},
+    handlers=[MyHandler],
+    logger=SpyLogger(),
+)
+
+use_case = container.adapt(CreateUser)
 ```
 
 ### Testing with Spy Container
@@ -218,10 +228,11 @@ use_case.run(user_id=42, name="Alice")
 ```python
 from aod.testing.doubles import spy_adapter_container
 
-container = spy_adapter_container(AdapterContainer())
+container = spy_adapter_container(AdapterContainer(sessions={MySession}, handlers=[CreateUserHandler]))
 
 container.get_handler_stub(CreateUserHandler).handle.returns(None)
 
+# Spy container has adapt_use_case/adapt_projection with returns/read_returns/write_returns
 use_case = container.adapt_use_case(CreateUserUseCase, returns=None)
 use_case.run(user_id=42, name="Alice")
 
@@ -237,11 +248,13 @@ result = proj.read(model)  # returns []
 
 ```python
 class UserProjection(ReadProjection):
+    session: MySession
+
     def read(self, model: ReadModel) -> list[User]:
         return self.session.query("SELECT * FROM users")
 
 container = AdapterContainer(sessions={MySession})
-proj = container.adapt_projection(UserProjection)
+proj = container.adapt(UserProjection)
 result = proj.read(ReadModel())
 ```
 

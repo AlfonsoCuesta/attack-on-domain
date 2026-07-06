@@ -134,13 +134,13 @@ class GetOrderHandler(QueryHandler[GetOrder]):
 
 ### Step 4: Container and Injection
 
-Wire everything together with `AdapterContainer`. It discovers sessions, handlers, and custom ports, then auto-wires them into UseCases and Projections via `adapt_use_case()` / `adapt_projection()`.
+Wire everything together with `AdapterContainer`. It discovers sessions, handlers, and custom ports, then auto-wires them into UseCases and Projections via `adapt()`.
 
 ```python
 from aod.infrastructure import AdapterContainer
 
 container = AdapterContainer(sessions={PostgresSession}, handlers=[PlaceOrderHandler, GetOrderHandler])
-place_order = container.adapt_use_case(PlaceOrderUseCase)
+place_order = container.adapt(PlaceOrderUseCase)
 place_order.run(PlaceOrderInput(order_id="1", product_id="p1", quantity=2, price=9.99))
 ```
 
@@ -167,7 +167,7 @@ place_order.run(PlaceOrderInput(order_id="1", product_id="p1", quantity=2, price
 | `from aod.infrastructure.async_ import Session` | Async database abstraction |
 | `from aod.infrastructure import ReadProjection, WriteProjection, Projection` | Projection base classes |
 | `from aod.infrastructure import AsyncReadProjection, AsyncWriteProjection, AsyncProjection` | Async projection classes |
-| `from aod.infrastructure import AdapterContainer` | Container with `adapt_use_case()` / `adapt_projection()` |
+| `from aod.infrastructure import AdapterContainer` | Container with `adapt()` for use cases and projections |
 | `from aod.domain import DomainException` | Domain base exception |
 | `from aod.application import ApplicationException` | Application base exception |
 | `from aod.infrastructure import InfrastructureException` | Infrastructure base exception |
@@ -449,7 +449,7 @@ class GetOrder(Query[Order, Order | None]):
 
 
 ```python
-uc = container.adapt_use_case(PlaceOrderUseCase)
+uc = container.adapt(PlaceOrderUseCase)
 uc.run(PlaceOrderInput(order_id="1", product_id="p1", quantity=2, price=9.99))
 ```
 
@@ -665,7 +665,7 @@ class UserUpdateProjection(WriteProjection):
 ```
 
 **Rules**:
-- The field MUST be named `session` with a specific type (e.g., `MongoSession`, `SqlSession`)
+- The field is typically named `session` with a specific type (e.g., `MongoSession`, `SqlSession`), but multiple sessions with different names are allowed
 - If the projection doesn't need a session, simply don't declare one
 - Fields must be `Port` subclasses (no `HandlerProtocol`)
 - Use `BaseModel` subclasses for projection input models
@@ -675,53 +675,53 @@ class UserUpdateProjection(WriteProjection):
 
 ### Container
 
-`AdapterContainer` wires sessions, handlers, and custom ports, then auto-injects them into UseCases and Projections.
+`AdapterContainer` wires sessions, handlers, and custom ports, then auto-injects them into UseCases and Projections. It can be used directly without subclassing.
 
 ```python
 from aod.infrastructure import AdapterContainer
 
+# Base container (no subclassing needed)
+container = AdapterContainer(
+    sessions={MySession},
+    handlers=[MyHandler],
+    ports={Logger: SpyLogger()},
+    email=EmailGateway(...),
+)
+
+# Or subclass to declare ports
 class AppContainer(AdapterContainer):
-    email: EmailGateway                               # Custom ports go here
+    email: EmailGateway
+    logger: Logger
 ```
 
-#### adapt_use_case
+#### adapt
 
-Creates a UseCase instance with all dependencies injected:
+Creates a UseCase or Projection instance with all dependencies injected. This is the single public entry point — it dispatches to the appropriate internal method:
 
-- `uow` — a `UnitOfWork` wrapping all registered sessions (begin/commit/rollback orchestrated by the wrapper)
-- Custom ports — resolved by field name from container fields
-- `Logger`, `EventBus`, `Cache` and other ports — resolved by field name from container fields
+- **UseCases**: `uow` — a `UnitOfWork` wrapping all registered sessions. Custom ports resolved by field name (with type-based fallback from `ports` dict). Handler ports injected by contract type.
+- **Projections**: Session fields injected by type annotation. Custom ports resolved by field name (with type-based fallback from `ports` dict).
 
 ```python
-use_case = container.adapt_use_case(PlaceOrderUseCase)
+use_case = container.adapt(PlaceOrderUseCase)
 use_case.run(order_id="1", product_id="p1", quantity=2, price=9.99)
 # On success: uow.begin() → run() → uow.commit() → events published → cache flushed
 # On failure: uow.begin() → run() [error] → uow.rollback() → error re-raised
-```
 
-#### adapt_projection
-
-Creates a Projection instance with dependencies:
-
-- `session` — resolved by type from container's registered sessions
-- Custom ports — resolved by field name from container fields
-- `Logger`, `EventBus`, `Cache` and other ports — resolved by field name from container fields
-
-```python
-projection = container.adapt_projection(UserListProjection)
+projection = container.adapt(UserListProjection)
 users = projection.read(UserSearch(user_id="1"))
 ```
 
 #### Overrides
 
-Both methods accept keyword overrides to replace specific dependencies for testing:
+Both `adapt()` and spy container's `adapt_use_case()` accept keyword overrides to replace specific dependencies for testing:
 
 ```python
-class AppContainer(AdapterContainer):
-    logger: Logger
-
-container = AppContainer(logger=SpyLogger())
-uc = container.adapt_use_case(PlaceOrderUseCase)
+container = AdapterContainer(
+    sessions={MySession},
+    handlers=[MyHandler],
+    ports={Logger: SpyLogger()},
+)
+uc = container.adapt(PlaceOrderUseCase)
 ```
 
 ## Validation

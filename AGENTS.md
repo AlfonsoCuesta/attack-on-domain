@@ -120,13 +120,17 @@ class GetOrderHandler(InfraQueryPort[GetOrder]):
 
 ### Step 4: Container and Injection
 
-Wire everything together with the AdapterContainer and inject dependencies.
+Wire everything together with the AdapterContainer and inject dependencies. The container can be used directly or subclassed. Pass handlers, sessions, and ports to the constructor, then call `adapt()` for use cases and projections.
 
 ```python
 from aod.infrastructure import AdapterContainer
 
-container = AdapterContainer(sessions={SqlSession}, handlers=[PlaceOrderHandler, GetOrderHandler])
-place_order = container.adapt_use_case(PlaceOrderUseCase)
+container = AdapterContainer(
+    sessions={SqlSession},
+    handlers=[PlaceOrderHandler, GetOrderHandler],
+    ports={Logger: SpyLogger()},
+)
+place_order = container.adapt(PlaceOrderUseCase)
 place_order.run(PlaceOrderInput(order_id="1", product_id="p1", quantity=2, price=9.99))
 ```
 
@@ -160,7 +164,7 @@ All docs now use the CQRS pattern as the primary example. Key tenets:
 - UseCases declare `CommandPort[Command]` and `QueryPort[Query]` fields, NOT custom repository ports
 - Custom `Port` subclasses are only for non-database concerns (API clients, notifications, etc.)
 - Infrastructure handlers (`CommandHandler[C]`, `QueryHandler[Q]`) implement the handler ports
-- The container auto-wires handlers into UseCases via `container.adapt_use_case()`
+- The container auto-wires handlers into UseCases via `container.adapt()`
 - Updated pages: index.md, getting-started/*, application/*, domain/events.md
 
 ## Docs Structure
@@ -389,10 +393,10 @@ BaseValidator (metaclass: ValidationModelMeta → ABCMeta)
     │   │   ├── AsyncUseCase        → +uow, +async run()
     │   │   ├── ProjectionBase
     │   │   │   ├── ReadProjectionBase
-    │   │   │   │   ├── ReadProjection       → +session, +read()
+    │       │   │   │   ├── ReadProjection       → +read()
     │   │   │   │   └── AsyncReadProjection  → +async read()
     │   │   │   ├── WriteProjectionBase
-    │   │   │   │   ├── WriteProjection      → +session, +write()
+    │   │   │   │   ├── WriteProjection      → +write()
     │   │   │   │   └── AsyncWriteProjection → +async write()
     │   │   │   ├── Projection               → +read() +write()
     │   │   │   └── AsyncProjection          → +async read() +write()
@@ -705,7 +709,7 @@ class CreateUser(UseCase):
 
 **Infrastructure handler inheritance**: Infrastructure `CommandHandler`/`QueryHandler` types inherit from both `BaseHandler` and the application-layer `HandlerProtocol` (`Port`). This satisfies Pydantic `isinstance` checks when handlers are used in any context requiring the app-layer type.
 
-**Container sessions**: `AdapterContainer.sessions` holds session **classes** (`type[Session] | type[AsyncSession]`), not instances. `get_session(session_cls)` instantiates the matching class, tracks the instance in `_sessions_needed`, and returns it. `get_uow()` checks session types and creates `UnitOfWork`/`AsyncUnitOfWork` with the needed instances.
+**Container sessions**: `AdapterContainer.ports` holds type-to-Port mappings for type-based resolution. `AdapterContainer.sessions` holds session **classes** (`type[Session] | type[AsyncSession]`), not instances. `get_session(session_cls)` instantiates the matching class, tracks the instance in `_sessions_needed`, and returns it. `get_uow()` checks session types and creates `UnitOfWork`/`AsyncUnitOfWork` with the needed instances.
 
 ### `Port` Base Class
 
@@ -778,15 +782,15 @@ The projection system provides read and write projections with automatic event c
 
 #### Base Classes
 
-- **`ProjectionBase(BaseOperation)`** — inherits `_event_emitter`, `events`, `logger`, `event_bus`, `cache` from `BaseOperation`. Fields must be `Port` subclasses. `HandlerProtocol` and its subclasses are rejected via `__not_allowed_port_types__ = (HandlerProtocol,)`. At most one `Session` field is allowed (validated separately).
+- **`ProjectionBase(BaseOperation)`** — inherits `_event_emitter`, `events`, `logger`, `event_bus`, `cache` from `BaseOperation`. Fields must be `Port` subclasses (except session fields). `HandlerProtocol` and its subclasses are rejected via `__not_allowed_port_types__ = (HandlerProtocol,)`. Multiple session fields allowed with concrete types.
 - **`ReadProjectionBase(ProjectionBase)`** — wraps `read()` with `EventCollector` + log + event_bus publish.
 - **`WriteProjectionBase(ProjectionBase)`** — wraps `write()` with `CommitContext` + `EventCollector` + log + rollback + event_bus publish.
 
 ```python
-# Correct: Port fields, max one Session
+# Correct: Port fields, session with concrete type
 class UserProjection(ReadProjection):
     user_client: UserRestClient  # Port dependency
-    session: Session | None = None  # Optional session
+    session: PostgresSession  # Concrete session type
 
     def read(self, model: ReadModel) -> list[User]:
         return self.user_client.find_all()
@@ -795,16 +799,19 @@ class UserProjection(ReadProjection):
 class BadProjection(ReadProjection):
     handler: CommandHandler[SaveUser]  # InvalidUseCasePortFieldError!
 
-# Wrong: Multiple sessions
-class BadProjection(ReadProjection):
-    session: Session | None = None
-    other_session: AsyncSession | None = None  # InvalidPortFieldError!
+# Multiple sessions are allowed
+class MultiDBProjection(ReadProjection):
+    pg_session: PostgresSession
+    redis_session: RedisSession
+
+    def read(self, model: ReadModel) -> list[User]:
+        ...
 ```
 
 #### Concrete Classes
 
-- **`ReadProjection(ReadProjectionBase)`** — `session: Session | None`, abstract `read(model: ReadModel)`.
-- **`WriteProjection(WriteProjectionBase)`** — `session: Session | None`, abstract `write(model: WriteModel)`.
+- **`ReadProjection(ReadProjectionBase)`** — abstract `read(model: ReadModel)`.
+- **`WriteProjection(WriteProjectionBase)`** — abstract `write(model: WriteModel)`.
 - **`Projection(ReadProjection, WriteProjection)`** — both `read()` and `write()` methods.
 
 #### Async Counterparts

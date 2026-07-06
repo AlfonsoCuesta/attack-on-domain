@@ -81,14 +81,14 @@ class RegisterUserUseCase(UseCase):
 
 ## 4. Wire It Together
 
-Use `AdapterContainer` and `adapt_use_case`. The container discovers handlers and auto-wires them into the use case.
+Use `AdapterContainer` and `adapt`. The container discovers handlers and auto-wires them into the use case.
 
 ```python
 from aod.infrastructure import AdapterContainer
 
 
 container = AdapterContainer(handlers=[RegisterUserHandler])
-use_case = container.adapt_use_case(RegisterUserUseCase)
+use_case = container.adapt(RegisterUserUseCase)
 
 use_case.run(user_id="2", email="alice@example.com", name="Alice")
 ```

@@ -56,7 +56,7 @@ class PlaceOrderUseCase(UseCase):
         self.place_order.handle(PlaceOrder(order_id=order_id, total=total))
 
 container = AdapterContainer(handlers=[PlaceOrderHandler])
-use_case = container.adapt_use_case(PlaceOrderUseCase)
+use_case = container.adapt(PlaceOrderUseCase)
 use_case.run(order_id="1", total=99.99)
 ```
 

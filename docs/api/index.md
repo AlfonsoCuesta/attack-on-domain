@@ -621,8 +621,7 @@ Synchronous read projection.
 
 | Parameter | Type | Description |
 |-----------|------|-------------|
-| `session` | `Session \| None` | Optional database session. Default: `None`. |
-| `**ports` | `Port` | Port dependencies. |
+| `**fields` | `Port \| Session` | Fields with concrete session types (e.g., `session: PostgresSession`) and port dependencies. |
 
 #### Methods
 
@@ -644,8 +643,7 @@ Synchronous write projection.
 
 | Parameter | Type | Description |
 |-----------|------|-------------|
-| `session` | `Session \| None` | Optional database session. Default: `None`. |
-| `**ports` | `Port` | Port dependencies. |
+| `**fields` | `Port \| Session` | Fields with concrete session types (e.g., `session: PostgresSession`) and port dependencies. |
 
 #### Methods
 
@@ -681,7 +679,7 @@ class AsyncReadProjection(AsyncReadProjectionBase)
 
 | Parameter | Type | Description |
 |-----------|------|-------------|
-| `session` | `Session \| AsyncSession \| None` | Optional session. Default: `None`. |
+| `**fields` | `Port \| Session \| AsyncSession` | Fields with concrete session types and port dependencies. |
 
 #### Methods
 
@@ -697,7 +695,7 @@ class AsyncWriteProjection(AsyncWriteProjectionBase)
 
 #### Constructor
 
-`AsyncWriteProjection(**fields)` — `session: Session | AsyncSession | None = None`.
+`AsyncWriteProjection(**fields)` — Accepts fields with concrete session types (e.g., `session: AsyncPostgresSession`) and port dependencies.
 
 #### Methods
 
@@ -728,6 +726,7 @@ Synchronous command handler for a specific command type.
 | Parameter | Type | Description |
 |-----------|------|-------------|
 | `session` | `Session \| None` | Optional session. Default: `None`. |
+| `**ports` | `Port` | Port dependencies. |
 
 #### Methods
 
@@ -795,7 +794,7 @@ class AsyncQueryHandler(AsyncBaseHandler, AppAsyncQueryHandler, Generic[TQuery])
 class AdapterContainer(BaseBehaviour)
 ```
 
-Dependency injection container.
+Dependency injection container. Can be used directly or subclassed.
 
 #### Constructor
 
@@ -805,6 +804,8 @@ Dependency injection container.
 |-----------|------|---------|-------------|
 | `sessions` | `set[type[Session] \| type[AsyncSession]]` | `set()` | Session classes to manage. |
 | `handlers` | `list[type[CommandHandler \| QueryHandler \| AsyncCommandHandler \| AsyncQueryHandler]]` | `[]` | Handler classes to register. |
+| `ports` | `dict[type[Port], Port]` | `{}` | Type-based port resolution fallback. |
+| `**fields` | `Port` | — | Custom ports registered by field name. Any keyword argument that is a `Port` instance is registered. |
 | `_ports_by_name` | `dict[str, Port]` | `{}` | Private index of registered ports by field name. |
 | `_sessions_needed` | `dict` | `{}` | Private cache of instantiated sessions. |
 
@@ -817,8 +818,7 @@ Dependency injection container.
 | `get_uow` | `get_uow(self) -> UnitOfWork \| AsyncUnitOfWork` | Create a UoW with all instantiated sessions. |
 | `get_port` | `get_port(self, name: str) -> Port` | Find port by registered field name. Raises `PortNotFoundError`. |
 | `with_adapters` | `with_adapters(self, **overrides) -> Self` | Create a copy with overridden fields. |
-| `adapt_use_case` | `adapt_use_case(self, use_case_cls, *, returns=UNSET, **overrides) -> UseCase \| AsyncUseCase` | Create a use case with all dependencies wired. `returns=` stubs `run()` return value (spy container only). |
-| `adapt_projection` | `adapt_projection(self, projection_cls, *, read_returns=UNSET, write_returns=UNSET, **overrides) -> ProjectionBase` | Create a projection with all dependencies wired. `read_returns=`/`write_returns=` stub projection methods (spy container only). |
+| `adapt` | `adapt(self, operation_cls, **overrides) -> UseCase \| AsyncUseCase \| ProjectionBase` | Create a use case or projection with all dependencies wired. Dispatches to internal methods based on class type. |
 
 ---
 
@@ -983,8 +983,8 @@ Create a version of a container where sessions and ports are replaced with stubs
 | `get_port_stub` | `get_port_stub(name: str) -> Any` | Returns a stub for the port registered under the given field name |
 | `get_handler_stub` | `get_handler_stub(handler_cls) -> Any` | Returns a stub for the given handler class |
 | `get_handler` | `get_handler(contract) -> Any` | Returns the handler for a contract (handle is a stub) |
-| `adapt_use_case` | `adapt_use_case(cls, *, returns=UNSET, **overrides)` | `returns=` stubs `instance.run` to return the given value |
-| `adapt_projection` | `adapt_projection(cls, *, read_returns=UNSET, write_returns=UNSET, **overrides)` | `read_returns=`/`write_returns=` stub projection methods |
+| `adapt_use_case` | `adapt_use_case(cls, *, returns=UNSET, **overrides)` | Spy-specific wrapper. `returns=` stubs `instance.run` to return the given value. Calls `_adapt_use_case` internally. |
+| `adapt_projection` | `adapt_projection(cls, *, read_returns=UNSET, write_returns=UNSET, **overrides)` | Spy-specific wrapper. `read_returns=`/`write_returns=` stub projection methods. Calls `_adapt_projection` internally. |
 
 ### `port_stub`
 

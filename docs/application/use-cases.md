@@ -50,7 +50,7 @@ class CreateUserUseCase(UseCase):
 
 
 ```python
-uc = container.adapt_use_case(CreateUserUseCase)
+uc = container.adapt(CreateUserUseCase)
 user = uc.run(CreateUserInput(user_id="1", name="Alice", email="alice@example.com"))
 ```
 

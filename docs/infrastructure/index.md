@@ -63,7 +63,7 @@ class CreateUserHandler(CommandHandler[CreateUser]):
 
 # Define a container
 container = AdapterContainer(sessions={PostgresSession}, handlers=[CreateUserHandler])
-use_case = container.adapt_use_case(PlaceOrderUseCase)
+use_case = container.adapt(PlaceOrderUseCase)
 ```
 
 ## Key Concepts
@@ -102,7 +102,7 @@ Each subclass defines its own data interface — `RedisSession` exposes `get`/`s
 
 ### Projections
 
-Projections read and write data. Declare a concrete session type.
+Projections read and write data. Declare a concrete session type, with optional port dependencies.
 
 ```python
 from pydantic import BaseModel
@@ -145,7 +145,7 @@ Wire dependencies into use cases via the container:
 
 ```python
 container = AdapterContainer()
-use_case = container.adapt_use_case(CreateUserUseCase)
+use_case = container.adapt(CreateUserUseCase)
 ```
 
 ## Next Steps

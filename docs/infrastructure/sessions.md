@@ -120,7 +120,7 @@ postgres = PostgresSession()
 postgres.commit()  # CommitOutsideUnitOfWorkError!
 
 # Inside a UseCase it works fine:
-use_case = container.adapt_use_case(PlaceOrderUseCase)
+use_case = container.adapt(PlaceOrderUseCase)
 use_case.run(...)  # uow.commit() sets the flag → session.commit() succeeds
 ```
 
