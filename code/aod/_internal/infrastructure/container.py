@@ -66,6 +66,7 @@ def _is_session_annotation(tp: object) -> bool:
 class AdapterContainer(BaseBehaviour):
     sessions: set[type[Session] | type[AsyncSession]] = Field(default_factory=set)
     handlers: list[AnyHandler] = Field(default_factory=list)
+    ports: dict[type[Port], Port] = Field(default_factory=dict)
     _ports_by_name: dict[str, Port] = PrivateField(default_factory=dict)
     _sessions_needed: dict[type[Session] | type[AsyncSession], Session | AsyncSession] = (
         PrivateField(default_factory=dict)
@@ -95,9 +96,12 @@ class AdapterContainer(BaseBehaviour):
             tp = hints.get(name)
             if tp is None or not _is_port_type(tp):
                 continue
-            value = getattr(self, name)
+            value = object.__getattribute__(self, name)
             if isinstance(value, Port):
                 self._ports_by_name[name] = value
+
+    def _resolve_port_by_type(self, field_type: type[Port]) -> Port | None:
+        return self.ports.get(field_type)
 
     @staticmethod
     def _contract_from_handler(h_cls: AnyHandler) -> type[Command] | type[Query]:
@@ -209,9 +213,15 @@ class AdapterContainer(BaseBehaviour):
             field_type = field_info.annotation
             if field_type is None or not _is_port_type(field_type):
                 continue
-            if field_name not in self._ports_by_name:
-                raise PortNotFoundError(field_name)
-            kwargs[field_name] = self._ports_by_name[field_name]
+            if field_name in self._ports_by_name:
+                kwargs[field_name] = self._ports_by_name[field_name]
+                continue
+            if isinstance(field_type, type):
+                resolved = self._resolve_port_by_type(field_type)
+                if resolved is not None:
+                    kwargs[field_name] = resolved
+                    continue
+            raise PortNotFoundError(field_name)
 
     def _inject_handlers(self, use_case_cls: type[TUseCase], kwargs: dict[str, Any]) -> None:
         for field_name, field_info in use_case_cls.__model_fields__.items():

@@ -15,9 +15,10 @@ from aod._internal.infrastructure.container import AdapterContainer
 from aod._internal.infrastructure.handlers import AsyncCommandHandler
 from aod._internal.infrastructure.session import AsyncSession, Session
 from aod._internal.infrastructure.unit_of_work import AsyncUnitOfWork, UnitOfWork
-from aod.application import Command, Query
+from aod.application import Command, Query, UseCase
 from aod.domain import RootEntity
 from aod.infrastructure import CommandHandler, QueryHandler
+from pydantic import BaseModel as DTO
 
 
 class User(RootEntity):
@@ -365,3 +366,59 @@ class TestGetHandler:
         handler = container.get_handler(CreateUser)
         assert isinstance(handler, _ExactSessionHandler)
         assert isinstance(handler.session, Session)
+
+
+class _TestAdapterPort(Port):
+    pass
+
+
+class _TestAdapterPortImpl(_TestAdapterPort):
+    pass
+
+
+class TestPortsDict:
+    def test_ports_dict_resolves_by_type_in_use_case(self) -> None:
+        class _Container(AdapterContainer):
+            pass
+
+        class _UC(UseCase):
+            user_client: _TestAdapterPort
+
+            def run(self, dto: DTO) -> None: ...
+
+        impl = _TestAdapterPortImpl()
+        container = _Container(ports={_TestAdapterPort: impl})
+        uc = container.adapt_use_case(_UC)
+        assert isinstance(uc.user_client, _TestAdapterPortImpl)
+
+    def test_named_port_wins_over_ports_dict(self) -> None:
+        class _Container(AdapterContainer):
+            user_client: _TestAdapterPort
+
+        class _UC(UseCase):
+            user_client: _TestAdapterPort
+
+            def run(self, dto: DTO) -> None: ...
+
+        typed_impl = _TestAdapterPortImpl()
+        named_impl = _TestAdapterPortImpl()
+        container = _Container(
+            ports={_TestAdapterPort: typed_impl},
+            user_client=named_impl,
+        )
+        uc = container.adapt_use_case(_UC)
+        assert isinstance(uc.user_client, _TestAdapterPortImpl)
+
+    def test_ports_dict_optional(self) -> None:
+        class _Container(AdapterContainer):
+            my_port: _TestAdapterPort
+
+        class _UC(UseCase):
+            my_port: _TestAdapterPort
+
+            def run(self, dto: DTO) -> None: ...
+
+        impl = _TestAdapterPortImpl()
+        container = _Container(my_port=impl)
+        uc = container.adapt_use_case(_UC)
+        assert isinstance(uc.my_port, _TestAdapterPort)
