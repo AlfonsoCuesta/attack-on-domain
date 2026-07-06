@@ -86,9 +86,28 @@ class AdapterContainer(BaseBehaviour):
                 raise InvalidPortFieldError(name, str(tp))
 
     def __init__(self, **kwargs: Any) -> None:
-        super().__init__(**kwargs)
+        known = set(self.__class__.__model_fields__)
+        pydantic_kwargs = {k: v for k, v in kwargs.items() if k in known}
+        extra_ports = {
+            k: v for k, v in kwargs.items() if k not in known and isinstance(v, Port)
+        }
+
+        super().__init__(**pydantic_kwargs)
+
+        for name, value in extra_ports.items():
+            self._ports_by_name[name] = value
+
         self._validate_no_duplicate_handlers()
         self._build_port_index()
+
+    def copy(self, **overrides: Any) -> Self:
+        current = {}
+        for k in self.__model_fields__:
+            current[k] = getattr(self, k)
+        for name, value in self._ports_by_name.items():
+            current[name] = value
+        current.update(overrides)
+        return self.__class__(**current)
 
     def _build_port_index(self) -> None:
         hints = get_type_hints(self.__class__)
