@@ -388,7 +388,7 @@ class TestPortsDict:
 
         impl = _TestAdapterPortImpl()
         container = _Container(ports={_TestAdapterPort: impl})
-        uc = container.adapt_use_case(_UC)
+        uc = container.adapt(_UC)
         assert isinstance(uc.user_client, _TestAdapterPortImpl)
 
     def test_named_port_wins_over_ports_dict(self) -> None:
@@ -406,7 +406,7 @@ class TestPortsDict:
             ports={_TestAdapterPort: typed_impl},
             user_client=named_impl,
         )
-        uc = container.adapt_use_case(_UC)
+        uc = container.adapt(_UC)
         assert isinstance(uc.user_client, _TestAdapterPortImpl)
 
     def test_ports_dict_optional(self) -> None:
@@ -420,7 +420,7 @@ class TestPortsDict:
 
         impl = _TestAdapterPortImpl()
         container = _Container(my_port=impl)
-        uc = container.adapt_use_case(_UC)
+        uc = container.adapt(_UC)
         assert isinstance(uc.my_port, _TestAdapterPort)
 
     def test_base_container_with_named_ports(self) -> None:
@@ -434,7 +434,7 @@ class TestPortsDict:
             handlers=[],
             ports={_TestAdapterPort: impl},
         )
-        uc = container.adapt_use_case(_UC)
+        uc = container.adapt(_UC)
         assert isinstance(uc.orders_client, _TestAdapterPortImpl)
 
     def test_base_container_named_port_overrides_ports_dict(self) -> None:
@@ -451,6 +451,6 @@ class TestPortsDict:
             ports={_TestAdapterPort: typed_impl},
             primary=named_impl,
         )
-        uc = container.adapt_use_case(_UC)
+        uc = container.adapt(_UC)
         assert isinstance(uc.primary, _TestAdapterPortImpl)
         assert isinstance(uc.secondary, _TestAdapterPortImpl)

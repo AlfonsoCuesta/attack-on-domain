@@ -488,7 +488,7 @@ class TestContainerAndInjection:
             logger=NullLogger(),
             event_bus=NullEventBus(),
         )
-        uc = container.adapt_use_case(PlaceOrderUseCase)
+        uc = container.adapt(PlaceOrderUseCase)
         assert isinstance(uc.email_sender, FakeEmailSender)
         assert isinstance(uc.inventory, FakeInventoryClient)
 
@@ -502,7 +502,7 @@ class TestContainerAndInjection:
             logger=NullLogger(),
             event_bus=NullEventBus(),
         )
-        uc = container.adapt_use_case(PlaceOrderUseCase)
+        uc = container.adapt(PlaceOrderUseCase)
         uc.run()
         assert len(uc.events) >= 1
 
@@ -518,7 +518,7 @@ class TestContainerAndInjection:
             logger=logger,
             event_bus=bus,
         )
-        uc = container.adapt_use_case(PlaceOrderUseCase)
+        uc = container.adapt(PlaceOrderUseCase)
         uc.run()
         assert len(inventory.reserved) == 1
         assert len(email_sender.sent) == 1

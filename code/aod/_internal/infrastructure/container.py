@@ -39,6 +39,7 @@ AnyHandler = (
 
 TUseCase = TypeVar("TUseCase", bound=UseCase | AsyncUseCase)
 TProjection = TypeVar("TProjection", bound=ProjectionBase)
+TOperation = TypeVar("TOperation", bound=UseCase | AsyncUseCase | ProjectionBase)
 
 
 def _is_port_type(tp: object) -> bool:
@@ -205,7 +206,20 @@ class AdapterContainer(BaseBehaviour):
 
     # --- Dependency injection ---
 
-    def adapt_use_case(self, use_case_cls: type[TUseCase], **overrides: Any) -> TUseCase:
+    def adapt(
+        self,
+        operation_cls: type[TOperation],
+        **overrides: Any,
+    ) -> TOperation:
+        if issubclass(operation_cls, (UseCase, AsyncUseCase)):
+            return self._adapt_use_case(operation_cls, **overrides)
+        if issubclass(operation_cls, ProjectionBase):
+            return self._adapt_projection(operation_cls, **overrides)
+        raise TypeError(
+            f"Expected UseCase, AsyncUseCase, or ProjectionBase subclass, got {operation_cls.__name__}"
+        )
+
+    def _adapt_use_case(self, use_case_cls: type[TUseCase], **overrides: Any) -> TUseCase:
         container = self.with_adapters(**overrides) if overrides else self
 
         kwargs: dict[str, Any] = {
@@ -216,7 +230,7 @@ class AdapterContainer(BaseBehaviour):
         container._inject_handlers(use_case_cls, kwargs)
         return use_case_cls(**kwargs)
 
-    def adapt_projection(self, projection_cls: type[TProjection], **overrides: Any) -> TProjection:
+    def _adapt_projection(self, projection_cls: type[TProjection], **overrides: Any) -> TProjection:
         container = self.with_adapters(**overrides) if overrides else self
 
         kwargs: dict[str, Any] = {}
@@ -242,8 +256,8 @@ class AdapterContainer(BaseBehaviour):
                     continue
             raise PortNotFoundError(field_name)
 
-    def _inject_handlers(self, use_case_cls: type[TUseCase], kwargs: dict[str, Any]) -> None:
-        for field_name, field_info in use_case_cls.__model_fields__.items():
+    def _inject_handlers(self, operation_cls: type[BaseOperation], kwargs: dict[str, Any]) -> None:
+        for field_name, field_info in operation_cls.__model_fields__.items():
             if field_name in kwargs:
                 continue
             field_type = field_info.annotation
@@ -256,7 +270,7 @@ class AdapterContainer(BaseBehaviour):
                 continue
             args = get_args(field_type)
             if not args:
-                raise InvalidHandlerPortFieldError(field_name, use_case_cls.__name__)
+                raise InvalidHandlerPortFieldError(field_name, operation_cls.__name__)
             contract = args[0]
             if isinstance(contract, type) and issubclass(contract, (Command, Query)):
                 kwargs[field_name] = self.get_handler(contract)

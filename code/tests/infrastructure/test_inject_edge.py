@@ -54,9 +54,9 @@ class TestInjectAdapters:
 
         container = _EmptyContainer()
         with pytest.raises(PortNotFoundError):
-            container.adapt_use_case(_CustomPortUseCase)
+            container.adapt(_CustomPortUseCase)
 
     def test_with_custom_port_works(self) -> None:
         container = _PortContainer(my_port=_CustomPort())
-        uc = container.adapt_use_case(_UseCase)
+        uc = container.adapt(_UseCase)
         assert isinstance(uc.my_port, _CustomPort)

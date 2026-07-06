@@ -82,14 +82,14 @@ def _create_spy_adapter(container_cls: type[T]) -> type[T]:
         returns: Any = _UNSET,
         **kwargs: Any,
     ) -> Any:
-        instance = container_cls.adapt_use_case(self, use_case_cls, **kwargs)
+        instance = container_cls._adapt_use_case(self, use_case_cls, **kwargs)
         if returns is not _UNSET:
             stub = _make_callable_stub(instance.run)
             stub.returns(returns)
             object.__setattr__(instance, "run", stub)
         return instance
 
-    original_adapt_projection = container_cls.adapt_projection
+    original_adapt_projection = container_cls._adapt_projection
 
     def adapt_projection(
         self: Any,

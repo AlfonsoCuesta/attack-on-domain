@@ -424,7 +424,7 @@ class TestProjectionInjection:
             logger=NullLogger(),
             event_bus=NullEventBus(),
         )
-        p = container.adapt_projection(TestP)
+        p = container.adapt(TestP)
         assert isinstance(p.session, _TestSession)
         assert isinstance(p.logger, NullLogger)
         assert isinstance(p.event_bus, NullEventBus)
@@ -437,7 +437,7 @@ class TestProjectionInjection:
                 return "ok"
 
         container = ProjectionContainer(sessions={_TestSession})
-        p = container.adapt_projection(TestP)
+        p = container.adapt(TestP)
         assert isinstance(p.session, _TestSession)
 
     def test_inject_full_projection(self) -> None:
@@ -451,7 +451,7 @@ class TestProjectionInjection:
                 return "ok"
 
         container = ProjectionContainer(sessions={_TestSession})
-        p = container.adapt_projection(TestP)
+        p = container.adapt(TestP)
         assert isinstance(p.session, _TestSession)
 
     def test_inject_with_logger_and_event_bus(self) -> None:
@@ -470,7 +470,7 @@ class TestProjectionInjection:
             logger=logger,
             event_bus=bus,
         )
-        p = container.adapt_projection(TestP)
+        p = container.adapt(TestP)
         p.read(UserReadModel(user_id=1))
         completions = [e for e in logger.entries if "completed" in str(e.msg)]
         assert len(completions) >= 1
@@ -481,5 +481,5 @@ class TestProjectionInjection:
                 return "ok"
 
         container = ProjectionContainer()
-        p = container.adapt_projection(TestP)
+        p = container.adapt(TestP)
         p.read(UserReadModel(user_id=1))

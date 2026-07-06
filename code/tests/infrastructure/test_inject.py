@@ -113,7 +113,7 @@ class TestInjectAdapters:
 
         port = _FakePort()
         container = _CustomContainer(weather_client=port)
-        uc = container.adapt_use_case(PortUseCase)
+        uc = container.adapt(PortUseCase)
         assert isinstance(uc.weather_client, _FakePort)
 
     def test_injects_special_fields(self) -> None:
@@ -130,7 +130,7 @@ class TestInjectAdapters:
             event_bus=SpyEventBus(),
             cache=SpyCache(),
         )
-        uc = container.adapt_use_case(SimpleUseCase)
+        uc = container.adapt(SimpleUseCase)
         assert isinstance(uc.logger, SpyLogger)
         assert isinstance(uc.event_bus, SpyEventBus)
         assert isinstance(uc.cache, SpyCache)
@@ -144,7 +144,7 @@ class TestInjectAdapters:
         port = _FakePort()
         override_port = _FakePort()
         container = _CustomContainer(weather_client=port)
-        uc = container.adapt_use_case(PortUseCase, weather_client=override_port)
+        uc = container.adapt(PortUseCase, weather_client=override_port)
         assert isinstance(uc.weather_client, _FakePort)
 
     def test_raises_when_port_not_found(self) -> None:
@@ -155,7 +155,7 @@ class TestInjectAdapters:
 
         container = _CustomContainer(weather_client=_FakePort())
         with pytest.raises(PortNotFoundError, match="No port named"):
-            container.adapt_use_case(PortUseCase)
+            container.adapt(PortUseCase)
 
     def test_ignores_private_fields(self) -> None:
         class PrivateUseCase(UseCase):
@@ -164,7 +164,7 @@ class TestInjectAdapters:
             def run(self) -> None: ...
 
         container = _CustomContainer(weather_client=_FakePort())
-        uc = container.adapt_use_case(PrivateUseCase)
+        uc = container.adapt(PrivateUseCase)
         assert uc._internal == 42
 
     def test_ignores_fields_without_type_hints(self) -> None:
@@ -172,7 +172,7 @@ class TestInjectAdapters:
             def run(self) -> None: ...
 
         container = _CustomContainer(weather_client=_FakePort())
-        uc = container.adapt_use_case(NoHintUseCase)
+        uc = container.adapt(NoHintUseCase)
         assert uc.uow is not None
 
     def test_works_with_async_use_case(self) -> None:
@@ -183,7 +183,7 @@ class TestInjectAdapters:
 
         port = _FakePort()
         container = _CustomContainer(weather_client=port)
-        uc = container.adapt_use_case(AsyncPortUseCase)
+        uc = container.adapt(AsyncPortUseCase)
         assert isinstance(uc.weather_client, _FakePort)
 
     def test_injects_multiple_ports_of_same_type(self) -> None:
@@ -202,7 +202,7 @@ class TestInjectAdapters:
         user_cache = _UserCache()
         admin_cache = _AdminCache()
         container = _MultiCacheContainer(user_cache=user_cache, admin_cache=admin_cache)
-        uc = container.adapt_use_case(CacheUseCase)
+        uc = container.adapt(CacheUseCase)
         assert isinstance(uc.user_cache, _UserCache)
         assert isinstance(uc.admin_cache, _AdminCache)
 
@@ -223,7 +223,7 @@ class TestInjectProjection:
             event_bus=SpyEventBus(),
             cache=SpyCache(),
         )
-        p = container.adapt_projection(TestProjection)
+        p = container.adapt(TestProjection)
         assert isinstance(p.session, _SyncSession)
         assert isinstance(p.logger, SpyLogger)
 
@@ -235,7 +235,7 @@ class TestInjectProjection:
                 return "ok"
 
         container = _CustomContainer(weather_client=_FakePort(), sessions={_SyncSession})
-        p = container.adapt_projection(TestProjection)
+        p = container.adapt(TestProjection)
         assert isinstance(p.session, _SyncSession)
 
     def test_session_is_none_when_no_sessions(self) -> None:
@@ -244,7 +244,7 @@ class TestInjectProjection:
                 return "ok"
 
         container = _CustomContainer(weather_client=_FakePort())
-        container.adapt_projection(TestProjection)
+        container.adapt(TestProjection)
 
     def test_overrides_session(self) -> None:
         class TestProjection(ReadProjection):
@@ -255,5 +255,5 @@ class TestInjectProjection:
 
         override_session = _SyncSession()
         container = _CustomContainer(weather_client=_FakePort(), sessions={_SyncSession})
-        p = container.adapt_projection(TestProjection, session=override_session)
+        p = container.adapt(TestProjection, session=override_session)
         assert isinstance(p.session, _SyncSession)
