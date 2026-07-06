@@ -89,9 +89,7 @@ class AdapterContainer(BaseBehaviour):
     def __init__(self, **kwargs: Any) -> None:
         known = set(self.__class__.__model_fields__)
         pydantic_kwargs = {k: v for k, v in kwargs.items() if k in known}
-        extra_ports = {
-            k: v for k, v in kwargs.items() if k not in known and isinstance(v, Port)
-        }
+        extra_ports = {k: v for k, v in kwargs.items() if k not in known and isinstance(v, Port)}
 
         super().__init__(**pydantic_kwargs)
 
@@ -212,9 +210,9 @@ class AdapterContainer(BaseBehaviour):
         **overrides: Any,
     ) -> TOperation:
         if issubclass(operation_cls, (UseCase, AsyncUseCase)):
-            return self._adapt_use_case(operation_cls, **overrides)
+            return cast(TOperation, self._adapt_use_case(operation_cls, **overrides))
         if issubclass(operation_cls, ProjectionBase):
-            return self._adapt_projection(operation_cls, **overrides)
+            return cast(TOperation, self._adapt_projection(operation_cls, **overrides))
         raise TypeError(
             f"Expected UseCase, AsyncUseCase, or ProjectionBase subclass, got {operation_cls.__name__}"
         )
