@@ -4,7 +4,6 @@ from typing import cast
 
 import pytest
 from aod._internal.core.event_emitter import Event
-from aod._internal.core.infrastructure_exception import InvalidPortFieldError
 from aod._internal.infrastructure.commit_context import _CommitContext
 from aod._internal.infrastructure.projection import (
     AsyncProjection,
@@ -209,6 +208,8 @@ class TestWriteProjection:
 
     def test_write_can_commit_session(self) -> None:
         class CreateUser(WriteProjection):
+            session: _TestSession
+
             def write(self, model: UserWriteModel) -> str:
                 assert self.session is not None
                 self.session.commit()
@@ -221,6 +222,8 @@ class TestWriteProjection:
 
     def test_write_rolls_back_session_on_error(self) -> None:
         class FailingWrite(WriteProjection):
+            session: _TestSession
+
             def write(self, model: UserWriteModel) -> str:
                 raise ValueError("write failed")
 
@@ -408,6 +411,8 @@ class TestAsyncWriteProjection:
 
     async def test_write_can_commit_session(self) -> None:
         class CreateUser(AsyncWriteProjection):
+            session: _TestAsyncSession
+
             async def write(self, model: UserWriteModel) -> str:
                 assert self.session is not None
                 await cast(AsyncSession, self.session).commit()
@@ -420,6 +425,8 @@ class TestAsyncWriteProjection:
 
     async def test_write_rolls_back_session_on_error(self) -> None:
         class FailingWrite(AsyncWriteProjection):
+            session: _TestAsyncSession
+
             async def write(self, model: UserWriteModel) -> str:
                 raise ValueError("write failed")
 
@@ -462,6 +469,8 @@ class TestAsyncProjection:
 
     def test_write_rolls_back_on_error(self) -> None:
         class UserProjection(Projection):
+            session: _TestSession
+
             def read(self, model: DTO) -> str:
                 return "ok"
 
@@ -489,12 +498,18 @@ class TestAsyncProjection:
 
 
 class TestProjectionMultipleSessions:
-    def test_multiple_session_fields_raises_error(self) -> None:
-        with pytest.raises(InvalidPortFieldError, match="session"):
+    def test_multiple_session_fields_allowed(self) -> None:
+        read_session = _TestSession()
+        write_session = _TestSession()
 
-            class _Bad(ReadProjection):
-                session: Session
-                other_session: AsyncSession | None
+        class _Multi(ReadProjection):
+            read_session: _TestSession
+            write_session: _TestSession
 
-                def read(self, model: DTO) -> str:
-                    return "ok"
+            def read(self, model: DTO) -> str:
+                assert self.read_session is read_session
+                assert self.write_session is write_session
+                return "ok"
+
+        p = _Multi(read_session=read_session, write_session=write_session)
+        p.read(UserReadModel(user_id=1))

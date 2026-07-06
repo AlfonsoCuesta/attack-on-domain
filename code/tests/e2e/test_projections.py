@@ -3,7 +3,6 @@ from __future__ import annotations
 import pytest
 from aod._internal.core.event_emitter import Event
 from aod._internal.core.fields.fields import Field
-from aod._internal.core.infrastructure_exception import SessionNotFoundError
 from aod._internal.infrastructure.commit_context import _CommitContext
 from aod._internal.infrastructure.container import AdapterContainer
 from aod._internal.infrastructure.projection import (
@@ -217,10 +216,16 @@ class TestReadProjection:
         assert len(completions) >= 1
 
     def test_read_with_session(self) -> None:
+        class WithSession(ReadProjection):
+            session: _TestSession
+
+            def read(self, model: UserReadModel) -> dict:
+                return {"id": model.user_id}
+
         session = _TestSession()
-        p = GetUserProjection(session=session)
+        p = WithSession(session=session)
         p.read(UserReadModel(user_id=1))
-        assert isinstance(p.session, Session)
+        assert isinstance(p.session, _TestSession)
 
 
 class TestWriteProjection:
@@ -248,6 +253,8 @@ class TestWriteProjection:
         session = _TestSession()
 
         class FailingWrite(WriteProjection):
+            session: _TestSession
+
             def write(self, model: UserWriteModel) -> str:
                 raise ValueError("write failed")
 
@@ -366,6 +373,8 @@ class TestAsyncWriteProjection:
 
     async def test_write_rolls_back_on_error(self) -> None:
         class Failing(AsyncWriteProjection):
+            session: _TestAsyncSession
+
             async def write(self, model: UserWriteModel) -> str:
                 raise ValueError("async write failed")
 
@@ -402,30 +411,58 @@ class TestAsyncFullProjection:
 
 class TestProjectionInjection:
     def test_inject_read_projection(self) -> None:
+        class TestP(ReadProjection):
+            session: _TestSession
+            logger: Logger = Field(default_factory=NullLogger)
+            event_bus: EventBus = Field(default_factory=NullEventBus)
+
+            def read(self, model: UserReadModel) -> str:
+                return "ok"
+
         container = ProjectionContainer(
             sessions={_TestSession},
             logger=NullLogger(),
             event_bus=NullEventBus(),
         )
-        uc = container.adapt_projection(GetUserProjection)
-        p = uc
-        assert isinstance(p.session, Session)
+        p = container.adapt_projection(TestP)
+        assert isinstance(p.session, _TestSession)
         assert isinstance(p.logger, NullLogger)
         assert isinstance(p.event_bus, NullEventBus)
 
     def test_inject_write_projection(self) -> None:
+        class TestP(WriteProjection):
+            session: _TestSession
+
+            def write(self, model: UserWriteModel) -> str:
+                return "ok"
+
         container = ProjectionContainer(sessions={_TestSession})
-        uc = container.adapt_projection(CreateUserProjection)
-        p = uc
-        assert isinstance(p.session, Session)
+        p = container.adapt_projection(TestP)
+        assert isinstance(p.session, _TestSession)
 
     def test_inject_full_projection(self) -> None:
+        class TestP(Projection):
+            session: _TestSession
+
+            def read(self, model: UserReadModel) -> str:
+                return "ok"
+
+            def write(self, model: UserWriteModel) -> str:
+                return "ok"
+
         container = ProjectionContainer(sessions={_TestSession})
-        uc = container.adapt_projection(FullUserProjection)
-        p = uc
-        assert isinstance(p.session, Session)
+        p = container.adapt_projection(TestP)
+        assert isinstance(p.session, _TestSession)
 
     def test_inject_with_logger_and_event_bus(self) -> None:
+        class TestP(ReadProjection):
+            session: _TestSession
+            logger: Logger
+            event_bus: EventBus
+
+            def read(self, model: UserReadModel) -> str:
+                return "ok"
+
         logger = SpyLogger()
         bus = SpyEventBus()
         container = ProjectionContainer(
@@ -433,14 +470,16 @@ class TestProjectionInjection:
             logger=logger,
             event_bus=bus,
         )
-        uc = container.adapt_projection(GetUserProjection)
-        p = uc
+        p = container.adapt_projection(TestP)
         p.read(UserReadModel(user_id=1))
         completions = [e for e in logger.entries if "completed" in str(e.msg)]
         assert len(completions) >= 1
 
     def test_inject_without_session(self) -> None:
-        container = ProjectionContainer()
+        class TestP(ReadProjection):
+            def read(self, model: UserReadModel) -> str:
+                return "ok"
 
-        with pytest.raises(SessionNotFoundError):
-            container.adapt_projection(GetUserProjection)
+        container = ProjectionContainer()
+        p = container.adapt_projection(TestP)
+        p.read(UserReadModel(user_id=1))

@@ -2,30 +2,17 @@ from __future__ import annotations
 
 from abc import abstractmethod
 from functools import wraps
-from typing import Any, Callable, get_args, get_origin, get_type_hints
+from typing import Any, Callable
 
 from aod._internal.application.handler.handler import HandlerProtocol
 from aod._internal.core.async_utils import should_await
 from aod._internal.core.base_operation import BaseOperation
 from aod._internal.core.event_emitter import EventCollector
-from aod._internal.core.fields.fields import Field
-from aod._internal.core.infrastructure_exception import InvalidPortFieldError
+from aod._internal.core.fields.fields import PrivateField
 from aod._internal.infrastructure.commit_context import _CommitContext
 from aod._internal.infrastructure.session import AsyncSession, Session
 
 _PROJECTION_WRAPPED_KEY = "__aod_projection_wrapped__"
-
-
-def _is_session_type(tp: Any) -> bool:
-    if isinstance(tp, type) and issubclass(tp, (Session, AsyncSession)):
-        return True
-    origin = get_origin(tp)
-    if origin is not None:
-        return any(
-            isinstance(arg, type) and issubclass(arg, (Session, AsyncSession))
-            for arg in get_args(tp)
-        )
-    return False
 
 
 def _make_projection_wrapper(
@@ -42,8 +29,9 @@ def _make_projection_wrapper(
             token = _CommitContext.set(True) if is_write else None
             exception: BaseException | None = None
             try:
-                if is_write and self.session is not None:
-                    await should_await(self.session.begin())
+                if is_write:
+                    for session in self._sessions:
+                        await should_await(session.begin())
                 with EventCollector() as events:
                     try:
                         result = await should_await(fn(self, *args, **kwargs))
@@ -52,8 +40,9 @@ def _make_projection_wrapper(
                         result = None
                     self.events = list(events)
                 if exception is not None:
-                    if is_write and self.session is not None:
-                        await should_await(self.session.rollback())
+                    if is_write:
+                        for session in self._sessions:
+                            await should_await(session.rollback())
                     for logger in self._loggers:
                         await should_await(
                             logger.error(
@@ -91,8 +80,10 @@ def _make_projection_wrapper(
                     result = None
                 self.events = list(events)
             if exception is not None:
-                if is_write and self.session is not None and self.session.is_dirty():
-                    self.session.rollback()
+                if is_write:
+                    for session in self._sessions:
+                        if session.is_dirty():
+                            session.rollback()
                 for logger in self._loggers:
                     logger.error(
                         f"{type(self).__name__} {operation} failed with exception: {exception}"
@@ -117,17 +108,22 @@ def _make_projection_wrapper(
 class ProjectionBase(BaseOperation):
     __skip_port_check__ = True
     __not_allowed_port_types__ = (HandlerProtocol,)
-    session: Session | AsyncSession | None = None
+    _sessions: list[Session | AsyncSession] = PrivateField(default_factory=list)
+
+    def __init__(self, **kwargs: Any) -> None:
+        super().__init__(**kwargs)
+        self._collect_sessions()
 
     def __init_subclass__(cls, **kwargs: object) -> None:
-        hints = get_type_hints(cls)
-        session_fields = [name for name, tp in hints.items() if _is_session_type(tp)]
-        if len(session_fields) > 1:
-            raise InvalidPortFieldError(
-                session_fields[1],
-                str(hints[session_fields[1]]),
-            )
         super().__init_subclass__(**kwargs)
+
+    def _collect_sessions(self) -> None:
+        sessions: list[Session | AsyncSession] = []
+        for field_name in self.__model_fields__:
+            value = object.__getattribute__(self, field_name)
+            if isinstance(value, (Session, AsyncSession)):
+                sessions.append(value)
+        object.__setattr__(self, "_sessions", sessions)
 
 
 class ReadProjectionBase(ProjectionBase):
@@ -192,7 +188,6 @@ class AsyncWriteProjectionBase(ProjectionBase):
 
 class WriteProjection(WriteProjectionBase):
     __skip_port_check__ = True
-    session: Session | None = Field(default=None)
 
     @abstractmethod
     def write(self, *args: Any, **kwargs: Any) -> Any: ...
@@ -200,7 +195,6 @@ class WriteProjection(WriteProjectionBase):
 
 class ReadProjection(ReadProjectionBase):
     __skip_port_check__ = True
-    session: Session | None = Field(default=None)
 
     @abstractmethod
     def read(self, *args: Any, **kwargs: Any) -> Any: ...
@@ -218,7 +212,6 @@ class Projection(ReadProjection, WriteProjection):
 
 class AsyncReadProjection(AsyncReadProjectionBase):
     __skip_port_check__ = True
-    session: Session | AsyncSession | None = Field(default=None)
 
     @abstractmethod
     async def read(self, *args: Any, **kwargs: Any) -> Any: ...
@@ -226,7 +219,6 @@ class AsyncReadProjection(AsyncReadProjectionBase):
 
 class AsyncWriteProjection(AsyncWriteProjectionBase):
     __skip_port_check__ = True
-    session: Session | AsyncSession | None = Field(default=None)
 
     @abstractmethod
     async def write(self, *args: Any, **kwargs: Any) -> Any: ...

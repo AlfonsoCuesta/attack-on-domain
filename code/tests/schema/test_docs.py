@@ -760,7 +760,7 @@ class TestProjectionDoc:
         assert doc.name == "MyReadProjection"
         assert doc.projection_type == "ReadProjection"
         assert not doc.is_async
-        assert doc.session == "Session"
+        assert doc.session == ""
         assert doc.read is not None
         assert doc.read.name == "read"
         assert doc.write is None

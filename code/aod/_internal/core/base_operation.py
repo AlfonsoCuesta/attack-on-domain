@@ -83,7 +83,7 @@ class BaseOperation(BaseBehaviour):
         caches: list[Cache | AsyncCache] = []
 
         for field_name in self.__model_fields__:
-            value = getattr(self, field_name)
+            value = object.__getattribute__(self, field_name)
             if isinstance(value, (Logger, AsyncLogger)):
                 loggers.append(value)
             elif isinstance(value, (EventBus, AsyncEventBus)):

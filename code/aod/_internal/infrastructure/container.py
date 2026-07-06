@@ -59,6 +59,10 @@ def extract_port_type(tp: object) -> type[Port] | None:
     return None
 
 
+def _is_session_annotation(tp: object) -> bool:
+    return isinstance(tp, type) and issubclass(tp, (Session, AsyncSession))
+
+
 class AdapterContainer(BaseBehaviour):
     sessions: set[type[Session] | type[AsyncSession]] = Field(default_factory=set)
     handlers: list[AnyHandler] = Field(default_factory=list)
@@ -192,10 +196,9 @@ class AdapterContainer(BaseBehaviour):
     def adapt_projection(self, projection_cls: type[TProjection], **overrides: Any) -> TProjection:
         container = self.with_adapters(**overrides) if overrides else self
 
-        kwargs: dict[str, Any] = {
-            **container._inject_projection(projection_cls),
-        }
+        kwargs: dict[str, Any] = {}
 
+        container._inject_projection(projection_cls, kwargs)
         container._inject_ports(projection_cls, kwargs)
         return projection_cls(**kwargs)
 
@@ -229,6 +232,17 @@ class AdapterContainer(BaseBehaviour):
             if isinstance(contract, type) and issubclass(contract, (Command, Query)):
                 kwargs[field_name] = self.get_handler(contract)
 
-    def _inject_projection(self, projection_cls: type[ProjectionBase]) -> dict[str, Any]:
-        session_type = projection_cls.__model_fields__["session"].annotation
-        return {"session": self.get_session(session_type)}
+    def _inject_projection(
+        self, projection_cls: type[ProjectionBase], kwargs: dict[str, Any]
+    ) -> None:
+        if not self.sessions:
+            return
+        for field_name, field_info in projection_cls.__model_fields__.items():
+            if field_name in kwargs:
+                continue
+            field_type = field_info.annotation
+            if field_type is None:
+                continue
+            if not _is_session_annotation(field_type):
+                continue
+            kwargs[field_name] = self.get_session(field_type)
