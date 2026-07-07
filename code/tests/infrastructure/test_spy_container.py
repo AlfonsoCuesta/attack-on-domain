@@ -17,10 +17,10 @@ from aod._internal.infrastructure.projection import ReadProjection
 from aod._internal.infrastructure.session import AsyncSession, Session
 from aod._internal.infrastructure.unit_of_work import UnitOfWork
 from aod._internal.testing.doubles.infrastructure.container import spy_adapter_container
-from aod.testing.doubles import port_stub
 from aod.application import Command, Query
 from aod.domain import RootEntity
 from aod.infrastructure import CommandHandler, QueryHandler
+from aod.testing.doubles import port_stub
 from pydantic import BaseModel
 
 
@@ -125,7 +125,7 @@ def test_get_async_session_returns_stub_instance() -> None:
 def test_get_handler_returns_stub() -> None:
     original = _MyContainer(sessions={Session}, handlers=[GetUserHandler], weather=_FakePort())
     container = spy_adapter_container(original)
-    handler = cast(Any, container.get_handler(GetUser))
+    handler = container.get_handler(GetUser)
     assert isinstance(handler, GetUserHandler)
     handler.handle(GetUser(user_id=1))
     assert handler.handle.called
