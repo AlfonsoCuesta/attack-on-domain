@@ -79,9 +79,6 @@ class _AsyncSession(AsyncSession):
         return False
 
 
-
-
-
 class TestExtractPortType:
     def test_returns_port_type(self) -> None:
         assert extract_port_type(_FakePort) is _FakePort

@@ -30,8 +30,6 @@ class HandlerResultTypeError(InfrastructureException):
         super().__init__(f"{handler_name}.handle() returned {got}, expected {expected}")
 
 
-
-
 class PortNotFoundError(InfrastructureException):
     """No port with the requested name is registered on the container."""
 

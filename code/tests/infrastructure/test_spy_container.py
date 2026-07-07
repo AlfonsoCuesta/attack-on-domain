@@ -55,9 +55,6 @@ class _FakePort(Port):
     value: str = "default"
 
 
-
-
-
 def test_returns_instance_of_original_class() -> None:
     container = spy_adapter_container(AdapterContainer(weather=_FakePort()))
     assert isinstance(container, AdapterContainer)

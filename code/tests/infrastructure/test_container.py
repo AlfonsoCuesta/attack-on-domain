@@ -129,12 +129,6 @@ def test_named_port_accessible_via_get_port() -> None:
     assert isinstance(container.get_port("weather_client"), _FakePort)
 
 
-
-
-
-
-
-
 class TestGetPort:
     def test_finds_existing_port(self) -> None:
         port = _FakePort()
