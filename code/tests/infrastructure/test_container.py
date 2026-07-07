@@ -1,6 +1,9 @@
 from __future__ import annotations
 
+from typing import Any
+
 import pytest
+from aod._internal.application.handler import CommandPort
 from aod._internal.application.port import Port
 from aod._internal.core.fields.fields import Field
 from aod._internal.core.infrastructure_exception import (
@@ -13,6 +16,7 @@ from aod._internal.core.infrastructure_exception import (
 )
 from aod._internal.infrastructure.container import AdapterContainer
 from aod._internal.infrastructure.handlers import AsyncCommandHandler
+from aod._internal.infrastructure.projection import ReadProjection
 from aod._internal.infrastructure.session import AsyncSession, Session
 from aod._internal.infrastructure.unit_of_work import AsyncUnitOfWork, UnitOfWork
 from aod.application import Command, Query, UseCase
@@ -454,3 +458,130 @@ class TestPortsDict:
         uc = container.adapt(_UC)
         assert isinstance(uc.primary, _TestAdapterPortImpl)
         assert isinstance(uc.secondary, _TestAdapterPortImpl)
+
+
+# ── UoW ──
+
+
+def test_uow_with_mixed_sessions() -> None:
+    container = AdapterContainer(sessions={_SyncSession, _AsyncSession})
+    uow = container.get_uow()
+    assert isinstance(uow, AsyncUnitOfWork)
+
+
+# ── Sessions ──
+
+
+def test_get_session_caches_instances() -> None:
+    container = AdapterContainer(sessions={_SyncSession})
+    first = container.get_session(Session)
+    second = container.get_session(Session)
+    assert first is second
+
+
+def test_get_session_returns_concrete_class() -> None:
+    container = AdapterContainer(sessions={_SyncSession})
+    result = container.get_session(_SyncSession)
+    assert isinstance(result, _SyncSession)
+
+
+# ── copy / with_adapters ──
+
+
+def test_copy_preserves_port_values() -> None:
+    container = _CustomContainer(weather_client=_FakePort())
+    copied = container.with_adapters()
+    assert isinstance(copied.weather_client, _FakePort)
+
+
+# ── adapt UseCase ──
+
+
+def test_adapt_use_case_injects_uow() -> None:
+    class _UC(UseCase):
+        def run(self) -> None: ...
+
+    container = AdapterContainer()
+    uc = container.adapt(_UC)
+    assert isinstance(uc.uow, UnitOfWork)
+
+
+def test_adapt_use_case_injects_handler_ports() -> None:
+    class _UC(UseCase):
+        create: CommandPort[CreateUser]
+
+        def run(self, dto: DTO) -> None: ...
+
+    container = AdapterContainer(
+        handlers=[CreateUserHandler],
+        sessions={_SyncSession},
+    )
+    uc = container.adapt(_UC)
+    assert uc.create is not None
+
+
+def test_adapt_use_case_with_overrides() -> None:
+    class _UC(UseCase):
+        def run(self, dto: DTO) -> None: ...
+
+    container = AdapterContainer()
+    uc = container.adapt(_UC, sessions={_SyncSession})
+    assert container.sessions == set()
+    assert isinstance(uc.uow, UnitOfWork)
+
+
+# ── adapt Projection ──
+
+
+def test_adapt_projection_injects_session() -> None:
+    class _Proj(ReadProjection):
+        session: Session
+
+        def read(self, model: DTO) -> str:
+            return "ok"
+
+    container = AdapterContainer(sessions={_SyncSession})
+    proj = container.adapt(_Proj)
+    assert isinstance(proj.session, Session)
+
+
+def test_adapt_projection_injects_port() -> None:
+    class _Proj(ReadProjection):
+        weather_client: _FakePort
+
+        def read(self, model: DTO) -> str:
+            return "ok"
+
+    port = _FakePort()
+    container = _CustomContainer(weather_client=port)
+    proj = container.adapt(_Proj)
+    assert isinstance(proj.weather_client, _FakePort)
+
+
+def test_adapt_projection_without_ports_succeeds() -> None:
+    class _DTO(DTO):
+        pass
+
+    class _Proj(ReadProjection):
+        def read(self, model: _DTO) -> str:
+            return "ok"
+
+    container = AdapterContainer()
+    proj = container.adapt(_Proj)
+    assert proj.read(_DTO()) == "ok"
+
+
+# ── Error handling ──
+
+
+def _adapt_bad_type(container: Any, bad_cls: Any) -> Any:
+    return container.adapt(bad_cls)
+
+
+def test_adapt_raises_type_error() -> None:
+    class _NotAnOperation:
+        pass
+
+    container = AdapterContainer()
+    with pytest.raises(TypeError, match="Expected UseCase"):
+        _adapt_bad_type(container, _NotAnOperation)

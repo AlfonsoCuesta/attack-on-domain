@@ -280,3 +280,102 @@ def test_adapt_projection_runs_normally_without_stub() -> None:
     container = spy_adapter_container(AdapterContainer(sessions={Session}))
     proj = container.adapt(_TestReadProjection)
     assert proj.read(DTO()) == "original"
+
+
+# ── Session stub identity ──
+
+
+def test_get_session_stub_identity_with_get_session() -> None:
+    container = spy_adapter_container(_MyContainer(sessions={Session}, weather=_FakePort()))
+    stub = container.get_session_stub(Session)
+    session = container.get_session(Session)
+    assert stub is session
+
+
+# ── Handler stub caching ──
+
+
+def test_get_handler_stub_cached() -> None:
+    container = spy_adapter_container(
+        AdapterContainer(handlers=[GetUserHandler], sessions={Session})
+    )
+    first = container.get_handler(GetUser)
+    second = container.get_handler(GetUser)
+    assert first is second
+
+
+# ── stub_use_case with raises ──
+
+
+def test_stub_use_case_raises() -> None:
+    container = spy_adapter_container(
+        AdapterContainer(handlers=[UpdateNameHandler], sessions={Session})
+    )
+    container.stub_use_case(_UpdateNameUseCase, raises=ValueError("boom"))
+    uc = container.adapt(_UpdateNameUseCase)
+    with pytest.raises(ValueError, match="boom"):
+        uc.run(user_id=1, name="Alice")
+
+
+# ── Edge cases ──
+
+
+def test_spy_empty_container() -> None:
+    container = spy_adapter_container(AdapterContainer())
+    assert isinstance(container, AdapterContainer)
+
+
+def test_spy_handler_without_session() -> None:
+    class _NoSessionHandler(CommandHandler[_UpdateName]):
+        session: None = None
+
+        def handle(self, command: _UpdateName) -> None: ...
+
+    container = spy_adapter_container(AdapterContainer(handlers=[_NoSessionHandler]))
+    handler = container.get_handler(_UpdateName)
+    assert handler is not None
+
+
+def test_spy_adapt_projection_no_sessions() -> None:
+    container = spy_adapter_container(AdapterContainer())
+    proj = container.adapt(_TestReadProjection)
+    assert proj.read(DTO()) == "original"
+
+
+def _adapt_bad_type(container: Any, bad_cls: Any) -> Any:
+    return container.adapt(bad_cls)
+
+
+def test_spy_adapt_raises_type_error() -> None:
+    class _NotAnOperation:
+        pass
+
+    container = spy_adapter_container(AdapterContainer())
+    with pytest.raises(TypeError, match="Expected UseCase"):
+        _adapt_bad_type(container, _NotAnOperation)
+
+
+# ── stub_projection with raises ──
+
+
+def test_stub_projection_read_raises() -> None:
+    container = spy_adapter_container(AdapterContainer(sessions={Session}))
+    container.stub_projection(_TestReadProjection, read_raises=ValueError("fail"))
+    proj = container.adapt(_TestReadProjection)
+    with pytest.raises(ValueError, match="fail"):
+        proj.read(DTO())
+
+
+def test_stub_projection_write_raises() -> None:
+    class _Proj(ReadProjection):
+        def read(self, model: DTO) -> str:
+            return "read"
+
+        def write(self, model: DTO) -> str:
+            return "original"
+
+    container = spy_adapter_container(AdapterContainer(sessions={Session}))
+    container.stub_projection(_Proj, write_raises=ValueError("fail"))
+    proj = container.adapt(_Proj)
+    with pytest.raises(ValueError, match="fail"):
+        proj.write(DTO())
