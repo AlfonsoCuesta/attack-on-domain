@@ -134,10 +134,6 @@ class SyncUserUseCase(UseCase):
         self.save_handler.handle(SaveUser(user_id=user_id, name=name, email=email))
 
 
-class UserServiceContainer(AdapterContainer):
-    pass
-
-
 def test_multi_session_handlers_with_real_sessions() -> None:
     mongo = InMemoryMongoSession()
     psql = InMemoryPSQLSession()
@@ -175,7 +171,7 @@ def test_use_case_with_multi_session_handlers() -> None:
 
 
 def test_spy_bundle_tracks_handler_calls() -> None:
-    original = UserServiceContainer(
+    original = AdapterContainer(
         sessions={MongoSession, PSQLSession},
         handlers=[SaveUserHandler, GetUserHandler],
     )
@@ -193,7 +189,7 @@ def test_spy_bundle_tracks_handler_calls() -> None:
 
 
 def test_handlers_use_different_sessions() -> None:
-    original = UserServiceContainer(
+    original = AdapterContainer(
         sessions={MongoSession, PSQLSession},
         handlers=[SaveUserHandler, GetUserHandler],
     )

@@ -124,11 +124,8 @@ from aod.infrastructure import AdapterContainer
 from aod.testing.doubles import spy_adapter_container
 
 
-class TestContainer(AdapterContainer):
-    logger: Logger
-
 container = spy_adapter_container(
-    TestContainer(
+    AdapterContainer(
         sessions={MySession},
         handlers=[CreateUserHandler, GetUserHandler],
         logger=SpyLogger(),
@@ -136,17 +133,18 @@ container = spy_adapter_container(
 )
 
 # Configure session behavior
-container.get_session_stub(MySession).is_dirty.returns(True)
-container.get_session_stub(MySession).begin.always_returns(None)
+container.get_session_stub(MySession).is_dirty.return_value = True
+container.get_session_stub(MySession).begin.return_value = None
 
 # Configure port behavior (optional)
-container.get_port_stub("logger").info.always_returns(None)
+container.get_port_stub("logger").info.return_value = None
 
 # Configure handler stub
-container.get_handler_stub(CreateUserHandler).handle.returns(None)
+container.get_handler_stub(CreateUserHandler).handle.return_value = None
 
-# Inject and run
-use_case = container.adapt_use_case(CreateUserUseCase, returns=None)
+# Configure and inject
+container.stub_use_case(CreateUserUseCase, returns=None)
+use_case = container.adapt(CreateUserUseCase)
 use_case.run(user_id=1, name="Alice")
 
 # Assert handler was called
@@ -160,11 +158,11 @@ Access the stub for a given session class. Each stub method records calls and le
 
 ```python
 stub = container.get_session_stub(MySession)
-stub.is_dirty.returns(True)           # next call returns True
-stub.is_dirty.always_returns(False)   # always returns False
+stub.is_dirty.return_value = True      # always returns True
+stub.is_dirty.side_effect = [True, False]  # first True, then False
 stub.is_dirty.called                  # True if called at least once
 stub.is_dirty.call_count              # number of calls
-stub.is_dirty.calls                   # list of Params, each with .args() and .kwargs()
+stub.is_dirty.call_args_list          # list of call objects, each with .args and .kwargs
 stub.begin.called                     # tracks begin() too
 stub.commit.called                    # commit is called by the UseCase wrapper
 ```
@@ -174,14 +172,11 @@ stub.commit.called                    # commit is called by the UseCase wrapper
 Access the stub for a given port field name. Works with any `Port` subclass registered on the container:
 
 ```python
-class MyContainer(AdapterContainer):
-    logger: Logger
-
-container = spy_adapter_container(MyContainer(logger=SpyLogger()))
+container = spy_adapter_container(AdapterContainer(logger=SpyLogger()))
 stub = container.get_port_stub("logger")
-stub.info.always_returns(None)
+stub.info.return_value = None
 stub.info.called
-stub.info.calls
+stub.info.call_args_list
 ```
 
 ### `get_handler`
@@ -199,23 +194,27 @@ Access the handler stub for a given handler class. Works like `get_port_stub` fo
 
 ```python
 stub = container.get_handler_stub(CreateUserHandler)
-stub.handle.returns(None)
+stub.handle.return_value = None
 stub.handle.called
 ```
 
-### `adapt_use_case` with `returns=`
+### `stub_use_case` with `returns=` / `raises=`
 
-The `adapt_use_case` method accepts a `returns` keyword that stubs `instance.run` to return the given value:
+Configure a use case stub before calling `adapt`. `returns=` stubs `instance.run` to return the given value; `raises=` makes it raise an exception:
 
 ```python
-use_case = container.adapt_use_case(CreateUserUseCase, returns=42)
+container.stub_use_case(CreateUserUseCase, returns=42)
+use_case = container.adapt(CreateUserUseCase)
 result = use_case.run(user_id=1)  # returns 42
 ```
 
-### `adapt_projection` with `read_returns` / `write_returns`
+### `stub_projection` with `read_returns` / `read_raises` / `write_returns` / `write_raises`
+
+Configure a projection stub before calling `adapt`:
 
 ```python
-proj = container.adapt_projection(MyProjection, read_returns=[], write_returns=None)
+container.stub_projection(MyProjection, read_returns=[], write_returns=None)
+proj = container.adapt(MyProjection)
 proj.read(model)    # returns []
 proj.write(model)   # returns None
 ```
@@ -233,29 +232,29 @@ logger.info("test")
 assert logger.info.called
 ```
 
-Every public method on the port records calls and lets you configure return values. Each recorded call is a `Params` object with `.args()` and `.kwargs()`:
+Every stub method is a `unittest.mock.MagicMock` or `AsyncMock`. Configure return values and inspect calls with the standard mock API:
 
 ```python
 logger.info("message", user_id=1)
 assert logger.info.called
 assert logger.info.call_count == 1
-entry = logger.info.calls[0]
-entry.args()    # ("message",)
-entry.kwargs()  # {"user_id": 1}
+entry = logger.info.call_args_list[0]
+entry.args    # ("message",)
+entry.kwargs  # {"user_id": 1}
 ```
 
 ## Stub Control
 
-Every stub method provides the same control interface:
+Every stub method is a `unittest.mock` mock object:
 
-| Method / Property | Signature | Description |
-|-------------------|-----------|-------------|
-| `returns` | `returns(*values: Any) -> None` | Set sequential return values (consumed FIFO) |
-| `always_returns` | `always_returns(value: Any) -> None` | Set a constant return value for all calls |
-| `raises` | `raises(exc: Exception) -> None` | Raise an exception on the next call (consumed once) |
-| `called` | `property -> bool` | Whether the method was called at least once |
-| `call_count` | `property -> int` | Number of times the method was called |
-| `calls` | `property -> list[Params]` | All recorded calls, each exposing `.args()` and `.kwargs()` |
+| Property / Method | Description |
+|-------------------|-------------|
+| `.return_value = value` | Always return this value |
+| `.side_effect = exc` | Raise an exception |
+| `.side_effect = [v1, v2]` | Return different values on successive calls |
+| `.called` | Whether the method was called |
+| `.call_count` | Number of calls |
+| `.call_args_list` | List of `call` objects — each has `.args` and `.kwargs` |
 
 ## Spy Classes
 
@@ -307,7 +306,7 @@ from aod.testing.doubles import SpySession, SpyAsyncSession
 
 ```python
 session = SpySession()
-session.is_dirty.always_returns(False)
+session.is_dirty.return_value = False
 session.begin()
 session.commit()
 assert session.begin.called
@@ -365,7 +364,7 @@ from aod.testing.doubles import spy_adapter_container
 
 
 container = spy_adapter_container(AdapterContainer(sessions={MySession}, handlers=[CreateUserHandler, GetUserHandler]))
-use_case = container.adapt_use_case(CreateUserUseCase)
+use_case = container.adapt(CreateUserUseCase)
 use_case.run(user_id=1, name="Alice")
 
 assert_event_emitted(use_case.events, UserCreatedEvent, user_id=1)

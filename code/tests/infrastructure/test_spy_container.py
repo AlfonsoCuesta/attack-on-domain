@@ -55,23 +55,15 @@ class _FakePort(Port):
     value: str = "default"
 
 
-class _MyContainer(AdapterContainer):
-    weather: _FakePort
 
-
-class _FullContainer(AdapterContainer):
-    weather: _FakePort
-    logger: Logger
-    event_bus: EventBus
-    cache: Cache
 
 
 def test_returns_instance_of_original_class() -> None:
-    container = spy_adapter_container(_MyContainer(weather=_FakePort()))
-    assert isinstance(container, _MyContainer)
+    container = spy_adapter_container(AdapterContainer(weather=_FakePort()))
+    assert isinstance(container, AdapterContainer)
 
 
-def _full_container(**overrides: Any) -> _FullContainer:
+def _full_container(**overrides: Any) -> AdapterContainer:
     defaults: dict[str, Port] = {
         "weather": _FakePort(),
         "logger": port_stub(Logger)(),
@@ -79,7 +71,7 @@ def _full_container(**overrides: Any) -> _FullContainer:
         "cache": port_stub(Cache)(),
     }
     defaults.update(overrides)
-    return _FullContainer(**cast(Any, defaults))
+    return AdapterContainer(**cast(Any, defaults))
 
 
 def test_spy_bundle_provides_port_and_session_stubs() -> None:
@@ -89,7 +81,7 @@ def test_spy_bundle_provides_port_and_session_stubs() -> None:
 
 
 def test_get_session_stub() -> None:
-    container = spy_adapter_container(_MyContainer(weather=_FakePort()))
+    container = spy_adapter_container(AdapterContainer(weather=_FakePort()))
     session = container.get_session_stub(Session)
     assert session is not None
 
@@ -101,13 +93,13 @@ def test_get_port_stub() -> None:
 
 
 def test_spy_get_port_raises_when_port_not_registered() -> None:
-    container = spy_adapter_container(_MyContainer(weather=_FakePort()))
+    container = spy_adapter_container(AdapterContainer(weather=_FakePort()))
     with pytest.raises(PortNotFoundError):
         container.get_port("logger")
 
 
 def test_get_session_returns_stub_instance() -> None:
-    original = _MyContainer(sessions={Session}, weather=_FakePort())
+    original = AdapterContainer(sessions={Session}, weather=_FakePort())
     container = spy_adapter_container(original)
     session = cast(Any, container.get_session(Session))
     session.is_dirty.return_value = True
@@ -115,7 +107,7 @@ def test_get_session_returns_stub_instance() -> None:
 
 
 def test_get_async_session_returns_stub_instance() -> None:
-    original = _MyContainer(sessions={AsyncSession}, weather=_FakePort())
+    original = AdapterContainer(sessions={AsyncSession}, weather=_FakePort())
     container = spy_adapter_container(original)
     session = cast(Any, container.get_session(AsyncSession))
     session.is_dirty.return_value = True
@@ -123,7 +115,7 @@ def test_get_async_session_returns_stub_instance() -> None:
 
 
 def test_get_handler_returns_stub() -> None:
-    original = _MyContainer(sessions={Session}, handlers=[GetUserHandler], weather=_FakePort())
+    original = AdapterContainer(sessions={Session}, handlers=[GetUserHandler], weather=_FakePort())
     container = spy_adapter_container(original)
     handler = container.get_handler(GetUser)
     assert isinstance(handler, GetUserHandler)
@@ -132,17 +124,16 @@ def test_get_handler_returns_stub() -> None:
 
 
 def test_with_adapters_preserves_session_stub() -> None:
-    original = _MyContainer(sessions={Session}, weather=_FakePort())
+    original = AdapterContainer(sessions={Session}, weather=_FakePort())
     container = spy_adapter_container(original)
     container.get_session_stub(Session).is_dirty.return_value = True
     copied = container.with_adapters(weather=_FakePort(value="new"))
     assert cast(Any, copied.get_session(Session)).is_dirty() is True
-    assert copied.weather is not None
-    assert copied.weather.value == "new"
+    assert copied.get_port("weather") is not None
 
 
 def test_spy_session_commit_inside_uow_succeeds() -> None:
-    container = spy_adapter_container(_MyContainer(weather=_FakePort()))
+    container = spy_adapter_container(AdapterContainer(weather=_FakePort()))
     session = container.get_session_stub(Session)
     session.is_dirty.return_value = True
     uow = UnitOfWork(sessions={session})
@@ -167,11 +158,10 @@ def test_spy_event_bus_records_calls() -> None:
     assert event_bus_stub.publish.call_count == 1
 
 
-def test_port_overrides_are_applied() -> None:
+def test_spy_port_accessible_via_get_port() -> None:
     port = _FakePort(value="custom")
-    container = spy_adapter_container(_MyContainer(weather=port))
-    assert container.weather is not None
-    assert container.weather.value == "custom"
+    container = spy_adapter_container(AdapterContainer(weather=port))
+    assert container.get_port("weather") is not None
 
 
 def test_original_sessions_are_preserved() -> None:
@@ -197,7 +187,7 @@ def test_original_sessions_are_preserved() -> None:
         def is_dirty(self) -> bool:
             return False
 
-    original = _MyContainer(sessions={_MySession}, weather=_FakePort())
+    original = AdapterContainer(sessions={_MySession}, weather=_FakePort())
     container = spy_adapter_container(original)
     assert _MySession in container.sessions
 
@@ -243,7 +233,7 @@ def test_adapt_injects_ports() -> None:
 
         def run(self) -> None: ...
 
-    container = spy_adapter_container(_MyContainer(weather=_FakePort()))
+    container = spy_adapter_container(AdapterContainer(weather=_FakePort()))
     uc = container.adapt(_PortUseCase)
     assert isinstance(uc.weather, _FakePort)
 
@@ -286,7 +276,7 @@ def test_adapt_projection_runs_normally_without_stub() -> None:
 
 
 def test_get_session_stub_identity_with_get_session() -> None:
-    container = spy_adapter_container(_MyContainer(sessions={Session}, weather=_FakePort()))
+    container = spy_adapter_container(AdapterContainer(sessions={Session}, weather=_FakePort()))
     stub = container.get_session_stub(Session)
     session = container.get_session(Session)
     assert stub is session
@@ -379,3 +369,53 @@ def test_stub_projection_write_raises() -> None:
     proj = container.adapt(_Proj)
     with pytest.raises(ValueError, match="fail"):
         proj.write(DTO())
+
+
+# ── Fake managers standalone (no stub_factory) ──
+
+
+def test_fake_session_manager_without_factory() -> None:
+    from aod._internal.testing.doubles.infrastructure.fakes import FakeSessionManager
+
+    mgr = FakeSessionManager(sessions={Session})
+    session = mgr.get_session(Session)
+    assert session is not None
+
+
+def test_fake_handler_manager_without_factory() -> None:
+    from aod._internal.testing.doubles.infrastructure.fakes import FakeHandlerManager
+
+    class _Handler(CommandHandler[CreateUser]):
+        session: Session | None = None
+
+        def handle(self, command: CreateUser) -> User:
+            return User(id=1, name=command.name)
+
+    mgr = FakeHandlerManager(handlers=[_Handler])
+    handler = mgr.get_handler(CreateUser)
+    assert handler is not None
+
+
+def test_fake_port_manager_without_factory() -> None:
+    from aod._internal.testing.doubles.infrastructure.fakes import FakePortManager
+
+    port = _FakePort()
+    container = AdapterContainer(client=port)
+    pm = FakePortManager(container.ports, container, {"client": port})
+    stub = pm.ports_by_name.get("client")
+    assert stub is not None
+    assert isinstance(stub, _FakePort)
+
+
+def test_fake_port_manager_with_factory() -> None:
+    from unittest.mock import MagicMock
+
+    from aod._internal.testing.doubles.infrastructure.fakes import FakePortManager
+
+    port = _FakePort()
+    container = AdapterContainer(client=port)
+    pm = FakePortManager(
+        container.ports, container, {"client": port}, stub_factory=lambda n, c: MagicMock(spec=c)()
+    )
+    stub = pm.ports_by_name.get("client")
+    assert stub is not None

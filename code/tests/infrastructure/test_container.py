@@ -10,7 +10,6 @@ from aod._internal.core.infrastructure_exception import (
     DuplicateHandlerError,
     HandlerModelError,
     HandlerNotFoundError,
-    InvalidPortFieldError,
     PortNotFoundError,
     SessionNotFoundError,
 )
@@ -62,14 +61,6 @@ class _FakePort(Port):
 
 class _OtherPort(Port):
     pass
-
-
-class _NotAPort:
-    pass
-
-
-class _CustomContainer(AdapterContainer):
-    weather_client: _FakePort
 
 
 class _SyncSession(Session):
@@ -133,77 +124,38 @@ def test_copy_through_with_adapters() -> None:
     assert _SyncSession in copied.sessions
 
 
-def test_subclass_with_port_field_works() -> None:
-    container = _CustomContainer(weather_client=_FakePort())
-    assert isinstance(container.weather_client, _FakePort)
+def test_named_port_accessible_via_get_port() -> None:
+    container = AdapterContainer(weather_client=_FakePort())
+    assert isinstance(container.get_port("weather_client"), _FakePort)
 
 
-def test_subclass_with_port_field_default() -> None:
-    container = _CustomContainer(weather_client=_FakePort())
-    assert isinstance(container.weather_client, _FakePort)
 
 
-def test_subclass_non_port_field_raises_at_definition() -> None:
-    with pytest.raises(InvalidPortFieldError, match="must be a Port subclass"):
-
-        class _Bad(AdapterContainer):
-            bad_field: int
 
 
-def test_subclass_non_port_optional_raises() -> None:
-    with pytest.raises(InvalidPortFieldError, match="must be a Port subclass"):
-
-        class _Bad(AdapterContainer):
-            bad_field: str | None = None
-
-
-def test_inherited_fields_are_not_revalidated() -> None:
-    class _BaseContainer(AdapterContainer):
-        base_port: _FakePort
-
-    class _Custom(_BaseContainer):
-        base_port: _FakePort
-
-    port = _FakePort()
-    container = _Custom(base_port=port)
-    assert isinstance(container.base_port, _FakePort)
-
-
-def test_subclass_with_generic_port_field_works() -> None:
-    class _GenericContainer(AdapterContainer):
-        clients: list[_FakePort]
-
-    container = _GenericContainer(clients=[_FakePort()])
-    assert len(container.clients) == 1
 
 
 class TestGetPort:
     def test_finds_existing_port(self) -> None:
         port = _FakePort()
-        container = _CustomContainer(weather_client=port)
+        container = AdapterContainer(weather_client=port)
         result = container.get_port("weather_client")
         assert isinstance(result, _FakePort)
 
     def test_raises_when_port_not_found(self) -> None:
-        container = _CustomContainer(weather_client=_FakePort())
+        container = AdapterContainer(weather_client=_FakePort())
         with pytest.raises(PortNotFoundError, match="No port named"):
             container.get_port("other_port")
 
     def test_finds_port_with_plain_type(self) -> None:
-        class _PlainPortContainer(AdapterContainer):
-            client: _FakePort
-
         port = _FakePort()
-        container = _PlainPortContainer(client=port)
+        container = AdapterContainer(client=port)
         result = container.get_port("client")
         assert result is port
 
     def test_get_port_from_cache(self) -> None:
-        class _PlainPortContainer(AdapterContainer):
-            client: _FakePort
-
         port = _FakePort()
-        container = _PlainPortContainer(client=port)
+        container = AdapterContainer(client=port)
         result = container.get_port("client")
         assert result is port
 
@@ -382,23 +334,17 @@ class _TestAdapterPortImpl(_TestAdapterPort):
 
 class TestPortsDict:
     def test_ports_dict_resolves_by_type_in_use_case(self) -> None:
-        class _Container(AdapterContainer):
-            pass
-
         class _UC(UseCase):
             user_client: _TestAdapterPort
 
             def run(self, dto: DTO) -> None: ...
 
         impl = _TestAdapterPortImpl()
-        container = _Container(ports={_TestAdapterPort: impl})
+        container = AdapterContainer(ports={_TestAdapterPort: impl})
         uc = container.adapt(_UC)
         assert isinstance(uc.user_client, _TestAdapterPortImpl)
 
     def test_named_port_wins_over_ports_dict(self) -> None:
-        class _Container(AdapterContainer):
-            user_client: _TestAdapterPort
-
         class _UC(UseCase):
             user_client: _TestAdapterPort
 
@@ -406,7 +352,7 @@ class TestPortsDict:
 
         typed_impl = _TestAdapterPortImpl()
         named_impl = _TestAdapterPortImpl()
-        container = _Container(
+        container = AdapterContainer(
             ports={_TestAdapterPort: typed_impl},
             user_client=named_impl,
         )
@@ -414,16 +360,13 @@ class TestPortsDict:
         assert isinstance(uc.user_client, _TestAdapterPortImpl)
 
     def test_ports_dict_optional(self) -> None:
-        class _Container(AdapterContainer):
-            my_port: _TestAdapterPort
-
         class _UC(UseCase):
             my_port: _TestAdapterPort
 
             def run(self, dto: DTO) -> None: ...
 
         impl = _TestAdapterPortImpl()
-        container = _Container(my_port=impl)
+        container = AdapterContainer(my_port=impl)
         uc = container.adapt(_UC)
         assert isinstance(uc.my_port, _TestAdapterPort)
 
@@ -489,9 +432,9 @@ def test_get_session_returns_concrete_class() -> None:
 
 
 def test_copy_preserves_port_values() -> None:
-    container = _CustomContainer(weather_client=_FakePort())
+    container = AdapterContainer(weather_client=_FakePort())
     copied = container.with_adapters()
-    assert isinstance(copied.weather_client, _FakePort)
+    assert isinstance(copied.get_port("weather_client"), _FakePort)
 
 
 # ── adapt UseCase ──
@@ -553,7 +496,7 @@ def test_adapt_projection_injects_port() -> None:
             return "ok"
 
     port = _FakePort()
-    container = _CustomContainer(weather_client=port)
+    container = AdapterContainer(weather_client=port)
     proj = container.adapt(_Proj)
     assert isinstance(proj.weather_client, _FakePort)
 

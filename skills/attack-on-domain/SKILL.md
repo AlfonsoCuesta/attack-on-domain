@@ -688,10 +688,11 @@ container = AdapterContainer(
     email=EmailGateway(...),
 )
 
-# Or subclass to declare ports
-class AppContainer(AdapterContainer):
-    email: EmailGateway
-    logger: Logger
+# Or pass ports directly to the constructor
+container = AdapterContainer(
+    email=EmailGateway(...),
+    logger=SpyLogger(),
+)
 ```
 
 #### adapt
@@ -713,7 +714,7 @@ users = projection.read(UserSearch(user_id="1"))
 
 #### Overrides
 
-Both `adapt()` and spy container's `adapt_use_case()` accept keyword overrides to replace specific dependencies for testing:
+Both `adapt()` and spy container's `adapt()` accept keyword overrides to replace specific dependencies for testing:
 
 ```python
 container = AdapterContainer(

@@ -236,7 +236,7 @@ Use `spy_adapter_container` for testing use cases instead of mocking ports manua
 from aod.testing.doubles import spy_adapter_container
 
 container = spy_adapter_container(AdapterContainer(sessions={MySession}, handlers=[CreateUserHandler]))
-use_case = container.adapt_use_case(CreateUserUseCase)
+use_case = container.adapt(CreateUserUseCase)
 
 use_case.run(CreateUserInput(user_id="1", name="Alice", email="alice@example.com"))
 

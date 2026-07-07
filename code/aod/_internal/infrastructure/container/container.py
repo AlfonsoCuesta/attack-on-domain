@@ -1,12 +1,11 @@
 from __future__ import annotations
 
-from typing import Any, ClassVar, Self, cast, get_origin, get_type_hints
+from typing import Any, Self, cast
 
 from aod._internal.application.port import Port
 from aod._internal.application.use_case import AsyncUseCase, UseCase
 from aod._internal.core.base_behaviour import BaseBehaviour
 from aod._internal.core.fields.fields import Field, PrivateField
-from aod._internal.core.infrastructure_exception import InvalidPortFieldError
 from aod._internal.infrastructure.container.handler_manager import HandlerManager
 from aod._internal.infrastructure.container.port_manager import PortManager
 from aod._internal.infrastructure.container.session_manager import SessionManager
@@ -14,7 +13,6 @@ from aod._internal.infrastructure.container.types import (
     TOperation,
     TProjection,
     TUseCase,
-    _is_port_type,
     _is_session_annotation,
 )
 from aod._internal.infrastructure.projection import ProjectionBase
@@ -28,19 +26,6 @@ class AdapterContainer(BaseBehaviour):
     _session_manager: SessionManager = PrivateField()
     _handler_manager: HandlerManager = PrivateField()
     _port_manager: PortManager = PrivateField()
-
-    def __init_subclass__(cls, **kwargs: object) -> None:
-        super().__init_subclass__(**kwargs)
-        hints = get_type_hints(cls)
-        for name, tp in hints.items():
-            if (
-                name.startswith("_")
-                or name in AdapterContainer.__model_fields__
-                or get_origin(tp) is ClassVar
-            ):
-                continue
-            if not _is_port_type(tp):
-                raise InvalidPortFieldError(name, str(tp))
 
     def __init__(self, **kwargs: Any) -> None:
         known = set(self.__class__.__model_fields__)

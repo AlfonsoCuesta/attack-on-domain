@@ -10,19 +10,15 @@ class _CustomPort(Port):
     value: str = "default"
 
 
-class _MyContainer(AdapterContainer):
-    weather: _CustomPort
-
-
 def test_get_port_stub_cached() -> None:
-    container = spy_adapter_container(_MyContainer(weather=_CustomPort()))
+    container = spy_adapter_container(AdapterContainer(weather=_CustomPort()))
     first = container.get_port_stub("weather")
     second = container.get_port_stub("weather")
     assert first is second
 
 
 def test_get_session_stub_cached() -> None:
-    container = spy_adapter_container(_MyContainer(weather=_CustomPort()))
+    container = spy_adapter_container(AdapterContainer(weather=_CustomPort()))
     first = container.get_session_stub(Session)
     second = container.get_session_stub(Session)
     assert first is second

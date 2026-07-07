@@ -23,6 +23,9 @@ _UNSET = object()
 def spy_adapter_container(container: T) -> T:
     spy_cls = _create_spy_adapter(type(container))
     kwargs = {f: getattr(container, f) for f in container.__model_fields__}
+    for name in container._port_manager.ports_by_name:
+        if name not in kwargs:
+            kwargs[name] = container._port_manager.ports_by_name[name]
     return spy_cls(**kwargs)
 
 

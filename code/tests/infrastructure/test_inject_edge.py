@@ -30,10 +30,6 @@ class _CustomPortUseCase(UseCase):
         pass
 
 
-class _PortContainer(AdapterContainer):
-    my_port: _CustomPort
-
-
 class _UseCase(UseCase):
     my_port: _CustomPort
 
@@ -49,14 +45,11 @@ class TestExtractPortType:
 
 class TestInjectAdapters:
     def test_raises_when_port_not_found(self) -> None:
-        class _EmptyContainer(AdapterContainer):
-            pass
-
-        container = _EmptyContainer()
+        container = AdapterContainer()
         with pytest.raises(PortNotFoundError):
             container.adapt(_CustomPortUseCase)
 
     def test_with_custom_port_works(self) -> None:
-        container = _PortContainer(my_port=_CustomPort())
+        container = AdapterContainer(my_port=_CustomPort())
         uc = container.adapt(_UseCase)
         assert isinstance(uc.my_port, _CustomPort)

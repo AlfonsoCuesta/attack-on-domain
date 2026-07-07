@@ -4,7 +4,6 @@ from aod._internal.core.infrastructure_exception import (
     HandlerNotFoundError,
     HandlerResultTypeError,
     InfrastructureException,
-    InvalidPortFieldError,
     PortNotFoundError,
     SessionNotFoundError,
 )
@@ -15,7 +14,6 @@ __all__ = [
     "HandlerNotFoundError",
     "HandlerResultTypeError",
     "InfrastructureException",
-    "InvalidPortFieldError",
     "PortNotFoundError",
     "SessionNotFoundError",
 ]

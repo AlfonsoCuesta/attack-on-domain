@@ -133,7 +133,6 @@ def test_aod_infrastructure_exceptions_documented_api() -> None:
         "HandlerNotFoundError",
         "HandlerResultTypeError",
         "InfrastructureException",
-        "InvalidPortFieldError",
         "PortNotFoundError",
         "SessionNotFoundError",
     ]
@@ -156,7 +155,6 @@ def test_aod_exceptions_documented_api() -> None:
         "InvalidGenericTypeArgError",
         "InvalidHandlerPortFieldError",
         "InvalidNestedTypeError",
-        "InvalidPortFieldError",
         "InvalidQueryResultTypeError",
         "InvalidRootEntityTypeError",
         "InvalidServiceParameterError",

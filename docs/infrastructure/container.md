@@ -8,7 +8,7 @@
 from aod.infrastructure import AdapterContainer
 ```
 
-`AdapterContainer` is the dependency injection container. It can be used directly without subclassing, or subclassed to declare custom ports.
+`AdapterContainer` is the dependency injection container. It can be used directly without subclassing. Pass port instances as keyword arguments to the constructor.
 
 ### Constructor
 
@@ -117,13 +117,6 @@ When injecting ports into a use case or projection, the container resolves each 
 2. **Type-based fallback** — looks up the field's type annotation in `self.ports` dict.
 3. If neither resolves, raises `PortNotFoundError`.
 
-### Subclass Field Validation
-
-When a subclass is created, all declared fields are validated:
-
-- Fields must be `Port` subclasses (or `ClassVar` or inherited from `AdapterContainer`).
-- Non-port fields raise `InvalidPortFieldError`.
-
 ### Handler Validation
 
 The container enforces:
@@ -208,13 +201,10 @@ use_case = container.adapt(CreateUser)
 use_case.run(user_id=42, name="Alice")
 ```
 
-### Subclassed Container
+### Named Ports
 
 ```python
-class AppContainer(AdapterContainer):
-    logger: Logger
-
-container = AppContainer(
+container = AdapterContainer(
     sessions={MySession},
     handlers=[MyHandler],
     logger=SpyLogger(),
@@ -230,17 +220,19 @@ from aod.testing.doubles import spy_adapter_container
 
 container = spy_adapter_container(AdapterContainer(sessions={MySession}, handlers=[CreateUserHandler]))
 
-container.get_handler_stub(CreateUserHandler).handle.returns(None)
+container.get_handler_stub(CreateUserHandler).handle.return_value = None
 
-# Spy container has adapt_use_case/adapt_projection with returns/read_returns/write_returns
-use_case = container.adapt_use_case(CreateUserUseCase, returns=None)
+# Stub use case via stub_use_case before adapt
+container.stub_use_case(CreateUserUseCase, returns=None)
+use_case = container.adapt(CreateUserUseCase)
 use_case.run(user_id=42, name="Alice")
 
 assert container.get_handler(CreateUser).handle.called
 assert container.get_handler_stub(CreateUserHandler).handle.call_count == 1
 
-# Projection stubs
-proj = container.adapt_projection(UserProjection, read_returns=[])
+# Projection stubs via stub_projection before adapt
+container.stub_projection(UserProjection, read_returns=[])
+proj = container.adapt(UserProjection)
 result = proj.read(model)  # returns []
 ```
 

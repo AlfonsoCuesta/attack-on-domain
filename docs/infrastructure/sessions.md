@@ -167,11 +167,11 @@ from aod.testing.doubles import SpySession, SpyAsyncSession
 ```python
 spy = SpySession()
 
-spy.is_dirty.returns(True)           # next call returns True
-spy.is_dirty.always_returns(False)   # always returns False
+spy.is_dirty.return_value = True      # always returns True
+spy.is_dirty.side_effect = [True, False]  # first True, then False
 spy.is_dirty.called                  # True if called
 spy.is_dirty.call_count              # number of calls
-spy.is_dirty.calls                   # list of Params, each with .args() and .kwargs()
+spy.is_dirty.call_args_list          # list of call objects, each with .args and .kwargs
 spy.begin.called                     # tracks begin() too
 ```
 

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+
 from aod._internal.application.contracts import Command
 from aod._internal.core.fields.fields import Field
 from aod._internal.domain.entity import RootEntity
@@ -30,20 +31,23 @@ class TestAsyncHandler:
             async def handle(self, command: SaveUser) -> None:
                 pass
 
-        class _Container(AdapterContainer):
-            pass
-
-        container = _Container(handlers=[_AsyncHandler], sessions={StubAsyncSession})
+        container = AdapterContainer(handlers=[_AsyncHandler], sessions={StubAsyncSession})
         handler = container.get_handler(SaveUser)
         assert handler.session is not None
 
 
 class TestSessionCaching:
     def test_get_session_returns_cached_instance(self) -> None:
-        class _Container(AdapterContainer):
-            pass
-
-        container = _Container(sessions={StubSession})
+        container = AdapterContainer(sessions={StubSession})
         first = container.get_session(StubSession)
         second = container.get_session(StubSession)
         assert first is second
+
+
+def test_get_all_sessions() -> None:
+    container = AdapterContainer(sessions={StubSession})
+    container.get_session(StubSession)
+    sessions = container._session_manager.get_all_sessions()
+    assert isinstance(sessions, set)
+    assert len(sessions) == 1
+    assert next(iter(sessions)) is container._session_manager.get_session(StubSession)

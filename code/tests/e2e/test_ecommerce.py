@@ -218,13 +218,6 @@ class _SyncSession(Session):
         return False
 
 
-class EcommerceContainer(AdapterContainer):
-    email_sender: FakeEmailSender
-    inventory: FakeInventoryClient
-    logger: Logger
-    event_bus: EventBus
-
-
 # ===========================================================================
 # TESTS
 # ===========================================================================
@@ -471,19 +464,19 @@ class TestContainerAndInjection:
     def test_container_with_adapters(self) -> None:
         email_sender = FakeEmailSender()
         inventory = FakeInventoryClient()
-        container = EcommerceContainer(
+        container = AdapterContainer(
             email_sender=email_sender,
             inventory=inventory,
             logger=NullLogger(),
             event_bus=NullEventBus(),
         )
-        assert isinstance(container.email_sender, FakeEmailSender)
-        assert isinstance(container.inventory, FakeInventoryClient)
+        assert isinstance(container.get_port("email_sender"), FakeEmailSender)
+        assert isinstance(container.get_port("inventory"), FakeInventoryClient)
 
     def test_inject_adapters_into_use_case(self) -> None:
         email_sender = FakeEmailSender()
         inventory = FakeInventoryClient()
-        container = EcommerceContainer(
+        container = AdapterContainer(
             email_sender=email_sender,
             inventory=inventory,
             logger=NullLogger(),
@@ -496,7 +489,7 @@ class TestContainerAndInjection:
     def test_inject_with_session(self) -> None:
         email_sender = FakeEmailSender()
         inventory = FakeInventoryClient()
-        container = EcommerceContainer(
+        container = AdapterContainer(
             email_sender=email_sender,
             inventory=inventory,
             sessions={_SyncSession},
@@ -512,7 +505,7 @@ class TestContainerAndInjection:
         inventory = FakeInventoryClient()
         logger = port_stub(Logger)()
         bus = port_stub(EventBus)()
-        container = EcommerceContainer(
+        container = AdapterContainer(
             email_sender=email_sender,
             inventory=inventory,
             sessions={_SyncSession},

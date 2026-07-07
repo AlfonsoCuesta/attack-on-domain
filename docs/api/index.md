@@ -953,11 +953,11 @@ Each required lifecycle method records calls and lets you configure return value
 
 | Property | Type | Description |
 |----------|------|-------------|
-| `begin` | stub | Use `.called`, `.calls`, `.returns()`, `.always_returns()` |
-| `commit` | stub | Use `.called`, `.calls`, `.returns()`, `.always_returns()` |
-| `rollback` | stub | Use `.called`, `.calls`, `.returns()`, `.always_returns()` |
-| `close` | stub | Use `.called`, `.calls`, `.returns()`, `.always_returns()` |
-| `is_dirty` | stub | Pre-configured to `returns(False)`. Use `.returns()`, `.always_returns()` |
+| `begin` | stub | `unittest.mock` API: `.called`, `.call_count`, `.call_args_list`, `.return_value`, `.side_effect` |
+| `commit` | stub | `unittest.mock` API: `.called`, `.call_count`, `.call_args_list`, `.return_value`, `.side_effect` |
+| `rollback` | stub | `unittest.mock` API: `.called`, `.call_count`, `.call_args_list`, `.return_value`, `.side_effect` |
+| `close` | stub | `unittest.mock` API: `.called`, `.call_count`, `.call_args_list`, `.return_value`, `.side_effect` |
+| `is_dirty` | stub | Pre-configured to `return_value = False`. Use `.return_value`, `.side_effect` |
 
 SpyAsyncSession mirrors SpySession with async lifecycle methods.
 
@@ -983,8 +983,9 @@ Create a version of a container where sessions and ports are replaced with stubs
 | `get_port_stub` | `get_port_stub(name: str) -> Any` | Returns a stub for the port registered under the given field name |
 | `get_handler_stub` | `get_handler_stub(handler_cls) -> Any` | Returns a stub for the given handler class |
 | `get_handler` | `get_handler(contract) -> Any` | Returns the handler for a contract (handle is a stub) |
-| `adapt_use_case` | `adapt_use_case(cls, *, returns=UNSET, **overrides)` | Spy-specific wrapper. `returns=` stubs `instance.run` to return the given value. Calls `_adapt_use_case` internally. |
-| `adapt_projection` | `adapt_projection(cls, *, read_returns=UNSET, write_returns=UNSET, **overrides)` | Spy-specific wrapper. `read_returns=`/`write_returns=` stub projection methods. Calls `_adapt_projection` internally. |
+| `stub_use_case` | `stub_use_case(cls, *, returns=UNSET, raises=UNSET)` | Configure a use case stub before `adapt`. `returns=` stubs `instance.run` to return the given value; `raises=` makes it raise. |
+| `stub_projection` | `stub_projection(cls, *, read_returns=UNSET, read_raises=UNSET, write_returns=UNSET, write_raises=UNSET)` | Configure a projection stub before `adapt`. Stubs `read()` or `write()` to return or raise. |
+| `adapt` | `adapt(operation_cls, **overrides) -> operation` | Same as base container. Creates the operation with injected stubs. Call after `stub_use_case` or `stub_projection` to apply the configuration. |
 
 ### `port_stub`
 
@@ -996,16 +997,16 @@ Create a stub class from any `Port` subclass. Every public method records calls 
 
 ### Stub Control
 
-Every stub method provides:
+Every stub method is a `unittest.mock.MagicMock` (or `AsyncMock` for async methods):
 
 | Property / Method | Description |
 |-------------------|-------------|
-| `.returns(*values)` | Set sequential return values |
-| `.always_returns(value)` | Set a constant return value |
-| `.raises(exc)` | Raise an exception on the next call (consumed once) |
+| `.return_value = value` | Always return this value |
+| `.side_effect = exc` | Raise an exception |
+| `.side_effect = [v1, v2]` | Return different values on successive calls |
 | `.called` | Whether the method was called |
 | `.call_count` | Number of calls |
-| `.calls` | List of `Params` objects — each exposes `.args()` and `.kwargs()` |
+| `.call_args_list` | List of `call` objects — each has `.args` and `.kwargs` |
 
 ---
 
@@ -1021,7 +1022,7 @@ from aod.exceptions import (
     ApplicationException, UnresolvableEntityError, CommitOutsideUnitOfWorkError,
     InvalidUseCasePortFieldError, InvalidHandlerPortFieldError,
     InfrastructureException, HandlerResultTypeError, HandlerModelError,
-    PortNotFoundError, SessionNotFoundError, InvalidPortFieldError,
+    PortNotFoundError, SessionNotFoundError,
     DuplicateHandlerError, HandlerNotFoundError,
 )
 ```
@@ -1064,7 +1065,6 @@ from aod.exceptions import (
 | `HandlerModelError` | `InfrastructureException` | Handler missing required field. |
 | `PortNotFoundError` | `InfrastructureException` | No port of requested type registered. |
 | `SessionNotFoundError` | `InfrastructureException` | No session of requested type registered. |
-| `InvalidPortFieldError` | `InfrastructureException` | Field on container is not a Port type. |
 | `DuplicateHandlerError` | `InfrastructureException` | Duplicate handler for same contract. |
 | `HandlerNotFoundError` | `InfrastructureException` | No handler for given contract. |
 

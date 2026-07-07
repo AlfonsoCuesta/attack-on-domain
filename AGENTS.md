@@ -107,12 +107,12 @@ class SqlSession(Session):
     def is_dirty(self) -> bool: return False
 
 # Handlers use YOUR session type
-class PlaceOrderHandler(InfraCommandPort[PlaceOrder]):
+class PlaceOrderHandler(InfraCommandHandler[PlaceOrder]):
     session: SqlSession  # Concrete type — injected by container
     def handle(self, command: PlaceOrder) -> None:
         self.session.execute(...)
 
-class GetOrderHandler(InfraQueryPort[GetOrder]):
+class GetOrderHandler(InfraQueryHandler[GetOrder]):
     session: SqlSession  # Concrete type — injected by container
     def handle(self, query: GetOrder) -> Order | None:
         return self.session.query(...)
@@ -298,16 +298,29 @@ code/
 │   │   │   ├── __init__.py
 │   │   │   ├── models.py         # ReadModel(BaseSealed), WriteModel(BaseSealed)
 │   │   │   └── projection.py     # ProjectionBase, ReadProjectionBase, WriteProjectionBase, ReadProjection, WriteProjection, Projection, AsyncReadProjection, AsyncWriteProjection, AsyncProjection
+│   │   ├── container/            # AdapterContainer, PortManager, SessionManager, HandlerManager
+│   │   │   ├── __init__.py
+│   │   │   ├── container.py      # AdapterContainer orchestrator
+│   │   │   ├── types.py          # Type helpers and aliases
+│   │   │   ├── port_manager.py   # Port index, resolution, injection
+│   │   │   ├── session_manager.py  # Session lifecycle, UoW creation
+│   │   │   └── handler_manager.py  # Handler discovery, validation, instantiation
 │       └── testing/                  # Testing utilities (implementation)
 │           ├── __init__.py           # Re-exports: DomainType, FakeDomain, build, helpers
 │           ├── helpers.py            # build(), events_of(), assert_event_emitted(), etc.
 │           ├── doubles/              # Spy implementations
 │           │   ├── __init__.py       # Re-exports all (sync + async)
+│           │   ├── stubs.py          # port_stub() generator
 │           │   ├── async_/
 │           │   │   └── __init__.py   # Re-exports async spies from application
-│           │   └── application/
+│           │   ├── application/
+│           │   │   ├── __init__.py
+│           │   │   └── spies.py      # All Spy* classes via port_stub (replaces 4 hand-written files)
+│           │   └── infrastructure/
 │           │       ├── __init__.py
-│           │       └── spies.py      # All Spy* classes via port_stub (replaces 4 hand-written files)
+│           │       ├── container.py  # SpyAdapterContainer
+│           │       ├── fakes.py      # FakeSessionManager, FakeHandlerManager, FakePortManager
+│           │       └── session.py    # SpySession, SpyAsyncSession
 │           └── faker/
 │               ├── __init__.py
 │               └── faker.py          # DomainType, FakeDomain
@@ -641,7 +654,7 @@ The hierarchy:
 **`ApplicationException` subclasses:**
 - `UnresolvableEntityError` — cannot determine `RootEntity` from Command/Query
 - `CommitOutsideUnitOfWorkError` — commit attempted outside a `UnitOfWork` context
-- `InvalidUseCasePortFieldError` — UseCase field is not a `Port` subclass (renamed from `InvalidPortFieldError` in the application layer)
+- `InvalidUseCasePortFieldError` — UseCase field is not a `Port` subclass
 - `InvalidHandlerPortFieldError` — `HandlerProtocol` port on a UseCase is missing its generic type argument
 
 **`InfrastructureException` subclasses:**
@@ -649,8 +662,6 @@ The hierarchy:
 - `HandlerModelError` — handler class is missing a required field
 - `PortNotFoundError` — no port of the requested type is registered on the container
 - `SessionNotFoundError` — no session of the requested type is registered on the container
-- `InvalidPortFieldError` — a field on an `AdapterContainer` subclass is not a Port type
-
 > For details on when each is raised, see `docs/core/exceptions.md`.
 
 ### Public/Private Layer Separation
@@ -831,12 +842,15 @@ aod/_internal/testing/
 ├── helpers.py                      # build(), events_of(), assert_event_emitted()
 ├── doubles/
 │   ├── __init__.py                 # Re-exports all (sync + async)
+│   ├── stubs.py                    # port_stub() generator
 │   ├── async_/__init__.py          # Async spy re-exports
 │   ├── application/
 │   │   ├── __init__.py
 │   │   └── spies.py                # All Spy* classes via port_stub
 │   └── infrastructure/
 │       ├── __init__.py
+│       ├── container.py            # SpyAdapterContainer
+│       ├── fakes.py                # FakeSessionManager, FakeHandlerManager, FakePortManager
 │       └── session.py              # SpySession, SpyAsyncSession
 └── faker/
     ├── __init__.py
@@ -892,7 +906,7 @@ uv run pytest code/tests -q
 - If you change the application layer, update `port.py` and/or `use_case.py` and verify `test_port.py` / `test_use_case.py`
 - If you change the UnitOfWork, update `unit_of_work.py` (sync + async) and verify `test_port.py` / `test_async_port.py` (includes `is_dirty` tests)
 - If you change async counterparts (aggregated in `aod.application.async_` / `aod.infrastructure.async_`), update both sync and async test files
-- If you change the container, update `container.py` and verify `test_container.py`, `test_inject.py`, and container-related e2e tests
+- If you change the container, update files in `container/` package (container.py, port_manager.py, session_manager.py, handler_manager.py, types.py) and verify `test_container.py`, `test_inject.py`, and container-related e2e tests
 - Always add `__all__` to every `__init__.py` and `async_.py` to avoid `F401` lint warnings
 - Always run all tests before committing
 - `Event.emitted_at` is the timestamp field.
@@ -909,7 +923,7 @@ uv run pytest code/tests -q
 
 ## Test Count
 
-1066 tests (no `patch`/`mock.patch` in any test file)
+1084 tests, 3 skipped (no `patch`/`mock.patch` in any test file)
 
 ## At the end of a task
 

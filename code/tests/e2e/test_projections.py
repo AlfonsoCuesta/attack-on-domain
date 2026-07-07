@@ -159,11 +159,6 @@ class AsyncFullUserProjection(AsyncProjection):
 # ---------------------------------------------------------------------------
 
 
-class ProjectionContainer(AdapterContainer):
-    logger: Logger = Field(default_factory=NullLogger)
-    event_bus: EventBus = Field(default_factory=NullEventBus)
-
-
 # ===========================================================================
 # TESTS
 # ===========================================================================
@@ -419,7 +414,7 @@ class TestProjectionInjection:
             def read(self, model: UserReadModel) -> str:
                 return "ok"
 
-        container = ProjectionContainer(
+        container = AdapterContainer(
             sessions={_TestSession},
             logger=NullLogger(),
             event_bus=NullEventBus(),
@@ -436,7 +431,7 @@ class TestProjectionInjection:
             def write(self, model: UserWriteModel) -> str:
                 return "ok"
 
-        container = ProjectionContainer(sessions={_TestSession})
+        container = AdapterContainer(sessions={_TestSession})
         p = container.adapt(TestP)
         assert isinstance(p.session, _TestSession)
 
@@ -450,7 +445,7 @@ class TestProjectionInjection:
             def write(self, model: UserWriteModel) -> str:
                 return "ok"
 
-        container = ProjectionContainer(sessions={_TestSession})
+        container = AdapterContainer(sessions={_TestSession})
         p = container.adapt(TestP)
         assert isinstance(p.session, _TestSession)
 
@@ -465,7 +460,7 @@ class TestProjectionInjection:
 
         logger = port_stub(Logger)()
         bus = port_stub(EventBus)()
-        container = ProjectionContainer(
+        container = AdapterContainer(
             sessions={_TestSession},
             logger=logger,
             event_bus=bus,
@@ -480,6 +475,6 @@ class TestProjectionInjection:
             def read(self, model: UserReadModel) -> str:
                 return "ok"
 
-        container = ProjectionContainer()
+        container = AdapterContainer()
         p = container.adapt(TestP)
         p.read(UserReadModel(user_id=1))
