@@ -110,7 +110,7 @@ def test_get_session_returns_stub_instance() -> None:
     original = _MyContainer(sessions={Session}, weather=_FakePort())
     container = spy_adapter_container(original)
     session = cast(Any, container.get_session(Session))
-    session.is_dirty.returns(True)
+    session.is_dirty.return_value = True
     assert session.is_dirty() is True
 
 
@@ -118,7 +118,7 @@ def test_get_async_session_returns_stub_instance() -> None:
     original = _MyContainer(sessions={AsyncSession}, weather=_FakePort())
     container = spy_adapter_container(original)
     session = cast(Any, container.get_session(AsyncSession))
-    session.is_dirty.returns(True)
+    session.is_dirty.return_value = True
     assert session.is_dirty() is True
 
 
@@ -134,7 +134,7 @@ def test_get_handler_returns_stub() -> None:
 def test_with_adapters_preserves_session_stub() -> None:
     original = _MyContainer(sessions={Session}, weather=_FakePort())
     container = spy_adapter_container(original)
-    container.get_session_stub(Session).is_dirty.returns(True)
+    container.get_session_stub(Session).is_dirty.return_value = True
     copied = container.with_adapters(weather=_FakePort(value="new"))
     assert cast(Any, copied.get_session(Session)).is_dirty() is True
     assert copied.weather is not None
@@ -144,7 +144,7 @@ def test_with_adapters_preserves_session_stub() -> None:
 def test_spy_session_commit_inside_uow_succeeds() -> None:
     container = spy_adapter_container(_MyContainer(weather=_FakePort()))
     session = container.get_session_stub(Session)
-    session.is_dirty.returns(True)
+    session.is_dirty.return_value = True
     uow = UnitOfWork(sessions={session})
     uow.commit()
 
@@ -154,7 +154,7 @@ def test_spy_logger_records_calls() -> None:
     logger_stub = container.get_port_stub("logger")
     logger_stub.info("test message")
     assert logger_stub.info.call_count == 1
-    assert logger_stub.info.calls[0].args() == ("test message",)
+    assert logger_stub.info.call_args_list[0].args == ("test message",)
 
 
 def test_spy_event_bus_records_calls() -> None:
@@ -218,32 +218,33 @@ class UpdateNameHandler(CommandHandler[_UpdateName]):
     def handle(self, command: _UpdateName) -> None: ...
 
 
-def test_adapt_use_case_with_returns_stubs_run_method() -> None:
+def test_stub_use_case_returns_value() -> None:
     container = spy_adapter_container(
         AdapterContainer(handlers=[UpdateNameHandler], sessions={Session})
     )
-    uc = container.adapt_use_case(_UpdateNameUseCase, returns=42)
+    container.stub_use_case(_UpdateNameUseCase, returns=42)
+    uc = container.adapt(_UpdateNameUseCase)
     result = uc.run(user_id=1, name="Alice")
     assert result == 42
 
 
-def test_adapt_use_case_without_returns_runs_normally() -> None:
+def test_adapt_runs_normally_without_stub() -> None:
     container = spy_adapter_container(
         AdapterContainer(handlers=[UpdateNameHandler], sessions={Session})
     )
-    uc = container.adapt_use_case(_UpdateNameUseCase)
+    uc = container.adapt(_UpdateNameUseCase)
     result = uc.run(user_id=1, name="Alice")
     assert result is None
 
 
-def test_adapt_use_case_without_returns_works_normally() -> None:
+def test_adapt_injects_ports() -> None:
     class _PortUseCase(UseCase):
         weather: _FakePort
 
         def run(self) -> None: ...
 
     container = spy_adapter_container(_MyContainer(weather=_FakePort()))
-    uc = container.adapt_use_case(_PortUseCase)
+    uc = container.adapt(_PortUseCase)
     assert isinstance(uc.weather, _FakePort)
 
 
@@ -252,14 +253,15 @@ class _TestReadProjection(ReadProjection):
         return "original"
 
 
-def test_adapt_projection_with_read_returns() -> None:
+def test_stub_projection_read_returns() -> None:
     container = spy_adapter_container(AdapterContainer(sessions={Session}))
-    proj = container.adapt_projection(_TestReadProjection, read_returns="spied")
+    container.stub_projection(_TestReadProjection, read_returns="spied")
+    proj = container.adapt(_TestReadProjection)
     result = proj.read(DTO())
     assert result == "spied"
 
 
-def test_adapt_projection_with_write_returns() -> None:
+def test_stub_projection_write_returns() -> None:
     class _TestWriteProjection(ReadProjection):
         def read(self, model: DTO) -> str:
             return "read"
@@ -268,12 +270,13 @@ def test_adapt_projection_with_write_returns() -> None:
             return "original"
 
     container = spy_adapter_container(AdapterContainer(sessions={Session}))
-    proj = container.adapt_projection(_TestWriteProjection, write_returns="spied")
+    container.stub_projection(_TestWriteProjection, write_returns="spied")
+    proj = container.adapt(_TestWriteProjection)
     result = proj.write(DTO())
     assert result == "spied"
 
 
-def test_adapt_projection_without_stubs_works_normally() -> None:
+def test_adapt_projection_runs_normally_without_stub() -> None:
     container = spy_adapter_container(AdapterContainer(sessions={Session}))
-    proj = container.adapt_projection(_TestReadProjection)
+    proj = container.adapt(_TestReadProjection)
     assert proj.read(DTO()) == "original"

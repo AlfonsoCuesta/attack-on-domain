@@ -10,14 +10,13 @@ from .application import (
 )
 from .infrastructure import SpySession, spy_adapter_container
 from .infrastructure.session import session_stub
-from .stubs import Params, port_stub
+from .stubs import port_stub
 
 __all__ = [
     "AsyncSpyCache",
     "AsyncSpyEventBus",
     "AsyncSpyLogger",
     "AsyncSpyUnitOfWork",
-    "Params",
     "SpyCache",
     "SpyEventBus",
     "SpyLogger",

@@ -18,19 +18,26 @@ _UNSET = object()
 def spy_adapter_container(container: T) -> T:
     """Create a spy version of an AdapterContainer.
 
-    Sessions are replaced by stubs. Configure stubs via
-    ``get_port_stub`` and ``get_session_stub``::
+    Sessions, ports, and handlers are replaced by stubs. Configure stubs
+    via ``get_port_stub`` and ``get_session_stub``::
 
         container = spy_adapter_container(MyContainer())
-        container.get_session_stub(Session).is_dirty.returns(True)
-        container.get_port_stub("logger").info.returns(None)
+        container.get_session_stub(Session).is_dirty.return_value = True
+        container.get_port_stub("logger").info.return_value = None
         handler = container.get_handler(GetUser)
         handler.handle(GetUser(user_id=1))
 
-    ``adapt_projection`` accepts extra keyword arguments for configuring stub
-    return values::
+    Stub use case return values with ``stub_use_case`` before ``adapt``::
 
-        proj = container.adapt_projection(MyProjection, read_returns=12, write_returns=11)
+        container.stub_use_case(MyUseCase, returns=42)
+        uc = container.adapt(MyUseCase)
+        uc.run(...)  # returns 42
+
+    Stub projection methods with ``stub_projection`` before ``adapt``::
+
+        container.stub_projection(MyProjection, read_returns="spied")
+        proj = container.adapt(MyProjection)
+        proj.read(DTO())  # returns "spied"
     """
     spy_cls = _create_spy_adapter(type(container))
     kwargs = {f: getattr(container, f) for f in container.__model_fields__}
@@ -75,42 +82,75 @@ def _create_spy_adapter(container_cls: type[T]) -> type[T]:
         stub = self._handler_stubs[handler]
         return stub
 
-    def adapt_use_case(
+    def _apply_stub(stub: Any, *, returns: Any = _UNSET, raises: Any = _UNSET) -> None:
+        if raises is not _UNSET:
+            stub.side_effect = raises
+        elif returns is not _UNSET:
+            stub.return_value = returns
+
+    def stub_use_case(
         self: Any,
         use_case_cls: type[UseCase | AsyncUseCase],
         *,
         returns: Any = _UNSET,
-        **kwargs: Any,
-    ) -> Any:
-        instance = container_cls._adapt_use_case(self, use_case_cls, **kwargs)
-        if returns is not _UNSET:
-            stub = _make_callable_stub(instance.run)
-            stub.returns(returns)
-            object.__setattr__(instance, "run", stub)
-        return instance
+        raises: Any = _UNSET,
+    ) -> None:
+        self._use_case_stubs[use_case_cls] = dict(returns=returns, raises=raises)
 
-    original_adapt_projection = container_cls._adapt_projection
-
-    def adapt_projection(
+    def stub_projection(
         self: Any,
         projection_cls: type[ProjectionBase],
         *,
         read_returns: Any = _UNSET,
+        read_raises: Any = _UNSET,
         write_returns: Any = _UNSET,
+        write_raises: Any = _UNSET,
+    ) -> None:
+        self._projection_stubs[projection_cls] = dict(
+            read_returns=read_returns,
+            read_raises=read_raises,
+            write_returns=write_returns,
+            write_raises=write_raises,
+        )
+
+    def adapt(
+        self: Any,
+        operation_cls: type[UseCase | AsyncUseCase | ProjectionBase],
         **kwargs: Any,
     ) -> Any:
-        proj = original_adapt_projection(self, projection_cls, **kwargs)
-        if read_returns is not _UNSET and getattr(proj, "read"):
-            stub = _make_callable_stub(proj.read)
-            stub.returns(read_returns)
-            object.__setattr__(proj, "read", stub)
-
-        if write_returns is not _UNSET and getattr(proj, "write"):
-            stub = _make_callable_stub(proj.write)
-            stub.returns(write_returns)
-            object.__setattr__(proj, "write", stub)
-
-        return proj
+        if issubclass(operation_cls, (UseCase, AsyncUseCase)):
+            instance = container_cls._adapt_use_case(self, operation_cls, **kwargs)
+            cfg = self._use_case_stubs.get(operation_cls, {})
+            if cfg:
+                stub = _make_callable_stub(instance.run)
+                _apply_stub(stub, **cfg)
+                object.__setattr__(instance, "run", stub)
+            return instance
+        if issubclass(operation_cls, ProjectionBase):
+            instance = container_cls._adapt_projection(self, operation_cls, **kwargs)
+            cfg = self._projection_stubs.get(operation_cls, {})
+            if not cfg:
+                return instance
+            read_returns = cfg.get("read_returns", _UNSET)
+            read_raises = cfg.get("read_raises", _UNSET)
+            if (read_returns is not _UNSET or read_raises is not _UNSET) and getattr(
+                instance, "read", None
+            ):
+                stub = _make_callable_stub(instance.read)
+                _apply_stub(stub, returns=read_returns, raises=read_raises)
+                object.__setattr__(instance, "read", stub)
+            write_returns = cfg.get("write_returns", _UNSET)
+            write_raises = cfg.get("write_raises", _UNSET)
+            if (write_returns is not _UNSET or write_raises is not _UNSET) and getattr(
+                instance, "write", None
+            ):
+                stub = _make_callable_stub(instance.write)
+                _apply_stub(stub, returns=write_returns, raises=write_raises)
+                object.__setattr__(instance, "write", stub)
+            return instance
+        raise TypeError(
+            f"Expected UseCase, AsyncUseCase, or ProjectionBase subclass, got {operation_cls.__name__}"
+        )
 
     spy_cls = cast(
         type[T],
@@ -121,14 +161,17 @@ def _create_spy_adapter(container_cls: type[T]) -> type[T]:
                 "_port_stubs": {},
                 "_session_stubs": {},
                 "_handler_stubs": {},
+                "_use_case_stubs": {},
+                "_projection_stubs": {},
                 "_instantiate_session": instantiate_session,
                 "_instantiate_handler": instantiate_handler,
                 "_build_port_index": build_port_index,
                 "get_port_stub": get_port_stub,
                 "get_session_stub": get_session_stub,
                 "get_handler_stub": get_handler_stub,
-                "adapt_use_case": adapt_use_case,
-                "adapt_projection": adapt_projection,
+                "stub_use_case": stub_use_case,
+                "stub_projection": stub_projection,
+                "adapt": adapt,
             },
         ),
     )

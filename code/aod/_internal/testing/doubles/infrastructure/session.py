@@ -10,7 +10,7 @@ TSession = TypeVar("TSession", bound=Session | AsyncSession)
 
 def session_stub(session_cls: type[TSession]) -> Any:
     session = _make_generic_stub(session_cls)
-    session.is_dirty.returns(False)
+    session.is_dirty.return_value = False
     return session
 
 

@@ -13,14 +13,13 @@ from aod._internal.testing.doubles.infrastructure import (
     SpySession,
     spy_adapter_container,
 )
-from aod._internal.testing.doubles.stubs import Params, port_stub
+from aod._internal.testing.doubles.stubs import port_stub
 
 __all__ = [
     "AsyncSpyCache",
     "AsyncSpyEventBus",
     "AsyncSpyLogger",
     "AsyncSpyUnitOfWork",
-    "Params",
     "SpyAsyncSession",
     "SpyCache",
     "SpyEventBus",

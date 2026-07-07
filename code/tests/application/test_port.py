@@ -88,24 +88,24 @@ def test_logger_concrete() -> None:
     log = port_stub(Logger)()
     log.info("hello", user_id=42)
     assert log.info.call_count == 1
-    assert log.info.calls[0].args() == ("hello",)
-    assert log.info.calls[0].kwargs() == {"user_id": 42}
+    assert log.info.call_args_list[0].args == ("hello",)
+    assert log.info.call_args_list[0].kwargs == {"user_id": 42}
 
 
 def test_logger_debug() -> None:
     log = port_stub(Logger)()
     log.debug("debug msg", x=1)
     assert log.debug.call_count == 1
-    assert log.debug.calls[0].args() == ("debug msg",)
-    assert log.debug.calls[0].kwargs() == {"x": 1}
+    assert log.debug.call_args_list[0].args == ("debug msg",)
+    assert log.debug.call_args_list[0].kwargs == {"x": 1}
 
 
 def test_logger_warning() -> None:
     log = port_stub(Logger)()
     log.warning("warn msg", y=2)
     assert log.warning.call_count == 1
-    assert log.warning.calls[0].args() == ("warn msg",)
-    assert log.warning.calls[0].kwargs() == {"y": 2}
+    assert log.warning.call_args_list[0].args == ("warn msg",)
+    assert log.warning.call_args_list[0].kwargs == {"y": 2}
 
 
 def test_event_bus_abstract() -> None:
@@ -119,7 +119,7 @@ def test_event_bus_publish() -> None:
     e2 = Event()
     bus.publish(e1, e2)
     assert bus.publish.call_count == 1
-    assert len(bus.publish.calls[0].args()) == 2
+    assert len(bus.publish.call_args_list[0].args) == 2
 
 
 def test_unit_of_work_abstract() -> None:
@@ -137,6 +137,3 @@ def test_unit_of_work_rollback() -> None:
     uow = port_stub(UnitOfWork)()
     uow.rollback()
     assert uow.rollback.called
-
-
-

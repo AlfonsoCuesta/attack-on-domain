@@ -449,7 +449,7 @@ class TestUseCase:
         uc.run()
         assert uow.commit.called
         assert not uow.rollback.called
-        completions = [c for c in logger.info.calls if "completed" in str(c.args()[0])]
+        completions = [c for c in logger.info.call_args_list if "completed" in str(c.args[0])]
         assert len(completions) == 1
         assert bus.publish.call_count >= 1
 
@@ -525,7 +525,7 @@ class TestContainerAndInjection:
         assert len(email_sender.sent) == 1
         assert len(uc.events) >= 1
         assert bus.publish.call_count >= 1
-        completions = [c for c in logger.info.calls if "completed" in str(c.args()[0])]
+        completions = [c for c in logger.info.call_args_list if "completed" in str(c.args[0])]
         assert len(completions) == 1
 
 

@@ -3,9 +3,9 @@ from __future__ import annotations
 import pytest
 from aod._internal.application.event_bus import AsyncEventBus, EventBus
 from aod._internal.application.logger import AsyncLogger, Logger
+from aod._internal.application.unit_of_work import AsyncUnitOfWork, UnitOfWork
 from aod._internal.application.use_case import AsyncUseCase as UseCase
 from aod._internal.core.domain_exception import MutationForbiddenException
-from aod._internal.application.unit_of_work import AsyncUnitOfWork, UnitOfWork
 from aod.testing.doubles import port_stub
 from tests.application._use_case_scenarios import (
     _RUN_BODIES,
@@ -247,7 +247,7 @@ async def test_logger_auto_logs_completion() -> None:
     logger = port_stub(Logger)()
     uc = Simple(logger=logger)
     await uc.run()
-    completions = [c for c in logger.info.calls if "completed" in str(c.args()[0])]
+    completions = [c for c in logger.info.call_args_list if "completed" in str(c.args[0])]
     assert len(completions) == 1
 
 
@@ -272,7 +272,7 @@ async def test_commit_failure_rolls_back_and_logs() -> None:
             pass
 
     uow = port_stub(AsyncUnitOfWork)()
-    uow.commit.raises(RuntimeError("commit failed"))
+    uow.commit.side_effect = RuntimeError("commit failed")
     logger = port_stub(Logger)()
     uc = Simple(uow=uow, logger=logger)
     with pytest.raises(RuntimeError):
@@ -320,7 +320,7 @@ async def test_mixed_all_sync_ports_on_success() -> None:
     await uc.run()
     assert uow.commit.called
     assert not uow.rollback.called
-    completions = [c for c in logger.info.calls if "completed" in str(c.args()[0])]
+    completions = [c for c in logger.info.call_args_list if "completed" in str(c.args[0])]
     assert len(completions) == 1
 
 
@@ -338,8 +338,7 @@ async def test_mixed_all_sync_ports_on_failure() -> None:
         await uc.run()
     assert uow.rollback.called
     assert not uow.commit.called
-    errors = [c for c in logger.error.calls if "failed" in str(c.args()[0])]
-    assert any("failed" in str(e) for e in [str(c.args()[0]) for c in logger.error.calls])
+    assert any("failed" in str(e) for e in [str(c.args[0]) for c in logger.error.call_args_list])
 
 
 async def test_mixed_sync_uow_async_event_bus() -> None:
@@ -370,7 +369,7 @@ async def test_mixed_async_uow_sync_logger() -> None:
     await uc.run()
     assert uow.commit.called
     assert not uow.rollback.called
-    completions = [c for c in logger.info.calls if "completed" in str(c.args()[0])]
+    completions = [c for c in logger.info.call_args_list if "completed" in str(c.args[0])]
     assert len(completions) == 1
 
 
@@ -387,5 +386,5 @@ async def test_mixed_sync_event_bus_async_logger() -> None:
     uc = Emit(event_bus=bus, logger=logger)
     await uc.run()
     assert bus.publish.call_count == 1
-    completions = [c for c in logger.info.calls if "completed" in str(c.args()[0])]
+    completions = [c for c in logger.info.call_args_list if "completed" in str(c.args[0])]
     assert len(completions) == 1

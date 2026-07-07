@@ -1,5 +1,8 @@
+from unittest.mock import MagicMock
+
+import pytest
+
 from aod.application import Port
-from aod._internal.testing.doubles.stubs import MethodStub
 from aod.testing.doubles import port_stub
 
 
@@ -19,16 +22,17 @@ class TestPortStub:
     def test_stub_methods_are_configurable(self) -> None:
         StubEmailGateway = port_stub(EmailGateway)
         stub = StubEmailGateway()
-        stub.send.returns(True, False)
+        stub.send.side_effect = [True, False]
         assert stub.send("a@b.com", "Hi", "Body") is True
         assert stub.send("c@d.com", "Hi", "Body") is False
 
-    def test_stub_methods_return_none_when_exhausted(self) -> None:
+    def test_stub_methods_raise_stop_iteration_when_exhausted(self) -> None:
         StubEmailGateway = port_stub(EmailGateway)
         stub = StubEmailGateway()
-        stub.send.returns(True)
+        stub.send.side_effect = [True]
         stub.send("a@b.com", "Hi", "Body")
-        assert stub.send("b@c.com", "Hi", "Body") is None
+        with pytest.raises(StopIteration):
+            stub.send("b@c.com", "Hi", "Body")
 
     def test_stub_methods_track_calls(self) -> None:
         StubEmailGateway = port_stub(EmailGateway)
@@ -36,20 +40,20 @@ class TestPortStub:
         stub.send("a@b.com", "Hi", "Body")
         stub.send("c@d.com", "Hi", "Body")
         assert stub.send.call_count == 2
-        assert stub.send.calls[0].args() == ("a@b.com", "Hi", "Body")
-        assert stub.send.calls[1].args() == ("c@d.com", "Hi", "Body")
+        assert stub.send.call_args_list[0].args == ("a@b.com", "Hi", "Body")
+        assert stub.send.call_args_list[1].args == ("c@d.com", "Hi", "Body")
 
     def test_stub_multiple_methods(self) -> None:
         StubEmailGateway = port_stub(EmailGateway)
         stub = StubEmailGateway()
-        stub.send.returns(True)
-        stub.validate.returns(False)
+        stub.send.side_effect = [True]
+        stub.validate.side_effect = [False]
         assert stub.send("a@b.com", "Hi", "Body") is True
         assert stub.validate("a@b.com") is False
         assert stub.send.call_count == 1
         assert stub.validate.call_count == 1
 
-    def test_stub_is_method_stub(self) -> None:
+    def test_stub_is_magic_mock(self) -> None:
         StubEmailGateway = port_stub(EmailGateway)
         stub = StubEmailGateway()
-        assert isinstance(stub.send, MethodStub)
+        assert isinstance(stub.send, MagicMock)

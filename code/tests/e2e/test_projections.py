@@ -212,7 +212,7 @@ class TestReadProjection:
         bus = port_stub(EventBus)()
         p = GetUserProjection(logger=logger, event_bus=bus)
         p.read(UserReadModel(user_id=1))
-        completions = [c for c in logger.info.calls if "completed" in str(c.args()[0])]
+        completions = [c for c in logger.info.call_args_list if "completed" in str(c.args[0])]
         assert len(completions) >= 1
 
     def test_read_with_session(self) -> None:
@@ -288,7 +288,7 @@ class TestWriteProjection:
         p = CreateUserProjection(logger=logger, event_bus=bus)
         p.write(UserWriteModel(user_id=1, name="Alice"))
         assert bus.publish.call_count >= 1
-        completions = [c for c in logger.info.calls if "completed" in str(c.args()[0])]
+        completions = [c for c in logger.info.call_args_list if "completed" in str(c.args[0])]
         assert len(completions) >= 1
 
 
@@ -472,7 +472,7 @@ class TestProjectionInjection:
         )
         p = container.adapt(TestP)
         p.read(UserReadModel(user_id=1))
-        completions = [c for c in logger.info.calls if "completed" in str(c.args()[0])]
+        completions = [c for c in logger.info.call_args_list if "completed" in str(c.args[0])]
         assert len(completions) >= 1
 
     def test_inject_without_session(self) -> None:

@@ -443,7 +443,7 @@ def test_logger_auto_logs_completion() -> None:
     logger = port_stub(Logger)()
     uc = Simple(logger=logger)
     uc.run()
-    completions = [c for c in logger.info.calls if "completed" in str(c.args()[0])]
+    completions = [c for c in logger.info.call_args_list if "completed" in str(c.args[0])]
     assert len(completions) == 1
 
 
@@ -457,11 +457,11 @@ def test_logger_auto_logs_events_count() -> None:
     logger = port_stub(Logger)()
     uc = Emit(logger=logger)
     uc.run()
-    completions = [c for c in logger.info.calls if "completed" in str(c.args()[0])]
+    completions = [c for c in logger.info.call_args_list if "completed" in str(c.args[0])]
     assert len(completions) == 1
-    events_logs = [c for c in logger.info.calls if "events" in str(c.args()[0])]
+    events_logs = [c for c in logger.info.call_args_list if "events" in str(c.args[0])]
     assert len(events_logs) == 1
-    evts = events_logs[0].kwargs().get("events")
+    evts = events_logs[0].kwargs.get("events")
     assert evts is not None
     assert len(evts) == 1
 
@@ -477,7 +477,7 @@ def test_logger_auto_logs_failure() -> None:
     uc = Fail(logger=logger)
     with pytest.raises(ValueError):
         uc.run()
-    errors = [c for c in logger.error.calls if "failed" in str(c.args()[0])]
+    errors = [c for c in logger.error.call_args_list if "failed" in str(c.args[0])]
     assert len(errors) >= 1
 
 
@@ -502,11 +502,11 @@ def test_commit_failure_rolls_back_and_logs() -> None:
             pass
 
     uow = port_stub(UnitOfWork)()
-    uow.commit.raises(RuntimeError("commit failed"))
+    uow.commit.side_effect = RuntimeError("commit failed")
     logger = port_stub(Logger)()
     uc = Simple(uow=uow, logger=logger)
     with pytest.raises(RuntimeError):
         uc.run()
     assert uow.rollback.called
-    errors = [c for c in logger.error.calls if "commit failed" in str(c.args()[0])]
+    errors = [c for c in logger.error.call_args_list if "commit failed" in str(c.args[0])]
     assert len(errors) >= 1

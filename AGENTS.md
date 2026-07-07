@@ -909,7 +909,7 @@ uv run pytest code/tests -q
 
 ## Test Count
 
-1085 tests (no `patch`/`mock.patch` in any test file)
+1066 tests (no `patch`/`mock.patch` in any test file)
 
 ## At the end of a task
 

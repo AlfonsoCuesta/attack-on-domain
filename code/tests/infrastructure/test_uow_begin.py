@@ -20,7 +20,7 @@ class TestUnitOfWorkBegin:
 
     def test_begin_then_commit(self) -> None:
         s1 = session_stub(Session)()
-        s1.is_dirty.returns(True)
+        s1.is_dirty.return_value = True
         uow = UnitOfWork(sessions={s1})
         uow.begin()
         uow.commit()
@@ -28,7 +28,7 @@ class TestUnitOfWorkBegin:
 
     def test_begin_then_rollback_dirty(self) -> None:
         s1 = session_stub(Session)()
-        s1.is_dirty.returns(True)
+        s1.is_dirty.return_value = True
         uow = UnitOfWork(sessions={s1})
         uow.begin()
         uow.rollback()
