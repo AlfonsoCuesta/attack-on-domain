@@ -3,6 +3,7 @@ from __future__ import annotations
 from typing import get_args, get_origin
 
 import pytest
+from aod._internal.application.port import Port
 from aod._internal.core.fields.fields import Field
 from aod._internal.domain.entity import RootEntity
 from aod._internal.domain.service import Service
@@ -57,6 +58,13 @@ class TestFlatten:
         result = _flatten(list[Address])
         assert get_origin(result) is list
         assert get_args(result) == (Address.__raw_model__,)
+
+    def test_dependency_type_in_union_raises(self) -> None:
+        class _TestPort(Port):
+            pass
+
+        with pytest.raises(TypeError, match="Dependency type"):
+            _flatten(_TestPort | None)
 
 
 # ── _to_domain ───────────────────────────────────────────────────────────────

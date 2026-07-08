@@ -73,14 +73,23 @@ class FakeUnitOfWork(UnitOfWork):
 # ---- handlers ----
 
 
+class _TestSession(Session):
+    def begin(self) -> None: ...
+    def commit(self) -> None: ...
+    def rollback(self) -> None: ...
+    def close(self) -> None: ...
+    def is_dirty(self) -> bool:
+        return False
+
+
 class PlaceOrderHandler(CommandHandler[PlaceOrder]):
-    session: Session | None = None
+    session: _TestSession
 
     def handle(self, command: PlaceOrder) -> None: ...
 
 
 class GetOrderHandler(QueryHandler[GetOrder]):
-    session: Session | None = None
+    session: _TestSession
 
     def handle(self, query: GetOrder) -> Order | None:
         return None

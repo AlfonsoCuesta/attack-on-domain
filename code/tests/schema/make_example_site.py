@@ -197,6 +197,14 @@ class RedisSession(Session):
     _connection: object | None = None
 
 
+class AsyncPostgresSession(AsyncSession):
+    _connection: object | None = None
+
+
+class AsyncRedisSession(AsyncSession):
+    _connection: object | None = None
+
+
 # ---- Use Cases ----
 
 
@@ -248,33 +256,33 @@ class CancelOrderHandler(CommandHandler[CancelOrder]):
 
 
 class ListOrdersHandler(QueryHandler[ListOrders]):
-    session: RedisSession | None = None
+    session: RedisSession
 
     def handle(self, query: ListOrders) -> list[Order]:
         return []
 
 
 class CreateInvoiceHandler(CommandHandler[CreateInvoice]):
-    session: PostgresSession | None = None
+    session: PostgresSession
 
     def handle(self, command: CreateInvoice) -> None: ...
 
 
 class GetInvoiceHandler(QueryHandler[GetInvoice]):
-    session: PostgresSession | None = None
+    session: PostgresSession
 
     def handle(self, query: GetInvoice) -> Invoice | None:
         return None
 
 
 class AsyncPlaceOrderHandler(AsyncCommandHandler[PlaceOrder]):
-    session: AsyncSession | None = None
+    session: AsyncPostgresSession
 
     async def handle(self, command: PlaceOrder) -> None: ...
 
 
 class AsyncGetOrderHandler(AsyncQueryHandler[GetOrder]):
-    session: AsyncSession | None = None
+    session: AsyncPostgresSession
 
     async def handle(self, query: GetOrder) -> Order | None:
         return None

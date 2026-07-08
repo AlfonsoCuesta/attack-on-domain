@@ -26,7 +26,7 @@ StubAsyncSession = session_stub(AsyncSession)
 class TestAsyncHandler:
     def test_async_handler_get_handler_works(self) -> None:
         class _AsyncHandler(AsyncCommandHandler[SaveUser]):
-            session: AsyncSession
+            session: StubAsyncSession
 
             async def handle(self, command: SaveUser) -> None:
                 pass

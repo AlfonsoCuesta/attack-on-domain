@@ -658,6 +658,7 @@ The hierarchy:
 - `InvalidHandlerPortFieldError` — `HandlerProtocol` port on a UseCase is missing its generic type argument
 
 **`InfrastructureException` subclasses:**
+- `AbstractSessionTypeError` — handler or projection field uses `Session` or `AsyncSession` directly instead of a concrete implementation
 - `HandlerResultTypeError` — handler returned wrong type
 - `HandlerModelError` — handler class is missing a required field
 - `PortNotFoundError` — no port of the requested type is registered on the container
@@ -923,7 +924,7 @@ uv run pytest code/tests -q
 
 ## Test Count
 
-1084 tests, 3 skipped (no `patch`/`mock.patch` in any test file)
+1091 tests, 3 skipped (no `patch`/`mock.patch` in any test file)
 
 ## At the end of a task
 

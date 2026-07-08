@@ -1,7 +1,6 @@
 from __future__ import annotations
 
-from types import UnionType
-from typing import TypeVar, Union, get_args, get_origin
+from typing import TypeVar, get_origin
 
 from aod._internal.application.handler.handler import HandlerProtocol
 from aod._internal.application.port import Port
@@ -13,7 +12,10 @@ from aod._internal.infrastructure.handlers import (
     QueryHandler,
 )
 from aod._internal.infrastructure.projection import ProjectionBase
+from aod._internal.core.infrastructure_exception import AbstractSessionTypeError
 from aod._internal.infrastructure.session import AsyncSession, Session
+
+_SESSION_BASES = (Session, AsyncSession)
 
 _SYNC_HANDLERS = CommandHandler | QueryHandler
 _ASYNC_HANDLERS = AsyncCommandHandler | AsyncQueryHandler
@@ -28,11 +30,6 @@ TOperation = TypeVar("TOperation", bound=UseCase | AsyncUseCase | ProjectionBase
 
 
 def _is_port_type(tp: object) -> bool:
-    origin = get_origin(tp)
-    if origin is UnionType or origin is Union:
-        return False
-    if origin is not None:
-        return any(isinstance(a, type) and issubclass(a, Port) for a in get_args(tp))
     return isinstance(tp, type) and issubclass(tp, Port)
 
 
@@ -47,3 +44,8 @@ def extract_port_type(tp: object) -> type[Port] | None:
 
 def _is_session_annotation(tp: object) -> bool:
     return isinstance(tp, type) and issubclass(tp, (Session, AsyncSession))
+
+
+def _validate_concrete_session(field_name: str, field_type: object, owner_name: str) -> None:
+    if isinstance(field_type, type) and field_type in _SESSION_BASES:
+        raise AbstractSessionTypeError(owner_name, field_name, field_type)

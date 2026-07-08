@@ -140,6 +140,7 @@ def test_aod_infrastructure_exceptions_documented_api() -> None:
 
 def test_aod_exceptions_documented_api() -> None:
     assert aod.exceptions.__all__ == [
+        "AbstractSessionTypeError",
         "ApplicationException",
         "ClassExpectedError",
         "CommitOutsideUnitOfWorkError",

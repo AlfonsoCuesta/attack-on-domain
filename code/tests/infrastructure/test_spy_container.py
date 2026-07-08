@@ -314,8 +314,6 @@ def test_spy_empty_container() -> None:
 
 def test_spy_handler_without_session() -> None:
     class _NoSessionHandler(CommandHandler[_UpdateName]):
-        session: None = None
-
         def handle(self, command: _UpdateName) -> None: ...
 
     container = spy_adapter_container(AdapterContainer(handlers=[_NoSessionHandler]))
@@ -383,8 +381,6 @@ def test_fake_handler_manager_without_factory() -> None:
     from aod._internal.testing.doubles.infrastructure.fakes import FakeHandlerManager
 
     class _Handler(CommandHandler[CreateUser]):
-        session: Session | None = None
-
         def handle(self, command: CreateUser) -> User:
             return User(id=1, name=command.name)
 

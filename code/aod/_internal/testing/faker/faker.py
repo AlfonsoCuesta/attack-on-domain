@@ -3,8 +3,11 @@ from __future__ import annotations
 from functools import lru_cache
 from typing import Any, Generic, TypeVar, Union, cast, get_args, get_origin
 
+from aod._internal.application.handler.handler import HandlerProtocol
+from aod._internal.application.port import Port
 from aod._internal.domain.entity import Entity, RootEntity
 from aod._internal.domain.value_object import ValueObject
+from aod._internal.infrastructure.session import AsyncSession, Session
 from aod._internal.testing.helpers import build
 from polyfactory.factories.pydantic_factory import ModelFactory as PolyModelFactory
 from pydantic import create_model
@@ -12,6 +15,7 @@ from pydantic import create_model
 T = TypeVar("T")
 
 _DOMAIN_BASES: tuple[type, ...] = (RootEntity, Entity, ValueObject)
+_DEPENDENCY_BASES: tuple[type, ...] = (Port, Session, AsyncSession, HandlerProtocol)
 DomainType = RootEntity | Entity | ValueObject
 DT = TypeVar("DT", bound=DomainType)
 
@@ -27,6 +31,8 @@ def _flatten(tp: Any) -> type:
     origin = get_origin(tp)
     if origin is not None:
         args = get_args(tp)
+        if origin is Union:
+            _check_no_dependency_in_union(args)
         non_none = tuple(a for a in args if a is not type(None))
         if len(non_none) < len(args):
             if len(non_none) == 1:
@@ -34,6 +40,12 @@ def _flatten(tp: Any) -> type:
             return cast(type, Union[tuple(_flatten(a) for a in non_none)])
         return cast(type, origin[tuple(_flatten(a) for a in args)])
     return cast(type, tp)
+
+
+def _check_no_dependency_in_union(args: tuple) -> None:
+    for a in args:
+        if isinstance(a, type) and issubclass(a, _DEPENDENCY_BASES):
+            raise TypeError(f"Dependency type {a.__name__} cannot be used in a Union")
 
 
 def _to_domain(tp: type, value: Any) -> Any:

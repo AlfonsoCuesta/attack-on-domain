@@ -47,15 +47,17 @@ def _create_spy_adapter(container_cls: type[T]) -> type[T]:
 
     def make_handler_manager(self: Any, sm: Any) -> FakeHandlerManager:
         return FakeHandlerManager(
-            self.handlers, sm, stub_factory=lambda h, s: self.get_handler_stub(h)
+            self.handlers, sm, stub_factory=lambda h, kw: self.get_handler_stub(h, kw)
         )
 
     def make_port_manager(self: Any, extra_ports: dict[str, Port]) -> FakePortManager:
         return FakePortManager(self.ports, self, extra_ports)
 
-    def get_handler_stub(self: Any, handler: type[Port]) -> Any:
+    def get_handler_stub(
+        self: Any, handler: type[Port], kwargs: dict[str, Any] | None = None
+    ) -> Any:
         if handler not in self._handler_stubs:
-            self._handler_stubs[handler] = port_stub(handler)()
+            self._handler_stubs[handler] = port_stub(handler)(**(kwargs or {}))
         return self._handler_stubs[handler]
 
     def _apply_stub(stub: Any, *, returns: Any = _UNSET, raises: Any = _UNSET) -> None:

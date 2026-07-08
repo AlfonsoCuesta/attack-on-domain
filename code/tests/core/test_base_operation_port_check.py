@@ -15,6 +15,24 @@ from aod._internal.infrastructure.session import AsyncSession, Session
 from aod.domain import Field
 
 
+class _TestSession(Session):
+    def begin(self) -> None: ...
+    def commit(self) -> None: ...
+    def rollback(self) -> None: ...
+    def close(self) -> None: ...
+    def is_dirty(self) -> bool:
+        return False
+
+
+class _TestAsyncSession(AsyncSession):
+    async def begin(self) -> None: ...
+    async def commit(self) -> None: ...
+    async def rollback(self) -> None: ...
+    async def close(self) -> None: ...
+    def is_dirty(self) -> bool:
+        return False
+
+
 class User(RootEntity):
     id: int = Field(id=True)
     name: str
@@ -29,21 +47,21 @@ class GetUser(Query[User, User | None]):
 
 
 class InfraSaveHandler(CommandHandler[SaveUser]):
-    session: Session
+    session: _TestSession
 
     def handle(self, command: SaveUser) -> None:
         pass
 
 
 class InfraGetHandler(QueryHandler[GetUser]):
-    session: Session
+    session: _TestSession
 
     def handle(self, query: GetUser) -> User | None:
         return None
 
 
 class InfraAsyncSaveHandler(AsyncCommandHandler[SaveUser]):
-    session: Session
+    session: _TestAsyncSession
 
     async def handle(self, command: SaveUser) -> None:
         pass

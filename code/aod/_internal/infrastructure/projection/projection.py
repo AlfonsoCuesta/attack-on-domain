@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import typing
 from abc import abstractmethod
 from functools import wraps
 from typing import Any, Callable
@@ -9,10 +10,16 @@ from aod._internal.core.async_utils import should_await
 from aod._internal.core.base_operation import BaseOperation
 from aod._internal.core.event_emitter import EventCollector
 from aod._internal.core.fields.fields import PrivateField
+from aod._internal.core.infrastructure_exception import AbstractSessionTypeError
 from aod._internal.infrastructure.commit_context import _CommitContext
 from aod._internal.infrastructure.session import AsyncSession, Session
 
 _PROJECTION_WRAPPED_KEY = "__aod_projection_wrapped__"
+
+
+def _raise_if_abstract_session(owner: str, field_name: str, tp: object) -> None:
+    if tp is Session or tp is AsyncSession:
+        raise AbstractSessionTypeError(owner, field_name, tp)
 
 
 def _make_projection_wrapper(
@@ -116,6 +123,12 @@ class ProjectionBase(BaseOperation):
 
     def __init_subclass__(cls, **kwargs: object) -> None:
         super().__init_subclass__(**kwargs)
+        try:
+            hints = typing.get_type_hints(cls)
+        except Exception:
+            return
+        for field_name, tp in hints.items():
+            _raise_if_abstract_session(cls.__name__, field_name, tp)
 
     def _collect_sessions(self) -> None:
         sessions: list[Session | AsyncSession] = []

@@ -14,6 +14,7 @@ from aod._internal.infrastructure.container.types import (
     TProjection,
     TUseCase,
     _is_session_annotation,
+    _validate_concrete_session,
 )
 from aod._internal.infrastructure.projection import ProjectionBase
 from aod._internal.infrastructure.session import AsyncSession, Session
@@ -135,4 +136,5 @@ class AdapterContainer(BaseBehaviour):
                 continue
             if not _is_session_annotation(field_type):
                 continue
+            _validate_concrete_session(field_name, field_type, projection_cls.__name__)
             kwargs[field_name] = container._session_manager.get_session(field_type)

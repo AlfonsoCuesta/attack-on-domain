@@ -16,9 +16,9 @@ from aod._internal.infrastructure.container.types import (
     _ASYNC_HANDLERS,
     _SYNC_HANDLERS,
     AnyHandler,
+    _is_session_annotation,
 )
 from aod._internal.infrastructure.handlers.handlers import AsyncBaseHandler
-from aod._internal.infrastructure.session import AsyncSession, Session
 
 
 class HandlerManager:
@@ -58,24 +58,22 @@ class HandlerManager:
     ) -> _ASYNC_HANDLERS | _SYNC_HANDLERS:
         handler = self.find_handler(contract)
         cls_hints = get_type_hints(handler)
-        try:
-            session_type = cls_hints["session"]
-        except KeyError:
-            raise HandlerModelError(handler, "session")
-        session: Session | AsyncSession | None = None
-        if session_type is not type(None) and self._session_manager is not None:
-            session = self._session_manager.get_session(session_type)
+        kwargs: dict[str, Any] = {}
+        if self._session_manager is not None:
+            for field_name, tp in cls_hints.items():
+                if _is_session_annotation(tp):
+                    kwargs[field_name] = self._session_manager.get_session(tp)
 
-        return self._instantiate_handler(handler, session)
+        return self._instantiate_handler(handler, kwargs)
 
     def _instantiate_handler(
         self,
         handler: type[_ASYNC_HANDLERS | _SYNC_HANDLERS],
-        session: Session | AsyncSession | None,
+        kwargs: dict[str, Any],
     ) -> _ASYNC_HANDLERS | _SYNC_HANDLERS:
         if issubclass(handler, AsyncBaseHandler):
-            return cast(_ASYNC_HANDLERS, handler(session=cast(AsyncSession | None, session)))
-        return cast(_SYNC_HANDLERS, handler(session=cast(Session | None, session)))
+            return cast(_ASYNC_HANDLERS, handler(**kwargs))
+        return cast(_SYNC_HANDLERS, handler(**kwargs))
 
     def inject_handlers(self, operation_cls: type[BaseOperation], kwargs: dict[str, Any]) -> None:
         for field_name, field_info in operation_cls.__model_fields__.items():

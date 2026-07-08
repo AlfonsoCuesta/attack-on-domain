@@ -43,11 +43,11 @@ class FakeHandlerManager(HandlerManager):
     def _instantiate_handler(
         self,
         handler: type,
-        session: Session | AsyncSession | None,
+        kwargs: dict[str, Any],
     ) -> Any:
         if self._stub_factory is not None:
-            return self._stub_factory(handler, session)
-        return handler(session=session)
+            return self._stub_factory(handler, kwargs)
+        return handler(**kwargs)
 
 
 class FakePortManager(PortManager):

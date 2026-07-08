@@ -42,3 +42,13 @@ class SessionNotFoundError(InfrastructureException):
 
     def __init__(self, session: type) -> None:
         super().__init__(f"No session of type {session.__name__} registered")
+
+
+class AbstractSessionTypeError(InfrastructureException):
+    """A handler or projection field uses abstract Session/AsyncSession directly."""
+
+    def __init__(self, owner: str, field: str, session_type: str | type) -> None:
+        name = session_type if isinstance(session_type, str) else session_type.__name__
+        super().__init__(
+            f"'{owner}.{field}' uses abstract {name}; use a concrete implementation instead"
+        )

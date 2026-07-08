@@ -7,6 +7,7 @@ from aod._internal.application.handler import CommandPort
 from aod._internal.application.port import Port
 from aod._internal.core.fields.fields import Field
 from aod._internal.core.infrastructure_exception import (
+    AbstractSessionTypeError,
     DuplicateHandlerError,
     HandlerModelError,
     HandlerNotFoundError,
@@ -38,6 +39,8 @@ class CreateUser(Command[User, User]):
 
 
 class GetUserHandler(QueryHandler[GetUser]):
+    session: _SyncSession
+
     def handle(self, query: GetUser) -> User | None:
         return User(id=1, name=str(query.user_id))
 
@@ -48,8 +51,6 @@ class CreateUserHandler(CommandHandler[CreateUser]):
 
 
 class _NoSessionHandler(CommandHandler[CreateUser]):
-    session: None = None
-
     def handle(self, command: CreateUser) -> User:
         return User(id=1, name=command.name)
 
@@ -227,7 +228,7 @@ class TestGetHandler:
         container = AdapterContainer(handlers=[_NoSessionHandler])
         handler = container.get_handler(CreateUser)
         assert isinstance(handler, _NoSessionHandler)
-        assert handler.session is None
+        assert not hasattr(handler, "session")
 
     def test_raises_session_not_found_error(self) -> None:
         container = AdapterContainer(handlers=[GetUserHandler])
@@ -304,7 +305,7 @@ class TestGetHandler:
 
     def test_get_handler_with_non_union_session_type(self) -> None:
         class _ExactSessionHandler(CommandHandler[CreateUser]):
-            session: Session
+            session: _SyncSession
 
             def handle(self, command: CreateUser) -> User:
                 return User(id=1, name=command.name)
@@ -315,7 +316,46 @@ class TestGetHandler:
         )
         handler = container.get_handler(CreateUser)
         assert isinstance(handler, _ExactSessionHandler)
-        assert isinstance(handler.session, Session)
+        assert isinstance(handler.session, _SyncSession)
+
+    def test_get_handler_with_custom_named_session(self) -> None:
+        class _Handler(CommandHandler[CreateUser]):
+            db: _SyncSession
+
+            def handle(self, command: CreateUser) -> User:
+                return User(id=1, name=command.name)
+
+        container = AdapterContainer(
+            handlers=[_Handler],
+            sessions={_SyncSession},
+        )
+        handler = container.get_handler(CreateUser)
+        assert isinstance(handler.db, _SyncSession)
+
+    def test_get_handler_with_multiple_session_fields(self) -> None:
+        class _Handler(CommandHandler[CreateUser]):
+            read_db: _SyncSession
+            write_db: _SyncSession
+
+            def handle(self, command: CreateUser) -> User:
+                return User(id=1, name=command.name)
+
+        container = AdapterContainer(
+            handlers=[_Handler],
+            sessions={_SyncSession},
+        )
+        handler = container.get_handler(CreateUser)
+        assert isinstance(handler.read_db, _SyncSession)
+        assert isinstance(handler.write_db, _SyncSession)
+
+    def test_get_handler_rejects_abstract_session(self) -> None:
+        with pytest.raises(AbstractSessionTypeError, match="uses abstract Session"):
+
+            class _BadHandler(CommandHandler[CreateUser]):  # noqa: F841
+                session: Session
+
+                def handle(self, command: CreateUser) -> User:
+                    return User(id=1, name=command.name)
 
 
 class _TestAdapterPort(Port):
@@ -472,14 +512,14 @@ def test_adapt_use_case_with_overrides() -> None:
 
 def test_adapt_projection_injects_session() -> None:
     class _Proj(ReadProjection):
-        session: Session
+        session: _SyncSession
 
         def read(self, model: DTO) -> str:
             return "ok"
 
     container = AdapterContainer(sessions={_SyncSession})
     proj = container.adapt(_Proj)
-    assert isinstance(proj.session, Session)
+    assert isinstance(proj.session, _SyncSession)
 
 
 def test_adapt_projection_injects_port() -> None:
@@ -506,6 +546,55 @@ def test_adapt_projection_without_ports_succeeds() -> None:
     container = AdapterContainer()
     proj = container.adapt(_Proj)
     assert proj.read(_DTO()) == "ok"
+
+
+def test_adapt_projection_with_session_and_port() -> None:
+    class _Proj(ReadProjection):
+        db: _SyncSession
+        weather_client: _FakePort
+
+        def read(self, model: DTO) -> str:
+            return "ok"
+
+    port = _FakePort()
+    container = AdapterContainer(sessions={_SyncSession}, weather_client=port)
+    proj = container.adapt(_Proj)
+    assert isinstance(proj.db, _SyncSession)
+    assert isinstance(proj.weather_client, _FakePort)
+
+
+def test_adapt_projection_with_multiple_session_names() -> None:
+    class _Proj(ReadProjection):
+        read_db: _SyncSession
+        write_db: _SyncSession
+
+        def read(self, model: DTO) -> str:
+            return "ok"
+
+    container = AdapterContainer(sessions={_SyncSession})
+    proj = container.adapt(_Proj)
+    assert isinstance(proj.read_db, _SyncSession)
+    assert isinstance(proj.write_db, _SyncSession)
+
+
+def test_adapt_projection_rejects_abstract_session() -> None:
+    with pytest.raises(AbstractSessionTypeError, match="uses abstract Session"):
+
+        class _Proj(ReadProjection):  # noqa: F841
+            db: Session
+
+            def read(self, model: DTO) -> str:
+                return "ok"
+
+
+def test_adapt_projection_rejects_abstract_async_session() -> None:
+    with pytest.raises(AbstractSessionTypeError, match="uses abstract AsyncSession"):
+
+        class _Proj(ReadProjection):  # noqa: F841
+            db: AsyncSession
+
+            def read(self, model: DTO) -> str:
+                return "ok"
 
 
 # ── Error handling ──

@@ -25,6 +25,7 @@ from aod._internal.core.domain_exception import (
     TooManyIdentityFieldsException,
 )
 from aod._internal.core.infrastructure_exception import (
+    AbstractSessionTypeError,
     DuplicateHandlerError,
     HandlerModelError,
     HandlerNotFoundError,
@@ -35,6 +36,7 @@ from aod._internal.core.infrastructure_exception import (
 )
 
 __all__ = [
+    "AbstractSessionTypeError",
     "ApplicationException",
     "ClassExpectedError",
     "CommitOutsideUnitOfWorkError",
