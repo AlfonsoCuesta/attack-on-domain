@@ -217,6 +217,8 @@ class CreateUserUseCase(UseCase):
 
 ```python
 class SaveUserHandler(CommandHandler[CreateUser]):
+    session: SqlSession
+
     def handle(self, command: CreateUser) -> None:
         user = User(id=command.user_id, name=command.name, email=command.email)
         self.session.execute(user)

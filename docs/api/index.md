@@ -725,8 +725,7 @@ Synchronous command handler for a specific command type.
 
 | Parameter | Type | Description |
 |-----------|------|-------------|
-| `session` | `Session \| None` | Optional session. Default: `None`. |
-| `**ports` | `Port` | Port dependencies. |
+| `**fields` | Any | Fields declared on the subclass (e.g. session, ports) |
 
 #### Methods
 
@@ -748,7 +747,7 @@ Synchronous query handler for a specific query type.
 
 | Parameter | Type | Description |
 |-----------|------|-------------|
-| `session` | `Session \| None` | Optional session. |
+| `**fields` | Any | Fields declared on the subclass (e.g. session, ports) |
 
 #### Methods
 
@@ -764,7 +763,7 @@ class AsyncCommandHandler(AsyncBaseHandler, AppAsyncCommandHandler, Generic[TCom
 
 #### Constructor
 
-`AsyncCommandHandler(**fields)` — `session: AsyncSession | None = None`.
+`AsyncCommandHandler(**fields)`
 
 #### Methods
 
@@ -780,7 +779,7 @@ class AsyncQueryHandler(AsyncBaseHandler, AppAsyncQueryHandler, Generic[TQuery])
 
 #### Constructor
 
-`AsyncQueryHandler(**fields)` — `session: AsyncSession | None = None`.
+`AsyncQueryHandler(**fields)`
 
 #### Methods
 

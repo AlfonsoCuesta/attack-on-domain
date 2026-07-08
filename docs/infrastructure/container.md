@@ -58,9 +58,8 @@ Find and instantiate a handler for a given contract.
 | `contract` | `type[Command] \| type[Query]` | The command or query class. |
 
 - Searches registered handlers for one whose `handle()` method accepts the given contract.
-- Resolves the handler's `session` field type and retrieves the matching session.
+- Iterates the handler's fields and injects a session instance for each field with a concrete session type annotation.
 - Raises `HandlerNotFoundError` if no handler matches the contract.
-- Raises `HandlerModelError` if the handler is missing a `session` field.
 
 #### `get_uow() -> UnitOfWork | AsyncUnitOfWork`
 

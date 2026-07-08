@@ -38,6 +38,16 @@ Commands are immutable requests to change state. Handlers contain the infrastruc
 ```python
 from aod.application import Command
 from aod.infrastructure import CommandHandler
+from aod._internal.infrastructure.session import Session
+
+
+class InMemorySession(Session):
+    def begin(self) -> None: ...
+    def commit(self) -> None: ...
+    def rollback(self) -> None: ...
+    def close(self) -> None: ...
+    def is_dirty(self) -> bool:
+        return False
 
 
 class RegisterUser(Command[User, None]):
@@ -47,6 +57,8 @@ class RegisterUser(Command[User, None]):
 
 
 class RegisterUserHandler(CommandHandler[RegisterUser]):
+    session: InMemorySession
+
     def handle(self, command: RegisterUser) -> None:
         user = User(
             id=command.user_id,

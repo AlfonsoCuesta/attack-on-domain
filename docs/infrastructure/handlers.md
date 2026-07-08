@@ -47,32 +47,17 @@ class GetUserHandler(QueryHandler[GetUser]):
 
 ### `BaseHandler`
 
-Base class for all handlers.
-
-**Fields:**
-
-| Field | Type | Default | Description |
-|-------|------|---------|-------------|
-| `session` | `Session \| None` | `None` | Database session, injected by the container |
+Base class for all handlers. Provides mutation-guarded behaviour. Has **no** intrinsic `session` field — subclasses declare their own session fields with concrete types.
 
 **Constructor parameters:**
 
 | Parameter | Type | Description |
 |-----------|------|-------------|
-| `session` | `Session \| None` | Optional session instance (injected by container) |
-| `*port_fields` | Any | Any additional Port fields declared on the handler subclass |
+| `**fields` | Any | Fields declared on the handler subclass (e.g. `session=PostgresSession()`) |
 
 ### `AsyncBaseHandler`
 
-Async variant of `BaseHandler`.
-
-**Fields:**
-
-| Field | Type | Default | Description |
-|-------|------|---------|-------------|
-| `session` | `AsyncSession \| None` | `None` | Async database session, injected by the container |
-
-**Constructor parameters:** Same as `BaseHandler`, but `session` accepts `AsyncSession \| None`.
+Async variant of `BaseHandler`. Same as `BaseHandler` — no inherited session field. Subclasses declare their own.
 
 ### `CommandHandler[TCommand]`
 
@@ -83,12 +68,6 @@ Sync command handler. Inherits from `BaseHandler`, `AppCommandHandler` (which is
 | Parameter | Constraint | Description |
 |-----------|------------|-------------|
 | `TCommand` | Must be a `Command` subclass | The command type this handler processes |
-
-**Fields:**
-
-| Field | Type | Default | Description |
-|-------|------|---------|-------------|
-| `session` | `Session \| None` | `None` | Database session for executing operations |
 
 #### `handle(self, command: TCommand) -> object`
 
@@ -112,12 +91,6 @@ Sync query handler. Inherits from `BaseHandler`, `AppQueryHandler` (which is `Ha
 |-----------|------------|-------------|
 | `TQuery` | Must be a `Query` subclass | The query type this handler processes |
 
-**Fields:**
-
-| Field | Type | Default | Description |
-|-------|------|---------|-------------|
-| `session` | `Session \| None` | `None` | Database session for querying |
-
 #### `handle(self, query: TQuery) -> object`
 
 Abstract method. Implement to process a query.
@@ -134,12 +107,6 @@ Abstract method. Implement to process a query.
 
 Async command handler. Inherits from `AsyncBaseHandler`, `AppAsyncCommandHandler` (which is `HandlerProtocol(Port)`), and `Generic[TCommand]`.
 
-**Fields:**
-
-| Field | Type | Default | Description |
-|-------|------|---------|-------------|
-| `session` | `AsyncSession \| None` | `None` | Async database session |
-
 #### `async handle(self, command: TCommand) -> object`
 
 Async abstract method. Implement to process a command asynchronously.
@@ -147,12 +114,6 @@ Async abstract method. Implement to process a command asynchronously.
 ### `AsyncQueryHandler[TQuery]`
 
 Async query handler. Inherits from `AsyncBaseHandler`, `AppAsyncQueryHandler` (which is `HandlerProtocol(Port)`), and `Generic[TQuery]`.
-
-**Fields:**
-
-| Field | Type | Default | Description |
-|-------|------|---------|-------------|
-| `session` | `AsyncSession \| None` | `None` | Async database session |
 
 #### `async handle(self, query: TQuery) -> object`
 
