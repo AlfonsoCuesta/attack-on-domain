@@ -25,6 +25,15 @@ class Cache(Port):
     @abstractmethod
     def set_promise(self, key: str, value: Any, ttl: float | None = None) -> None: ...
 
+    def get_cache_key(self, query: object) -> str:
+        raise NotImplementedError(
+            "get_cache_key is not implemented for this cache. "
+            "Use aod.infrastructure.Cache with CacheKey instances."
+        )
+
+    def get_invalidate_key(self, command: object) -> str | None:
+        return None
+
 
 class AsyncCache(Port):
     @abstractmethod
@@ -44,3 +53,12 @@ class AsyncCache(Port):
 
     @abstractmethod
     def set_promise(self, key: str, value: Any, ttl: float | None = None) -> None: ...
+
+    def get_cache_key(self, query: object) -> str:
+        raise NotImplementedError(
+            "get_cache_key is not implemented for this cache. "
+            "Use aod.infrastructure.Cache with CacheKey instances."
+        )
+
+    def get_invalidate_key(self, command: object) -> str | None:
+        return None

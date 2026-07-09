@@ -24,6 +24,7 @@ class AdapterContainer(BaseBehaviour):
     sessions: set[type[Session] | type[AsyncSession]] = Field(default_factory=set)
     handlers: list = Field(default_factory=list)
     ports: dict[type[Port], Port] = Field(default_factory=dict)
+    caches: list = Field(default_factory=list)
     _session_manager: SessionManager = PrivateField()
     _handler_manager: HandlerManager = PrivateField()
     _port_manager: PortManager = PrivateField()
@@ -47,7 +48,7 @@ class AdapterContainer(BaseBehaviour):
         return SessionManager(self.sessions)
 
     def _make_handler_manager(self, sm: SessionManager) -> HandlerManager:
-        return HandlerManager(self.handlers, sm)
+        return HandlerManager(self.handlers, sm, caches=self.caches)
 
     def _make_port_manager(self, extra_ports: dict[str, Port]) -> PortManager:
         return PortManager(self.ports, self, extra_ports)
@@ -84,8 +85,6 @@ class AdapterContainer(BaseBehaviour):
 
     def get_handler(self, contract: Any) -> Any:
         return self._handler_manager.get_handler(contract)
-
-    # --- Dependency injection ---
 
     def adapt(
         self,

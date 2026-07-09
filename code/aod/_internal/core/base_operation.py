@@ -2,7 +2,6 @@ from __future__ import annotations
 
 from typing import Any, ClassVar, get_origin, get_type_hints
 
-from aod._internal.application.cache import AsyncCache, Cache
 from aod._internal.application.event_bus import AsyncEventBus, EventBus
 from aod._internal.application.logger import AsyncLogger, Logger
 from aod._internal.application.port import Port
@@ -18,8 +17,6 @@ _SPECIAL_PORT_TYPES = (
     AsyncLogger,
     EventBus,
     AsyncEventBus,
-    Cache,
-    AsyncCache,
 )
 
 
@@ -40,7 +37,6 @@ class BaseOperation(BaseBehaviour):
     events: list[Event] = Field(default_factory=list, init=False)
     _loggers: list[Logger | AsyncLogger] = PrivateField(default_factory=list)
     _event_buses: list[EventBus | AsyncEventBus] = PrivateField(default_factory=list)
-    _caches: list[Cache | AsyncCache] = PrivateField(default_factory=list)
 
     def __init__(self, **kwargs: Any) -> None:
         super().__init__(**kwargs)
@@ -80,7 +76,6 @@ class BaseOperation(BaseBehaviour):
     def _collect_special_ports(self) -> None:
         loggers: list[Logger | AsyncLogger] = []
         event_buses: list[EventBus | AsyncEventBus] = []
-        caches: list[Cache | AsyncCache] = []
 
         for field_name in self.__model_fields__:
             value = object.__getattribute__(self, field_name)
@@ -88,9 +83,6 @@ class BaseOperation(BaseBehaviour):
                 loggers.append(value)
             elif isinstance(value, (EventBus, AsyncEventBus)):
                 event_buses.append(value)
-            elif isinstance(value, (Cache, AsyncCache)):
-                caches.append(value)
 
         object.__setattr__(self, "_loggers", loggers)
         object.__setattr__(self, "_event_buses", event_buses)
-        object.__setattr__(self, "_caches", caches)

@@ -61,8 +61,6 @@ def _make_projection_wrapper(
                     await should_await(
                         logger.info(f"{type(self).__name__} {operation} events", events=self.events)
                     )
-                for cache in self._caches:
-                    await should_await(cache.flush())
                 for bus in self._event_buses:
                     await should_await(bus.publish(*self.events))
                 for logger in self._loggers:
@@ -98,8 +96,6 @@ def _make_projection_wrapper(
                 raise exception
             for logger in self._loggers:
                 logger.info(f"{type(self).__name__} {operation} events", events=self.events)
-            for cache in self._caches:
-                cache.flush()
             for bus in self._event_buses:
                 bus.publish(*self.events)
             for logger in self._loggers:
