@@ -924,7 +924,7 @@ uv run pytest code/tests -q
 
 ## Test Count
 
-1091 tests, 3 skipped (no `patch`/`mock.patch` in any test file)
+1097 tests, 3 skipped (no `patch`/`mock.patch` in any test file)
 
 ## At the end of a task
 

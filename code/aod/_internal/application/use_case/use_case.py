@@ -37,7 +37,7 @@ class UseCase(BaseOperation):
             self.uow.begin()
             with EventCollector() as events:
                 try:
-                    fn(self, *args, **kwargs)
+                    result = fn(self, *args, **kwargs)
                 except BaseException as e:
                     exception = e
 
@@ -65,6 +65,7 @@ class UseCase(BaseOperation):
                 bus.publish(*self.events)
             for logger in self._loggers:
                 logger.info(f"{type(self).__name__} completed")
+            return result
 
         return wrapper
 
@@ -94,7 +95,7 @@ class AsyncUseCase(BaseOperation):
             await should_await(self.uow.begin())
             with EventCollector() as events:
                 try:
-                    await should_await(fn(self, *args, **kwargs))
+                    result = await should_await(fn(self, *args, **kwargs))
                 except BaseException as e:
                     exception = e
 
@@ -124,6 +125,7 @@ class AsyncUseCase(BaseOperation):
                 await should_await(bus.publish(*self.events))
             for logger in self._loggers:
                 await should_await(logger.info(f"{type(self).__name__} completed"))
+            return result
 
         return wrapper
 

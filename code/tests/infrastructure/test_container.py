@@ -3,7 +3,7 @@ from __future__ import annotations
 from typing import Any
 
 import pytest
-from aod._internal.application.handler import CommandPort
+from aod._internal.application.handler import CommandPort, QueryPort
 from aod._internal.application.port import Port
 from aod._internal.core.fields.fields import Field
 from aod._internal.core.infrastructure_exception import (
@@ -19,6 +19,7 @@ from aod._internal.infrastructure.handlers import AsyncCommandHandler
 from aod._internal.infrastructure.projection import ReadProjection
 from aod._internal.infrastructure.session import AsyncSession, Session
 from aod._internal.infrastructure.unit_of_work import AsyncUnitOfWork, UnitOfWork
+from aod._internal.testing.doubles.infrastructure.container import spy_adapter_container
 from aod.application import Command, Query, UseCase
 from aod.domain import RootEntity
 from aod.infrastructure import CommandHandler, QueryHandler
@@ -495,6 +496,47 @@ def test_adapt_use_case_injects_handler_ports() -> None:
     )
     uc = container.adapt(_UC)
     assert uc.create is not None
+
+
+def test_adapt_use_case_injects_both_command_and_query_ports() -> None:
+    class _UC(UseCase):
+        create: CommandPort[CreateUser]
+        get: QueryPort[GetUser]
+
+        def run(self, dto: DTO) -> None: ...
+
+    container = AdapterContainer(
+        handlers=[CreateUserHandler, GetUserHandler],
+        sessions={_SyncSession},
+    )
+    uc = container.adapt(_UC)
+    assert uc.create is not None
+    assert uc.get is not None
+
+
+def test_spy_container_injects_both_command_and_query_ports() -> None:
+    class _NoSessionQuery(QueryHandler[GetUser]):
+        def handle(self, query: GetUser) -> User | None:
+            return None
+
+    class _NoSessionCmd(CommandHandler[CreateUser]):
+        def handle(self, command: CreateUser) -> User:
+            return User(id=1, name=command.name)
+
+    class _UC(UseCase):
+        create: CommandPort[CreateUser]
+        get: QueryPort[GetUser]
+
+        def run(self, dto: DTO) -> None: ...
+
+    container = spy_adapter_container(
+        AdapterContainer(
+            handlers=[_NoSessionCmd, _NoSessionQuery],
+        )
+    )
+    uc = container.adapt(_UC)
+    assert uc.create is not None
+    assert uc.get is not None
 
 
 def test_adapt_use_case_with_overrides() -> None:

@@ -510,3 +510,33 @@ def test_commit_failure_rolls_back_and_logs() -> None:
     assert uow.rollback.called
     errors = [c for c in logger.error.call_args_list if "commit failed" in str(c.args[0])]
     assert len(errors) >= 1
+
+
+def test_use_case_returns_run_value() -> None:
+    class SumUC(UseCase):
+        def run(self, a: int, b: int) -> int:
+            return a + b
+
+    uc = SumUC()
+    result = uc.run(3, 4)
+    assert result == 7
+
+
+def test_use_case_returns_none() -> None:
+    class NoOp(UseCase):
+        def run(self) -> None:
+            pass
+
+    uc = NoOp()
+    result = uc.run()
+    assert result is None
+
+
+def test_use_case_returns_complex_value() -> None:
+    class GetUser(UseCase):
+        def run(self, name: str) -> dict[str, str]:
+            return {"name": name, "id": "1"}
+
+    uc = GetUser()
+    result = uc.run("Alice")
+    assert result == {"name": "Alice", "id": "1"}

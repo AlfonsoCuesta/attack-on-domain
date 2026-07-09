@@ -388,3 +388,33 @@ async def test_mixed_sync_event_bus_async_logger() -> None:
     assert bus.publish.call_count == 1
     completions = [c for c in logger.info.call_args_list if "completed" in str(c.args[0])]
     assert len(completions) == 1
+
+
+async def test_async_use_case_returns_run_value() -> None:
+    class SumUC(UseCase):
+        async def run(self, a: int, b: int) -> int:
+            return a + b
+
+    uc = SumUC()
+    result = await uc.run(3, 4)
+    assert result == 7
+
+
+async def test_async_use_case_returns_none() -> None:
+    class NoOp(UseCase):
+        async def run(self) -> None:
+            pass
+
+    uc = NoOp()
+    result = await uc.run()
+    assert result is None
+
+
+async def test_async_use_case_returns_complex_value() -> None:
+    class GetUser(UseCase):
+        async def run(self, name: str) -> dict[str, str]:
+            return {"name": name, "id": "1"}
+
+    uc = GetUser()
+    result = await uc.run("Alice")
+    assert result == {"name": "Alice", "id": "1"}
