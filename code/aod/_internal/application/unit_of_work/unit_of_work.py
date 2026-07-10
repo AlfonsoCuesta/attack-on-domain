@@ -4,7 +4,6 @@ from abc import abstractmethod
 from typing import Any
 
 from aod._internal.application.port import Port
-from aod._internal.core.event_emitter import Event
 
 
 class UnitOfWork(Port):

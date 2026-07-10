@@ -16,6 +16,7 @@ class Invalidation:
 
 
 class CacheKey(ABC, Generic[TQuery_co]):
+    ttl: float | None = None
     _query_type: ClassVar[type[Query]]
     _command_types: ClassVar[set[type[Command]]] = set()
     _invalidation_map: ClassVar[dict[type[Command], Callable[[Any], str]]] = {}
@@ -32,7 +33,7 @@ class CacheKey(ABC, Generic[TQuery_co]):
             cls._extract_and_store_invalidation_info(cls)
 
     @classmethod
-    def _extract_and_store_query_type(cls, target_cls: type) -> None:
+    def _extract_and_store_query_type(cls, target_cls: type[CacheKey]) -> None:
         hints = get_type_hints(target_cls.key)
         for name, tp in hints.items():
             if name in ("self", "return"):
@@ -46,7 +47,7 @@ class CacheKey(ABC, Generic[TQuery_co]):
         )
 
     @classmethod
-    def _extract_and_store_invalidation_info(cls, target_cls: type) -> None:
+    def _extract_and_store_invalidation_info(cls, target_cls: type[CacheKey]) -> None:
         instance = target_cls()
         invs: list[Invalidation] = instance.invalidate()
         target_cls._invalidation_map = {}

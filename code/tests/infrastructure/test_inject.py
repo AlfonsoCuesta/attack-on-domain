@@ -174,22 +174,13 @@ class TestInjectAdapters:
 
     def test_injects_multiple_ports_of_same_type(self) -> None:
         class _FakeCache(Cache):
-            def get(self, key: str) -> Any:
+            def get(self, key: str, default: Any = None) -> Any:
                 return None
 
             def set(self, key: str, value: Any, ttl: float | None = None) -> None:
                 pass
 
             def delete(self, key: str) -> None:
-                pass
-
-            def flush(self) -> None:
-                pass
-
-            def delete_promise(self, key: str) -> None:
-                pass
-
-            def set_promise(self, key: str, value: Any, ttl: float | None = None) -> None:
                 pass
 
         class CacheUseCase(UseCase):

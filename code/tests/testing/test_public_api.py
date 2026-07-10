@@ -79,7 +79,7 @@ def test_aod_application_exports_documented_api() -> None:
     assert aod.application.Cache.__name__ == "Cache"
     assert aod.application.CacheKey.__name__ == "CacheKey"
     assert aod.application.Invalidation.__name__ == "Invalidation"
-    assert inspect.iscoroutinefunction(aod.application.async_.Cache.get)
+    assert inspect.iscoroutinefunction(aod.application.async_.Cache._get)
 
     assert aod.application.async_.__all__ == [
         "Cache",
@@ -105,7 +105,6 @@ def test_aod_application_exceptions_documented_api() -> None:
 def test_aod_infrastructure_exports_documented_api() -> None:
     assert aod.infrastructure.__all__ == [
         "AdapterContainer",
-        "Cache",
         "CommandHandler",
         "InfrastructureException",
         "Projection",
@@ -119,7 +118,6 @@ def test_aod_infrastructure_exports_documented_api() -> None:
     assert aod.infrastructure.InfrastructureException.__name__ == "InfrastructureException"
 
     assert aod.infrastructure.async_.__all__ == [
-        "Cache",
         "CommandHandler",
         "Projection",
         "QueryHandler",

@@ -137,9 +137,7 @@ class AsyncUseCase(BaseOperation):
                 raise
 
             for logger in self._loggers:
-                await should_await(
-                    logger.info(f"{type(self).__name__} events", events=self.events)
-                )
+                await should_await(logger.info(f"{type(self).__name__} events", events=self.events))
             for bus in self._event_buses:
                 await should_await(bus.publish(*self.events))
             for logger in self._loggers:

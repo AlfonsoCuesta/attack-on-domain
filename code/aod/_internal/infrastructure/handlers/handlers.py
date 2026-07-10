@@ -1,8 +1,8 @@
 from __future__ import annotations
 
+import typing
 from abc import abstractmethod
 from functools import wraps
-import typing
 from typing import Any, Callable, Generic, TypeVar
 
 from aod._internal.application.cache import AsyncCache, Cache
@@ -30,7 +30,24 @@ def _raise_if_abstract_session(owner: str, field_name: str, tp: object) -> None:
         raise AbstractSessionTypeError(owner, field_name, tp)
 
 
+def _ensure_handle_wrapped(
+    cls: type, wrapper_fn: Callable[[Any], Any], cache_wrapped_key: str
+) -> None:
+    original_handle = cls.__dict__.get("handle")
+    if (
+        original_handle is None
+        or getattr(original_handle, cache_wrapped_key, False)
+        or getattr(original_handle, "__isabstractmethod__", False)
+    ):
+        return
+    wrapped = wrapper_fn(original_handle)
+    setattr(cls, "handle", wrapped)
+    setattr(wrapped, cache_wrapped_key, True)
+
+
 class BaseHandler(BaseBehaviour):
+    _caches: list[Cache | AsyncCache] = PrivateField(default_factory=list)
+
     def __init_subclass__(cls, **kwargs: object) -> None:
         super().__init_subclass__(**kwargs)
         try:
@@ -39,6 +56,9 @@ class BaseHandler(BaseBehaviour):
             return
         for field_name, tp in hints.items():
             _raise_if_abstract_session(cls.__name__, field_name, tp)
+
+    def add_cache(self, cache: Cache | AsyncCache) -> None:
+        self._caches.append(cache)
 
     def _get_sessions(self) -> list[Session | AsyncSession]:
         sessions: list[Session | AsyncSession] = []
@@ -49,7 +69,7 @@ class BaseHandler(BaseBehaviour):
         return sessions
 
     def _get_caches(self) -> list[Cache | AsyncCache]:
-        return []
+        return list(self._caches)
 
 
 class AsyncBaseHandler(BaseHandler):
@@ -57,38 +77,20 @@ class AsyncBaseHandler(BaseHandler):
 
 
 class CommandHandler(BaseHandler, CommandPort, Generic[TCommand]):
-    _caches: list[Cache | AsyncCache] = PrivateField(default_factory=list)
-
     @abstractmethod
     def handle(self, command: TCommand) -> object: ...  # ty:ignore[invalid-method-override]
 
-    def add_cache(self, cache: Cache | AsyncCache) -> None:
-        self._caches.append(cache)
-
-    def _get_caches(self) -> list[Cache | AsyncCache]:
-        return list(self._caches)
-
     def __init_subclass__(cls, **kwargs: Any) -> None:
-        original_handle = cls.__dict__.get("handle")
-        if (
-            original_handle is not None
-            and not getattr(original_handle, _CACHE_WRAPPED_KEY, False)
-            and not getattr(original_handle, "__isabstractmethod__", False)
-        ):
-            wrapped = cls._wrap_command_handle(original_handle)
-            setattr(cls, "handle", wrapped)
-            setattr(wrapped, _CACHE_WRAPPED_KEY, True)
+        _ensure_handle_wrapped(cls, cls._make_cache_wrapper, _CACHE_WRAPPED_KEY)
         super().__init_subclass__(**kwargs)
 
-    @staticmethod
-    def _wrap_command_handle(fn: Callable[..., Any]) -> Callable[..., Any]:
+    @classmethod
+    def _make_cache_wrapper(cls, fn: Callable[..., Any]) -> Callable[..., Any]:
         @wraps(fn)
         def wrapper(self: Any, command: object) -> object:
             result = fn(self, command)
             for cache in self._caches:
-                key = cache.get_invalidate_key(command)
-                if key is not None:
-                    cache.delete_promise(key)
+                cache._delete(command)
             return result
 
         return wrapper
@@ -102,10 +104,7 @@ class QueryHandler(BaseHandler, QueryPort, Generic[TQuery]):
 
     def add_cache(self, cache: Cache | AsyncCache) -> None:
         if self._cache is not None:
-            raise ValueError(
-                f"QueryHandler {type(self).__name__} already has a cache. "
-                "A QueryHandler can only have one cache."
-            )
+            raise ValueError(f"{type(self).__name__} already has a cache.")
         self._cache = cache
 
     def _get_caches(self) -> list[Cache | AsyncCache]:
@@ -114,31 +113,21 @@ class QueryHandler(BaseHandler, QueryPort, Generic[TQuery]):
         return []
 
     def __init_subclass__(cls, **kwargs: Any) -> None:
-        original_handle = cls.__dict__.get("handle")
-        if (
-            original_handle is not None
-            and not getattr(original_handle, _CACHE_WRAPPED_KEY, False)
-            and not getattr(original_handle, "__isabstractmethod__", False)
-        ):
-            wrapped = cls._wrap_query_handle(original_handle)
-            setattr(cls, "handle", wrapped)
-            setattr(wrapped, _CACHE_WRAPPED_KEY, True)
+        _ensure_handle_wrapped(cls, cls._make_cache_wrapper, _CACHE_WRAPPED_KEY)
         super().__init_subclass__(**kwargs)
 
-    @staticmethod
-    def _wrap_query_handle(fn: Callable[..., Any]) -> Callable[..., Any]:
+    @classmethod
+    def _make_cache_wrapper(cls, fn: Callable[..., Any]) -> Callable[..., Any]:
         @wraps(fn)
         def wrapper(self: Any, query: object) -> object:
             cache = self._cache
-            cache_key = None
             if cache is not None:
-                cache_key = cache.get_cache_key(query)
-                result = cache.get(cache_key)
+                result = cache._get(query)
                 if result is not None:
                     return result
             result = fn(self, query)
-            if cache is not None and cache_key is not None:
-                cache.set_promise(cache_key, result)
+            if cache is not None:
+                cache._set(query, result)
             return result
 
         return wrapper
@@ -152,10 +141,7 @@ class AsyncQueryHandler(AsyncBaseHandler, AsyncQueryPort, Generic[TQuery]):
 
     def add_cache(self, cache: Cache | AsyncCache) -> None:
         if self._cache is not None:
-            raise ValueError(
-                f"AsyncQueryHandler {type(self).__name__} already has a cache. "
-                "A QueryHandler can only have one cache."
-            )
+            raise ValueError(f"{type(self).__name__} already has a cache.")
         self._cache = cache
 
     def _get_caches(self) -> list[Cache | AsyncCache]:
@@ -164,69 +150,41 @@ class AsyncQueryHandler(AsyncBaseHandler, AsyncQueryPort, Generic[TQuery]):
         return []
 
     def __init_subclass__(cls, **kwargs: Any) -> None:
-        original_handle = cls.__dict__.get("handle")
-        if (
-            original_handle is not None
-            and not getattr(original_handle, _CACHE_WRAPPED_KEY, False)
-            and not getattr(original_handle, "__isabstractmethod__", False)
-        ):
-            wrapped = cls._wrap_async_query_handle(original_handle)
-            setattr(cls, "handle", wrapped)
-            setattr(wrapped, _CACHE_WRAPPED_KEY, True)
+        _ensure_handle_wrapped(cls, cls._make_cache_wrapper, _CACHE_WRAPPED_KEY)
         super().__init_subclass__(**kwargs)
 
-    @staticmethod
-    def _wrap_async_query_handle(fn: Callable[..., Any]) -> Callable[..., Any]:
+    @classmethod
+    def _make_cache_wrapper(cls, fn: Callable[..., Any]) -> Callable[..., Any]:
         @wraps(fn)
         async def wrapper(self: Any, query: object) -> object:
             cache = self._cache
-            cache_key = None
             if cache is not None:
-                cache_key = cache.get_cache_key(query)
-                result = await should_await(cache.get(cache_key))
+                result = await should_await(cache._get(query))
                 if result is not None:
                     return result
             result = await should_await(fn(self, query))
-            if cache is not None and cache_key is not None:
-                cache.set_promise(cache_key, result)
+            if cache is not None:
+                cache._set(query, result)
             return result
 
         return wrapper
 
 
 class AsyncCommandHandler(AsyncBaseHandler, AsyncCommandPort, Generic[TCommand]):
-    _caches: list[Cache | AsyncCache] = PrivateField(default_factory=list)
-
     @abstractmethod
     async def handle(self, command: TCommand) -> object: ...  # ty:ignore[invalid-method-override]
 
-    def add_cache(self, cache: Cache | AsyncCache) -> None:
-        self._caches.append(cache)
-
-    def _get_caches(self) -> list[Cache | AsyncCache]:
-        return list(self._caches)
-
     def __init_subclass__(cls, **kwargs: Any) -> None:
-        original_handle = cls.__dict__.get("handle")
-        if (
-            original_handle is not None
-            and not getattr(original_handle, _CACHE_WRAPPED_KEY, False)
-            and not getattr(original_handle, "__isabstractmethod__", False)
-        ):
-            wrapped = cls._wrap_async_command_handle(original_handle)
-            setattr(cls, "handle", wrapped)
-            setattr(wrapped, _CACHE_WRAPPED_KEY, True)
+        _ensure_handle_wrapped(cls, cls._make_cache_wrapper, _CACHE_WRAPPED_KEY)
         super().__init_subclass__(**kwargs)
 
-    @staticmethod
-    def _wrap_async_command_handle(fn: Callable[..., Any]) -> Callable[..., Any]:
+    @classmethod
+    def _make_cache_wrapper(cls, fn: Callable[..., Any]) -> Callable[..., Any]:
         @wraps(fn)
         async def wrapper(self: Any, command: object) -> object:
             result = await fn(self, command)
             for cache in self._caches:
-                key = cache.get_invalidate_key(command)
-                if key is not None:
-                    cache.delete_promise(key)
+                cache._delete(command)
             return result
 
         return wrapper

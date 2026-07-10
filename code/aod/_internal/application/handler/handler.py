@@ -39,17 +39,7 @@ def _extract_expected_type(cls: type) -> type | None:
         origin = getattr(base, "__origin__", None)
         if origin is None:
             continue
-        origin_name = getattr(origin, "__name__", "")
-        if origin_name in (
-            "CommandPort",
-            "QueryPort",
-            "AsyncCommandPort",
-            "AsyncQueryPort",
-            "CommandHandler",
-            "QueryHandler",
-            "AsyncCommandHandler",
-            "AsyncQueryHandler",
-        ):
+        if isinstance(origin, type) and issubclass(origin, HandlerProtocol):
             return get_generic_arg_from_orig_bases(cls, origin)
     return None
 
