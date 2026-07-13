@@ -5,6 +5,7 @@ from typing import Any
 import pytest
 from aod._internal.application.cache.cache_key import CacheKey, Invalidation
 from aod._internal.application.contracts import Command, Query
+from aod._internal.application.handler import CommandPort, QueryPort
 from aod._internal.core.fields.fields import Field, PrivateField
 from aod._internal.domain.entity import RootEntity
 from aod._internal.application.cache.cache import AsyncCache, Cache, _CacheEntry
@@ -451,3 +452,148 @@ def _make_user_key() -> CacheKey:
             ]
 
     return UserCacheKey()
+
+
+class TestResolveTtlReturnsNone:
+    def test_no_matching_key(self) -> None:
+        class OtherQuery(Query[User, User | None]):
+            other_id: int
+
+        cache = ConcreteCache(keys=[_make_user_key()])
+        assert cache._resolve_ttl(OtherQuery(other_id=1)) is None
+
+
+class TestCacheKeyTypeError:
+    def test_key_without_query_type_hint_raises(self) -> None:
+        with pytest.raises(TypeError, match="Could not determine Query type"):
+            class _(CacheKey[GetUser]):  # type: ignore[type-arg]
+                def key(self, query):  # no type hint on parameter
+                    return "k"
+
+                def invalidate(self) -> list[Invalidation]:
+                    return []
+
+    def test_key_with_wrong_type_hint_raises(self) -> None:
+        with pytest.raises(TypeError, match="Could not determine Query type"):
+            class _(CacheKey[GetUser]):  # type: ignore[type-arg]
+                def key(self, query: str) -> str:  # type hint is not a Query type  # ty:ignore[invalid-method-override]
+                    return query
+
+                def invalidate(self) -> list[Invalidation]:
+                    return []
+
+
+class TestAsyncCacheConcrete:
+    async def test_async_get(self) -> None:
+        cache = ConcreteAsyncCache(keys=[_make_user_key()])
+        await cache.set("user:42", User(id=42, name="async"))
+        result = await cache._get(GetUser(user_id=42))
+        assert result is not None
+        assert result.name == "async"
+
+    async def test_async_flush_with_set(self) -> None:
+        cache = ConcreteAsyncCache(keys=[_make_user_key()])
+        cache._set(GetUser(user_id=1), User(id=1, name="x"))
+        assert len(cache._to_set) == 1
+        await cache._flush()
+        assert len(cache._to_set) == 0
+        stored = await cache.get("user:1")
+        assert stored.name == "x"  # ty: ignore[unresolved-attribute]
+
+    async def test_async_flush_with_delete(self) -> None:
+        class DelKey(CacheKey[GetUser]):
+            ttl = 60.0
+
+            def key(self, query: GetUser) -> str:
+                return f"user:{query.user_id}"
+
+            def invalidate(self) -> list[Invalidation]:
+                return [Invalidation(DeleteUser, lambda c: f"user:{c.user_id}")]
+
+        cache = ConcreteAsyncCache(keys=[DelKey()])
+        await cache.set("user:1", User(id=1, name="x"))
+        cache._delete(DeleteUser(user_id=1))
+        assert len(cache._to_delete) == 1
+        await cache._flush()
+        assert len(cache._to_delete) == 0
+        assert await cache.get("user:1") is None
+
+    async def test_async_flush_empty(self) -> None:
+        cache = ConcreteAsyncCache(keys=[_make_user_key()])
+        await cache._flush()
+        assert len(cache._to_set) == 0
+        assert len(cache._to_delete) == 0
+
+
+class TestNullCache:
+    def test_null_cache_noops(self) -> None:
+        from aod._internal.application.cache.null_cache import NullCache
+
+        nc = NullCache()
+        nc._set(GetUser(user_id=1), User(id=1, name="x"))
+        nc._delete(CreateUser(name="Alice"))
+        nc._flush()
+        assert nc._get(GetUser(user_id=1)) is None
+
+    def test_null_cache_get_noop(self) -> None:
+        from aod._internal.application.cache.null_cache import NullCache
+
+        nc = NullCache()
+        assert nc.get("any") is None
+
+    def test_null_cache_set_delete_noop(self) -> None:
+        from aod._internal.application.cache.null_cache import NullCache
+
+        nc = NullCache()
+        nc.set("k", "v")
+        nc.delete("k")
+
+
+class TestUseCaseWithCache:
+    def test_query_handler_read_through(self) -> None:
+        from aod._internal.application.use_case import UseCase
+
+        class GetUserUC(UseCase):
+            get_user: QueryPort[GetUser]
+
+            def run(self, user_id: int) -> User | None:
+                return self.get_user.handle(GetUser(user_id=user_id))
+
+        class GetUserHandlerLocal(QueryHandler[GetUser]):
+            def handle(self, query: GetUser) -> User | None:
+                return User(id=query.user_id, name="from-db")
+
+        cache = ConcreteCache(keys=[_make_user_key()])
+        cache.set("user:1", User(id=1, name="cached"))
+
+        handler = GetUserHandlerLocal()
+        handler.add_cache(cache)
+
+        uc = GetUserUC(get_user=handler)
+        result = uc.run(user_id=1)
+        assert result is not None
+        assert result.name == "cached"
+
+    def test_command_invalidates_cache(self) -> None:
+        from aod._internal.application.use_case import UseCase
+
+        class CreateUserUC(UseCase):
+            create_user: CommandPort[CreateUser]
+
+            def run(self, name: str) -> User:
+                return self.create_user.handle(CreateUser(name=name))
+
+        class CreateUserHandlerLocal(CommandHandler[CreateUser]):
+            def handle(self, command: CreateUser) -> User:
+                return User(id=1, name=command.name)
+
+        cache = ConcreteCache(keys=[_make_user_key()])
+        cache.set("user:Alice", User(id=1, name="old"))
+
+        handler = CreateUserHandlerLocal()
+        handler.add_cache(cache)
+
+        uc = CreateUserUC(create_user=handler)
+        result = uc.run(name="Alice")
+        assert result.name == "Alice"
+        assert cache.get("user:Alice") is None

@@ -66,13 +66,16 @@ class Cache(BaseCache):
         self._to_set.clear()
 
     @abstractmethod
-    def get(self, key: str) -> Any: ...
+    def get(self, key: str) -> Any:
+        raise NotImplementedError()  # pragma: no cover
 
     @abstractmethod
-    def set(self, key: str, value: Any, ttl: float | None = None) -> None: ...
+    def set(self, key: str, value: Any, ttl: float | None = None) -> None:
+        raise NotImplementedError()  # pragma: no cover
 
     @abstractmethod
-    def delete(self, key: str) -> None: ...
+    def delete(self, key: str) -> None:
+        raise NotImplementedError()  # pragma: no cover
 
 
 class AsyncCache(BaseCache):
@@ -91,10 +94,13 @@ class AsyncCache(BaseCache):
         self._to_set.clear()
 
     @abstractmethod
-    async def get(self, key: str, default: Any = None) -> Any: ...
+    async def get(self, key: str) -> Any:
+        raise NotImplementedError()  # pragma: no cover
 
     @abstractmethod
-    async def set(self, key: str, value: Any, ttl: float | None = None) -> None: ...
+    async def set(self, key: str, value: Any, ttl: float | None = None) -> None:
+        raise NotImplementedError()  # pragma: no cover
 
     @abstractmethod
-    async def delete(self, key: str) -> None: ...
+    async def delete(self, key: str) -> None:
+        raise NotImplementedError()  # pragma: no cover
