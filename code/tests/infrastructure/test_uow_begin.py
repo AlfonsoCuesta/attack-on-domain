@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from aod._internal.infrastructure.session import AsyncSession, Session
-from aod._internal.infrastructure.unit_of_work import AsyncUnitOfWork, UnitOfWork
+from aod._internal.application.unit_of_work import AsyncUnitOfWork, UnitOfWork
 from aod._internal.testing.doubles.infrastructure.session import session_stub
 
 

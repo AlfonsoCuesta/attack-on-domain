@@ -159,7 +159,7 @@ class TestInjectAdapters:
 
         container = AdapterContainer(weather_client=_FakePort())
         uc = container.adapt(NoHintUseCase)
-        assert uc.uow is not None
+        assert object.__getattribute__(uc, "_uow") is not None
 
     def test_works_with_async_use_case(self) -> None:
         class AsyncPortUseCase(AsyncUseCase):

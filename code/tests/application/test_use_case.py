@@ -8,7 +8,8 @@ from aod._internal.application.logger import Logger
 from aod._internal.core.domain_exception import MutationForbiddenException
 from aod._internal.core.event_emitter import EventCollector
 from aod._internal.core.fields.fields import PrivateField
-from aod.application import UnitOfWork, UseCase
+from aod._internal.application.unit_of_work import UnitOfWork
+from aod.application import UseCase
 from aod.testing.doubles import port_stub
 from tests.application._use_case_scenarios import (
     _RUN_BODIES,
@@ -363,7 +364,7 @@ def test_cannot_set_fields_from_outside() -> None:
 def test_cannot_del_fields() -> None:
     uc = CreateUser()
     with pytest.raises(MutationForbiddenException):
-        del uc.uow
+        del uc._uow
 
 
 def test_no_public_methods_exposed_besides_run() -> None:
@@ -403,6 +404,7 @@ def test_uow_auto_commit_on_success() -> None:
 
     uow = port_stub(UnitOfWork)()
     uc = Create()
+    object.__setattr__(uc, "_uow", uow)
     uc.run()
     assert uow.commit.called
     assert not uow.rollback.called
@@ -415,6 +417,7 @@ def test_uow_always_commits_on_success() -> None:
 
     uow = port_stub(UnitOfWork)()
     uc = NoOp()
+    object.__setattr__(uc, "_uow", uow)
     uc.run()
     assert uow.commit.called
     assert not uow.rollback.called
@@ -427,6 +430,7 @@ def test_uow_auto_rollback_on_failure() -> None:
 
     uow = port_stub(UnitOfWork)()
     uc = Fail()
+    object.__setattr__(uc, "_uow", uow)
     with pytest.raises(ValueError):
         uc.run()
     assert uow.rollback.called
@@ -505,6 +509,7 @@ def test_commit_failure_rolls_back_and_logs() -> None:
     uow.commit.side_effect = RuntimeError("commit failed")
     logger = port_stub(Logger)()
     uc = Simple(logger=logger)
+    object.__setattr__(uc, "_uow", uow)
     with pytest.raises(RuntimeError):
         uc.run()
     assert uow.rollback.called

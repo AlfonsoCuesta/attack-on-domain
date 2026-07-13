@@ -15,7 +15,7 @@ from aod._internal.core.infrastructure_exception import PortNotFoundError
 from aod._internal.infrastructure.container import AdapterContainer
 from aod._internal.infrastructure.projection import ReadProjection
 from aod._internal.infrastructure.session import AsyncSession, Session
-from aod._internal.infrastructure.unit_of_work import UnitOfWork
+from aod._internal.application.unit_of_work import UnitOfWork
 from aod._internal.testing.doubles.infrastructure.container import spy_adapter_container
 from aod.application import Command, Query
 from aod.domain import RootEntity

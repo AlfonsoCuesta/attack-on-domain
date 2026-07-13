@@ -1,34 +1,72 @@
 from __future__ import annotations
 
-from abc import abstractmethod
 from typing import Any
 
+from aod._internal.application.cache import AsyncCache, Cache
 from aod._internal.application.port import Port
+from aod._internal.core.async_utils import should_await
+from aod._internal.core.fields.fields import Field
+from aod._internal.infrastructure.commit_context import _CommitContext
+from aod._internal.infrastructure.session import AsyncSession, Session
 
 
 class UnitOfWork(Port):
-    @abstractmethod
-    def commit(self) -> None: ...
+    sessions: set[Session] = Field(default_factory=set)
+    caches: set[Cache | AsyncCache] = Field(default_factory=set)
 
-    @abstractmethod
-    def rollback(self) -> None: ...
+    def add_handler(self, handler: Any) -> None:
+        for session in handler._get_sessions():
+            self.sessions.add(session)
+        for cache in handler._get_caches():
+            self.caches.add(cache)
 
-    @abstractmethod
-    def begin(self) -> None: ...
+    def commit(self) -> None:
+        token = _CommitContext.set(True)
+        try:
+            for s in self.sessions:
+                if s.is_dirty():
+                    s.commit()
+            for cache in self.caches:
+                cache._flush()
+        finally:
+            _CommitContext.reset(token)
 
-    @abstractmethod
-    def add_handler(self, handler: Any) -> None: ...
+    def rollback(self) -> None:
+        for s in self.sessions:
+            if s.is_dirty():
+                s.rollback()
+
+    def begin(self) -> None:
+        for s in self.sessions:
+            s.begin()
 
 
 class AsyncUnitOfWork(Port):
-    @abstractmethod
-    async def commit(self) -> None: ...
+    sessions: set[Session | AsyncSession] = Field(default_factory=set)
+    caches: set[Cache | AsyncCache] = Field(default_factory=set)
 
-    @abstractmethod
-    async def rollback(self) -> None: ...
+    def add_handler(self, handler: Any) -> None:
+        for session in handler._get_sessions():
+            self.sessions.add(session)
+        for cache in handler._get_caches():
+            self.caches.add(cache)
 
-    @abstractmethod
-    async def begin(self) -> None: ...
+    async def commit(self) -> None:
+        token = _CommitContext.set(True)
+        try:
+            for s in self.sessions:
+                if s.is_dirty():
+                    await should_await(s.commit())
+            for cache in self.caches:
+                await should_await(cache._flush())
+        finally:
+            _CommitContext.reset(token)
 
-    @abstractmethod
-    def add_handler(self, handler: Any) -> None: ...
+    async def rollback(self) -> None:
+        for s in self.sessions:
+            if s.is_dirty():
+                await should_await(s.rollback())
+
+    async def begin(self) -> None:
+        for s in self.sessions:
+            await should_await(s.begin())

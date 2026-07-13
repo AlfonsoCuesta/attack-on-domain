@@ -207,6 +207,7 @@ async def test_uow_auto_commit_on_success() -> None:
 
     uow = port_stub(AsyncUnitOfWork)()
     uc = Create()
+    object.__setattr__(uc, "_uow", uow)
     await uc.run()
     assert uow.commit.called
     assert not uow.rollback.called
@@ -219,6 +220,7 @@ async def test_uow_always_commits_on_success() -> None:
 
     uow = port_stub(AsyncUnitOfWork)()
     uc = NoOp()
+    object.__setattr__(uc, "_uow", uow)
     await uc.run()
     assert uow.commit.called
     assert not uow.rollback.called
@@ -231,6 +233,7 @@ async def test_uow_auto_rollback_on_failure() -> None:
 
     uow = port_stub(AsyncUnitOfWork)()
     uc = Fail()
+    object.__setattr__(uc, "_uow", uow)
     with pytest.raises(ValueError):
         await uc.run()
     assert uow.rollback.called
@@ -275,6 +278,7 @@ async def test_commit_failure_rolls_back_and_logs() -> None:
     uow.commit.side_effect = RuntimeError("commit failed")
     logger = port_stub(Logger)()
     uc = Simple(logger=logger)
+    object.__setattr__(uc, "_uow", uow)
     with pytest.raises(RuntimeError):
         await uc.run()
     assert uow.rollback.called
@@ -317,6 +321,7 @@ async def test_mixed_all_sync_ports_on_success() -> None:
     logger = port_stub(Logger)()
     bus = port_stub(EventBus)()
     uc = Simple(logger=logger, event_bus=bus)
+    object.__setattr__(uc, "_uow", uow)
     await uc.run()
     assert uow.commit.called
     assert not uow.rollback.called
@@ -334,6 +339,7 @@ async def test_mixed_all_sync_ports_on_failure() -> None:
     uow = port_stub(UnitOfWork)()
     logger = port_stub(Logger)()
     uc = Fail(logger=logger)
+    object.__setattr__(uc, "_uow", uow)
     with pytest.raises(ValueError):
         await uc.run()
     assert uow.rollback.called
@@ -351,6 +357,7 @@ async def test_mixed_sync_uow_async_event_bus() -> None:
     uow = port_stub(UnitOfWork)()
     bus = port_stub(AsyncEventBus)()
     uc = Emit(event_bus=bus)
+    object.__setattr__(uc, "_uow", uow)
     await uc.run()
     assert uow.commit.called
     assert bus.publish.call_count == 1
@@ -366,6 +373,7 @@ async def test_mixed_async_uow_sync_logger() -> None:
     uow = port_stub(AsyncUnitOfWork)()
     logger = port_stub(Logger)()
     uc = Simple(logger=logger)
+    object.__setattr__(uc, "_uow", uow)
     await uc.run()
     assert uow.commit.called
     assert not uow.rollback.called

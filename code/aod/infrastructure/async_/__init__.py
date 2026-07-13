@@ -10,7 +10,6 @@ from aod._internal.infrastructure.projection import (
     AsyncWriteProjection as WriteProjection,
 )
 from aod._internal.infrastructure.session import AsyncSession as Session
-from aod._internal.infrastructure.unit_of_work import AsyncUnitOfWork as UnitOfWork
 
 __all__ = [
     "CommandHandler",
@@ -18,6 +17,5 @@ __all__ = [
     "QueryHandler",
     "ReadProjection",
     "Session",
-    "UnitOfWork",
     "WriteProjection",
 ]

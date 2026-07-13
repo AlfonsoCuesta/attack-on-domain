@@ -8,7 +8,6 @@ from aod._internal.infrastructure.projection import (
     WriteProjection,
 )
 from aod._internal.infrastructure.session import Session
-from aod._internal.infrastructure.unit_of_work import UnitOfWork
 
 __all__ = [
     "AdapterContainer",
@@ -19,6 +18,5 @@ __all__ = [
     "QueryHandler",
     "ReadProjection",
     "Session",
-    "UnitOfWork",
     "WriteProjection",
 ]

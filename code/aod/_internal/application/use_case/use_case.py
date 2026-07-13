@@ -8,11 +8,9 @@ from aod._internal.application.unit_of_work import AsyncUnitOfWork, UnitOfWork
 from aod._internal.core.async_utils import should_await
 from aod._internal.core.base_operation import BaseOperation
 from aod._internal.core.event_emitter import EventCollector
-from aod._internal.core.fields.fields import Field, PrivateField
+from aod._internal.core.fields.fields import PrivateField
 from aod._internal.infrastructure.handlers.handlers import BaseHandler
 from aod._internal.infrastructure.session import AsyncSession, Session
-from aod._internal.infrastructure.unit_of_work import AsyncUnitOfWork as InfraAsyncUnitOfWork
-from aod._internal.infrastructure.unit_of_work import UnitOfWork as InfraUnitOfWork
 
 _USE_CASE_WRAPPED_KEY = "__aod_use_case_wrapped__"
 
@@ -20,7 +18,7 @@ _USE_CASE_WRAPPED_KEY = "__aod_use_case_wrapped__"
 class UseCase(BaseOperation):
     __skip_port_check__ = True
     __not_allowed_port_types__ = (Session, AsyncSession)
-    _uow: UnitOfWork = PrivateField(default_factory=InfraUnitOfWork)
+    _uow: UnitOfWork = PrivateField(default_factory=UnitOfWork)
 
     def __init__(self, **kwargs: Any) -> None:
         super().__init__(**kwargs)
@@ -86,7 +84,7 @@ class UseCase(BaseOperation):
 class AsyncUseCase(BaseOperation):
     __skip_port_check__ = True
     __not_allowed_port_types__ = (Session, AsyncSession)
-    _uow: UnitOfWork | AsyncUnitOfWork = Field(default_factory=InfraAsyncUnitOfWork)
+    _uow: UnitOfWork | AsyncUnitOfWork = PrivateField(default_factory=AsyncUnitOfWork)
 
     def __init__(self, **kwargs: Any) -> None:
         super().__init__(**kwargs)

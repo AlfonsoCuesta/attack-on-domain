@@ -438,6 +438,7 @@ class TestUseCase:
             logger=logger,
             event_bus=bus,
         )
+        object.__setattr__(uc, "_uow", uow)
         uc.run()
         assert uow.commit.called
         assert not uow.rollback.called

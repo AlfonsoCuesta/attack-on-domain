@@ -72,7 +72,6 @@ def test_aod_application_exports_documented_api() -> None:
         "Port",
         "Query",
         "QueryPort",
-        "UnitOfWork",
         "UseCase",
     ]
     assert aod.application.ApplicationException.__name__ == "ApplicationException"
@@ -87,7 +86,6 @@ def test_aod_application_exports_documented_api() -> None:
         "EventBus",
         "Logger",
         "QueryPort",
-        "UnitOfWork",
         "UseCase",
     ]
 
@@ -112,7 +110,6 @@ def test_aod_infrastructure_exports_documented_api() -> None:
         "QueryHandler",
         "ReadProjection",
         "Session",
-        "UnitOfWork",
         "WriteProjection",
     ]
     assert aod.infrastructure.InfrastructureException.__name__ == "InfrastructureException"
@@ -123,7 +120,6 @@ def test_aod_infrastructure_exports_documented_api() -> None:
         "QueryHandler",
         "ReadProjection",
         "Session",
-        "UnitOfWork",
         "WriteProjection",
     ]
 

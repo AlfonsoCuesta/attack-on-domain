@@ -3,7 +3,6 @@ from aod._internal.application.event_bus import AsyncEventBus as EventBus
 from aod._internal.application.handler import AsyncCommandPort as CommandPort
 from aod._internal.application.handler import AsyncQueryPort as QueryPort
 from aod._internal.application.logger import AsyncLogger as Logger
-from aod._internal.application.unit_of_work import AsyncUnitOfWork as UnitOfWork
 from aod._internal.application.use_case import AsyncUseCase as UseCase
 
 __all__ = [
@@ -12,6 +11,5 @@ __all__ = [
     "EventBus",
     "Logger",
     "QueryPort",
-    "UnitOfWork",
     "UseCase",
 ]

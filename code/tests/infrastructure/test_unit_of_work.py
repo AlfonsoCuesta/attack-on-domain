@@ -1,8 +1,65 @@
 from __future__ import annotations
 
+from typing import Any
+
+from aod._internal.application.cache.cache import Cache
+from aod._internal.application.cache.cache_key import CacheKey, Invalidation
+from aod._internal.application.contracts import Command, Query
+from aod._internal.application.unit_of_work import AsyncUnitOfWork, UnitOfWork
+from aod._internal.core.fields.fields import Field, PrivateField
+from aod._internal.domain.entity import RootEntity
+from aod._internal.infrastructure.handlers.handlers import CommandHandler, QueryHandler
 from aod._internal.infrastructure.session import AsyncSession, Session
-from aod._internal.infrastructure.unit_of_work import AsyncUnitOfWork, UnitOfWork
-from aod.domain import PrivateField
+
+
+class User(RootEntity):
+    id: int = Field(id=True)
+    name: str
+
+
+class GetUser(Query[User, User | None]):
+    user_id: int
+
+
+class CreateUser(Command[User, User]):
+    name: str
+
+
+class _SyncSession(Session):
+    def execute(self, operation: object) -> object: ...
+    def query(self, operation: object) -> object: ...
+    def begin(self) -> None: ...
+    def commit(self) -> None: ...
+    def rollback(self) -> None: ...
+    def close(self) -> None: ...
+    def is_dirty(self) -> bool:
+        return False
+
+
+class ConcreteCache(Cache):
+    _stored: dict[str, Any] = PrivateField(default_factory=dict)
+
+    def get(self, key: str) -> object:
+        return self._stored.get(key)
+
+    def set(self, key: str, value: object, ttl: float | None = None) -> None:
+        self._stored[key] = value
+
+    def delete(self, key: str) -> None:
+        self._stored.pop(key, None)
+
+
+def _make_user_key() -> CacheKey:
+    class UserCacheKey(CacheKey[GetUser]):
+        def key(self, query: GetUser) -> str:
+            return f"user:{query.user_id}"
+
+        def invalidate(self) -> list[Invalidation]:
+            return [
+                Invalidation(CreateUser, lambda c: f"user:{c.name}"),
+            ]
+
+    return UserCacheKey()
 
 
 class _DirtySession(Session):
@@ -193,3 +250,66 @@ class TestAsyncUnitOfWork:
         await uow.rollback()
         assert s1._rolled_back
         assert s2._rolled_back
+
+
+class TestUowAddHandler:
+    def test_add_handler_collects_sessions(self) -> None:
+        class Handler(QueryHandler[GetUser]):
+            session: _SyncSession
+
+            def handle(self, query: GetUser) -> User | None:
+                return None
+
+        session = _SyncSession()
+        handler = Handler(session=session)
+        uow = UnitOfWork()
+        uow.add_handler(handler)
+        assert session in uow.sessions
+
+    def test_add_handler_collects_caches(self) -> None:
+        class Handler(QueryHandler[GetUser]):
+            def handle(self, query: GetUser) -> User | None:
+                return None
+
+        cache = ConcreteCache(keys=[_make_user_key()])
+        handler = Handler()
+        handler.add_cache(cache)
+        uow = UnitOfWork()
+        uow.add_handler(handler)
+        assert cache in uow.caches
+
+    def test_add_handler_dedup_caches(self) -> None:
+        class Handler1(QueryHandler[GetUser]):
+            def handle(self, query: GetUser) -> User | None:
+                return None
+
+        class Handler2(CommandHandler[CreateUser]):
+            def handle(self, command: CreateUser) -> User:
+                return User(id=1, name=command.name)
+
+        cache = ConcreteCache(keys=[_make_user_key()])
+        h1 = Handler1()
+        h1.add_cache(cache)
+        h2 = Handler2()
+        h2.add_cache(cache)
+
+        uow = UnitOfWork()
+        uow.add_handler(h1)
+        uow.add_handler(h2)
+        assert len(uow.caches) == 1
+
+    def test_uow_commit_flushes_caches(self) -> None:
+        class Handler(QueryHandler[GetUser]):
+            def handle(self, query: GetUser) -> User | None:
+                return None
+
+        cache = ConcreteCache(keys=[_make_user_key()])
+        cache._set(GetUser(user_id=1), User(id=1, name="x"))
+        handler = Handler()
+        handler.add_cache(cache)
+        uow = UnitOfWork()
+        uow.add_handler(handler)
+        assert len(cache._to_set) == 1
+        uow.commit()
+        assert len(cache._to_set) == 0
+        assert cache.get("user:1").name == "x"  # ty: ignore[unresolved-attribute]
