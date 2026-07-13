@@ -466,6 +466,7 @@ class TestResolveTtlReturnsNone:
 class TestCacheKeyTypeError:
     def test_key_without_query_type_hint_raises(self) -> None:
         with pytest.raises(TypeError, match="Could not determine Query type"):
+
             class _(CacheKey[GetUser]):  # type: ignore[type-arg]
                 def key(self, query):  # no type hint on parameter
                     return "k"
@@ -475,8 +476,11 @@ class TestCacheKeyTypeError:
 
     def test_key_with_wrong_type_hint_raises(self) -> None:
         with pytest.raises(TypeError, match="Could not determine Query type"):
+
             class _(CacheKey[GetUser]):  # type: ignore[type-arg]
-                def key(self, query: str) -> str:  # type hint is not a Query type  # ty:ignore[invalid-method-override]
+                def key(
+                    self, query: str
+                ) -> str:  # type hint is not a Query type  # ty:ignore[invalid-method-override]
                     return query
 
                 def invalidate(self) -> list[CacheInvalidation]:
