@@ -8,7 +8,7 @@ from aod._internal.application.unit_of_work import AsyncUnitOfWork, UnitOfWork
 from aod._internal.core.async_utils import should_await
 from aod._internal.core.base_operation import BaseOperation
 from aod._internal.core.event_emitter import EventCollector
-from aod._internal.core.fields.fields import Field
+from aod._internal.core.fields.fields import Field, PrivateField
 from aod._internal.infrastructure.handlers.handlers import BaseHandler
 from aod._internal.infrastructure.session import AsyncSession, Session
 from aod._internal.infrastructure.unit_of_work import AsyncUnitOfWork as InfraAsyncUnitOfWork
@@ -20,7 +20,7 @@ _USE_CASE_WRAPPED_KEY = "__aod_use_case_wrapped__"
 class UseCase(BaseOperation):
     __skip_port_check__ = True
     __not_allowed_port_types__ = (Session, AsyncSession)
-    uow: UnitOfWork = Field(default_factory=InfraUnitOfWork)
+    _uow: UnitOfWork = PrivateField(default_factory=InfraUnitOfWork)
 
     def __init__(self, **kwargs: Any) -> None:
         super().__init__(**kwargs)
@@ -30,7 +30,7 @@ class UseCase(BaseOperation):
         for field_name in self.__model_fields__:
             value = object.__getattribute__(self, field_name)
             if isinstance(value, BaseHandler):
-                self.uow.add_handler(value)
+                self._uow.add_handler(value)
 
     def __init_subclass__(cls, **kwargs: Any) -> None:
         original_run: Callable[..., Any] | None = cls.__dict__.get("run")
@@ -46,7 +46,7 @@ class UseCase(BaseOperation):
         def wrapper(self: UseCase, *args: Any, **kwargs: Any) -> None:
             exception: BaseException | None = None
 
-            self.uow.begin()
+            self._uow.begin()
             with EventCollector() as events:
                 try:
                     result = fn(self, *args, **kwargs)
@@ -56,15 +56,15 @@ class UseCase(BaseOperation):
                 self.events = list(events)
 
             if exception is not None:
-                self.uow.rollback()
+                self._uow.rollback()
                 for logger in self._loggers:
                     logger.error(f"{type(self).__name__} failed with exception: {exception}")
                 raise exception
 
             try:
-                self.uow.commit()
+                self._uow.commit()
             except BaseException:
-                self.uow.rollback()
+                self._uow.rollback()
                 for logger in self._loggers:
                     logger.error(f"{type(self).__name__} commit failed")
                 raise
@@ -86,7 +86,7 @@ class UseCase(BaseOperation):
 class AsyncUseCase(BaseOperation):
     __skip_port_check__ = True
     __not_allowed_port_types__ = (Session, AsyncSession)
-    uow: UnitOfWork | AsyncUnitOfWork = Field(default_factory=InfraAsyncUnitOfWork)
+    _uow: UnitOfWork | AsyncUnitOfWork = Field(default_factory=InfraAsyncUnitOfWork)
 
     def __init__(self, **kwargs: Any) -> None:
         super().__init__(**kwargs)
@@ -96,7 +96,7 @@ class AsyncUseCase(BaseOperation):
         for field_name in self.__model_fields__:
             value = object.__getattribute__(self, field_name)
             if isinstance(value, BaseHandler):
-                self.uow.add_handler(value)
+                self._uow.add_handler(value)
 
     def __init_subclass__(cls, **kwargs: Any) -> None:
         original_run: Callable[..., Any] | None = cls.__dict__.get("run")
@@ -112,7 +112,7 @@ class AsyncUseCase(BaseOperation):
         async def wrapper(self: AsyncUseCase, *args: Any, **kwargs: Any) -> None:
             exception: BaseException | None = None
 
-            await should_await(self.uow.begin())
+            await should_await(self._uow.begin())
             with EventCollector() as events:
                 try:
                     result = await should_await(fn(self, *args, **kwargs))
@@ -122,7 +122,7 @@ class AsyncUseCase(BaseOperation):
                 self.events = list(events)
 
             if exception is not None:
-                await should_await(self.uow.rollback())
+                await should_await(self._uow.rollback())
                 for logger in self._loggers:
                     await should_await(
                         logger.error(f"{type(self).__name__} failed with exception: {exception}")
@@ -130,9 +130,9 @@ class AsyncUseCase(BaseOperation):
                 raise exception
 
             try:
-                await should_await(self.uow.commit())
+                await should_await(self._uow.commit())
             except BaseException:
-                await should_await(self.uow.rollback())
+                await should_await(self._uow.rollback())
                 for logger in self._loggers:
                     await should_await(logger.error(f"{type(self).__name__} commit failed"))
                 raise

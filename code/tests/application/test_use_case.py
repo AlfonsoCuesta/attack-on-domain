@@ -3,12 +3,12 @@ from __future__ import annotations
 from abc import abstractmethod
 
 import pytest
+from aod._internal.application.event_bus import EventBus
+from aod._internal.application.logger import Logger
 from aod._internal.core.domain_exception import MutationForbiddenException
 from aod._internal.core.event_emitter import EventCollector
 from aod._internal.core.fields.fields import PrivateField
 from aod.application import UnitOfWork, UseCase
-from aod._internal.application.event_bus import EventBus
-from aod._internal.application.logger import Logger
 from aod.testing.doubles import port_stub
 from tests.application._use_case_scenarios import (
     _RUN_BODIES,
@@ -357,7 +357,7 @@ def test_re_run_does_not_keep_old_events() -> None:
 def test_cannot_set_fields_from_outside() -> None:
     uc = CreateUser()
     with pytest.raises(MutationForbiddenException):
-        uc.uow = None  # type: ignore
+        uc._uow = None  # type: ignore
 
 
 def test_cannot_del_fields() -> None:
@@ -402,7 +402,7 @@ def test_uow_auto_commit_on_success() -> None:
             pass
 
     uow = port_stub(UnitOfWork)()
-    uc = Create(uow=uow)
+    uc = Create()
     uc.run()
     assert uow.commit.called
     assert not uow.rollback.called
@@ -414,7 +414,7 @@ def test_uow_always_commits_on_success() -> None:
             pass
 
     uow = port_stub(UnitOfWork)()
-    uc = NoOp(uow=uow)
+    uc = NoOp()
     uc.run()
     assert uow.commit.called
     assert not uow.rollback.called
@@ -426,7 +426,7 @@ def test_uow_auto_rollback_on_failure() -> None:
             raise ValueError("oops")
 
     uow = port_stub(UnitOfWork)()
-    uc = Fail(uow=uow)
+    uc = Fail()
     with pytest.raises(ValueError):
         uc.run()
     assert uow.rollback.called
@@ -504,7 +504,7 @@ def test_commit_failure_rolls_back_and_logs() -> None:
     uow = port_stub(UnitOfWork)()
     uow.commit.side_effect = RuntimeError("commit failed")
     logger = port_stub(Logger)()
-    uc = Simple(uow=uow, logger=logger)
+    uc = Simple(logger=logger)
     with pytest.raises(RuntimeError):
         uc.run()
     assert uow.rollback.called

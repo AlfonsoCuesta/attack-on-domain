@@ -5,9 +5,9 @@ from aod._internal.application.contracts import Command, Query
 from aod._internal.application.event_bus import EventBus
 from aod._internal.application.event_bus.null_event_bus import NullEventBus
 from aod._internal.application.logger import Logger
-from aod._internal.application.unit_of_work import UnitOfWork
 from aod._internal.application.logger.null_logger import NullLogger
 from aod._internal.application.port import Port
+from aod._internal.application.unit_of_work import UnitOfWork
 from aod._internal.application.use_case import UseCase
 from aod._internal.core.domain_exception import MutationForbiddenException
 from aod._internal.core.event_emitter import Event
@@ -435,7 +435,6 @@ class TestUseCase:
         uc = PlaceOrderUseCase(
             email_sender=email_sender,
             inventory=inventory,
-            uow=uow,
             logger=logger,
             event_bus=bus,
         )
