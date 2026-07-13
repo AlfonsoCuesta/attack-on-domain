@@ -7,8 +7,9 @@ Comprehensive reference for all publicly importable classes, grouped by layer.
 ## Domain Layer
 
 ```python
-from aod.domain import Entity, RootEntity, ValueObject, Service, Event, BoundedContext, App
+from aod.domain import Entity, RootEntity, ValueObject, Service
 from aod.domain import Field, PrivateField
+from aod.events import Event
 from aod.domain.validation import AfterValidator, BeforeValidator, field_invariance, invariance, mutable, get_base_model
 ```
 
@@ -133,6 +134,16 @@ Immutable domain event with auto-timestamp.
 |-------|------|-------------|
 | `emitted_at` | `datetime` | Auto-set to `datetime.now(timezone.utc)` on construction. `init=False`. |
 
+---
+
+## Schema Layer
+
+Schema classes for introspection and documentation generation.
+
+```python
+from aod.schema import App, AutoDoc, BoundedContext, Infrastructure, Module
+```
+
 ### BoundedContext
 
 ```python
@@ -147,16 +158,18 @@ Groups related domain types together.
 BoundedContext(
     aggregate_roots: Iterable[RootEntityType] | None = None,
     services: Iterable[ServiceType] | None = None,
+    use_cases: Iterable[UseCaseType] | None = None,
     *,
     name: str | None = None,
 )
 ```
 
-| Parameter | Type | Description |
-|-----------|------|-------------|
-| `aggregate_roots` | `Iterable[type[RootEntity]] \| None` | Root entity classes to include. |
-| `services` | `Iterable[type[Service]] \| None` | Service classes to include. |
-| `name` | `str \| None` | Optional name for the context. |
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `aggregate_roots` | `Iterable[type[RootEntity]] \| None` | `None` | Root entity classes to include. |
+| `services` | `Iterable[type[Service]] \| None` | `None` | Service classes to include. |
+| `use_cases` | `Iterable[type[UseCase] \| type[AsyncUseCase]] \| None` | `None` | Use case classes to include. |
+| `name` | `str \| None` | `None` | Optional name for the context. |
 
 #### Attributes
 
@@ -166,13 +179,11 @@ BoundedContext(
 | `entities` | `tuple[type[Entity], ...]` | All discovered entities. |
 | `value_objects` | `tuple[type[ValueObject], ...]` | All discovered value objects. |
 | `services` | `tuple[type[Service], ...]` | Registered services. |
+| `use_cases` | `tuple[type[UseCase] \| type[AsyncUseCase], ...]` | Registered use cases. |
+| `contracts` | `tuple[type[Command] \| type[Query], ...]` | All contracts from use cases. |
+| `ports` | `tuple[type[Port], ...]` | All ports from use cases. |
+| `contracts_by_root` | `dict[RootEntityType, list[ContractType]]` | Contracts grouped by root entity. |
 | `name` | `str \| None` | Context name. |
-
-#### Methods
-
-| Method | Signature | Description |
-|--------|-----------|-------------|
-| `describe` | `describe(self) -> list[TypeDoc]` | Return structured descriptions of all types in the context. |
 
 #### Type Checking
 
@@ -193,23 +204,88 @@ Top-level application container.
 #### Constructor
 
 ```python
-App(name: str, *contexts: BoundedContext)
+App(name: str, modules: Iterable[Module], description: str = "")
+```
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `name` | `str` | — | Application name. |
+| `modules` | `Iterable[Module]` | — | One or more modules composing bounded contexts with infrastructure. |
+| `description` | `str` | `""` | Optional application description. |
+
+#### Validation
+
+Raises `DuplicateDomainTypeError` if the same entity or service class appears in multiple contexts across modules.
+
+### Module
+
+```python
+class Module
+```
+
+Groups a bounded context with its infrastructure layer.
+
+#### Constructor
+
+```python
+Module(name: str, context: BoundedContext, infrastructure: Infrastructure)
 ```
 
 | Parameter | Type | Description |
 |-----------|------|-------------|
-| `name` | `str` | Application name. |
-| `*contexts` | `BoundedContext` | One or more bounded contexts. |
-
-#### Methods
-
-| Method | Signature | Description |
-|--------|-----------|-------------|
-| `describe` | `describe(self) -> dict[str, list[TypeDoc]]` | Returns a dict mapping each context to its type descriptions. |
+| `name` | `str` | Module name. |
+| `context` | `BoundedContext` | The bounded context for this module. |
+| `infrastructure` | `Infrastructure` | Infrastructure configuration for this module. |
 
 #### Validation
 
-Raises `DuplicateDomainTypeError` if the same entity or service class appears in multiple contexts.
+Raises `MissingHandlerError` if any contract has no matching handler. Raises `MissingPortError` if any port has no implementation.
+
+### Infrastructure
+
+```python
+class Infrastructure
+```
+
+Configuration for infrastructure handlers, ports, and sessions.
+
+#### Constructor
+
+```python
+Infrastructure(handlers: Iterable[type] | None = None, ports: Iterable[type] | None = None, sessions: Iterable[type] | None = None)
+```
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `handlers` | `Iterable[type] \| None` | `None` | Handler classes to register. |
+| `ports` | `Iterable[type] \| None` | `None` | Port classes to register. |
+| `sessions` | `Iterable[type] \| None` | `None` | Session classes to register. |
+
+### AutoDoc
+
+```python
+class AutoDoc
+```
+
+Generates a complete zensical documentation site from an App.
+
+#### Constructor
+
+```python
+AutoDoc(app: App, output_dir: str | Path, site_name: str | None = None, site_description: str | None = None, repo_url: str | None = None)
+```
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `app` | `App` | — | The application to document. |
+| `output_dir` | `str \| Path` | — | Output directory for generated site. |
+| `site_name` | `str \| None` | `None` | Site name (defaults to app name). |
+| `site_description` | `str \| None` | `None` | Site description. |
+| `repo_url` | `str \| None` | `None` | Repository URL for edit links. |
+
+---
+
+## Domain Layer (continued)
 
 ### Field
 

@@ -51,7 +51,8 @@ Build maintainable domain models with entities, value objects, aggregates, CQRS,
 ## Quick Example — Use Case with CQRS and Dependency Injection
 
 ```python
-from aod.domain import RootEntity, ValueObject, Event
+from aod.domain import RootEntity, ValueObject
+from aod.events import Event
 from aod.application import UseCase, Command, CommandPort
 from aod.infrastructure import CommandHandler, Session, AdapterContainer
 

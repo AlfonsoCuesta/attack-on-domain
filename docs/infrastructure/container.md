@@ -30,14 +30,12 @@ from aod.infrastructure import AdapterContainer
 | `handlers` | `list[AnyHandler]` | `[]` |
 | `caches` | `list[Cache]` | `[]` |
 | `ports` | `dict[type[Port], Port]` | `{}` |
-| `_ports_by_name` | `dict[str, Port]` | `{}` (PrivateField) |
-| `_sessions_needed` | `dict[type[Session] \| type[AsyncSession], Session \| AsyncSession]` | `{}` (PrivateField) |
 
 ### Methods
 
-#### `__post_init__(self) -> None`
+#### `__init__(self, ...)`
 
-Called after construction. Validates that no duplicate handlers are registered.
+The constructor validates that no duplicate handlers are registered.
 
 #### `get_session(session_cls: type[Session] | type[AsyncSession]) -> Session | AsyncSession`
 

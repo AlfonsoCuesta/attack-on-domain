@@ -111,9 +111,8 @@ from aod.infrastructure import WriteProjection
 When `write()` is called:
 
 1. A `CommitContext` is set (enabling `session.commit()`).
-2. If a session is configured, `session.begin()` is called.
-3. Events are collected via `EventCollector` during execution.
-4. On success: events are logged on each declared logger, events are published on each declared event bus.
+2. Events are collected via `EventCollector` during execution.
+3. On success: events are logged on each declared logger, events are published on each declared event bus.
 5. On failure: `session.rollback()` is called (if session is dirty), the exception is logged on each declared logger and re-raised.
 6. The `CommitContext` is always reset in the `finally` block.
 
@@ -177,8 +176,8 @@ All async variants expose the same methods but as `async`:
 
 Projections enforce these rules at class creation time:
 
-1. **Port subclasses only** — All fields must be `Port` subclasses (except session fields).
-2. **Concrete session types** — Session fields must use concrete types (e.g., `session: PostgresSession`), never `Session | None`.
+1. **Concrete session types** — Session fields must use concrete types (e.g., `session: PostgresSession`), never `Session | None`.
+2. **No HandlerProtocol** — Fields typed as `HandlerProtocol` or its subclasses raise `InvalidUseCasePortFieldError`.
 3. **Multiple sessions allowed** — Projections can declare multiple session fields with different types.
 4. **No HandlerProtocol** — Fields typed as `HandlerProtocol` or its subclasses raise `InvalidUseCasePortFieldError`.
 

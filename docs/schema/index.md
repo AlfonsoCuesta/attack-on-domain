@@ -32,7 +32,7 @@ All schema classes enforce consistency at construction time:
 ## Quick Start
 
 ```python
-from aod._internal.schema import App, BoundedContext, Infrastructure, Module
+from aod.schema import App, BoundedContext, Infrastructure, Module
 
 bc = BoundedContext(
     aggregate_roots=[Order],

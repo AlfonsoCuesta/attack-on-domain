@@ -33,7 +33,8 @@ from aod.events import Event, EventCollector
 ## Quick Example
 
 ```python
-from aod.domain import RootEntity, ValueObject, Field, Event
+from aod.domain import RootEntity, ValueObject, Field
+from aod.events import Event
 
 # Value Object — immutable
 class Money(ValueObject):

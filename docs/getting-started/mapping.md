@@ -12,9 +12,9 @@ This page maps standard Domain-Driven Design concepts to their implementation in
 
 | DDD | AoD |
 |-----|-----|
-| Entity has identity | Object identity (no custom `__eq__`). Two separate instances are never equal, even with the same values |
+| Entity has identity | Identity field marked with `Field(id=True)`. |
 | Entity can change state | Mutate fields inside public methods |
-| Entity compared by identity | Default object identity (`is`). Add your own `__eq__` based on an `id` field if needed |
+| Entity compared by identity | Built-in `__eq__` based on the identity field. Two entities with the same identity are equal |
 
 ```python
 class User(Entity):

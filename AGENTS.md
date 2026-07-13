@@ -666,7 +666,7 @@ The hierarchy:
 - `HandlerModelError` — handler class is missing a required field
 - `PortNotFoundError` — no port of the requested type is registered on the container
 - `SessionNotFoundError` — no session of the requested type is registered on the container
-> For details on when each is raised, see `docs/core/exceptions.md`.
+> For details on when each is raised, see `docs/api/index.md#exceptions`.
 
 ### Public/Private Layer Separation
 

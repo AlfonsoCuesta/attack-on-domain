@@ -7,7 +7,8 @@ A Bounded Context is a boundary within which a particular domain model is define
 ```python
 from collections.abc import Iterable
 
-from aod.domain import BoundedContext, RootEntity, Service
+from aod.domain import RootEntity, Service
+from aod.schema import BoundedContext
 
 
 class User(RootEntity):
@@ -197,12 +198,15 @@ Allowed: `RootEntity`, `ValueObject`, custom classes, primitives.
 `BoundedContext` itself does not detect duplicates globally. Duplicate detection happens at the `App` level when multiple contexts are composed:
 
 ```python
-from aod.domain import App
+from aod.schema import App, Module, Infrastructure
 
 context1 = BoundedContext(aggregate_roots=[User], name="users")
 context2 = BoundedContext(aggregate_roots=[User], name="admin")
 
-app = App("myapp", context1, context2)  # DuplicateDomainTypeError!
+mod1 = Module(name="users", context=context1, infrastructure=Infrastructure())
+mod2 = Module(name="admin", context=context2, infrastructure=Infrastructure())
+
+app = App("myapp", modules=[mod1, mod2])  # DuplicateDomainTypeError!
 ```
 
 ## `describe()` Method
@@ -225,10 +229,11 @@ Returns `self.name` if set, otherwise the default class representation.
 
 ## App Composition
 
-`App` composes multiple `BoundedContext` instances and enforces global duplicate detection:
+`App` composes multiple `BoundedContext` instances and enforces global duplicate detection. Import from `aod.schema`:
 
 ```python
-from aod.domain import App
+from aod.schema import App, Module, Infrastructure
+
 
 class Product(RootEntity):
     id: str
@@ -239,23 +244,29 @@ class Order(RootEntity):
 product_context = BoundedContext(aggregate_roots=[Product], name="products")
 order_context = BoundedContext(aggregate_roots=[Order], name="orders")
 
-app = App("ecommerce", product_context, order_context)
+product_module = Module(name="products", context=product_context, infrastructure=Infrastructure())
+order_module = Module(name="orders", context=order_context, infrastructure=Infrastructure())
+
+app = App("ecommerce", modules=[product_module, order_module])
 ```
 
 ### `App.__init__()` Parameters
 
-| Parameter | Type | Description |
-|-----------|------|-------------|
-| `name` | `str` | Application name |
-| `*contexts` | `BoundedContext` | One or more bounded contexts to compose |
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `name` | `str` | — | Application name |
+| `modules` | `Iterable[Module]` | — | One or more modules, each wrapping a bounded context with infrastructure |
+| `description` | `str` | `""` | Optional description of the application |
 
-Raises `DuplicateDomainTypeError` if any domain type appears in more than one context.
+Raises `DuplicateDomainTypeError` if any domain type appears in more than one context across modules.
 
 ## Common Patterns
 
 ### E-Commerce
 
 ```python
+from aod.schema import BoundedContext
+
 class Product(RootEntity):
     id: str
     name: str

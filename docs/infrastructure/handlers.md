@@ -61,7 +61,7 @@ Async variant of `BaseHandler`. Same as `BaseHandler` — no inherited session f
 
 ### `CommandHandler[TCommand]`
 
-Sync command handler. Inherits from `BaseHandler`, `AppCommandHandler` (which is `HandlerProtocol(Port)`), and `Generic[TCommand]`.
+Sync command handler. Inherits from `BaseHandler`, `CommandPort` (which is `HandlerProtocol(Port)`), and `Generic[TCommand]`.
 
 **Type Parameters:**
 
@@ -79,11 +79,11 @@ Abstract method. Implement to process a command.
 |-----------|------|-------------|
 | `command` | `TCommand` | The command instance to process |
 
-**Returns:** Any object. The return type is validated at runtime against the handler's generic parameter.
+**Returns:** Any object.
 
 ### `QueryHandler[TQuery]`
 
-Sync query handler. Inherits from `BaseHandler`, `AppQueryHandler` (which is `HandlerProtocol(Port)`), and `Generic[TQuery]`.
+Sync query handler. Inherits from `BaseHandler`, `QueryPort` (which is `HandlerProtocol(Port)`), and `Generic[TQuery]`.
 
 **Type Parameters:**
 
@@ -101,11 +101,11 @@ Abstract method. Implement to process a query.
 |-----------|------|-------------|
 | `query` | `TQuery` | The query instance to process |
 
-**Returns:** Any object. The return type is validated at runtime against the query's `TResult`.
+**Returns:** Any object.
 
 ### `AsyncCommandHandler[TCommand]`
 
-Async command handler. Inherits from `AsyncBaseHandler`, `AppAsyncCommandHandler` (which is `HandlerProtocol(Port)`), and `Generic[TCommand]`.
+Async command handler. Inherits from `AsyncBaseHandler`, `AsyncCommandPort` (which is `HandlerProtocol(Port)`), and `Generic[TCommand]`.
 
 #### `async handle(self, command: TCommand) -> object`
 
@@ -113,7 +113,7 @@ Async abstract method. Implement to process a command asynchronously.
 
 ### `AsyncQueryHandler[TQuery]`
 
-Async query handler. Inherits from `AsyncBaseHandler`, `AppAsyncQueryHandler` (which is `HandlerProtocol(Port)`), and `Generic[TQuery]`.
+Async query handler. Inherits from `AsyncBaseHandler`, `AsyncQueryPort` (which is `HandlerProtocol(Port)`), and `Generic[TQuery]`.
 
 #### `async handle(self, query: TQuery) -> object`
 
@@ -121,7 +121,7 @@ Async abstract method. Implement to process a query asynchronously.
 
 ## Generic Type Binding
 
-Handlers are generic over their contract type. The generic argument is used at runtime for return type validation:
+Handlers are generic over their contract type. The generic argument is used at runtime to match commands/queries:
 
 ```python
 class CreateUserHandler(CommandHandler[CreateUser]):
@@ -143,19 +143,7 @@ class CreateUserHandler(CommandHandler[CreateUser]):
         self.session.execute(...)
 ```
 
-## Return Type Validation
 
-Handler return types are validated at runtime via `_wrap_handle()`. If the return value does not match the expected type (derived from the generic parameter), `HandlerResultTypeError` is raised:
-
-```python
-from aod.infrastructure import QueryHandler
-
-class GetUserHandler(QueryHandler[GetUser]):
-    session: PostgresSession
-
-    def handle(self, query: GetUser) -> User | None:
-        return self.session.query(...)  # Must return User | None
-```
 
 ## Async Handlers
 
