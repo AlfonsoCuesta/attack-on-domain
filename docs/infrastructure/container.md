@@ -1,6 +1,6 @@
 # Container
 
-`AdapterContainer` wires dependencies for the application and infrastructure layers. It manages sessions, handlers (`CommandHandler[C]`, `QueryHandler[Q]`), ports, and unit-of-work instances. Handlers implement `CommandPort[C]` / `QueryPort[Q]` and are injected into UseCase fields automatically.
+`AdapterContainer` wires dependencies for the application and infrastructure layers. It manages sessions, handlers (`CommandHandler[C]`, `QueryHandler[Q]`), caches, and ports. Handlers implement `CommandPort[C]` / `QueryPort[Q]` and are injected into UseCase fields automatically.
 
 ## AdapterContainer
 
@@ -18,6 +18,7 @@ from aod.infrastructure import AdapterContainer
 |-----------|------|-------------|
 | `sessions` | `set[type[Session] \| type[AsyncSession]]` | Session classes (not instances) to manage. Default: `set()`. |
 | `handlers` | `list[AnyHandler]` | Handler classes to register. Default: `[]`. |
+| `caches` | `list[Cache]` | Cache instances to auto-wire to matching handlers via `add_cache()`. Default: `[]`. |
 | `ports` | `dict[type[Port], Port]` | Type-based port resolution fallback. When a port field type is not found by name, the container checks this dict. Default: `{}`. |
 | `**fields` | `Port` | Custom ports registered by field name. Any keyword argument that is a `Port` instance is registered by name. |
 
@@ -27,6 +28,7 @@ from aod.infrastructure import AdapterContainer
 |-------|------|---------|
 | `sessions` | `set[type[Session] \| type[AsyncSession]]` | `set()` |
 | `handlers` | `list[AnyHandler]` | `[]` |
+| `caches` | `list[Cache]` | `[]` |
 | `ports` | `dict[type[Port], Port]` | `{}` |
 | `_ports_by_name` | `dict[str, Port]` | `{}` (PrivateField) |
 | `_sessions_needed` | `dict[type[Session] \| type[AsyncSession], Session \| AsyncSession]` | `{}` (PrivateField) |
@@ -59,14 +61,8 @@ Find and instantiate a handler for a given contract.
 
 - Searches registered handlers for one whose `handle()` method accepts the given contract.
 - Iterates the handler's fields and injects a session instance for each field with a concrete session type annotation.
+- Applies matching caches to the handler via `add_cache()`.
 - Raises `HandlerNotFoundError` if no handler matches the contract.
-
-#### `get_uow() -> UnitOfWork | AsyncUnitOfWork`
-
-Create a unit-of-work with all sessions that have been instantiated.
-
-- Collects all session instances from `_sessions_needed`.
-- Returns `AsyncUnitOfWork` if any session is async, otherwise `UnitOfWork`.
 
 #### `get_port(name: str) -> Port`
 
@@ -82,7 +78,7 @@ Find a port implementation by field name.
 
 #### `adapt(operation_cls: type[TOperation], **overrides: Any) -> TOperation`
 
-Create a use case or projection instance with all dependencies wired automatically. This is the single public entry point for dependency injection — it dispatches to the appropriate internal method based on the class type.
+Create a use case or projection instance with all dependencies wired automatically. This is the single public entry point for dependency injection -- it dispatches to the appropriate internal method based on the class type.
 
 | Parameter | Type | Description |
 |-----------|------|-------------|
@@ -90,9 +86,9 @@ Create a use case or projection instance with all dependencies wired automatical
 | `**overrides` | `Any` | Optional field overrides for the container copy. |
 
 For use cases:
-- Resolves `uow` automatically.
 - Injects matching handler ports (`CommandPort[C]`, `QueryPort[Q]`) by contract type.
 - Injects custom ports by field name, with type-based fallback from `ports` dict.
+- The UseCase creates its own UnitOfWork internally -- the container does not inject it.
 
 For projections:
 - Injects sessions by type annotation for any field with a `Session`/`AsyncSession` annotation.
@@ -112,8 +108,8 @@ Create a copy of the container with overridden fields.
 
 When injecting ports into a use case or projection, the container resolves each port field in this order:
 
-1. **Named port** — looks up the field name in `_ports_by_name` (from container subclass fields or keyword arguments).
-2. **Type-based fallback** — looks up the field's type annotation in `self.ports` dict.
+1. **Named port** -- looks up the field name in `_ports_by_name` (from container subclass fields or keyword arguments).
+2. **Type-based fallback** -- looks up the field's type annotation in `self.ports` dict.
 3. If neither resolves, raises `PortNotFoundError`.
 
 ### Handler Validation
@@ -123,13 +119,21 @@ The container enforces:
 - No duplicate handler registrations (two handlers for the same contract raise `DuplicateHandlerError`).
 - Each handler is inspected to determine which `Command` or `Query` type its `handle()` method accepts.
 
+### Cache Auto-Wiring
+
+Cache instances passed via the `caches` parameter are automatically wired to matching handlers during `get_handler()`:
+
+- Each cache instance carries `CacheKey` definitions that declare which `Query` and `Command` types they intercept.
+- When instantiating a handler, the container iterates all caches and calls `handler.add_cache(cache)` for each matching pair.
+- Read-through, invalidation, and cache flushing happen inside the UnitOfWork, which the UseCase creates internally.
+
 ## Session Caching
 
 Once a session is instantiated via `get_session()`, the same instance is returned on subsequent calls. This ensures all handlers and projections share the same session within a request.
 
 ## Multi-Session Support
 
-The container supports both sync and async sessions simultaneously. `get_uow()` automatically detects the session type and returns the appropriate `UnitOfWork` or `AsyncUnitOfWork`.
+The container supports both sync and async sessions simultaneously. The UseCase's internal UnitOfWork automatically detects session types and handles transactions appropriately.
 
 ## Auto-Wiring Logic
 
@@ -139,9 +143,10 @@ When adapting a `UseCase` or `AsyncUseCase`:
 
 | Field | Source |
 |-------|--------|
-| `uow` | `container.get_uow()` |
 | `CommandPort[C]` / `QueryPort[Q]` | `container.get_handler(contract_type)` |
 | Custom ports | Named ports or `ports` dict (see Port Resolution Order) |
+
+The UseCase's UnitOfWork is created internally -- the container never injects it.
 
 ### Projection Wiring
 
@@ -161,7 +166,7 @@ container = AdapterContainer(sessions={MySession}, handlers=[MyHandler])
 
 use_case = container.adapt(
     MyUseCase,
-    logger=SpyLogger(),  # override for testing
+    logger=SpyLogger(),
 )
 ```
 
@@ -181,8 +186,9 @@ class MyAsyncUseCase(UseCase):
     ...
 
 use_case = container.adapt(MyAsyncUseCase)
-assert isinstance(use_case.uow, AsyncUnitOfWork)
 ```
+
+The UseCase internally creates an `AsyncUnitOfWork` when async handlers or sessions are present.
 
 ## Common Patterns
 
@@ -192,6 +198,7 @@ assert isinstance(use_case.uow, AsyncUnitOfWork)
 container = AdapterContainer(
     sessions={MySession},
     handlers=[MyHandler],
+    caches=[RedisCache(keys=[UserById()])],
     ports={Logger: SpyLogger()},
     user_client=MyUserClient(),
 )
@@ -221,7 +228,6 @@ container = spy_adapter_container(AdapterContainer(sessions={MySession}, handler
 
 container.get_handler_stub(CreateUserHandler).handle.return_value = None
 
-# Stub use case via stub_use_case before adapt
 container.stub_use_case(CreateUserUseCase, returns=None)
 use_case = container.adapt(CreateUserUseCase)
 use_case.run(user_id=42, name="Alice")
@@ -229,10 +235,9 @@ use_case.run(user_id=42, name="Alice")
 assert container.get_handler(CreateUser).handle.called
 assert container.get_handler_stub(CreateUserHandler).handle.call_count == 1
 
-# Projection stubs via stub_projection before adapt
 container.stub_projection(UserProjection, read_returns=[])
 proj = container.adapt(UserProjection)
-result = proj.read(model)  # returns []
+result = proj.read(model)
 ```
 
 ### Projection Injection

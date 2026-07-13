@@ -128,6 +128,7 @@ from aod.infrastructure import AdapterContainer
 container = AdapterContainer(
     sessions={SqlSession},
     handlers=[PlaceOrderHandler, GetOrderHandler],
+    caches=[RedisCache(keys=[UserById()])],
     ports={Logger: port_stub(Logger)()},
 )
 place_order = container.adapt(PlaceOrderUseCase)
@@ -188,7 +189,7 @@ docs/
 │   └── validation.md                 # Validation: AfterValidator, field_invariance, invariance
 ├── application/
 │   ├── use-cases.md                  # UseCase, AsyncUseCase: run(), auto-wired fields
-│   ├── ports.md                      # Port, Logger, EventBus, UnitOfWork, Cache (sync + async)
+│   ├── ports.md                      # Port, Logger, EventBus, Cache (sync + async)
 │   ├── contracts.md                  # Command, Query: type params, field validation
 │   └── handlers.md                   # CommandHandler, QueryHandler, async variants
 ├── infrastructure/
@@ -243,7 +244,7 @@ code/
 │       │   ├── base_sealed.py        # BaseSealed (always-blocked mutation)
 │       │   ├── base_guarded/         # BaseGuarded, MutatingContext, make_immutable subsystem
 │       │   ├── base_behaviour.py     # BaseBehaviour (allows mutation inside methods)
-│       │   ├── base_operation.py     # BaseOperation(BaseBehaviour) — adds _event_emitter, events, _loggers, _event_buses, _caches
+│       │   ├── base_operation.py     # BaseOperation(BaseBehaviour) — adds _event_emitter, events, _loggers, _event_buses
 │       │   ├── event_emitter.py      # Event, EventEmitter, EventCollector
 │       │   ├── model_maker.py        # Dual Pydantic model generation
 │       │   ├── domain_exception.py       # DomainException hierarchy
@@ -268,9 +269,11 @@ code/
 │           └── describe.py
 │       ├── application/              # Application layer (packages)
 │       │   ├── port.py               # Port base class (abstract, mutable-from-inside)
-│       │   ├── cache/                # Cache port — sync + async
+│       │   ├── cache/                # Cache system — sync + async
 │       │   │   ├── __init__.py
-│       │   │   └── cache.py           # Cache(Port) + AsyncCache(Port)
+│       │   │   ├── cache.py           # Cache(Port), AsyncCache(Port), BaseCache, _CacheEntry
+│       │   │   ├── cache_key.py       # CacheKey, CacheInvalidation
+│       │   │   └── null_cache.py      # NullCache (no-op default)
 │       │   ├── contracts/            # Command, Query — application contracts
 │       │   │   ├── __init__.py       # Command, Query
 │       │   │   └── contracts.py      # Command(BaseSealed), Query(BaseSealed) with field validation
@@ -280,7 +283,7 @@ code/
 │       │   ├── logger/               # Logger port — sync + async
 │       │   │   ├── __init__.py
 │       │   │   └── logger.py          # Logger(Port) + AsyncLogger(Port)
-│       │   ├── unit_of_work/         # UnitOfWork port — sync + async
+│       │   ├── unit_of_work/         # UnitOfWork (concrete, sessions + caches)
 │       │   │   ├── __init__.py
 │       │   │   └── unit_of_work.py   # _UnitOfWorkBase (shared logic), UnitOfWork (sync), AsyncUnitOfWork (async, accepts sync/async sessions)
 │       │   └── use_case/             # UseCase base — sync + async
@@ -401,8 +404,8 @@ BaseValidator (metaclass: ValidationModelMeta → ABCMeta)
 └── BaseGuarded                     (mutation-guarded)
     ├── BaseBehaviour               (extends BaseGuarded — allows mutation inside methods)
     │   ├── BaseOperation           (adds _event_emitter, events, _loggers, _event_buses, _caches)
-    │   │   ├── UseCase             → +uow, +run()
-    │   │   ├── AsyncUseCase        → +uow, +async run()
+│   │   ├── UseCase             → +_uow, +run()
+│   │   ├── AsyncUseCase        → +_uow, +async run()
     │   │   ├── ProjectionBase
     │   │   │   ├── ReadProjectionBase
     │       │   │   │   ├── ReadProjection       → +read()
@@ -677,21 +680,11 @@ Public modules re-export from `_internal`; they contain no logic of their own. T
 
 ### `UseCase` Base Class
 
-`UseCase` (public via `aod.application`) is the base for application-layer use cases. It extends `BaseOperation` (no `ReconstructMixin`) and provides a single abstract public method `run()` that subclasses must implement.
+`UseCase` (public via `aod.application`) is the base for application-layer use cases. It extends `BaseOperation` and provides a single abstract public method `run()` that subclasses must implement.
 
-- **Fields are Handlers and Ports only** — UseCase fields must be `CommandHandler`, `QueryHandler`, or `Port` subclasses. Values are passed as parameters to `run()`, not declared as fields.
-- **Blocked field types** — `Session` and `AsyncSession` are rejected via `__not_allowed_port_types__`. UseCases should NOT depend on sessions directly; use handlers instead.
-- **Database access through Handlers** — UseCases communicate with the database ONLY through `CommandPort[Command]` and `QueryPort[Query]`. Do NOT create repository ports or custom ports for database access. The handlers are injected automatically by the container.
-- **`run()` signature** — `run()` receives values as parameters. The wrapper passes `*args, **kwargs` through to the original method.
-- The class has **no public methods** other than `run`; subclasses may add private helpers
-- `_event_emitter` is a `PrivateField(default_factory=EventEmitter)`, ready for direct event emission
-- Auto-wired field:
-  - `uow: UnitOfWork` — auto-commits on success (only if `is_dirty`), auto-rollbacks on failure; defaults to `NullUnitOfWork` (no-op)
-- Optional ports that must be declared explicitly when needed:
-  - `logger: Logger` — auto-logs completion (with event count) and failure
-  - `event_bus: EventBus` — auto-publishes collected events after successful commit
-  - `cache: Cache` — auto-flushed after successful commit
-  - Multiple instances of each type are supported; they are collected into `_loggers`, `_event_buses`, and `_caches` and iterated by the wrapper.
+- **`_uow` is private and auto-created**: The UseCase creates a `UnitOfWork` internally via `PrivateField(default_factory=UnitOfWork)`. It auto-registers all handler fields in `__init__`. The `UnitOfWork` type is not exported publicly.
+- **Database access through Handlers**: UseCases communicate with the database ONLY through `CommandPort[Command]` and `QueryPort[Query]`.
+- **Cache is automatic**: Handlers with `add_cache()` automatically get read-through/invalidation. The UseCase never knows about Cache.
 
 - `__init_subclass__` automatically wraps any subclass's `run` to:
   1. Open an `EventCollector` context
@@ -720,7 +713,7 @@ class CreateUser(UseCase):
 
 **Infrastructure handler inheritance**: Infrastructure `CommandHandler`/`QueryHandler` types inherit from both `BaseHandler` and the application-layer `HandlerProtocol` (`Port`). This satisfies Pydantic `isinstance` checks when handlers are used in any context requiring the app-layer type.
 
-**Container sessions**: `AdapterContainer.ports` holds type-to-Port mappings for type-based resolution. `AdapterContainer.sessions` holds session **classes** (`type[Session] | type[AsyncSession]`), not instances. `get_session(session_cls)` instantiates the matching class, tracks the instance in `_sessions_needed`, and returns it. `get_uow()` checks session types and creates `UnitOfWork`/`AsyncUnitOfWork` with the needed instances.
+**Container sessions**: `AdapterContainer.sessions` holds session **classes** (`type[Session] | type[AsyncSession]`), not instances. `get_session(session_cls)` instantiates the matching class and caches the instance. Handlers created by `HandlerManager` receive session instances, and the UseCase's auto-created `UnitOfWork` collects them via `add_handler()`.
 
 ### `Port` Base Class
 
@@ -733,8 +726,7 @@ class CreateUser(UseCase):
 Built-in port types (all `aod.application`):
 - **`Logger`** / **`AsyncLogger`** — `debug(msg, **context)`, `info(msg, **context)`, `warning(msg, **context)`, `error(msg, **context)`
 - **`EventBus`** / **`AsyncEventBus`** — `publish(*events)` for publishing domain events
-- **`UnitOfWork`** / **`AsyncUnitOfWork`** — `commit()`, `rollback()`, `begin()` for transactional boundaries
-- **`Cache`** / **`AsyncCache`** — `get(key)`, `set(key, value, ttl=None)`, `delete(key)`, `flush()`, `set_promise()`, `delete_promise()`
+- **`Cache`** / **`AsyncCache`** — `get(key)`, `set(key, value, ttl=None)`, `delete(key)` for backing store; `_get(query)`, `_set(query, value)`, `_delete(command)`, `_flush()` injected via `handler.add_cache(cache)`
 
 Infrastructure implementations of these ports inherit from both `BaseGuarded` and the application `Port` type.
 
@@ -793,7 +785,7 @@ The projection system provides read and write projections with automatic event c
 
 #### Base Classes
 
-- **`ProjectionBase(BaseOperation)`** — inherits `_event_emitter`, `events`, `logger`, `event_bus`, `cache` from `BaseOperation`. Fields must be `Port` subclasses (except session fields). `HandlerProtocol` and its subclasses are rejected via `__not_allowed_port_types__ = (HandlerProtocol,)`. Multiple session fields allowed with concrete types.
+- **`ProjectionBase(BaseOperation)`** — inherits `_event_emitter`, `events`, `logger`, `event_bus` from `BaseOperation`. Fields must be `Port` subclasses (except session fields). `HandlerProtocol` and its subclasses are rejected via `__not_allowed_port_types__ = (HandlerProtocol,)`. Multiple session fields allowed with concrete types.
 - **`ReadProjectionBase(ProjectionBase)`** — wraps `read()` with `EventCollector` + log + event_bus publish.
 - **`WriteProjectionBase(ProjectionBase)`** — wraps `write()` with `CommitContext` + `EventCollector` + log + rollback + event_bus publish.
 

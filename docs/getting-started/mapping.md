@@ -184,14 +184,14 @@ class GetUser(Query[User, User | None]):
 
 **DDD:** Orchestrates domain objects to fulfill a user goal. Coordinates domain logic, transactions, and infrastructure.
 
-**AoD:** `UseCase` with auto-wired dependencies, transaction management, event collection, logging, and cache flushing.
+**AoD:** `UseCase` with auto-wired dependencies, internal transaction management, event collection, logging, and cache invalidation via `handler.add_cache()` with `CacheKey`/`CacheInvalidation`.
 
 | DDD | AoD |
 |-----|-----|
 | Orchestration | `run()` method |
 | Database access | Via `CommandPort[T]` / `QueryPort[T]` fields |
 | External services | Via custom `Port` subclasses |
-| Transaction | Auto-managed via `UnitOfWork` |
+| Transaction | Auto-managed internally |
 | Events | Auto-collected and published |
 
 ```python
@@ -255,9 +255,9 @@ class SaveUserHandler(CommandHandler[CreateUser]):
 | Port | `Port`, `CommandPort[T]`, `QueryPort[T]` |
 | Adapter | Infrastructure handler implementations |
 | DI Container | `AdapterContainer` |
-| Transaction | `UnitOfWork`, `AsyncUnitOfWork` |
+| Transaction | Internal |
 | Event Bus | `EventBus`, `AsyncEventBus` |
-| Cache | `Cache`, `AsyncCache` |
+| Cache | `Cache`, `AsyncCache`, `CacheKey`, `CacheInvalidation` |
 
 ## Next Steps
 

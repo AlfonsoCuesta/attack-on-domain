@@ -15,7 +15,7 @@ The framework provides two categories of ports:
 | Category | Purpose | Examples |
 |----------|---------|---------|
 | **Handler ports** | Database operations via handlers | `CommandPort[T]`, `QueryPort[T]` |
-| **Service ports** | Cross-cutting concerns | `Logger`, `EventBus`, `UnitOfWork`, `Cache` |
+| **Service ports** | Cross-cutting concerns | `Logger`, `EventBus`, `Cache` |
 
 ### Handler Ports: CommandPort / QueryPort
 
@@ -158,41 +158,19 @@ class MyEventBus(EventBus):
             print(f"Published: {event}")
 ```
 
-### `UnitOfWork`
-
-Interface for transaction boundaries.
-
-**Import:** `from aod.application import UnitOfWork`
-
-**Constructor:** Takes no required parameters. Any declared Port fields can be passed as keyword arguments.
-
-**Abstract methods:**
-
-| Method | Parameters | Returns | Description |
-|--------|------------|---------|-------------|
-| `begin` | *(none)* | `None` | Start a transaction |
-| `commit` | *(none)* | `None` | Commit the current transaction |
-| `rollback` | *(none)* | `None` | Roll back the current transaction |
-
-```python
-from aod.application import UnitOfWork
-
-class MyUnitOfWork(UnitOfWork):
-    def begin(self) -> None:
-        print("Transaction started")
-    def commit(self) -> None:
-        print("Transaction committed")
-    def rollback(self) -> None:
-        print("Transaction rolled back")
-```
-
 ### `Cache`
 
-Interface for caching operations.
+Interface for caching query results with automatic invalidation.
 
-**Import:** `from aod.application import Cache`
+**Import:** `from aod.application.cache import Cache`
 
-**Constructor:** Takes no required parameters. Any declared Port fields can be passed as keyword arguments.
+`Cache` provides the backing store interface. Higher-level cache behavior (read-through, invalidation, deferred writes) is built on top and applied to handlers via `handler.add_cache(cache)`.
+
+**Constructor:**
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `keys` | `list[CacheKey]` | Cache key definitions that map queries and invalidations |
 
 **Abstract methods:**
 
@@ -201,11 +179,8 @@ Interface for caching operations.
 | `get` | `key: str` | `Any` | Retrieve a value by key. Returns `None` if not found |
 | `set` | `key: str`, `value: Any`, `ttl: float \| None = None` | `None` | Store a value with optional TTL in seconds |
 | `delete` | `key: str` | `None` | Remove a value by key |
-| `flush` | *(none)* | `None` | Clear all cached values |
-| `set_promise` | `key: str`, `value: Any`, `ttl: float \| None = None` | `None` | Schedule a deferred write |
-| `delete_promise` | `key: str` | `None` | Cancel a deferred write |
 
-**`set` / `set_promise` parameters:**
+**`set` parameters:**
 
 | Parameter | Type | Description |
 |-----------|------|-------------|
@@ -213,32 +188,98 @@ Interface for caching operations.
 | `value` | `Any` | Value to store |
 | `ttl` | `float \| None` | Time-to-live in seconds. `None` means no expiration |
 
-```python
-from aod.application import Cache
+#### CacheKey
 
-class MyCache(Cache):
-    def __init__(self):
-        self._store: dict[str, object] = {}
+`CacheKey` defines how a `Query` maps to a cache key and which `Command` types invalidate it.
+
+**Import:** `from aod.application.cache import CacheKey`
+
+**Constructor:** Takes no required parameters. Override `ttl` to set a per-key TTL.
+
+**Abstract methods:**
+
+| Method | Parameters | Returns | Description |
+|--------|------------|---------|-------------|
+| `key` | `query: TQuery` | `str` | Map a query instance to a cache key string |
+| `invalidate` | *(none)* | `list[CacheInvalidation]` | Return invalidations — which commands clear which keys |
+
+**Class attributes:**
+
+| Attribute | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `ttl` | `float \| None` | `None` | TTL in seconds for entries under this key. Set as a class attribute |
+
+#### CacheInvalidation
+
+`CacheInvalidation` pairs a `Command` type with a key function that derives the cache key to delete when that command executes.
+
+**Import:** `from aod.application.cache import CacheInvalidation`
+
+`CacheInvalidation` is a frozen dataclass — construct it, never mutate it.
+
+**Parameters:**
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `command_type` | `type[Command]` | The Command type that triggers invalidation |
+| `key_fn` | `Callable[[Any], str]` | Function taking the command and returning the cache key to delete |
+
+#### Applying Cache to Handlers
+
+Cache is wired to handlers via `handler.add_cache(cache)`, not directly to UseCases or Projections. The container does this automatically when caches are registered.
+
+```python
+from aod.application.cache import Cache, CacheKey, CacheInvalidation
+from aod.infrastructure import QueryHandler
+
+class GetUser(Query[User, User | None]):
+    user_id: int
+
+class CreateUser(Command[User, User]):
+    name: str
+
+class DeleteUser(Command[User, None]):
+    user_id: int
+
+class UserCacheKey(CacheKey[GetUser]):
+    ttl = 300
+
+    def key(self, query: GetUser) -> str:
+        return f"user:{query.user_id}"
+
+    def invalidate(self) -> list[CacheInvalidation]:
+        return [
+            CacheInvalidation(CreateUser, lambda c: f"user:{c.name}"),
+            CacheInvalidation(DeleteUser, lambda c: f"user:{c.user_id}"),
+        ]
+
+class RedisCache(Cache):
     def get(self, key: str) -> Any:
-        return self._store.get(key)
+        return self.redis.get(key)
     def set(self, key: str, value: Any, ttl: float | None = None) -> None:
-        self._store[key] = value
+        self.redis.set(key, value, ex=ttl)
     def delete(self, key: str) -> None:
-        self._store.pop(key, None)
-    def flush(self) -> None:
-        self._store.clear()
-    def set_promise(self, key: str, value: Any, ttl: float | None = None) -> None:
-        self._store[key] = value
-    def delete_promise(self, key: str) -> None:
-        self._store.pop(key, None)
+        self.redis.delete(key)
+
+class GetUserHandler(QueryHandler[GetUser]):
+    session: PsqlSession
+
+    def handle(self, query: GetUser) -> User | None:
+        return self.session.query(query)
+
+cache = RedisCache(keys=[UserCacheKey()])
+handler = GetUserHandler(session=PsqlSession())
+handler.add_cache(cache)
 ```
+
+When `handler.handle(GetUser(user_id=1))` is called, the cache checks for a hit first. On miss, the handler runs and the result is written back to the cache. When a `CreateUser` or `DeleteUser` command is handled, the matching cache keys are invalidated automatically via `CacheKey.invalidate()`.
 
 ## Async Ports
 
 For async operations, import from `aod.application.async_`:
 
 ```python
-from aod.application.async_ import Logger, EventBus, UnitOfWork, Cache
+from aod.application.async_ import Logger, EventBus, Cache
 ```
 
 Each async variant has the same methods but declared as `async`:
@@ -247,8 +288,9 @@ Each async variant has the same methods but declared as `async`:
 |------|-------------|------------|
 | `AsyncLogger` | `aod.application.async_` | All log methods are `async` |
 | `AsyncEventBus` | `aod.application.async_` | `publish()` is `async` |
-| `AsyncUnitOfWork` | `aod.application.async_` | All methods are `async` |
-| `AsyncCache` | `aod.application.async_` | `get`, `set`, `delete`, `flush` are `async` |
+| `AsyncCache` | `aod.application.async_` | `get`, `set`, `delete` are `async` |
+
+`CacheKey` and `CacheInvalidation` are plain data structures — import them from `aod.application.cache` regardless of sync or async use.
 
 ```python
 from aod.application.async_ import Logger

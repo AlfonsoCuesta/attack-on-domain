@@ -10,7 +10,7 @@ TQuery_co = TypeVar("TQuery_co", bound=Query, covariant=True)
 
 
 @dataclass(frozen=True, slots=True)
-class Invalidation:
+class CacheInvalidation:
     command_type: type[Command]
     key_fn: Callable[[Any], str]
 
@@ -49,7 +49,7 @@ class CacheKey(ABC, Generic[TQuery_co]):
     @classmethod
     def _extract_and_store_invalidation_info(cls, target_cls: type[CacheKey]) -> None:
         instance = target_cls()
-        invs: list[Invalidation] = instance.invalidate()
+        invs: list[CacheInvalidation] = instance.invalidate()
         target_cls._invalidation_map = {}
         target_cls._command_types = set()
         for inv in invs:
@@ -60,7 +60,7 @@ class CacheKey(ABC, Generic[TQuery_co]):
     def key(self, query: TQuery_co) -> str: ...
 
     @abstractmethod
-    def invalidate(self) -> list[Invalidation]: ...
+    def invalidate(self) -> list[CacheInvalidation]: ...
 
     @classmethod
     def get_query_type(cls) -> type[Query]:

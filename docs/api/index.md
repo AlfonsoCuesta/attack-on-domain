@@ -264,10 +264,10 @@ from aod.domain.validation import field_invariance, invariance, AfterValidator, 
 ## Application Layer
 
 ```python
-from aod.application import UseCase, Port, Logger, EventBus, UnitOfWork, Cache, Command, Query
+from aod.application import UseCase, Port, Logger, EventBus, Cache, CacheKey, CacheInvalidation, Command, Query
 from aod.application import CommandPort, QueryPort
 from aod.application import ApplicationException
-from aod.application.async_ import UseCase, Logger, EventBus, UnitOfWork, Cache
+from aod.application.async_ import UseCase, Logger, EventBus, Cache
 from aod.application.async_ import CommandPort, QueryPort
 ```
 
@@ -285,18 +285,15 @@ Base class for synchronous application use cases.
 
 | Parameter | Type | Description |
 |-----------|------|-------------|
-| `uow` | `UnitOfWork` | Unit of work for transaction management. Default: `NullUnitOfWork`. |
 | `**ports` | `Port` | Additional port dependencies declared on the subclass. |
 
 #### Fields
 
 | Field | Type | Default | Description |
 |-------|------|---------|-------------|
-| `uow` | `UnitOfWork` | `NullUnitOfWork()` | Transactional unit of work. |
 | `events` | `list[Event]` | `[]` | Events collected during the last `run()` call. `init=False`. |
 | `_loggers` | `list[Logger \| AsyncLogger]` | `[]` | Collected logger ports. Private. |
 | `_event_buses` | `list[EventBus \| AsyncEventBus]` | `[]` | Collected event bus ports. Private. |
-| `_caches` | `list[Cache \| AsyncCache]` | `[]` | Collected cache ports. Private. |
 
 #### Methods
 
@@ -310,7 +307,7 @@ When `run()` is called:
 
 1. `uow.begin()` starts a transaction.
 2. Events are collected via `EventCollector` during execution.
-3. On success: `uow.commit()`, events logged on each declared logger, each declared cache flushed, events published on each declared event bus.
+3. On success: `uow.commit()`, events logged on each declared logger, events published on each declared event bus.
 4. On failure: `uow.rollback()`, exception logged on each declared logger, exception re-raised.
 5. If commit fails: `uow.rollback()`, commit failure logged on each declared logger, exception re-raised.
 
@@ -333,7 +330,6 @@ class AsyncUseCase(BaseOperation)
 
 | Parameter | Type | Description |
 |-----------|------|-------------|
-| `uow` | `UnitOfWork \| AsyncUnitOfWork` | Unit of work. Default: `NullUnitOfWork`. |
 | `**ports` | `Port` | Additional port dependencies declared on the subclass. |
 
 #### Methods
@@ -458,30 +454,6 @@ from aod.application.async_ import EventBus
 
 Same interface but `publish` is async.
 
-### UnitOfWork
-
-```python
-class UnitOfWork(Port)
-```
-
-Synchronous unit of work for transaction management.
-
-#### Methods
-
-| Method | Signature | Description |
-|--------|-----------|-------------|
-| `begin` | `abstractmethod begin(self)` | Start a new transaction. |
-| `commit` | `abstractmethod commit(self)` | Commit the current transaction. |
-| `rollback` | `abstractmethod rollback(self)` | Roll back the current transaction. |
-
-### AsyncUnitOfWork
-
-```python
-from aod.application.async_ import UnitOfWork
-```
-
-Same interface but all methods are async.
-
 ### Cache
 
 ```python
@@ -497,9 +469,6 @@ Synchronous cache port.
 | `get` | `abstractmethod get(self, key: str) -> Any` | Retrieve a value by key. |
 | `set` | `abstractmethod set(self, key: str, value: Any, ttl: float \| None = None)` | Store a value with optional TTL. |
 | `delete` | `abstractmethod delete(self, key: str)` | Remove a value by key. |
-| `flush` | `abstractmethod flush(self)` | Clear all cached values. |
-| `set_promise` | `abstractmethod set_promise(self, key: str, value: Any, ttl: float \| None = None)` | Deferred set — value will be set at a later time. |
-| `delete_promise` | `abstractmethod delete_promise(self, key: str)` | Deferred delete — value will be deleted at a later time. |
 
 #### Parameters
 
@@ -515,7 +484,51 @@ Synchronous cache port.
 from aod.application.async_ import Cache
 ```
 
-Same interface but `get`, `set`, `delete`, and `flush` are async. `set_promise` and `delete_promise` remain sync.
+Same interface but `get`, `set`, and `delete` are async.
+
+### CacheKey
+
+```python
+from aod.application import CacheKey
+```
+
+`CacheKey(ABC, Generic[TQuery_co])` — Abstract base for defining cache key strategies.
+
+#### Class Variables
+
+| Variable | Type | Description |
+|----------|------|-------------|
+| `ttl` | `float \| None` | Default TTL for this key. `None` means no expiry. |
+
+#### Abstract Methods
+
+| Method | Signature | Description |
+|--------|-----------|-------------|
+| `key` | `abstractmethod key(self, query: TQuery_co) -> str` | Compute the cache key string from a query. |
+| `invalidate` | `abstractmethod invalidate(self) -> list[CacheInvalidation]` | Return invalidation rules for this key. |
+
+#### Class Methods
+
+| Method | Signature | Description |
+|--------|-----------|-------------|
+| `get_query_type` | `get_query_type(cls) -> type[Query]` | Return the query type this key is associated with. |
+| `get_command_types` | `get_command_types(cls) -> set[type[Command]]` | Return all command types that invalidate this key. |
+| `get_invalidation_key_fn` | `get_invalidation_key_fn(cls, command_type: type[Command]) -> Callable[[Any], str] \| None` | Return the key function for a given command type, or `None`. |
+
+### CacheInvalidation
+
+```python
+from aod.application import CacheInvalidation
+```
+
+`CacheInvalidation` is a frozen `dataclass` that maps a command type to a key extraction function.
+
+#### Fields
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `command_type` | `type[Command]` | The command class that triggers invalidation. |
+| `key_fn` | `Callable[[Any], str]` | Function that extracts the cache key from a command instance. |
 
 ### Command
 
@@ -627,7 +640,7 @@ Synchronous read projection.
 
 | Method | Signature | Description |
 |--------|-----------|-------------|
-| `read` | `abstractmethod read(self, model: Any) -> Any` | Execute read logic. Auto-wrapped with event collection, logging, cache flush, and event bus publish. |
+| `read` | `abstractmethod read(self, model: Any) -> Any` | Execute read logic. Auto-wrapped with event collection, logging, and event bus publish. |
 
 ### WriteProjection
 
@@ -649,7 +662,7 @@ Synchronous write projection.
 
 | Method | Signature | Description |
 |--------|-----------|-------------|
-| `write` | `abstractmethod write(self, model: Any) -> Any` | Execute write logic. Auto-wrapped with `CommitContext`, transaction begin, event collection, rollback on failure, logging, cache flush, and event bus publish. |
+| `write` | `abstractmethod write(self, model: Any) -> Any` | Execute write logic. Auto-wrapped with `CommitContext`, transaction begin, event collection, rollback on failure, logging, and event bus publish. |
 
 ### Projection
 
@@ -814,7 +827,6 @@ Dependency injection container. Can be used directly or subclassed.
 |--------|-----------|-------------|
 | `get_session` | `get_session(self, session_cls: type) -> Session \| AsyncSession` | Retrieve or instantiate a session. Raises `SessionNotFoundError`. |
 | `get_handler` | `get_handler(self, contract: type[Command \| Query]) -> handler` | Find handler by command/query type. Raises `HandlerNotFoundError`. |
-| `get_uow` | `get_uow(self) -> UnitOfWork \| AsyncUnitOfWork` | Create a UoW with all instantiated sessions. |
 | `get_port` | `get_port(self, name: str) -> Port` | Find port by registered field name. Raises `PortNotFoundError`. |
 | `with_adapters` | `with_adapters(self, **overrides) -> Self` | Create a copy with overridden fields. |
 | `adapt` | `adapt(self, operation_cls, **overrides) -> UseCase \| AsyncUseCase \| ProjectionBase` | Create a use case or projection with all dependencies wired. Dispatches to internal methods based on class type. |
@@ -942,9 +954,8 @@ Method: `publish(*events)`.
 | `get_calls` | `list[str]` | Keys passed to `get()`. |
 | `set_calls` | `list[tuple]` | Arguments passed to `set()`. |
 | `delete_calls` | `list[str]` | Keys passed to `delete()`. |
-| `flush_calls` | `list[None]` | Flush call records. |
 
-Methods: `get(key)`, `set(key, value, ttl=None)`, `delete(key)`, `flush()`, `set_promise(key, value, ttl=None)`, `delete_promise(key)`.
+Methods: `get(key)`, `set(key, value, ttl=None)`, `delete(key)`.
 
 ### SpySession / SpyAsyncSession
 

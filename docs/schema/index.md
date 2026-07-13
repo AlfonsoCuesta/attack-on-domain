@@ -42,7 +42,7 @@ bc = BoundedContext(
 
 infra = Infrastructure(
     handlers=[PlaceOrderHandler, GetOrderHandler],
-    ports=[FakeUnitOfWork, SmtpSender],
+    ports=[SmtpSender],
 )
 
 mod = Module(name="orders", context=bc, infrastructure=infra)

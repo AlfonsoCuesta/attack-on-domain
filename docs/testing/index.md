@@ -12,7 +12,6 @@ from aod.testing.doubles import (
     SpyAsyncSession,
     SpyLogger,
     SpyEventBus,
-    SpyCache,
     port_stub,
     spy_adapter_container,
 )
@@ -282,18 +281,6 @@ from aod.testing.doubles import SpyEventBus
 bus = SpyEventBus()
 bus.publish(OrderPlaced(order_id=1))
 assert bus.publish.called
-```
-
-### SpyCache
-
-```python
-from aod.testing.doubles import SpyCache
-```
-
-```python
-cache = SpyCache()
-cache.get("key")
-assert cache.get.called
 ```
 
 ### SpySession / SpyAsyncSession

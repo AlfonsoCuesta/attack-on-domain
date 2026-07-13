@@ -67,7 +67,7 @@ def test_aod_application_exports_documented_api() -> None:
         "Command",
         "CommandPort",
         "EventBus",
-        "Invalidation",
+        "CacheInvalidation",
         "Logger",
         "Port",
         "Query",
@@ -77,7 +77,7 @@ def test_aod_application_exports_documented_api() -> None:
     assert aod.application.ApplicationException.__name__ == "ApplicationException"
     assert aod.application.Cache.__name__ == "Cache"
     assert aod.application.CacheKey.__name__ == "CacheKey"
-    assert aod.application.Invalidation.__name__ == "Invalidation"
+    assert aod.application.CacheInvalidation.__name__ == "CacheInvalidation"
     assert inspect.iscoroutinefunction(aod.application.async_.Cache._get)
 
     assert aod.application.async_.__all__ == [

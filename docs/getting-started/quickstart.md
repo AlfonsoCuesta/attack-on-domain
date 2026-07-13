@@ -38,7 +38,7 @@ Commands are immutable requests to change state. Handlers contain the infrastruc
 ```python
 from aod.application import Command
 from aod.infrastructure import CommandHandler
-from aod._internal.infrastructure.session import Session
+from aod.infrastructure import Session
 
 
 class InMemorySession(Session):

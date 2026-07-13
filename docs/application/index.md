@@ -25,9 +25,8 @@ from aod.application import (
     QueryPort,
     Logger,
     EventBus,
-    UnitOfWork,
-    Cache,
 )
+from aod.application.cache import Cache, AsyncCache
 ```
 
 ## Quick Example — CQRS
@@ -138,18 +137,19 @@ class CreateUserUseCase(UseCase):
 
 ### Auto-Wired Fields
 
-Use cases have one built-in auto-wired field:
+Use cases have one private auto-wired field:
 
 ```python
 class CreateUser(UseCase):
-    # uow is auto-wired, no need to declare
-    # uow: UnitOfWork — auto-commits on success
+    # _uow is private and auto-created, no need to declare
+    # It manages transactions, committing on success and rolling back on failure
+    # Cache flushing happens inside _uow.commit() — not visible to the UseCase
 
     def run(self) -> None:
         pass
 ```
 
-`Logger`, `EventBus` and `Cache` are no longer auto-wired. Declare them as normal ports when you need them:
+`Logger` and `EventBus` are not auto-wired. Declare them as normal ports when you need them:
 
 ```python
 class CreateUser(UseCase):
@@ -158,6 +158,19 @@ class CreateUser(UseCase):
 
     def run(self, user_id: str, name: str) -> None:
         ...
+```
+
+### Cache
+
+Cache is injected via handlers, not the UseCase. Use `handler.add_cache(cache)` when building your handler, and the container wires it automatically. Import from `aod.application.cache`:
+
+```python
+from aod.application.cache import Cache, AsyncCache
+
+class MyCache(Cache):
+    def get(self, key: str) -> object | None: ...
+    def set(self, key: str, value: object, ttl: int | None = None) -> None: ...
+    def delete(self, key: str) -> None: ...
 ```
 
 ### Event Collection

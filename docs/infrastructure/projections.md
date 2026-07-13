@@ -54,7 +54,7 @@ from aod.infrastructure import ReadProjection
 When `read()` is called:
 
 1. Events are collected via `EventCollector` during execution.
-2. On success: events are logged on each declared logger, each declared cache is flushed, events are published on each declared event bus.
+2. On success: events are logged on each declared logger, events are published on each declared event bus.
 3. On failure: the exception is logged on each declared logger and re-raised.
 
 ### Example
@@ -113,7 +113,7 @@ When `write()` is called:
 1. A `CommitContext` is set (enabling `session.commit()`).
 2. If a session is configured, `session.begin()` is called.
 3. Events are collected via `EventCollector` during execution.
-4. On success: events are logged on each declared logger, each declared cache is flushed, events are published on each declared event bus.
+4. On success: events are logged on each declared logger, events are published on each declared event bus.
 5. On failure: `session.rollback()` is called (if session is dirty), the exception is logged on each declared logger and re-raised.
 6. The `CommitContext` is always reset in the `finally` block.
 

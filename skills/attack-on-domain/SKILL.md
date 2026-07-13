@@ -139,7 +139,11 @@ Wire everything together with `AdapterContainer`. It discovers sessions, handler
 ```python
 from aod.infrastructure import AdapterContainer
 
-container = AdapterContainer(sessions={PostgresSession}, handlers=[PlaceOrderHandler, GetOrderHandler])
+container = AdapterContainer(
+    sessions={PostgresSession},
+    handlers=[PlaceOrderHandler, GetOrderHandler],
+    caches=[RedisCache(keys=[OrderById()])],
+)
 place_order = container.adapt(PlaceOrderUseCase)
 place_order.run(PlaceOrderInput(order_id="1", product_id="p1", quantity=2, price=9.99))
 ```
@@ -157,8 +161,10 @@ place_order.run(PlaceOrderInput(order_id="1", product_id="p1", quantity=2, price
 | `from aod.domain.validation import AfterValidator, BeforeValidator` | Pydantic validators |
 | `from aod.application import UseCase` | UseCase base class |
 | `from aod.application import Port` | Abstract port/gateway base class |
-| `from aod.application import Logger, EventBus, UnitOfWork, Cache` | Built-in port types (sync) |
-| `from aod.application.async_ import Cache, EventBus, Logger, UnitOfWork` | Async versions |
+| `from aod.application import Logger, EventBus` | Built-in port types (sync) |
+| `from aod.application.async_ import EventBus, Logger` | Async versions |
+| `from aod.application.cache import Cache, CacheKey, CacheInvalidation` | Cache port with automatic query/command key resolution |
+| `from aod.application.cache import AsyncCache` | Async cache port |
 | `from aod.domain.validation import get_base_model` | Get BaseModel from a Entity, RootEntity or ValueObject |
 | `from aod.application import Command, Query` | Application contracts (internal — created by UseCase, not the user) |
 | `from aod.application import CommandPort, QueryPort` | Application handler protocols |
@@ -465,6 +471,54 @@ uc.run(PlaceOrderInput(order_id="1", product_id="p1", quantity=2, price=9.99))
 
 **Infrastructure layer** (`aod.infrastructure`): `CommandHandler[C]` / `QueryHandler[Q]` — concrete implementations.
 
+### Cache
+
+Cache is injected **magically** — UseCases and Handlers never declare cache fields. The framework intercepts Query/Command handlers and applies read-through caching and write-through invalidation automatically.
+
+**How it works**: Define a `CacheKey` subclass mapping a Query to a cache key and listing which Commands invalidate it. Create a `Cache` implementation (Redis, Memcached, in-memory) with those keys. Attach it to handlers via `handler.add_cache(cache)` or let the container auto-wire it.
+
+```python
+from aod.application.cache import Cache, CacheKey, CacheInvalidation
+
+# 1. Define what to cache and when to invalidate
+class UserById(CacheKey[GetUser]):
+    ttl = 300.0  # 5-minute TTL (optional)
+
+    def key(self, query: GetUser) -> str:
+        return f"user:{query.user_id}"
+
+    def invalidate(self) -> list[CacheInvalidation]:
+        return [
+            CacheInvalidation(CreateUser, lambda c: f"user:{c.name}"),
+            CacheInvalidation(DeleteUser, lambda c: f"user:{c.user_id}"),
+        ]
+
+# 2. Implement the storage backend
+class RedisCache(Cache):
+    def get(self, key: str) -> Any: ...
+    def set(self, key: str, value: Any, ttl: float | None = None) -> None: ...
+    def delete(self, key: str) -> None: ...
+
+# 3. Attach to handlers — the handler itself never mentions cache
+cache = RedisCache(keys=[UserById()])
+
+handler = GetUserHandler()
+handler.add_cache(cache)  # read-through on queries
+
+handler = CreateUserHandler()
+handler.add_cache(cache)  # invalidates on commands
+
+# 4. Or let the container auto-wire
+container = AdapterContainer(
+    caches=[cache],
+    handlers=[GetUserHandler, CreateUserHandler],
+)
+```
+
+**Cache flow**: On QueryHandler, the framework checks `cache._get(query)` before executing `handle()`. If cached, returns immediately. Otherwise executes the handler and calls `cache._set(query, result)`. On CommandHandler, after success it calls `cache._delete(command)`. All writes are deferred — the UnitOfWork flushes caches on commit.
+
+**For advanced cache features** (pipeline operations, Lua scripts, pub/sub), inject a Redis-like session directly into the handler as a regular `Port` field. The built-in cache is for the simple read-through/invalidation pattern.
+
 ### Session
 
 Session IS the data access layer. There are no repositories, stores, or DAOs. Each handler declares a `session` field typed to its concrete session, and the container injects the correct instance.
@@ -684,6 +738,7 @@ from aod.infrastructure import AdapterContainer
 container = AdapterContainer(
     sessions={MySession},
     handlers=[MyHandler],
+    caches=[RedisCache(keys=[UserById()])],
     ports={Logger: SpyLogger()},
     email=EmailGateway(...),
 )
@@ -699,7 +754,7 @@ container = AdapterContainer(
 
 Creates a UseCase or Projection instance with all dependencies injected. This is the single public entry point — it dispatches to the appropriate internal method:
 
-- **UseCases**: `uow` — a `UnitOfWork` wrapping all registered sessions. Custom ports resolved by field name (with type-based fallback from `ports` dict). Handler ports injected by contract type.
+- **UseCases**: The UseCase creates its own `UnitOfWork` and auto-registers all handler fields. Custom ports resolved by field name (with type-based fallback from `ports` dict). Handler ports injected by contract type.
 - **Projections**: Session fields injected by type annotation. Custom ports resolved by field name (with type-based fallback from `ports` dict).
 
 ```python

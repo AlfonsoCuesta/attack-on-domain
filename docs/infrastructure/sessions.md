@@ -69,7 +69,7 @@ from aod.infrastructure import AsyncSession
 | `close` | `async close(self) -> None` | Release session resources asynchronously. |
 | `is_dirty` | `is_dirty(self) -> bool` | Check whether uncommitted changes exist. This method is **sync** even on `AsyncSession`. |
 
-Same freedom applies — add async-specific methods as needed.
+Same freedom applies -- add async-specific methods as needed.
 
 ```python
 class AsyncRedisSession(AsyncSession):
@@ -84,9 +84,9 @@ class AsyncRedisSession(AsyncSession):
 
 ## Transaction Pattern
 
-A session must **never** call `begin()`, `commit()`, or `rollback()` directly. The `UseCase` wrapper handles transactions automatically through the `UnitOfWork`:
+A session must **never** call `begin()`, `commit()`, or `rollback()` directly. The UseCase creates a `UnitOfWork` internally (not injected by the container) and wraps `run()` with automatic transaction management.
 
-### The UnitOfWork Flow
+### The UnitOfWork Flow (Internal to UseCase)
 
 ```python
 # This is what happens inside use_case.run():
@@ -96,20 +96,22 @@ uow.begin()                             # calls session.begin() on ALL sessions
     # QueryHandlers read via session.query()
 if run() succeeds:
     uow.commit()                        # calls session.commit() ONLY on dirty sessions
+    for cache in self.caches:
+        cache._flush()                  # flushes caches wired to handlers via add_cache()
     for bus in _event_buses:
         bus.publish(*events)            # publishes collected events
-    for cache in _caches:
-        cache.flush()                   # clears cache
 if run() fails:
     uow.rollback()                      # calls session.rollback() ONLY on dirty sessions
     error re-raised                     # exception propagates to caller
 ```
 
 Key points:
+- The UnitOfWork is created internally by the UseCase -- you never construct or inject one.
+- Caches flushed during `uow.commit()` come from handlers that registered them via `add_cache()`. The container auto-wires caches to matching handlers when the handler is instantiated.
 - Only dirty sessions are committed/rolled back (checked via `is_dirty()`)
-- `commit()` is guarded by `_CommitContext` ContextVar — raises `CommitOutsideUnitOfWorkError` if called outside a UseCase
-- `begin()` and `rollback()` are NOT guarded — they can be called anywhere (though you should never need to)
-- QueryHandlers don't participate in transactions — they read data without begin/commit/rollback
+- `commit()` is guarded by `_CommitContext` ContextVar -- raises `CommitOutsideUnitOfWorkError` if called outside a UseCase
+- `begin()` and `rollback()` are NOT guarded -- they can be called anywhere (though you should never need to)
+- QueryHandlers don't participate in transactions -- they read data without begin/commit/rollback
 
 ### Commit Guard
 
@@ -121,10 +123,10 @@ postgres.commit()  # CommitOutsideUnitOfWorkError!
 
 # Inside a UseCase it works fine:
 use_case = container.adapt(PlaceOrderUseCase)
-use_case.run(...)  # uow.commit() sets the flag → session.commit() succeeds
+use_case.run(...)  # uow.commit() sets the flag -> session.commit() succeeds
 ```
 
-This guarantees that transaction control stays in the framework — session implementations focus only on data operations, not transaction management.
+This guarantees that transaction control stays in the framework -- session implementations focus only on data operations, not transaction management.
 
 ### Complete Example
 
@@ -143,7 +145,7 @@ class PostgresSession(Session):
     def begin(self) -> None:
         self._conn.execute("BEGIN")
 
-    def commit(self) -> None:          # auto-guarded — raises if outside UseCase
+    def commit(self) -> None:          # auto-guarded -- raises if outside UseCase
         self._conn.commit()
 
     def rollback(self) -> None:

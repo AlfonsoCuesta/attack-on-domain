@@ -3,7 +3,7 @@ from __future__ import annotations
 from typing import Any
 
 from aod._internal.application.cache.cache import Cache
-from aod._internal.application.cache.cache_key import CacheKey, Invalidation
+from aod._internal.application.cache.cache_key import CacheKey, CacheInvalidation
 from aod._internal.application.contracts import Command, Query
 from aod._internal.application.unit_of_work import AsyncUnitOfWork, UnitOfWork
 from aod._internal.core.fields.fields import Field, PrivateField
@@ -54,9 +54,9 @@ def _make_user_key() -> CacheKey:
         def key(self, query: GetUser) -> str:
             return f"user:{query.user_id}"
 
-        def invalidate(self) -> list[Invalidation]:
+        def invalidate(self) -> list[CacheInvalidation]:
             return [
-                Invalidation(CreateUser, lambda c: f"user:{c.name}"),
+                CacheInvalidation(CreateUser, lambda c: f"user:{c.name}"),
             ]
 
     return UserCacheKey()

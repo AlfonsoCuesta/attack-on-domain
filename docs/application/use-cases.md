@@ -1,6 +1,6 @@
 # UseCase
 
-UseCases orchestrate domain objects through Ports. They are the central building block of the application layer, handling transaction management, logging, event publishing, and cache flushing automatically.
+UseCases orchestrate domain objects through Ports. They are the central building block of the application layer, handling transaction management, logging, and event publishing automatically.
 
 Commands and Queries are **internal** — created by the UseCase, not passed by the caller. Use Pydantic `BaseModel` subclasses for `run()` input.
 
@@ -65,18 +65,16 @@ Base class for synchronous use cases. Inherits from `BaseOperation`.
 | Parameter | Type | Description |
 |-----------|------|-------------|
 | `*port_fields` | `Port` subclass | All declared Port fields as keyword arguments |
-| `uow` | `UnitOfWork` | Optional override (default: `NullUnitOfWork` no-op) |
 
 **Auto-wired fields**:
 
 | Field | Type | Default | Description |
 |-------|------|---------|-------------|
-| `uow` | `UnitOfWork` | `NullUnitOfWork` | Transaction boundary. Auto-commits on success, rollbacks on failure |
+| `_uow` | `UnitOfWork` | `UnitOfWork()` | Private, auto-created. Transaction boundary. Auto-commits on success (flushing caches internally), rollbacks on failure |
 | `events` | `list[Event]` | `[]` | Collected events from last `run()` call. Read-only outside mutation context |
 | `_event_emitter` | `EventEmitter` | `EventEmitter()` | Private event emitter for emitting events during `run()` |
 | `_loggers` | `list[Logger \| AsyncLogger]` | `[]` | Private list of declared logger ports |
 | `_event_buses` | `list[EventBus \| AsyncEventBus]` | `[]` | Private list of declared event bus ports |
-| `_caches` | `list[Cache \| AsyncCache]` | `[]` | Private list of declared cache ports |
 
 **Optional ports** (declare explicitly when needed):
 
@@ -94,11 +92,11 @@ class CreateUserUseCase(UseCase):
 
 Abstract method. Subclasses define specific parameters. Values are passed here, not as class fields. The method is automatically wrapped to:
 
-1. Begin a UnitOfWork
+1. Begin an internal UnitOfWork
 2. Open an `EventCollector` context
 3. Invoke the original `run()` body
 4. Collect emitted events into `self.events`
-5. On success: commit UoW, log completion, flush cache, publish events
+5. On success: commit UoW (flushing caches internally), log completion, publish events
 6. On failure: rollback UoW, log error, re-raise
 
 **Parameters:** Defined by the subclass — any number of positional and keyword arguments representing input values.
@@ -114,9 +112,8 @@ Base class for asynchronous use cases. Inherits from `BaseOperation`.
 | Parameter | Type | Description |
 |-----------|------|-------------|
 | `*port_fields` | `Port` subclass | All declared Port fields as keyword arguments |
-| `uow` | `UnitOfWork \| AsyncUnitOfWork` | Optional override (default: `NullUnitOfWork` no-op) |
 
-**Auto-wired fields:** Same as `UseCase`, except `uow` accepts `UnitOfWork \| AsyncUnitOfWork`.
+**Auto-wired fields:** Same as `UseCase`, except `_uow` accepts `UnitOfWork | AsyncUnitOfWork`.
 
 #### `async run(self, *args, **kwargs) -> Any`
 
