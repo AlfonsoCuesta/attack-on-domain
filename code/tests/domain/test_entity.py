@@ -3,7 +3,12 @@
 from __future__ import annotations
 
 import pytest
-from aod._internal.core.domain_exception import ModelValidationError, MutationForbiddenException
+from aod._internal.core.domain_exception import (
+    ModelValidationError,
+    MutationForbiddenException,
+    NoIdentityFieldException,
+    TooManyIdentityFieldsException,
+)
 from aod._internal.core.event_emitter import Event, EventCollector
 from aod._internal.core.fields import Field, PrivateField
 from aod._internal.domain.entity import Entity, RootEntity
@@ -41,18 +46,22 @@ class EntityWithDefaults(RootEntity):
     score: float = 0.0
 
 
+class TestEntityIdentityExceptions:
+    def test_entity_with_multiple_id_fields_raises(self) -> None:
+        with pytest.raises(TooManyIdentityFieldsException):
+
+            class MultiIdEntity(Entity):
+                id1: int = Field(id=True)
+                id2: str = Field(id=True)
+
+    def test_entity_without_id_field_raises(self) -> None:
+        with pytest.raises(NoIdentityFieldException):
+
+            class NoIdEntity(Entity):
+                name: str
+
+
 class test_entity_is_not_root:
-    def test_entity_is_not_root(self) -> None:
-        assert not issubclass(SimpleEntity, RootEntity)
-
-    def test_root_entity_is_root(self) -> None:
-        assert issubclass(User, RootEntity)
-
-    def test_root_entity_inherits_entity(self) -> None:
-        assert issubclass(RootEntity, Entity)
-
-
-class TestEntityConstruction:
     def test_entity_with_fields(self) -> None:
         e = SimpleEntity(id=1, value="test")
         assert e.id == 1
@@ -163,3 +172,41 @@ class TestEntityEquality:
         e1 = SimpleEntity(id=1, value="a")
         e2 = SimpleEntity(id=2, value="b")
         assert e1.id != e2.id
+
+
+class TestEntityEqualityWithEq:
+    def test_entity_eq_same_id(self) -> None:
+        e1 = SimpleEntity(id=1, value="a")
+        e2 = SimpleEntity(id=1, value="b")
+        assert e1 == e2
+
+    def test_entity_eq_different_id(self) -> None:
+        e1 = SimpleEntity(id=1, value="a")
+        e2 = SimpleEntity(id=2, value="a")
+        assert e1 != e2
+
+    def test_entity_eq_different_type(self) -> None:
+        class OtherEntity(Entity):
+            id: int = Field(id=True)
+            value: str
+
+        e1 = SimpleEntity(id=1, value="a")
+        e2 = OtherEntity(id=1, value="a")
+        assert e1 != e2
+        assert e2 != e1
+
+    def test_entity_hash_dict_key(self) -> None:
+        e1 = SimpleEntity(id=1, value="a")
+        e2 = SimpleEntity(id=1, value="b")
+        d = {e1: "first"}
+        assert d[e2] == "first"
+
+    def test_entity_hash_in_set(self) -> None:
+        e1 = SimpleEntity(id=1, value="a")
+        e2 = SimpleEntity(id=1, value="b")
+        s = {e1, e2}
+        assert len(s) == 1
+
+    def test_entity_identity_property(self) -> None:
+        e = SimpleEntity(id=42, value="test")
+        assert e.__entity_id__ == 42

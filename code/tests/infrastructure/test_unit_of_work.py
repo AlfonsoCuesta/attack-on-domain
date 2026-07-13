@@ -8,7 +8,11 @@ from aod._internal.application.contracts import Command, Query
 from aod._internal.application.unit_of_work import AsyncUnitOfWork, UnitOfWork
 from aod._internal.core.fields.fields import Field, PrivateField
 from aod._internal.domain.entity import RootEntity
-from aod._internal.infrastructure.handlers.handlers import CommandHandler, QueryHandler
+from aod._internal.infrastructure.handlers.handlers import (
+    AsyncQueryHandler,
+    CommandHandler,
+    QueryHandler,
+)
 from aod._internal.infrastructure.session import AsyncSession, Session
 
 
@@ -217,6 +221,47 @@ class TestAsyncUnitOfWork:
         uow = AsyncUnitOfWork(sessions={session})
         await uow.rollback()
         assert session._rolled_back
+
+    async def test_add_handler_collects_sessions(self) -> None:
+        class Handler(AsyncQueryHandler[GetUser]):
+            session: _DirtyAsyncSession
+
+            async def handle(self, query: GetUser) -> User | None:
+                return None
+
+        session = _DirtyAsyncSession()
+        handler = Handler(session=session)
+        uow = AsyncUnitOfWork()
+        uow.add_handler(handler)
+        assert session in uow.sessions
+
+    async def test_add_handler_collects_caches(self) -> None:
+        class Handler(AsyncQueryHandler[GetUser]):
+            async def handle(self, query: GetUser) -> User | None:
+                return None
+
+        cache = ConcreteCache(keys=[_make_user_key()])
+        handler = Handler()
+        handler.add_cache(cache)
+        uow = AsyncUnitOfWork()
+        uow.add_handler(handler)
+        assert cache in uow.caches
+
+    async def test_commit_flushes_caches(self) -> None:
+        class Handler(AsyncQueryHandler[GetUser]):
+            async def handle(self, query: GetUser) -> User | None:
+                return None
+
+        cache = ConcreteCache(keys=[_make_user_key()])
+        cache._set(GetUser(user_id=1), User(id=1, name="x"))
+        handler = Handler()
+        handler.add_cache(cache)
+        uow = AsyncUnitOfWork()
+        uow.add_handler(handler)
+        assert len(cache._to_set) == 1
+        await uow.commit()
+        assert len(cache._to_set) == 0
+        assert cache.get("user:1").name == "x"  # ty: ignore[unresolved-attribute]
 
     async def test_rollback_skips_clean_session(self) -> None:
         session = _CleanAsyncSession()

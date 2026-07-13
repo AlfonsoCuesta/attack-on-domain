@@ -916,7 +916,8 @@ uv run pytest code/tests -q
 
 ## Test Count
 
-1097 tests, 3 skipped (no `patch`/`mock.patch` in any test file)
+1149 tests, 0 skipped (no `patch`/`mock.patch` in any test file)
+96% code coverage (133/3673 lines missing)
 
 ## At the end of a task
 

@@ -66,9 +66,9 @@ class HandlerManager:
         for cache in self._caches:
             if not isinstance(cache, Cache):
                 continue
-            if not cache._keys:
+            if not cache.keys:
                 continue
-            for key_obj in cache._keys:
+            for key_obj in cache.keys:
                 if is_query and key_obj.get_query_type() is contract:
                     handler.add_cache(cache)
                     break

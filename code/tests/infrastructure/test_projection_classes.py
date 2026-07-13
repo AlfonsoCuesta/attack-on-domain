@@ -3,6 +3,8 @@ from __future__ import annotations
 from typing import cast
 
 import pytest
+from aod._internal.application.event_bus import EventBus
+from aod._internal.application.logger import Logger
 from aod._internal.core.event_emitter import Event
 from aod._internal.infrastructure.commit_context import _CommitContext
 from aod._internal.infrastructure.projection import (
@@ -15,6 +17,7 @@ from aod._internal.infrastructure.projection import (
     WriteProjection,
 )
 from aod._internal.infrastructure.session import AsyncSession, Session
+from aod.testing.doubles import port_stub
 from pydantic import BaseModel as DTO
 
 
@@ -162,6 +165,18 @@ class TestReadProjection:
         with pytest.raises(ValueError, match="read failed"):
             p.read(UserReadModel(user_id=1))
 
+    def test_read_with_logger_and_exception(self) -> None:
+        class FailingRead(ReadProjection):
+            logger: Logger
+
+            def read(self, model: UserReadModel) -> str:
+                raise ValueError("read failed")
+
+        logger = port_stub(Logger)()
+        p = FailingRead(logger=logger)
+        with pytest.raises(ValueError, match="read failed"):
+            p.read(UserReadModel(user_id=1))
+
     def test_read_handles_model_with_defaults(self) -> None:
         class SearchUsers(ReadProjection):
             def read(self, model: UserReadModel) -> dict:
@@ -242,6 +257,18 @@ class TestWriteProjection:
         with pytest.raises(ValueError, match="write failed"):
             p.write(UserWriteModel(user_id=1, name="Alice"))
 
+    def test_write_with_logger_and_exception(self) -> None:
+        class FailingWrite(WriteProjection):
+            logger: Logger
+
+            def write(self, model: UserWriteModel) -> str:
+                raise ValueError("write failed")
+
+        logger = port_stub(Logger)()
+        p = FailingWrite(logger=logger)
+        with pytest.raises(ValueError, match="write failed"):
+            p.write(UserWriteModel(user_id=1, name="test"))
+
     def test_commit_context_reset_after_error(self) -> None:
         class FailingWrite(WriteProjection):
             def write(self, model: UserWriteModel) -> str:
@@ -249,7 +276,7 @@ class TestWriteProjection:
 
         p = FailingWrite()
         with pytest.raises(ValueError):
-            p.write(UserWriteModel(user_id=1, name="Alice"))
+            p.write(UserWriteModel(user_id=1, name="test"))
         assert _CommitContext.get(False) is False
 
 
@@ -374,6 +401,44 @@ class TestAsyncReadProjection:
         with pytest.raises(ValueError, match="read failed"):
             await p.read(UserReadModel(user_id=1))
 
+    async def test_read_with_logger_logs_success(self) -> None:
+        class GetUser(AsyncReadProjection):
+            logger: Logger
+
+            async def read(self, model: UserReadModel) -> str:
+                self._event_emitter.emit(UserCreated(user_id=model.user_id, name="test"))
+                return "ok"
+
+        logger = port_stub(Logger)()
+        p = GetUser(logger=logger)
+        result = await p.read(UserReadModel(user_id=1))
+        assert result == "ok"
+
+    async def test_read_with_logger_and_exception(self) -> None:
+        class FailingRead(AsyncReadProjection):
+            logger: Logger
+
+            async def read(self, model: UserReadModel) -> str:
+                raise ValueError("read failed")
+
+        logger = port_stub(Logger)()
+        p = FailingRead(logger=logger)
+        with pytest.raises(ValueError, match="read failed"):
+            await p.read(UserReadModel(user_id=1))
+
+    async def test_read_with_event_bus_publishes(self) -> None:
+        class GetUser(AsyncReadProjection):
+            event_bus: EventBus
+
+            async def read(self, model: UserReadModel) -> str:
+                self._event_emitter.emit(UserCreated(user_id=model.user_id, name="test"))
+                return "ok"
+
+        bus = port_stub(EventBus)()
+        p = GetUser(event_bus=bus)
+        result = await p.read(UserReadModel(user_id=1))
+        assert result == "ok"
+
 
 class TestAsyncWriteProjection:
     async def test_is_abstract(self) -> None:
@@ -436,6 +501,18 @@ class TestAsyncWriteProjection:
             await p.write(UserWriteModel(user_id=1, name="Alice"))
         assert session._rolled_back
 
+    async def test_write_with_logger_and_exception(self) -> None:
+        class FailingWrite(AsyncWriteProjection):
+            logger: Logger
+
+            async def write(self, model: UserWriteModel) -> str:
+                raise ValueError("write failed")
+
+        logger = port_stub(Logger)()
+        p = FailingWrite(logger=logger)
+        with pytest.raises(ValueError, match="write failed"):
+            await p.write(UserWriteModel(user_id=1, name="test"))
+
     async def test_commit_context_reset_after_error(self) -> None:
         class FailingWrite(AsyncWriteProjection):
             async def write(self, model: UserWriteModel) -> str:
@@ -443,7 +520,7 @@ class TestAsyncWriteProjection:
 
         p = FailingWrite()
         with pytest.raises(ValueError):
-            await p.write(UserWriteModel(user_id=1, name="Alice"))
+            await p.write(UserWriteModel(user_id=1, name="test"))
         assert _CommitContext.get(False) is False
 
 

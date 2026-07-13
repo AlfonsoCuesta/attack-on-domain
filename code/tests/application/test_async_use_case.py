@@ -2,10 +2,14 @@ from __future__ import annotations
 
 import pytest
 from aod._internal.application.event_bus import AsyncEventBus, EventBus
+from aod._internal.application.handler import CommandPort
 from aod._internal.application.logger import AsyncLogger, Logger
 from aod._internal.application.unit_of_work import AsyncUnitOfWork, UnitOfWork
+from aod._internal.application.contracts import Command
 from aod._internal.application.use_case import AsyncUseCase as UseCase
 from aod._internal.core.domain_exception import MutationForbiddenException
+from aod._internal.infrastructure.handlers.handlers import CommandHandler
+from aod._internal.infrastructure.session import Session
 from aod.testing.doubles import port_stub
 from tests.application._use_case_scenarios import (
     _RUN_BODIES,
@@ -17,6 +21,33 @@ from tests.application._use_case_scenarios import (
     UserRenamed,
     run_uc,
 )
+
+
+class _TestSession(Session):
+    def execute(self, operation: object) -> None: ...
+    def query(self, operation: object) -> object: ...
+    def begin(self) -> None: ...
+    def commit(self) -> None: ...
+    def rollback(self) -> None: ...
+    def close(self) -> None: ...
+    def is_dirty(self) -> bool:
+        return False
+
+
+class _SaveUser(Command[User, None]):
+    name: str
+
+
+class _SaveHandler(CommandHandler[_SaveUser]):
+    session: _TestSession
+
+    def handle(self, command: _SaveUser) -> None: ...
+
+
+class _MyUC(UseCase):
+    save: CommandPort[_SaveUser]
+
+    async def run(self) -> None: ...
 
 
 class CreateUser(UseCase):
@@ -426,3 +457,10 @@ async def test_async_use_case_returns_complex_value() -> None:
     uc = GetUser()
     result = await uc.run("Alice")
     assert result == {"name": "Alice", "id": "1"}
+
+
+async def test_uow_registers_handler_on_init() -> None:
+    session = _TestSession()
+    handler = _SaveHandler(session=session)
+    uc = _MyUC(save=handler)
+    assert session in object.__getattribute__(uc, "_uow").sessions
