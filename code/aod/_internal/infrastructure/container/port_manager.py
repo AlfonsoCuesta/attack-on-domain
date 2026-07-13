@@ -42,7 +42,10 @@ class PortManager:
         raise PortNotFoundError(name)
 
     def inject_ports(self, operation_cls: type[BaseOperation], kwargs: dict[str, Any]) -> None:
+        own_annotations = getattr(operation_cls, "__annotations__", {})
         for field_name, field_info in operation_cls.__model_fields__.items():
+            if field_name not in own_annotations:
+                continue
             if field_name in kwargs:
                 continue
             field_type = field_info.annotation

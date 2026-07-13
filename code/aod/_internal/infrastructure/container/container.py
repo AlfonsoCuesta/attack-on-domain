@@ -72,9 +72,6 @@ class AdapterContainer(BaseBehaviour):
     def _find_handler(self, contract: Any) -> Any:
         return self._handler_manager.find_handler(contract)
 
-    def get_uow(self) -> Any:
-        return self._session_manager.get_uow()
-
     def get_port(self, name: str) -> Port:
         return self._port_manager.get_port(name)
 
@@ -102,9 +99,7 @@ class AdapterContainer(BaseBehaviour):
     def _adapt_use_case(self, use_case_cls: type[TUseCase], **overrides: Any) -> TUseCase:
         container = self.with_adapters(**overrides) if overrides else self
 
-        kwargs: dict[str, Any] = {
-            "uow": container.get_uow(),
-        }
+        kwargs: dict[str, Any] = {}
 
         container._port_manager.inject_ports(use_case_cls, kwargs)
         container._handler_manager.inject_handlers(use_case_cls, kwargs)

@@ -1,10 +1,7 @@
 from __future__ import annotations
 
-from typing import cast
-
 from aod._internal.core.infrastructure_exception import SessionNotFoundError
 from aod._internal.infrastructure.session import AsyncSession, Session
-from aod._internal.infrastructure.unit_of_work import AsyncUnitOfWork, UnitOfWork
 
 
 class SessionManager:
@@ -33,15 +30,6 @@ class SessionManager:
         self, session_cls: type[Session] | type[AsyncSession]
     ) -> Session | AsyncSession:
         return session_cls()
-
-    def get_uow(self) -> UnitOfWork | AsyncUnitOfWork:
-        sessions = set(self._instances.values())
-        has_async = any(issubclass(s, AsyncSession) for s in self._sessions) or any(
-            isinstance(s, AsyncSession) for s in self._instances
-        )
-        if has_async:
-            return AsyncUnitOfWork(sessions=sessions)
-        return UnitOfWork(sessions=cast(set[Session], sessions))
 
     def get_all_sessions(self) -> set[Session | AsyncSession]:
         return set(self._instances.values())

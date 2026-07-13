@@ -18,7 +18,7 @@ from aod._internal.infrastructure.container import AdapterContainer
 from aod._internal.infrastructure.handlers import AsyncCommandHandler
 from aod._internal.infrastructure.projection import ReadProjection
 from aod._internal.infrastructure.session import AsyncSession, Session
-from aod._internal.infrastructure.unit_of_work import AsyncUnitOfWork, UnitOfWork
+from aod._internal.infrastructure.unit_of_work import UnitOfWork
 from aod._internal.testing.doubles.infrastructure.container import spy_adapter_container
 from aod.application import Command, Query, UseCase
 from aod.domain import RootEntity
@@ -91,25 +91,6 @@ def test_can_instantiate_with_defaults() -> None:
     container = AdapterContainer()
     assert container.sessions == set()
     assert container.handlers == []
-
-
-def test_uow_with_sync_sessions() -> None:
-    container = AdapterContainer(sessions={_SyncSession})
-    uow = container.get_uow()
-    assert isinstance(uow, UnitOfWork)
-    assert not isinstance(uow, AsyncUnitOfWork)
-
-
-def test_uow_with_async_sessions() -> None:
-    container = AdapterContainer(sessions={_AsyncSession})
-    uow = container.get_uow()
-    assert isinstance(uow, AsyncUnitOfWork)
-
-
-def test_uow_with_empty_sessions() -> None:
-    container = AdapterContainer()
-    uow = container.get_uow()
-    assert isinstance(uow, UnitOfWork)
 
 
 def test_with_adapters_returns_copy() -> None:
@@ -439,12 +420,6 @@ class TestPortsDict:
 
 
 # ── UoW ──
-
-
-def test_uow_with_mixed_sessions() -> None:
-    container = AdapterContainer(sessions={_SyncSession, _AsyncSession})
-    uow = container.get_uow()
-    assert isinstance(uow, AsyncUnitOfWork)
 
 
 # ── Sessions ──

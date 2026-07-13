@@ -5,13 +5,14 @@ from functools import wraps
 from typing import Any, Callable
 
 from aod._internal.application.unit_of_work import AsyncUnitOfWork, UnitOfWork
-from aod._internal.application.unit_of_work.null_unit_of_work import NullUnitOfWork
 from aod._internal.core.async_utils import should_await
 from aod._internal.core.base_operation import BaseOperation
 from aod._internal.core.event_emitter import EventCollector
 from aod._internal.core.fields.fields import Field
 from aod._internal.infrastructure.handlers.handlers import BaseHandler
 from aod._internal.infrastructure.session import AsyncSession, Session
+from aod._internal.infrastructure.unit_of_work import AsyncUnitOfWork as InfraAsyncUnitOfWork
+from aod._internal.infrastructure.unit_of_work import UnitOfWork as InfraUnitOfWork
 
 _USE_CASE_WRAPPED_KEY = "__aod_use_case_wrapped__"
 
@@ -19,7 +20,7 @@ _USE_CASE_WRAPPED_KEY = "__aod_use_case_wrapped__"
 class UseCase(BaseOperation):
     __skip_port_check__ = True
     __not_allowed_port_types__ = (Session, AsyncSession)
-    uow: UnitOfWork = Field(default_factory=NullUnitOfWork)
+    uow: UnitOfWork = Field(default_factory=InfraUnitOfWork)
 
     def __init__(self, **kwargs: Any) -> None:
         super().__init__(**kwargs)
@@ -85,7 +86,7 @@ class UseCase(BaseOperation):
 class AsyncUseCase(BaseOperation):
     __skip_port_check__ = True
     __not_allowed_port_types__ = (Session, AsyncSession)
-    uow: UnitOfWork | AsyncUnitOfWork = Field(default_factory=NullUnitOfWork)
+    uow: UnitOfWork | AsyncUnitOfWork = Field(default_factory=InfraAsyncUnitOfWork)
 
     def __init__(self, **kwargs: Any) -> None:
         super().__init__(**kwargs)
