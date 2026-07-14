@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Any, ClassVar, get_origin, get_type_hints
+from typing import Any, ClassVar, get_args, get_origin, get_type_hints
 
 from aod._internal.application.event_bus import AsyncEventBus, EventBus
 from aod._internal.application.logger import AsyncLogger, Logger
@@ -24,6 +24,11 @@ def _resolve_port_class(tp: Any) -> type | None:
     if isinstance(tp, type):
         return tp
     origin = get_origin(tp)
+    if origin is type:
+        for arg in get_args(tp):
+            if isinstance(arg, type):
+                return arg
+        return None
     if isinstance(origin, type):
         return origin
     return None

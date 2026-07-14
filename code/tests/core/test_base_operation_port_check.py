@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import pytest
+from typing import Literal
 from aod._internal.application.contracts import Command, Query
 from aod._internal.application.handler import CommandPort as AppCommandPort
 from aod._internal.application.handler import QueryPort as AppQueryPort
@@ -194,3 +195,21 @@ class TestProjectionFieldValidation:
 
             class _MyProjection(ProjectionBase):
                 bad_field: int
+
+    def test_unresolvable_forward_ref_caught(self) -> None:
+        """Unresolvable forward ref causes get_type_hints to raise, caught by except."""
+
+        # Pydantic creates the class successfully; __init_subclass__ catches the error
+        class _MyProjection(ProjectionBase):
+            bad_ref: "NonExistentClass"  # noqa: F821  # type: ignore[name-defined]  # ty:ignore[unresolved-reference]
+
+        # The class exists, get_type_hints would have raised
+        assert "bad_ref" in _MyProjection.__model_fields__
+
+    def test_literal_field_rejected(self) -> None:
+        """Literal[42] type exercises the tp_to_check = None branch."""
+
+        with pytest.raises(InvalidUseCasePortFieldError):
+
+            class _MyProjection(ProjectionBase):
+                lit_field: Literal[42]

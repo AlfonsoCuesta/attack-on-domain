@@ -25,6 +25,7 @@ from aod._internal.infrastructure.handlers import (
 )
 from aod._internal.infrastructure.projection import (
     Projection,
+    ProjectionBase,
     ReadProjection,
     WriteProjection,
 )
@@ -44,11 +45,13 @@ from aod._internal.schema.docs.generic_docs import (
     type_str,
 )
 from aod._internal.schema.docs.handler_doc import HandlerDoc
+from aod._internal.schema.docs.handler_doc import _session_name as handler_session_name
 from aod._internal.schema.docs.handler_port_doc import HandlerPortDoc
 from aod._internal.schema.docs.infrastructure_doc import InfrastructureDoc
 from aod._internal.schema.docs.module_doc import ModuleDoc
 from aod._internal.schema.docs.port_doc import PortDoc
 from aod._internal.schema.docs.projection_doc import ProjectionDoc
+from aod._internal.schema.docs.projection_doc import _session_name as projection_session_name
 from aod._internal.schema.docs.root_entity_doc import RootEntityDoc
 from aod._internal.schema.docs.service_doc import ServiceDoc
 from aod._internal.schema.docs.session_doc import SessionDoc
@@ -867,6 +870,32 @@ class TestHandlerDocEdgeCases:
         doc = HandlerDoc.from_handler(UnionSessionHandler)
         assert doc.session == "MySession"
 
+    def test_handler_with_non_generic_base(self) -> None:
+        """Handler whose orig_bases includes a non-generic class."""
+
+        class NonGenericBase:
+            pass
+
+        class HandlerWithNonGenericBase(NonGenericBase, CommandHandler[PlaceOrder]):
+            session: MySession
+
+            def handle(self, command: PlaceOrder) -> None:
+                pass
+
+        doc = HandlerDoc.from_handler(HandlerWithNonGenericBase)
+        assert doc.name == "HandlerWithNonGenericBase"
+        assert doc.session == "MySession"
+
+    def test_handler_session_name_non_session_union(self) -> None:
+        """handler _session_name with a Union not containing Session returns empty string."""
+        result = handler_session_name(int | str)
+        assert result == ""
+
+    def test_handler_session_name_non_type(self) -> None:
+        """handler _session_name with a non-type, non-origin value returns str()."""
+        result = handler_session_name(42)
+        assert result == "42"
+
 
 # ============================================================
 # ProjectionDoc edge cases
@@ -889,6 +918,16 @@ class TestProjectionDocEdgeCases:
         # Falls through to _resolve_projection_type which checks MRO
         assert doc.projection_type in ("ReadProjection", "")
 
+    def test_unknown_projection_type_returns_empty(self) -> None:
+        """Projection subclassing ProjectionBase directly returns empty type."""
+
+        class UnknownProj(ProjectionBase):
+            def read(self, model: object) -> list[Order]:
+                return []
+
+        doc = ProjectionDoc.from_projection(UnknownProj)
+        assert doc.projection_type == ""
+
     def test_projection_with_ports(self) -> None:
         """Projection with a non-session Port field."""
 
@@ -910,6 +949,60 @@ class TestProjectionDocEdgeCases:
 
         doc = ProjectionDoc.from_projection(EmptyProj)
         assert doc.read is None
+
+    def test_projection_with_session_field(self) -> None:
+        """Projection with a session field resolves session name."""
+
+        class ProjWithSession(ReadProjection):
+            session: MySession
+
+            def read(self, model: object) -> list[Order]:
+                return []
+
+        doc = ProjectionDoc.from_projection(ProjWithSession)
+        assert doc.session == "MySession"
+
+    def test_projection_with_private_field_skipped(self) -> None:
+        """Projection fields starting with _ are skipped."""
+
+        class ProjWithPrivate(ReadProjection):
+            logger: Logger
+            _internal: str = ""
+
+            def read(self, model: object) -> list[Order]:
+                return []
+
+        doc = ProjectionDoc.from_projection(ProjWithPrivate)
+        port_names = {p.name for p in doc.ports}
+        assert "Logger" in port_names
+        assert "_internal" not in [p.name for p in doc.ports]
+
+    def test_projection_session_name_union_session(self) -> None:
+        """_session_name with a Union containing Session resolves the Session arg."""
+        result = projection_session_name(MySession | None)
+        assert result == "MySession"
+
+    def test_projection_session_type_session(self) -> None:
+        """Projection with a type[Session] field resolves session name."""
+
+        class ProjStr(ReadProjection):
+            session: type[MySession]
+
+            def read(self, model: object) -> list[Order]:
+                return []
+
+        doc = ProjectionDoc.from_projection(ProjStr)
+        assert doc.session == "MySession"
+
+    def test_projection_session_name_non_session_union(self) -> None:
+        """_session_name with a Union not containing Session returns empty string."""
+        result = projection_session_name(int | str)
+        assert result == ""
+
+    def test_projection_session_name_non_type(self) -> None:
+        """_session_name with a non-type, non-origin value returns str()."""
+        result = projection_session_name(42)
+        assert result == "42"
 
 
 # ============================================================
