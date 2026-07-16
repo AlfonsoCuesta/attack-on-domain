@@ -6,214 +6,7 @@
 
 **Source code is under `code/`** — this directory is mapped as the package root in `pyproject.toml`.
 
-## Workflow
-
-The correct order for building a DDD system with this library:
-
-### Step 1: Domain Layer
-
-Create ValueObjects, Events, and the RootEntity that serves as the aggregate root. All other entities in the aggregate are nested inside the RootEntity's fields.
-
-```python
-from aod.domain import RootEntity, ValueObject, Field
-from aod.events import Event
-
-class OrderId(ValueObject):
-    value: str
-
-class OrderLine(ValueObject):
-    product_id: str
-    quantity: int = Field(ge=1)
-    price: float = Field(ge=0)
-
-class OrderPlaced(Event):
-    order_id: str
-    total: float
-
-class Order(RootEntity):
-    id: OrderId
-    lines: list[OrderLine] = Field(default_factory=list)
-    total: float = 0.0
-
-    def add_line(self, product_id: str, quantity: int, price: float) -> None:
-        line = OrderLine(product_id=product_id, quantity=quantity, price=price)
-        self.lines.append(line)
-        self.total += quantity * price
-        self._event_emitter.emit(OrderPlaced(order_id=self.id.value, total=self.total))
-```
-
-### Step 2: Application Layer — UseCases, Commands/Queries, Handlers
-
-Use Pydantic `BaseModel` for UseCase input, and Commands/Queries for handlers. **Commands and Queries are internal** — created by the UseCase, never by the user. `BaseModel` subclasses are the public contract for `run()`. Use `get_base_model(cls)` from `aod.domain.validation` to get a BaseModel from a domain class (Entity, RootEntity, ValueObject).
-
-```python
-from aod.application import UseCase, Command, Query, CommandPort, QueryPort
-from pydantic import BaseModel
-
-class PlaceOrderInput(BaseModel):
-    order_id: str
-    product_id: str
-    quantity: int
-    price: float
-
-class PlaceOrder(Command[Order, None]):
-    order_id: str
-    product_id: str
-    quantity: int
-    price: float
-
-class GetOrder(Query[Order, Order | None]):
-    order_id: str
-
-class PlaceOrderUseCase(UseCase):
-    place_order: CommandPort[PlaceOrder]
-    get_order: QueryPort[GetOrder]
-
-    def run(self, dto: PlaceOrderInput) -> None:
-        order = Order(id=dto.order_id)
-        order.add_line(dto.product_id, dto.quantity, dto.price)
-        self.place_order.handle(PlaceOrder(
-            order_id=dto.order_id,
-            product_id=dto.product_id,
-            quantity=dto.quantity,
-            price=dto.price,
-        ))
-```
-
-### Step 3: Infrastructure Layer — Implementations
-
-Create the concrete Handler implementations and Sessions. Rename infrastructure handlers to avoid confusion with application protocols. Session IS the data access abstraction — no repositories or stores.
-
-```python
-from aod.infrastructure import CommandHandler as InfraCommandHandler, QueryHandler as InfraQueryHandler, Session
-from aod.domain import PrivateField
-
-# Create your Session subclass
-class SqlSession(Session):
-    _connection: object = PrivateField(default_factory=dict)
-
-    def execute(self, operation: object) -> object:
-        # Write operations
-        ...
-
-    def query(self, operation: object) -> object:
-        # Read operations
-        ...
-
-    def begin(self) -> None: ...
-    def commit(self) -> None: ...
-    def rollback(self) -> None: ...
-    def close(self) -> None: ...
-    def is_dirty(self) -> bool: return False
-
-# Handlers use YOUR session type
-class PlaceOrderHandler(InfraCommandHandler[PlaceOrder]):
-    session: SqlSession  # Concrete type — injected by container
-    def handle(self, command: PlaceOrder) -> None:
-        self.session.execute(...)
-
-class GetOrderHandler(InfraQueryHandler[GetOrder]):
-    session: SqlSession  # Concrete type — injected by container
-    def handle(self, query: GetOrder) -> Order | None:
-        return self.session.query(...)
-```
-
-### Step 4: Container and Injection
-
-Wire everything together with the AdapterContainer and inject dependencies. The container can be used directly or subclassed. Pass handlers, sessions, and ports to the constructor, then call `adapt()` for use cases and projections.
-
-```python
-from aod.infrastructure import AdapterContainer
-
-container = AdapterContainer(
-    sessions={SqlSession},
-    handlers=[PlaceOrderHandler, GetOrderHandler],
-    caches=[RedisCache(keys=[UserById()])],
-    ports={Logger: port_stub(Logger)()},
-)
-place_order = container.adapt(PlaceOrderUseCase)
-place_order.run(PlaceOrderInput(order_id="1", product_id="p1", quantity=2, price=9.99))
-```
-
-## Documentation Site
-
-The documentation site is built with **zensical** (a mkdocs-material-compatible static site generator). Config is in `zensical.toml` at the project root. The style is FastAPI-like:
-
-- **Fixed header** with navigation tabs (Getting Started, Domain, Application, Infrastructure, Testing, API Reference)
-- **No left sidebar** — the sidebar only shows the Table of Contents for the current page (right side)
-- Navigation uses `navigation.tabs` and `navigation.tabs.sticky` features
-- Custom CSS in `docs/stylesheets/extra.css`
-- Custom template override in `docs/overrides/main.html` (hides primary sidebar)
-
-**Build command:** `uv run zensical build --clean`
-**Output:** `site/` directory (gitignored)
-
-## GitHub Pages
-
-The docs deploy automatically via `.github/workflows/docs.yml`:
-
-- **Trigger**: pushes to `master` touching `docs/`, `zensical.toml`, or the workflow file
-- **Manual**: use `workflow_dispatch` from the Actions tab
-- **Build**: `uv sync --group dev && uv run zensical build --clean`
-- **Deploy**: `actions/upload-pages-artifact@v3` + `actions/deploy-pages@v4`
-- **Setup**: enable "GitHub Actions" as the Pages source in repo Settings > Pages
-
-## CQRS-First Documentation
-
-All docs now use the CQRS pattern as the primary example. Key tenets:
-
-- UseCases declare `CommandPort[Command]` and `QueryPort[Query]` fields, NOT custom repository ports
-- Custom `Port` subclasses are only for non-database concerns (API clients, notifications, etc.)
-- Infrastructure handlers (`CommandHandler[C]`, `QueryHandler[Q]`) implement the handler ports
-- The container auto-wires handlers into UseCases via `container.adapt()`
-- Updated pages: index.md, getting-started/*, application/*, domain/events.md
-
-## Docs Structure
-
-```
-docs/
-├── index.md                          # Home page with hero, features, architecture diagram
-├── stylesheets/extra.css             # Custom CSS for FastAPI-like look
-├── overrides/main.html               # Template override (hides left sidebar)
-├── getting-started/
-│   ├── installation.md               # pip/uv install, requirements, dependencies
-│   ├── quickstart.md                 # 5-minute guide: VOs, Entities, Ports, UseCase, DI
-│   └── concepts.md                   # DDD theory: VOs, Entities, Aggregates, Services, Events
-├── domain/
-│   ├── entities.md                   # Entity, RootEntity: constructors, mutation, reconstruct, post_init vs invariance
-│   ├── entity-id.md                  # Identity Field: Field(id=True), hash caveat
-│   ├── value-objects.md              # ValueObject: immutability, equality, validation, post_init vs invariance
-│   ├── services.md                   # Service: stateless ops, event emission, type constraints
-│   ├── events.md                     # Event: emission, collection, EventCollector, assertions
-│   ├── bounded-context.md            # BoundedContext: constructor, discovery, type checks
-│   └── validation.md                 # Validation: AfterValidator, field_invariance, invariance
-├── application/
-│   ├── use-cases.md                  # UseCase, AsyncUseCase: run(), auto-wired fields
-│   ├── ports.md                      # Port, Logger, EventBus, Cache (sync + async)
-│   ├── contracts.md                  # Command, Query: type params, field validation
-│   └── handlers.md                   # CommandHandler, QueryHandler, async variants
-├── infrastructure/
-│   ├── sessions.md                   # Session, AsyncSession: transactions, dirty tracking
-│   ├── projections.md                # ReadProjection, WriteProjection, async variants
-│   └── container.md                  # AdapterContainer: sessions, handlers, ports, injection
-├── schema/
-│   └── index.md                      # Schema system overview, AutoDoc, consistency checks
-├── testing/
-│   └── index.md                      # build, events_of, assert_*, spy classes, FakeDomain
-└── api/
-    └── index.md                      # Full API reference for all public classes
-```
-
-## Writing Docs Conventions
-
-1. **No emojis** in source files
-2. **No comments** in code examples
-3. **Python 3.14+ syntax** (type | None, etc.)
-4. **Parameter-by-parameter docs** for every function/class constructor — use markdown tables
-5. **Every page ends with "## Next Steps"** with bullet links to related pages
-6. **Relative links only** (no `/absolute/paths`)
-7. **Code blocks** use ```python
-8. All links assume the Markdown file extension (.md) — zensical resolves them
+**For how to *use* the library** (workflow steps, code examples, common mistakes), load `skills/attack-on-domain/SKILL.md`. This file covers how to *build* the library itself.
 
 ## Project Structure
 
@@ -400,42 +193,38 @@ code/
 ## Class Hierarchy
 
 ```
-BaseValidator (metaclass: ValidationModelMeta → ABCMeta)
-└── BaseGuarded                     (mutation-guarded)
-    ├── BaseBehaviour               (extends BaseGuarded — allows mutation inside methods)
-    │   ├── BaseOperation           (adds _event_emitter, events, _loggers, _event_buses, _caches)
-│   │   ├── UseCase             → +_uow, +run()
-│   │   ├── AsyncUseCase        → +_uow, +async run()
-    │   │   ├── ProjectionBase
-    │   │   │   ├── ReadProjectionBase
-    │       │   │   │   ├── ReadProjection       → +read()
-    │   │   │   │   └── AsyncReadProjection  → +async read()
-    │   │   │   ├── WriteProjectionBase
-    │   │   │   │   ├── WriteProjection      → +write()
-    │   │   │   │   └── AsyncWriteProjection → +async write()
-    │   │   │   ├── Projection               → +read() +write()
-    │   │   │   └── AsyncProjection          → +async read() +write()
-    │   │   └── Service (in domain, does NOT inherit BaseOperation — just BaseBehaviour)
-    │   └── BaseSealed              (always blocks mutation)
-    │       ├── ValueObject(ReconstructMixin, BaseSealed) → has reconstruct ✓
-    │       ├── Event
-    │       ├── Command
-    │       └── Query
-    └── BaseGuarded (direct inheritance for Port, Session, etc.)
+BaseValidator (metaclass: ValidationModelMeta -> ABCMeta)
++-- BaseGuarded                     (mutation-guarded)
+    +-- BaseBehaviour               (extends BaseGuarded -- allows mutation inside methods)
+    |   +-- BaseOperation           (adds _event_emitter, events, _loggers, _event_buses, _caches)
+    |   |   +-- UseCase             -> +_uow, +run()
+    |   |   +-- AsyncUseCase        -> +_uow, +async run()
+    |   |   +-- ProjectionBase
+    |   |   |   +-- ReadProjectionBase
+    |   |   |   |   +-- ReadProjection       -> +read()
+    |   |   |   |   +-- AsyncReadProjection  -> +async read()
+    |   |   |   +-- WriteProjectionBase
+    |   |   |   |   +-- WriteProjection      -> +write()
+    |   |   |   |   +-- AsyncWriteProjection -> +async write()
+    |   |   |   +-- Projection               -> +read() +write()
+    |   |   |   +-- AsyncProjection          -> +async read() +write()
+    |   |   +-- Service (in domain, does NOT inherit BaseOperation -- just BaseBehaviour)
+    |   +-- BaseSealed              (always blocks mutation)
+    |       +-- ValueObject(ReconstructMixin, BaseSealed) -> has reconstruct
+    |       +-- Event
+    |       +-- Command
+    |       +-- Query
+    +-- BaseGuarded (direct inheritance for Port, Session, etc.)
 ```
-
-Use `pydantic.BaseModel` directly for DTOs. Use `get_base_model(cls)` from `aod.domain.validation` to get a constrained BaseModel from a domain class. The return type preserves field inference; to use Pydantic methods (`model_dump_json`, etc.), cast to `BaseModel`: `cast(BaseModel, dto).model_dump_json()`.
-
-`ReconstructMixin` is only mixed into `Entity` and `ValueObject`. `Service` and `UseCase` never see `reconstruct()`.
 
 ## Key Architectural Decisions
 
 ### Single Metaclass: `ValidationModelMeta`
-Only one metaclass exists in the framework — `ValidationModelMeta` on `BaseValidator`. It generates the two Pydantic models (`__validation_model__` and `__raw_model__`) at class creation time. It inherits from `ABCMeta` so that `@abstractmethod` is enforced for classes like `UseCase`.
+Only one metaclass exists -- `ValidationModelMeta` on `BaseValidator`. It generates two Pydantic models (`__validation_model__` and `__raw_model__`) at class creation time. It inherits from `ABCMeta` so that `@abstractmethod` is enforced for classes like `UseCase`.
 
 The old `GuardedBaseMeta` and `EntityMeta` metaclasses were eliminated:
 - **Method wrapping** lives in `BaseGuarded.__init_subclass__` which calls `_wrap_public_methods(cls)`
-- **Root entity flag** uses `issubclass(cls, RootEntity)` — no flag variable needed
+- **Root entity flag** uses `issubclass(cls, RootEntity)` -- no flag variable needed
 - `ValidationModelMeta.__new__` accepts `**kwargs` and forwards them to `type.__new__` for `__init_subclass__` compatibility
 
 ### Validation System
@@ -458,429 +247,164 @@ All domain classes (`Entity`, `ValueObject`, `Service`) declare `_event_emitter`
 - Methods decorated with `@field_invariance` or `@invariance` (they have `__field_validator_info__`)
 - Abstract methods (marked with `@abstractmethod`)
 
-### `Entity.can_mutate()` — Public Mutation Guard
-
-`Entity` exposes a public `can_mutate()` method that controls whether the entity can be mutated. It delegates to `_can_mutate()` (the internal hook used by `BaseGuarded._is_mutation_allowed`):
-
-```python
-class Entity(ReconstructMixin, BaseGuarded):
-    @inherit_context
-    def _can_mutate(self) -> bool:
-        return self.can_mutate()
-
-    def can_mutate(self) -> bool:
-        return True
-```
-
-- **Default**: returns `True` — mutation allowed inside public methods, blocked from outside.
-- **Override**: subclasses override `can_mutate()` to return `False` or a dynamic condition:
-  ```python
-  class User(RootEntity):
-      id: UserId = Field(id=True)
-      _locked: bool = PrivateField(default=False)
-
-      def can_mutate(self) -> bool:
-          return not self._locked
-  ```
-- When `can_mutate()` returns `False`, any mutation attempt raises `MutationForbiddenException`.
-- Only `Entity` and its subclasses (`RootEntity`) have this hook. `ValueObject` and `BaseSealed` always block mutation.
-
-#### `@mutable` decorator
-
-The `@mutable` decorator (exposed as `from aod.domain.validation import mutable`) marks a method to inherit the mutation context from its caller, bypassing the `can_mutate()` guard. Previously called `inherit_context` (still used internally in the framework). This is needed for methods like `lock()`/`unlock()` that must mutate even when the entity is locked:
-
-```python
-from aod.domain.validation import mutable
-
-class User(RootEntity):
-    id: UserId = Field(id=True)
-    _locked: bool = PrivateField(default=False)
-
-    def can_mutate(self) -> bool:
-        return not self._locked
-
-    @mutable
-    def lock(self) -> None:
-        self._locked = True
-
-    @mutable
-    def unlock(self) -> None:
-        self._locked = False
-```
-
-Without `@mutable`, `unlock()` would raise `MutationForbiddenException` because the entity is locked and `can_mutate()` returns `False`.
-
 ### Immutable Proxies via `make_immutable`
 When an attribute is read outside a mutation context, `BaseGuarded.__getattribute__` returns `make_immutable(value)`:
-- `list` → `ImmutableList` (blocks append, extend, __setitem__, etc.)
-- `dict` → `ImmutableDict` (blocks __setitem__, update, pop, etc.)
-- `set` → `ImmutableSet` (blocks add, remove, discard, etc.)
-- Custom objects → dynamically created `Immutable{ClassName}` subclass (wraps getattr, blocks setattr/delattr/mutating dunders)
+- `list` -> `ImmutableList` (blocks append, extend, __setitem__, etc.)
+- `dict` -> `ImmutableDict` (blocks __setitem__, update, pop, etc.)
+- `set` -> `ImmutableSet` (blocks add, remove, discard, etc.)
+- Custom objects -> dynamically created `Immutable{ClassName}` subclass (wraps getattr, blocks setattr/delattr/mutating dunders)
 
 ### Event Collection via ContextVar
-`EventEmitter.emit()` always appends to its local list. If a `EventCollector` context manager is active (via ContextVar), it also appends to the collector's list. This enables aggregate-level event collection without explicit child traversal.
+`EventEmitter.emit()` always appends to its local list. If an `EventCollector` context manager is active (via ContextVar), it also appends to the collector's list. This enables aggregate-level event collection without explicit child traversal.
 
-### `__post_init__` Hook
-
-Defined on `BaseValidator` (empty) and called from `BaseValidator.__init__`. Only runs on normal `__init__`, **not** on `reconstruct`. It executes during constructor, after fields are set via `__set_model_attributes`. For `BaseGuarded` subclasses, `__mutating_context__` already exists (created before `super().__init__()`), so:
+### `__post_init__` Hook (mechanism)
+Defined on `BaseValidator` (empty) and called from `BaseValidator.__init__`. Only runs on normal `__init__`, **not** on `reconstruct`. It executes after fields are set via `__set_model_attributes`. For `BaseGuarded` subclasses, `__mutating_context__` already exists (created before `super().__init__()`), so:
 - Public methods can be called (mutation context in INHERIT state during init)
-- `_event_emitter` is already available (assigned by Pydantic via PrivateField before `__post_init__` runs via `__set_model_attributes`)
+- `_event_emitter` is already available (assigned by Pydantic via PrivateField before `__post_init__` runs)
 - Field mutation is allowed during the hook
-
-```python
-class User(RootEntity):
-    id: UserId = Field(id=True)
-    name: str
-
-    def __post_init__(self):
-        self._event_emitter.emit(UserCreatedEvent(user_id=self.id.value))
-        self.setup_defaults()
-
-    def setup_defaults(self):
-        # public method — works because __mutating_context__ exists
-        ...
-```
 
 Works for `Entity`, `RootEntity`, `ValueObject`, `Service` (all inherit from `BaseGuarded`). Also works for `UseCase` and any `BaseValidator` subclass.
 
-### `__post_init__` vs `@invariance` / `@field_invariance`
+`__post_init__` vs `@invariance` / `@field_invariance`: both run at construction but serve different purposes. Post-init has `self` and can mutate fields; invariance validators receive `cls` and the raw value. See `docs/domain/entities.md`.
 
-Both run at construction time but serve different purposes:
+### Identity Field (enforcement)
+`Entity.__init_subclass__` enforces at class creation time:
+- Zero fields with `Field(id=True)` -> `NoIdentityFieldException`
+- Multiple fields with `Field(id=True)` -> `TooManyIdentityFieldsException`
 
-| Concern | `__post_init__` | `@invariance` / `@field_invariance` |
-|---------|-----------------|--------------------------------------|
-| What it does | Post-construction logic using the instantiated instance (`self`) | Validates field or model values before they are stored |
-| Use case | Emit creation events, compute derived values, call setup methods | Check business rules: "quantity must be positive", "end must be after start" |
-| Runs on `reconstruct()` | **No** | **No** |
-| Has `self` | Yes | No (receives `cls` and raw value) |
-| Can mutate fields | Yes (during the hook) | No |
+### Equality Behavior (mechanism)
+- **ValueObject**: compared by all public fields (`==` compares every annotated field; `PrivateField` attributes excluded)
+- **Entity / RootEntity**: compared only by their identity field
 
-Do NOT override `__init__` — use `__post_init__` instead. See `docs/domain/entities.md` for detailed guidance.
+### `Entity.can_mutate()` and `@mutable` (mechanism)
+`Entity` exposes public `can_mutate()`. `BaseGuarded._is_mutation_allowed` calls `_can_mutate()` which delegates to `can_mutate()`. `ValueObject` and `BaseSealed` always block mutation.
 
-### Identity Field
-
-Every `Entity` / `RootEntity` subclass must have exactly one identity field, marked with `Field(id=True)`. The identity field can be any type — `int`, `str`, `UUID`, or a `ValueObject` subclass:
-
-```python
-class UserId(ValueObject):
-    value: str
-
-class User(RootEntity):
-    id: UserId = Field(id=True)
-    name: str
-    father: int  # reference to another User, not the identity
-```
-
-This allows entities with multiple fields of the same type, where only one is the identity.
-
-`Entity.__init_subclass__` enforces this at class creation time:
-- Zero fields with `Field(id=True)` → `NoIdentityFieldException`
-- Multiple fields with `Field(id=True)` → `TooManyIdentityFieldsException`
-
-Since entities use their identity field for hashing, **mutating an entity's ID changes its hash**, which can cause issues if the entity is stored in a `set` or used as a `dict` key. Avoid mutating entity identities after construction. See `docs/domain/entity-id.md`.
-
-### Equality Behavior
-
-- **ValueObject**: compared by all public fields (`==` compares every annotated field; `PrivateField` attributes are excluded). Two VOs with identical public field values are equal.
-- **Entity / RootEntity**: compared only by their identity field. Two entities with the same identity value are equal regardless of other field values.
+The `@mutable` decorator (exposed as `from aod.domain.validation import mutable`) marks a method to inherit the mutation context from its caller, bypassing the `can_mutate()` guard. Internally called `inherit_context`. Needed for methods like `lock()`/`unlock()` that must mutate when the entity is locked.
 
 ### Type Checking System (`type_handlers/`)
 Three check functions enforce DDD type constraints at `BoundedContext` construction:
 
-#### `check_entity(entity_cls)` / `check_root_entity(entity_cls)`
-Raises `InvalidNestedTypeError` if any field references `RootEntity` (or any subclass of it).
+- `check_entity` / `check_root_entity`: raises `InvalidNestedTypeError` if any field references `RootEntity`
+- `check_value_object`: raises `InvalidNestedTypeError` if any field references `Entity` or `RootEntity`. Also raises `InvalidValueObjectFieldError` at class creation if any field has `Field(id=True)`
+- `check_service`: iterates public methods via `inspect.getmembers`, resolves forward refs via `typing.get_type_hints`, raises `InvalidServiceParameterError` if any param or return type is a non-root `Entity`
 
-#### `check_value_object(vo_cls)`
-Raises `InvalidNestedTypeError` if any field references `Entity` **or** `RootEntity` (ValueObjects must only contain primitives or other ValueObjects). Additionally, ValueObject raises `InvalidValueObjectFieldError` at class creation if any field is marked with `Field(id=True)` — ValueObjects are identity-less by design.
+### BoundedContext Constructor (tech details)
+Accepts `aggregate_roots` (RootEntity subclasses) and `services` (Service subclasses). Discovers entities and value objects recursively via `_discover_types()`: starts from each root entity, gets `typing.get_type_hints()`, extracts types via `extract_types_from_annotation()`, recurses through discovered Entity and ValueObject fields. Runs check functions on all discovered types. Use in the entry point (container), not in `domain/__init__.py`.
 
-#### `check_service(service_cls)`
-Iterates all public methods via `inspect.getmembers`. For each method:
-- Inspects parameters and return type via `inspect.signature`
-- Resolves forward references via `typing.get_type_hints`
-- Raises `InvalidServiceParameterError` if any param or return type is a non-root `Entity`
+### Public/Private Layer Separation
+Two layers:
+- **`aod.domain`, `aod.domain.validation`, `aod.exceptions`, `aod.application`, `aod.infrastructure`** -- public API. Thin re-export shims that surface symbols from `_internal`. User code imports from here.
+- **`aod.application.async_`**, **`aod.infrastructure.async_`** -- aggregated async counterparts (sync name for async class, e.g. `from aod.application.async_ import Cache` for `AsyncCache`).
+- **`aod._internal.*`** -- private implementation. Not part of public API, not semver-stable.
 
-**Allowed in services**: custom classes, `RootEntity`, `ValueObject`
-**Forbidden in services**: non-root `Entity`
-
-### BoundedContext Constructor
-
-Use in the **entry point** of your app (container), not in `domain/__init__.py`.
-
-```python
-class BoundedContext:
-    def __init__(
-        self,
-        aggregate_roots: Iterable[RootEntityType] | None = None,
-        services: Iterable[ServiceType] | None = None,
-        *,
-        name: str | None = None,
-    ):
-```
-- Only accepts `aggregate_roots` (RootEntity subclasses) and `services` (Service subclasses)
-- Checks root entity status via `issubclass(item, RootEntity)` — no `is_root()` classmethod needed
-- Discovers `entities` and `value_objects` recursively via `_discover_types()`:
-  - Starts from each root entity, gets `typing.get_type_hints()`
-  - For each field type, extracts all types via `extract_types_from_annotation()`
-  - Recursively traverses discovered Entity and ValueObject fields
-- Runs check functions on all discovered types
+Public modules re-export from `_internal`; `_internal` never imports from `aod.domain` (avoids circular deps).
 
 ### Public exceptions in `aod.exceptions`
-All framework exceptions are re-exported from `aod.exceptions`. The hierarchy is also available per-layer via `aod.domain.exceptions`, `aod.application.exceptions`, and `aod.infrastructure.exceptions`. The base exceptions are exported directly on each layer's package:
-
+All framework exceptions re-exported from `aod.exceptions`. Per-layer base exceptions also exported:
 - `from aod.domain import DomainException`
 - `from aod.application import ApplicationException`
 - `from aod.infrastructure import InfrastructureException`
 
-The hierarchy:
+**DomainException subclasses:**
+- `MutationForbiddenException` -- mutation outside allowed context
+- `InvarianceException(DomainException, ValueError)` -- field/model invariance violated
+- `InvalidCommandFieldTypeError` -- Command/Query field references non-root Entity
+- `InvalidValueObjectFieldError` -- ValueObject has `Field(id=True)`
+- `InvalidQueryResultTypeError` -- Query TResult does not include a RootEntity
+- `InvalidGenericTypeArgError` -- generic argument fails its constraint
+- `InvalidEntityTypeError` -- not an Entity subclass
+- `InvalidRootEntityTypeError` -- Entity but not RootEntity
+- `InvalidServiceTypeError` -- not a Service subclass
+- `ClassExpectedError` -- instance given where class required
+- `InvalidNestedTypeError` -- Entity field references forbidden domain type
+- `InvalidServiceParameterError` -- Service method parameter has disallowed type
+- `DuplicateDomainTypeError` -- domain type registered in >1 BoundedContext
+- `ModelValidationError` -- Pydantic validation failed during construction (wraps ValidationError; InvarianceException re-raised directly)
 
-**Bases:**
-- `DomainException` — base for all domain rule violations
-- `ApplicationException` — base for application layer errors (UoW dispatch)
-- `InfrastructureException` — base for infrastructure layer errors
+**ApplicationException subclasses:**
+- `UnresolvableEntityError` -- cannot determine RootEntity from Command/Query
+- `CommitOutsideUnitOfWorkError` -- commit outside a UnitOfWork context
+- `InvalidUseCasePortFieldError` -- UseCase field is not a Port subclass
+- `InvalidHandlerPortFieldError` -- HandlerProtocol port on a UseCase missing its generic type argument
 
-**`DomainException` subclasses:**
-- `MutationForbiddenException(DomainException)` — mutation outside allowed context
-- `InvarianceException(DomainException, ValueError)` — field/model invariance violated
-- `InvalidCommandFieldTypeError` — Command/Query field references non-root Entity
-- `InvalidValueObjectFieldError` — a `ValueObject` has a field marked with `Field(id=True)`, which is not allowed
-- `InvalidQueryResultTypeError` — `Query` TResult does not include a `RootEntity`
-- `InvalidGenericTypeArgError` — generic argument fails its constraint
-- `InvalidEntityTypeError` — not an `Entity` subclass
-- `InvalidRootEntityTypeError` — `Entity` but not `RootEntity`
-- `InvalidServiceTypeError` — not a `Service` subclass
-- `ClassExpectedError` — instance given where class required
-- `InvalidNestedTypeError` — Entity field references forbidden domain type
-- `InvalidServiceParameterError` — Service method parameter has disallowed type
-- `DuplicateDomainTypeError` — domain type registered in >1 `BoundedContext`
-- `ModelValidationError` — Pydantic validation failed during model construction (wraps `ValidationError`; if the cause is an `InvarianceException`, that is re-raised directly)
+**InfrastructureException subclasses:**
+- `AbstractSessionTypeError` -- field uses `Session`/`AsyncSession` directly instead of concrete type
+- `HandlerResultTypeError` -- handler returned wrong type
+- `HandlerModelError` -- handler class missing required field
+- `PortNotFoundError` -- port type not registered on container
+- `SessionNotFoundError` -- session type not registered on container
 
-**`ApplicationException` subclasses:**
-- `UnresolvableEntityError` — cannot determine `RootEntity` from Command/Query
-- `CommitOutsideUnitOfWorkError` — commit attempted outside a `UnitOfWork` context
-- `InvalidUseCasePortFieldError` — UseCase field is not a `Port` subclass
-- `InvalidHandlerPortFieldError` — `HandlerProtocol` port on a UseCase is missing its generic type argument
+### `UseCase` Base Class (internals)
+`UseCase` extends `BaseOperation`. Key mechanics:
+- **`_uow` is private** -- auto-created via `PrivateField(default_factory=UnitOfWork)`, auto-registers all handler fields in `__init__`
+- **`__init_subclass__`** wraps `run` to: (1) open EventCollector context, (2) invoke original run, (3) replace `self.events` with captured list
+- **Field validation**: `BaseOperation.__init_subclass__` checks fields. Only `Port` subclasses allowed. `BaseHandler`/`AsyncBaseHandler` and `Session`/`AsyncSession` rejected. `AppCommandHandler[T]`/`AppQueryHandler[T]` accepted (inherit from `HandlerProtocol(Port)`). Non-Port fields raise `InvalidUseCasePortFieldError`.
+- **`__skip_port_check__`** check uses `cls.__dict__.get("__skip_port_check__")` -- only current class's own dict, not inherited
+- **Container sessions**: `AdapterContainer.sessions` holds session **classes**, not instances. `get_session()` instantiates and caches. `HandlerManager` creates handler instances with session instances; UseCase's `UnitOfWork` collects them via `add_handler()`.
 
-**`InfrastructureException` subclasses:**
-- `AbstractSessionTypeError` — handler or projection field uses `Session` or `AsyncSession` directly instead of a concrete implementation
-- `HandlerResultTypeError` — handler returned wrong type
-- `HandlerModelError` — handler class is missing a required field
-- `PortNotFoundError` — no port of the requested type is registered on the container
-- `SessionNotFoundError` — no session of the requested type is registered on the container
-> For details on when each is raised, see `docs/api/index.md#exceptions`.
-
-### Public/Private Layer Separation
-
-The package splits into two layers:
-
-- **`aod.domain`, `aod.domain.validation`, `aod.exceptions`, `aod.application`, `aod.infrastructure`** — public API. These are thin re-export shims that surface symbols from `_internal`. User code and downstream tools must import from here.
-- **`aod.application.async_`**, **`aod.infrastructure.async_`** — aggregated async counterparts. Import the same names as sync (e.g. `from aod.application.async_ import Cache` for `AsyncCache`).
-- **`aod._internal.core`, `aod._internal.domain`, `aod._internal.application`, `aod._internal.infrastructure`** — private implementation. This is where everything is built and where new code goes. Not part of the supported public API and not semver-stable.
-
-Public modules re-export from `_internal`; they contain no logic of their own. The reverse direction is never used — `_internal` never imports from `aod.domain` to avoid circular dependencies.
-
-### `UseCase` Base Class
-
-`UseCase` (public via `aod.application`) is the base for application-layer use cases. It extends `BaseOperation` and provides a single abstract public method `run()` that subclasses must implement.
-
-- **`_uow` is private and auto-created**: The UseCase creates a `UnitOfWork` internally via `PrivateField(default_factory=UnitOfWork)`. It auto-registers all handler fields in `__init__`. The `UnitOfWork` type is not exported publicly.
-- **Database access through Handlers**: UseCases communicate with the database ONLY through `CommandPort[Command]` and `QueryPort[Query]`.
-- **Cache is automatic**: Handlers with `add_cache()` automatically get read-through/invalidation. The UseCase never knows about Cache.
-
-- `__init_subclass__` automatically wraps any subclass's `run` to:
-  1. Open an `EventCollector` context
-  2. Invoke the original `run` body
-  3. Replace `self.events` with the list of captured events
-- Subclasses access the events collected during the last `run` via `self.events` (public `Field(default_factory=list, init=False)`)
-
-Events emitted directly by the UseCase via `self._event_emitter.emit(...)` or by any entity touched during `run` are all captured and stored on the UseCase, replacing any events from previous runs.
-
-**Field validation**: UseCase fields are validated at class creation by `BaseOperation.__init_subclass__`. Only `Port` subclasses are allowed as fields. Infrastructure handlers (`BaseHandler`, `AsyncBaseHandler`) and `Session`/`AsyncSession` are rejected. Application-layer generic handlers (`AppCommandHandler[T]`, `AppQueryHandler[T]`) are accepted since they inherit from `HandlerProtocol(Port)`. Non-Port fields (primitives, custom classes) raise `InvalidUseCasePortFieldError`.
-
-```python
-# Correct: Ports as fields, values in run()
-class CreateUser(UseCase):
-    user_client: UserRestClient  # Port dependency
-
-    def run(self, user_id: int, name: str) -> None:
-        user = User(id=user_id, name=name)
-        self.user_client.save(user)
-
-# Wrong: values as fields
-class CreateUser(UseCase):
-    user_id: int  # InvalidUseCasePortFieldError!
-    name: str     # InvalidUseCasePortFieldError!
-```
-
-**Infrastructure handler inheritance**: Infrastructure `CommandHandler`/`QueryHandler` types inherit from both `BaseHandler` and the application-layer `HandlerProtocol` (`Port`). This satisfies Pydantic `isinstance` checks when handlers are used in any context requiring the app-layer type.
-
-**Container sessions**: `AdapterContainer.sessions` holds session **classes** (`type[Session] | type[AsyncSession]`), not instances. `get_session(session_cls)` instantiates the matching class and caches the instance. Handlers created by `HandlerManager` receive session instances, and the UseCase's auto-created `UnitOfWork` collects them via `add_handler()`.
-
-### `Port` Base Class
-
-`Port` (public via `aod.application`) is an abstract base class for defining dependency interfaces (ports/gateways) in the application layer. It extends `BaseGuarded`, so:
-- Concrete subclasses' public methods are auto-wrapped with mutation context (can mutate fields)
-- Mutations are blocked from outside
+### `Port` Base Class (internals)
+`Port` extends `BaseGuarded`:
+- Concrete subclasses' public methods auto-wrapped with mutation context
 - Supports `@abstractmethod` (skipped by `_wrap_public_methods`)
-- Subclasses declare fields and abstract methods that infrastructure will implement
+- Built-in port types: `Logger`/`AsyncLogger`, `EventBus`/`AsyncEventBus`, `Cache`/`AsyncCache`
 
-Built-in port types (all `aod.application`):
-- **`Logger`** / **`AsyncLogger`** — `debug(msg, **context)`, `info(msg, **context)`, `warning(msg, **context)`, `error(msg, **context)`
-- **`EventBus`** / **`AsyncEventBus`** — `publish(*events)` for publishing domain events
-- **`Cache`** / **`AsyncCache`** — `get(key)`, `set(key, value, ttl=None)`, `delete(key)` for backing store; `_get(query)`, `_set(query, value)`, `_delete(command)`, `_flush()` injected via `handler.add_cache(cache)`
+### `HandlerProtocol` (runtime checking)
+All application-layer handler types (`CommandHandler`, `QueryHandler`, etc.) inherit from `HandlerProtocol(Port)`. Infrastructure handler types inherit from both `BaseHandler` and the corresponding app-layer `HandlerProtocol`.
 
-Infrastructure implementations of these ports inherit from both `BaseGuarded` and the application `Port` type.
+`HandlerProtocol.__init_subclass__` wraps `handle()` with type checker: verifies command/query matches generic type parameter. Raises `TypeError` on mismatch.
 
-### `HandlerProtocol`
+### Contracts (`Command` / `Query`) (validation)
+`Command[TEntity, TResult]` / `Query[TEntity, TResult]` extend `BaseSealed`. Validate `TEntity` is `RootEntity` subclass at class creation. Field types checked: any field referencing non-root `Entity` raises `DomainException`. `Query` additionally requires `TResult` to contain at least one `RootEntity`.
 
-All application-layer handler types (`CommandHandler`, `QueryHandler`, `AsyncCommandHandler`, `AsyncQueryHandler`) inherit from `HandlerProtocol(Port)`. Infrastructure handler types inherit from both `BaseHandler` (mutation-guarded behaviour) and the corresponding app-layer `HandlerProtocol`.
+### CommandHandler / QueryHandler (result checking)
+`BaseHandler` has `_wrap_handle()` that validates `handle()` return type against generic parameter at runtime using `get_last_generic_arg`.
 
-**Runtime type checking**: `HandlerProtocol.__init_subclass__` wraps `handle()` with a type checker that verifies the command/query passed to `handle()` matches the generic type parameter. If not, raises `TypeError`.
+### Projection System (tech details)
+`ProjectionBase(BaseOperation)` inherits `_event_emitter`, `events`, `logger`, `event_bus`. Fields must be `Port` subclasses (except session fields). `HandlerProtocol` rejected via `__not_allowed_port_types__ = (HandlerProtocol,)`. Multiple session fields allowed with concrete types. `ProjectionBase.__init_subclass__` calls `typing.get_type_hints(cls)` and raises `AbstractSessionTypeError` for direct `Session`/`AsyncSession` fields.
 
-```python
-class CreatePetHandler(CommandHandler[CreatePet]):
-    def handle(self, command: CreatePet) -> None: ...
+`ReadProjectionBase`/`WriteProjectionBase` wrap `read()`/`write()` with EventCollector + log + event_bus publish. `WriteProjectionBase` additionally wraps with `CommitContext` + rollback on failure.
 
-handler = CreatePetHandler()
-handler.handle(CreatePet(...))  # OK
-handler.handle(OtherCommand(...))  # TypeError: Expected CreatePet, got OtherCommand
-```
-
-### Contracts (`Command` / `Query`)
-
-`aod.application` provides application-layer contracts:
-
-- **`Command[TEntity, TResult]`** / **`Query[TEntity, TResult]`** — immutable data classes for writes/reads (extend `BaseSealed`, validate `TEntity` is `RootEntity` subclass at class creation). Field types are checked at `__init_subclass__` — any field referencing a non-root `Entity` (even nested in generics like `list[Entity]`) raises `DomainException`. `Query` additionally requires its `TResult` type argument to contain at least one `RootEntity` (e.g. `Query[User, User]`, `Query[User, list[User]]`, `Query[User, tuple[int, User | None]]` are all valid).
-
-Contract validation lives in `aod._internal.application.contracts.contracts.py` as private helpers `_validate_fields_no_entity` and `_validate_result_contains_root_entity`, called from `Command.__init_subclass__` and `Query.__init_subclass__` respectively.
-
-### CommandHandler / QueryHandler
-
-`aod.infrastructure` provides abstract handler bases with automatic result-type checking:
-
-- **`CommandHandler[C]`** / **`QueryHandler[Q]`** — abstract bases with `handle(self, command: TCommand) -> object` method
-- **`AsyncCommandHandler[C]`** / **`AsyncQueryHandler[Q]`** — async variants with `async handle(self, command: TCommand) -> object`
-- **`BaseHandler`** — base class with `_wrap_handle()` that validates the `handle()` return type against the handler's generic parameter at runtime. Uses `get_last_generic_arg` from `generic_utils.py`.
-
-**Runtime type checking**: `HandlerProtocol.__init_subclass__` wraps `handle()` with a type checker that verifies the command/query passed to `handle()` matches the generic type parameter. If not, raises `TypeError`.
-
-```python
-class CreatePetHandler(CommandHandler[CreatePet]):
-    def handle(self, command: CreatePet) -> None: ...
-
-handler = CreatePetHandler()
-handler.handle(CreatePet(...))  # OK
-handler.handle(OtherCommand(...))  # TypeError: Expected CreatePet, got OtherCommand
-```
-
-Zero `# type: ignore` in `handlers.py`.
-
-### Projection System (`aod.infrastructure.projection`)
-
-The projection system provides read and write projections with automatic event collection, logging, and event bus publishing. It is isolated from the Command/Query dispatch system.
-
-#### Data Models
-
-- **`ReadModel(BaseSealed)`** — immutable data class for read projection inputs. Fields can reference any type.
-- **`WriteModel(BaseSealed)`** — immutable data class for write projection inputs. Fields can reference any type.
-
-#### Base Classes
-
-- **`ProjectionBase(BaseOperation)`** — inherits `_event_emitter`, `events`, `logger`, `event_bus` from `BaseOperation`. Fields must be `Port` subclasses (except session fields). `HandlerProtocol` and its subclasses are rejected via `__not_allowed_port_types__ = (HandlerProtocol,)`. Multiple session fields allowed with concrete types.
-- **`ReadProjectionBase(ProjectionBase)`** — wraps `read()` with `EventCollector` + log + event_bus publish.
-- **`WriteProjectionBase(ProjectionBase)`** — wraps `write()` with `CommitContext` + `EventCollector` + log + rollback + event_bus publish.
-
-```python
-# Correct: Port fields, session with concrete type
-class UserProjection(ReadProjection):
-    user_client: UserRestClient  # Port dependency
-    session: PostgresSession  # Concrete session type
-
-    def read(self, model: ReadModel) -> list[User]:
-        return self.user_client.find_all()
-
-# Wrong: Handler field
-class BadProjection(ReadProjection):
-    handler: CommandHandler[SaveUser]  # InvalidUseCasePortFieldError!
-
-# Multiple sessions are allowed
-class MultiDBProjection(ReadProjection):
-    pg_session: PostgresSession
-    redis_session: RedisSession
-
-    def read(self, model: ReadModel) -> list[User]:
-        ...
-```
-
-#### Concrete Classes
-
-- **`ReadProjection(ReadProjectionBase)`** — abstract `read(model: ReadModel)`.
-- **`WriteProjection(WriteProjectionBase)`** — abstract `write(model: WriteModel)`.
-- **`Projection(ReadProjection, WriteProjection)`** — both `read()` and `write()` methods.
-
-#### Async Counterparts
-
-- **`AsyncReadProjection`** — async `read()`, uses `should_await` on logger/event_bus/session calls.
-- **`AsyncWriteProjection`** — async `write()`, uses `should_await` on logger/event_bus/session calls.
-- **`AsyncProjection`** — both async `read()` and `write()`.
-
-Projections exist independently and are never mixed with `Command`/`Query`, `UnitOfWork`, or `Repository`.
-
-### Test Doubles (`aod._internal.testing.doubles`)
-
-Spy classes for testing application-layer ports, organized under `aod/_internal/testing/doubles/`:
-
+### Test Doubles (directory structure)
 ```
 aod/_internal/testing/
-├── __init__.py                     # Re-exports all spies
-├── helpers.py                      # build(), events_of(), assert_event_emitted()
-├── doubles/
-│   ├── __init__.py                 # Re-exports all (sync + async)
-│   ├── stubs.py                    # port_stub() generator
-│   ├── async_/__init__.py          # Async spy re-exports
-│   ├── application/
-│   │   ├── __init__.py
-│   │   └── spies.py                # All Spy* classes via port_stub
-│   └── infrastructure/
-│       ├── __init__.py
-│       ├── container.py            # SpyAdapterContainer
-│       ├── fakes.py                # FakeSessionManager, FakeHandlerManager, FakePortManager
-│       └── session.py              # SpySession, SpyAsyncSession
-└── faker/
-    ├── __init__.py
-    └── faker.py                    # DomainType, FakeDomain
++-- __init__.py                     # Re-exports all spies
++-- helpers.py                      # build(), events_of(), assert_event_emitted()
++-- doubles/
+|   +-- __init__.py                 # Re-exports all (sync + async)
+|   +-- stubs.py                    # port_stub() generator
+|   +-- async_/__init__.py          # Async spy re-exports
+|   +-- application/
+|   |   +-- __init__.py
+|   |   +-- spies.py                # All Spy* classes via port_stub
+|   +-- infrastructure/
+|       +-- __init__.py
+|       +-- container.py            # SpyAdapterContainer
+|       +-- fakes.py                # FakeSessionManager, FakeHandlerManager, FakePortManager
+|       +-- session.py              # SpySession, SpyAsyncSession
++-- faker/
+    +-- __init__.py
+    +-- faker.py                    # DomainType, FakeDomain
 ```
 
-Public re-exports live at `aod/testing/`:
-- `from aod.testing import FakeDomain, build, events_of, assert_event_emitted, assert_no_events, check_invariant`
-- `from aod.testing.doubles import SpyLogger, SpyEventBus, SpyUnitOfWork, SpyCache, SpySession, SpyAsyncSession` (all backed by `port_stub`)
-- `from aod.testing.doubles.application.async_ import SpyLogger, SpyEventBus, SpyUnitOfWork, SpyCache` (async variants, plain names)
-
-### Testing Utilities (`aod.testing`)
-
-| Import | What |
-|--------|------|
-| `from aod.testing import FakeDomain` | Factory for domain objects with auto-generated fake data |
-| `from aod.testing import build` | Construct domain objects skipping validation |
-| `from aod.testing import events_of` | Extract events emitted by an entity/service/vo |
-| `from aod.testing import assert_event_emitted, assert_no_events` | Event assertions |
-| `from aod.testing import check_invariant` | Run a single invariant validator |
-| `from aod.testing.doubles import SpyLogger, SpyEventBus, SpyUnitOfWork, SpyCache, SpySession, SpyAsyncSession` | All backed by `port_stub` |
-| `from aod.testing.doubles.application.async_ import SpyLogger, SpyEventBus, SpyUnitOfWork, SpyCache` | Async variants (same names, backed by `port_stub`) |
+Public re-exports at `aod/testing/`.
 
 ## Development Commands
 
 ```bash
-uv run pytest code/tests -q
+make check          # lint + typecheck + test-all
+uv run pytest code/tests -q   # tests only
+make lint           # ruff check
+make typecheck      # pyright (when configured)
 ```
 
 ## Coding Conventions
 
-1. **Python 3.14+** — use `|` for unions, `type[X]`, `Self`, etc.
+1. **Python 3.14+** -- use `|` for unions, `type[X]`, `Self`, etc.
 2. **Keyword-only arguments** everywhere
-3. **No comments** in source code — code should be self-documenting
+3. **No comments** in source code -- code should be self-documenting
 4. **No emojis** unless explicitly requested by the user
 5. Tests mirror source structure under `code/tests/`
-6. Never import from `_internal` in user-facing code — only through `aod.domain`, `aod.domain.validation`, `aod.exceptions`, `aod.application`, `aod.infrastructure`
+6. Never import from `_internal` in user-facing code -- only through `aod.domain`, `aod.domain.validation`, `aod.exceptions`, `aod.application`, `aod.infrastructure`
 7. Every `__init__.py` must define `__all__` to suppress `F401` ("imported but unused") warnings. Public `async_.py` aggregators also define `__all__`.
 8. Sync/async duality: every port, handler, and use case has sync and async versions. Sync classes keep the base name (`Cache`, `Session`, `UnitOfWork`, `CommandHandler`, etc.), async classes use the `Async` prefix (`AsyncCache`, `AsyncSession`, `AsyncUnitOfWork`, `AsyncCommandHandler`). Both live in the same file.
 
@@ -901,12 +425,12 @@ uv run pytest code/tests -q
 - If you change async counterparts (aggregated in `aod.application.async_` / `aod.infrastructure.async_`), update both sync and async test files
 - If you change the container, update files in `container/` package (container.py, port_manager.py, session_manager.py, handler_manager.py, types.py) and verify `test_container.py`, `test_inject.py`, and container-related e2e tests
 - Always add `__all__` to every `__init__.py` and `async_.py` to avoid `F401` lint warnings
-- Always run all tests before committing
-- `Event.emitted_at` is the timestamp field.
-- **No inline imports in tests** — every import must be at the top of the file. Test-local classes are fine, but imports from `aod`, `pydantic`, `unittest`, `types`, etc. must be at module level.
-- **`@field_validator` without `@classmethod`** — Pydantic v2 field validators use `def name(cls, v)` without the `@classmethod` decorator. The `cls` parameter is passed automatically.
-- **`@field_invariance` and `@invariance` also without `@classmethod`** — Same rule applies: `@classmethod` is never used in decorator stacks.
-- **No direct Pydantic imports** — Never import `from pydantic import field_validator`. Use `from aod.domain.validation import field_invariance` instead, which wraps Pydantic's validator and raises `InvarianceException` on failure.
+- Always run `make check` before committing
+- Event.emitted_at is the timestamp field.
+- **No inline imports in tests** -- every import must be at the top of the file. Test-local classes are fine, but imports from `aod`, `pydantic`, `unittest`, `types`, etc. must be at module level.
+- **`@field_validator` without `@classmethod`** -- Pydantic v2 field validators use `def name(cls, v)` without the `@classmethod` decorator. The `cls` parameter is passed automatically.
+- **`@field_invariance` and `@invariance` also without `@classmethod`** -- Same rule applies.
+- **No direct Pydantic imports** -- Never import `from pydantic import field_validator`. Use `from aod.domain.validation import field_invariance` instead, which wraps Pydantic's validator and raises `InvarianceException` on failure.
 
 ## Dependencies
 
@@ -916,27 +440,27 @@ uv run pytest code/tests -q
 
 ## Test Count
 
-1157 tests, 3 skipped (no `patch`/`mock.patch` in any test file)
-97% code coverage (121/3666 lines missing)
+1169 tests, 3 skipped (no `patch`/`mock.patch` in any test file)
+97% code coverage (98/3656 lines missing)
 
 ## At the end of a task
 
-Update docs, AGENTS.md and the SKILLS.md
+Update docs, AGENTS.md and SKILL.md. Run `make check` to verify.
 
 ## No `patch` in tests
 
 Zero `unittest.mock.patch` / `mock.patch` calls in tests. If a test needs `patch`, either:
 
-1. **Test data is badly constructed** — build real objects that trigger the code path (e.g., `def handle(self) -> User` for a handler with no Command param, `"NonExistentClass"` forward ref for unresolvable type hints)
-2. **Implementation calls `get_type_hints` at runtime unnecessarily** — but `get_handler` must use `get_type_hints` to resolve concrete session types (`MongoSession`, `PSQLSession`). This is correct — no tests patch this path.
+1. **Test data is badly constructed** -- build real objects that trigger the code path (e.g., `def handle(self) -> User` for a handler with no Command param, `"NonExistentClass"` forward ref for unresolvable type hints)
+2. **Implementation calls `get_type_hints` at runtime unnecessarily** -- but `get_handler` must use `get_type_hints` to resolve concrete session types (`MongoSession`, `PSQLSession`). This is correct -- no tests patch this path.
 
 Guidelines:
-- `inspect.signature` failure → use a function with `__signature__` set to a non-Signature value via `setattr`
-- `typing.get_type_hints` failure → use an unresolvable forward reference string annotation (e.g., `x: "NonExistentClass"`)
-- Handler without Command param → override `handle` with `def handle(self) -> User` and suppress type checker with `# ty:ignore[invalid-method-override]`
-- If a code path can only be triggered by patches, remove the test — the defensive code is trivially correct
-- **No inline imports in tests** — every import must be at the top of the file. Test-local classes are fine, but imports from `aod`, `pydantic`, `unittest`, `types`, `inspect`, etc. must be at module level.
-- **No fake `__model_fields__` workarounds** — never create a fake class with a hand-crafted `__model_fields__` dict. Use real `BaseOperation`/`ProjectionBase` subclasses instead. If the code path you're testing is unreachable with real objects, remove both the dead code and the test.
-- **Python 3.14 `issubclass` accepts Union** — `issubclass(MySession, Session | None)` returns `True` in Python 3.14. No need to strip `None` before checking.
-- **Python 3.14 `get_type_hints` doesn't raise** — unlike older Python versions, `typing.get_type_hints` in Python 3.14 silently drops unresolvable forward references and returns `{}` instead of raising. A `try/except Exception: return {}` wrapper is dead code.
-- **Python 3.14 `except` without parentheses (PEP 758)** — `except ValueError, TypeError:` (no parens) is valid Python 3.14 and equivalent to `except (ValueError, TypeError):`. `ruff` strips the parens. Keep the form `ruff` produces.
+- `inspect.signature` failure -> use a function with `__signature__` set to a non-Signature value via `setattr`
+- `typing.get_type_hints` failure -> use an unresolvable forward reference string annotation (e.g., `x: "NonExistentClass"`)
+- Handler without Command param -> override `handle` with `def handle(self) -> User` and suppress type checker with `# ty:ignore[invalid-method-override]`
+- If a code path can only be triggered by patches, remove the test -- the defensive code is trivially correct
+- **No inline imports in tests** -- every import must be at the top of the file. Test-local classes are fine, but imports from `aod`, `pydantic`, `unittest`, `types`, `inspect`, etc. must be at module level.
+- **No fake `__model_fields__` workarounds** -- never create a fake class with a hand-crafted `__model_fields__` dict. Use real `BaseOperation`/`ProjectionBase` subclasses instead. If the code path you're testing is unreachable with real objects, remove both the dead code and the test.
+- **Python 3.14 `issubclass` accepts Union** -- `issubclass(MySession, Session | None)` returns `True` in Python 3.14. No need to strip `None` before checking.
+- **Python 3.14 `get_type_hints` doesn't raise** -- unlike older Python versions, `typing.get_type_hints` in Python 3.14 silently drops unresolvable forward references and returns `{}` instead of raising. A `try/except Exception: return {}` wrapper is dead code.
+- **Python 3.14 `except` without parentheses (PEP 758)** -- `except ValueError, TypeError:` (no parens) is valid Python 3.14 and equivalent to `except (ValueError, TypeError):`. `ruff` strips the parens. Keep the form `ruff` produces.

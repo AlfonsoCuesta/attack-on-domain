@@ -1,6 +1,6 @@
 ---
 name: attack-on-domain
-description: "Use ONLY when the user is building a Domain-Driven Design system with this library. Covers entities, value objects, bounded contexts, domain events, and the Pydantic validation system."
+description: "Use when the user wants to BUILD a Domain-Driven Design system WITH this library. Covers workflow, domain primitives, application layer, infrastructure, events, validation, and common mistakes. For how to BUILD the library itself, see AGENTS.md."
 ---
 
 # attack-on-domain — Domain-Driven Design Library
@@ -8,6 +8,8 @@ description: "Use ONLY when the user is building a Domain-Driven Design system w
 Python 3.14+ DDD building blocks with Pydantic v2 under the hood.
 
 Source code is under `code/` (mapped as package root in `pyproject.toml`).
+
+**For internal architecture decisions and how to *build* the library rather than use it**, see `AGENTS.md`.
 
 ## Workflow
 
@@ -44,7 +46,7 @@ class Order(RootEntity):
 
 ### Step 2: Application Layer — UseCases, Commands/Queries, Handlers (APPLICATION)
 
-Create BaseModel input types, Commands, Queries, and UseCases. UseCases depend on `CommandPort[Command]` and `QueryPort[Query]` from `aod.application` — NOT on repositories or custom ports for database access. All database communication goes through handlers. Commands and Queries are internal — created by the UseCase, not passed by the caller.
+Create input types (Pydantic `BaseModel` recommended, primitives also fine), Commands, Queries, and UseCases. `BaseModel` avoids long parameter lists and doubles as API DTO, but single-parameter inputs can use primitive types directly. UseCases depend on `CommandPort[Command]` and `QueryPort[Query]` from `aod.application` — NOT on repositories or custom ports for database access. All database communication goes through handlers. Commands and Queries are internal — created by the UseCase, not passed by the caller.
 
 ```python
 from aod.application import UseCase, Command, Query, CommandPort, QueryPort
