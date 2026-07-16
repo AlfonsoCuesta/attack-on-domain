@@ -25,12 +25,10 @@ class ValueObject(ReconstructMixin, BaseSealed):
         if type(self) is not type(other):
             return False
         for field in self.__model_fields__:
-            if field.startswith("_"):
-                continue
             if getattr(self, field) != getattr(other, field):
                 return False
         return True
 
     def __hash__(self) -> int:
-        public = tuple(getattr(self, f) for f in self.__model_fields__ if not f.startswith("_"))
+        public = tuple(getattr(self, f) for f in self.__model_fields__)
         return hash(public)

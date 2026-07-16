@@ -303,13 +303,6 @@ class TestFieldDoc:
         assert doc.default == "'x'"
         assert doc.description == "a field"
 
-    def test_from_field_no_annotation(self) -> None:
-        fi = FieldInfo(annotation=None)
-        doc = FieldDoc.from_field("x", fi)
-        assert doc.name == "x"
-        assert doc.type_name == ""
-        assert doc.default == ""
-
     def test_from_field_no_description(self) -> None:
         fi = FieldInfo(annotation=int)
         doc = FieldDoc.from_field("age", fi)

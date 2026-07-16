@@ -1,7 +1,8 @@
 from __future__ import annotations
 
+from typing import Literal, TypeVar
+
 import pytest
-from typing import Literal
 from aod._internal.application.contracts import Command, Query
 from aod._internal.application.handler import CommandPort as AppCommandPort
 from aod._internal.application.handler import QueryPort as AppQueryPort
@@ -213,3 +214,12 @@ class TestProjectionFieldValidation:
 
             class _MyProjection(ProjectionBase):
                 lit_field: Literal[42]
+
+    def test_typevar_type_resolved_to_none(self) -> None:
+        """type[TypeVar] returns None from _resolve_port_class, rejected."""
+
+        with pytest.raises(InvalidUseCasePortFieldError):
+
+            class _MyProjection(ProjectionBase):
+                T = TypeVar("T")
+                unbound: type[T]  # type: ignore

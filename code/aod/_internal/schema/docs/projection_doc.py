@@ -50,11 +50,9 @@ class ProjectionDoc:
         fields = getattr(proj_cls, "__model_fields__", None)
         if fields is not None:
             for fname, finfo in fields.items():
-                if fname.startswith("_") or fname == "session":
+                if fname == "session":
                     continue
                 annotation = finfo.annotation
-                if annotation is None:
-                    continue
                 from aod._internal.application.port import Port
 
                 if (

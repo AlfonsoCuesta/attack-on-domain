@@ -582,3 +582,18 @@ def test_make_immutable_custom_object_wraps_arithmetic_result() -> None:
     result = immutable + 3
     assert type(result).__name__ == "ImmutableAdder"
     assert result.value == 8
+
+
+def test_make_immutable_custom_object_iter_wraps_elements() -> None:
+    """Iterating over a custom immutable proxy wraps each yielded value."""
+
+    class Box:
+        def __init__(self, items: list[int]) -> None:
+            self.items = items
+
+        def __iter__(self):
+            return iter(self.items)
+
+    immutable = make_immutable(Box([1, 2, 3]))
+    result = list(immutable)
+    assert result == [1, 2, 3]

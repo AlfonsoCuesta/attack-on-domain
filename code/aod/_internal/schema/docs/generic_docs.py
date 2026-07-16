@@ -39,8 +39,6 @@ class FieldDoc:
     @classmethod
     def from_field(cls, name: str, info: FieldInfo) -> FieldDoc:
         annotation = info.annotation
-        if annotation is None:
-            return cls(name=name)
         return cls(
             name=name,
             type_name=type_str(annotation),

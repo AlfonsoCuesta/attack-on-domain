@@ -29,11 +29,7 @@ class UseCaseDoc:
         uc_fields = getattr(uc_cls, "__model_fields__", None)
         if uc_fields is not None:
             for fname, finfo in uc_fields.items():
-                if fname.startswith("_"):
-                    continue
                 annotation = finfo.annotation
-                if annotation is None:
-                    continue
 
                 hp = HandlerPortDoc.from_handler_port(fname, annotation)
                 if hp is not None:

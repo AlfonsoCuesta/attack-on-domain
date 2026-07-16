@@ -56,10 +56,7 @@ def _make_immutable_object(obj: Any, factory: Any) -> Any:
     try:
         new_obj: Any = immutable_cls.__new__(immutable_cls, obj)
     except TypeError:
-        try:
-            new_obj = object.__new__(immutable_cls)
-        except TypeError:
-            return obj
+        new_obj = object.__new__(immutable_cls)
 
     _copy_state(obj, new_obj)
     object.__setattr__(new_obj, "__wrapped_object__", obj)

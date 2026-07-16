@@ -147,6 +147,27 @@ class TestValueObjectEquality:
         m2 = Money(amount=200)
         assert m1.amount != m2.amount
 
+    def test_eq_same_type_same_values(self) -> None:
+        m1 = Money(amount=100, currency="USD")
+        m2 = Money(amount=100, currency="USD")
+        assert m1 == m2
+
+    def test_eq_same_type_different_fields(self) -> None:
+        m1 = Money(amount=100, currency="USD")
+        m2 = Money(amount=200, currency="USD")
+        assert m1 != m2
+
+    def test_eq_different_type(self) -> None:
+        m = Money(amount=100)
+        assert m != 42
+        assert m != "Money"
+
+    def test_hashable(self) -> None:
+        m1 = Money(amount=100, currency="USD")
+        m2 = Money(amount=100, currency="USD")
+        d = {m1: "found"}
+        assert d[m2] == "found"
+
 
 class TestValueObjectReconstruct:
     def test_reconstruct_skips_validators(self) -> None:

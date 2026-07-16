@@ -126,8 +126,6 @@ class AdapterContainer(BaseBehaviour):
             if field_name in kwargs:
                 continue
             field_type = field_info.annotation
-            if field_type is None:
-                continue
             if not _is_session_annotation(field_type):
                 continue
             _validate_concrete_session(field_name, field_type, projection_cls.__name__)

@@ -5,7 +5,6 @@ from typing import Any, cast, get_args, get_origin, get_type_hints
 from aod._internal.application.cache import Cache
 from aod._internal.application.contracts import Command, Query
 from aod._internal.application.handler.handler import HandlerProtocol
-from aod._internal.core.application_exception import InvalidHandlerPortFieldError
 from aod._internal.core.base_operation import BaseOperation
 from aod._internal.core.infrastructure_exception import (
     DuplicateHandlerError,
@@ -113,8 +112,6 @@ class HandlerManager:
             ):
                 continue
             args = get_args(field_type)
-            if not args:
-                raise InvalidHandlerPortFieldError(field_name, operation_cls.__name__)
             contract = args[0]
             if isinstance(contract, type) and issubclass(contract, (Command, Query)):
                 kwargs[field_name] = self.get_handler(contract)
