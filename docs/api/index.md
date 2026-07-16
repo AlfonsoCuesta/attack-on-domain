@@ -9,7 +9,7 @@ Comprehensive reference for all publicly importable classes, grouped by layer.
 ```python
 from aod.domain import Entity, RootEntity, ValueObject, Service
 from aod.domain import Field, PrivateField
-from aod.events import Event
+from aod.events import Event, IntegrationEvent
 from aod.domain.validation import AfterValidator, BeforeValidator, field_invariance, invariance, mutable, get_base_model
 ```
 
@@ -133,6 +133,18 @@ Immutable domain event with auto-timestamp.
 | Field | Type | Description |
 |-------|------|-------------|
 | `emitted_at` | `datetime` | Auto-set to `datetime.now(timezone.utc)` on construction. `init=False`. |
+
+### IntegrationEvent
+
+```python
+class IntegrationEvent(Event)
+```
+
+Marker subclass of `Event` for events that cross bounded context boundaries.
+
+#### Constructor
+
+Same as `Event`. Inherits `emitted_at` auto-timestamp.
 
 ---
 

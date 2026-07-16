@@ -1,7 +1,7 @@
-from aod._internal.schema.app import AppSchema
+from aod._internal.schema.app import App
 from aod._internal.schema.docs.app_doc import AppDoc
 from aod._internal.schema.docs.module_doc import ModuleDoc
-from aod._internal.schema.bounded_context import BoundedContextSchema
+from aod._internal.schema.bounded_context import BoundedContext
 from aod._internal.schema.docs.bounded_context_doc import BoundedContextDoc
 from aod._internal.schema.docs.contract_doc import ContractDoc
 from aod._internal.schema.docs.handler_port_doc import HandlerPortDoc
@@ -21,10 +21,10 @@ from aod._internal.schema.module import Module
 from aod._internal.schema.render import AutoDoc
 
 __all__ = [
-    "AppSchema",
+    "App",
     "AppDoc",
     "AutoDoc",
-    "BoundedContextSchema",
+    "BoundedContext",
     "BoundedContextDoc",
     "ContractDoc",
     "HandlerPortDoc",

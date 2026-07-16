@@ -12,8 +12,10 @@ from aod._internal.application.use_case import UseCase
 from aod._internal.core.domain_exception import MutationForbiddenException
 from aod._internal.core.event_emitter import Event
 from aod._internal.core.fields.fields import Field, PrivateField
-from aod._internal.domain.app import App
-from aod._internal.domain.bounded_context import BoundedContext
+from aod._internal.schema.app import App
+from aod._internal.schema.bounded_context import BoundedContext
+from aod._internal.schema.module import Module
+from aod._internal.schema.infrastructure import Infrastructure
 from aod._internal.domain.entity import Entity, RootEntity
 from aod._internal.domain.service import Service
 from aod._internal.domain.value_object import ValueObject
@@ -354,32 +356,16 @@ class TestBoundedContext:
         assert OrderLine in ctx.value_objects
         assert Address in ctx.value_objects
 
-    def test_bounded_context_describe(self) -> None:
-        ctx = BoundedContext(
-            aggregate_roots=[Customer, Order],
-            name="ecommerce",
-        )
-        docs = ctx.describe()
-        assert len(docs) >= 2
-
     def test_app_with_contexts(self) -> None:
         ctx = BoundedContext(
             aggregate_roots=[Customer, Order],
             services=[InventoryService],
             name="ecommerce",
         )
-        app = App("MyShop", ctx)
+        mod = Module("ecommerce", ctx, Infrastructure())
+        app = App("MyShop", modules=[mod])
         assert app.name == "MyShop"
-        assert len(app.contexts) == 1
-
-    def test_app_describe(self) -> None:
-        ctx = BoundedContext(
-            aggregate_roots=[Customer, Order],
-            name="ecommerce",
-        )
-        app = App("MyShop", ctx)
-        desc = app.describe()
-        assert "ecommerce" in desc
+        assert len(app.modules) == 1
 
 
 class TestCommandsAndQueries:

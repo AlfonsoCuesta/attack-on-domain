@@ -3,7 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
-from aod._internal.schema.app import AppSchema
+from aod._internal.schema.app import App
 from aod._internal.schema.docs.bounded_context_doc import BoundedContextDoc
 from aod._internal.schema.docs.generic_docs import FieldDoc, MethodDoc, ParamDoc
 from aod._internal.schema.docs.module_doc import ModuleDoc
@@ -12,7 +12,7 @@ from aod._internal.schema.docs.module_doc import ModuleDoc
 class AutoDoc:
     def __init__(
         self,
-        app: AppSchema,
+        app: App,
         output_dir: str | Path,
         *,
         site_name: str = "",
@@ -197,7 +197,7 @@ class AutoDoc:
         lines.append("")
         return "\n".join(lines)
 
-    # ---- BoundedContextSchema page ----
+    # ---- BoundedContext page ----
 
     def _render_bc_page(self, mod: ModuleDoc) -> str:
         domain = mod.domain

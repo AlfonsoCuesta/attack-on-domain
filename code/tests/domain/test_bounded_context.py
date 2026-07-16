@@ -7,7 +7,7 @@ from aod._internal.core.domain_exception import (
     InvalidServiceParameterError,
     InvalidServiceTypeError,
 )
-from aod._internal.domain.bounded_context import BoundedContext
+from aod._internal.schema.bounded_context import BoundedContext
 from aod._internal.domain.entity import Entity, RootEntity
 from aod._internal.domain.service import Service
 from aod._internal.domain.value_object import ValueObject

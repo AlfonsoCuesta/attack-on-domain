@@ -78,6 +78,25 @@ e2 = OrderPlaced(order_id="1", total=99.99)
 assert e1 == e2  # True — same attributes
 ```
 
+## IntegrationEvent
+
+`IntegrationEvent` is a marker subclass of `Event` for events that cross bounded context boundaries.
+
+```python
+from aod.events import IntegrationEvent
+
+
+class PaymentCompleted(IntegrationEvent):
+    order_id: str
+    amount: float
+```
+
+### Constructor
+
+`IntegrationEvent.__init__()` accepts the same parameters as `Event`. The `emitted_at` field is inherited and auto-set.
+
+`IntegrationEvent` retains all `Event` characteristics: immutability, auto-timestamping, and structural equality. Use `IntegrationEvent` when an event should be visible across bounded contexts — `EventCollector` and `EventsListened` distinguish between regular `Event` and `IntegrationEvent` instances.
+
 ## Emitting Events
 
 ### `EventEmitter`
@@ -170,11 +189,34 @@ Takes no parameters.
 
 #### `EventCollector.__enter__()`
 
-Returns `list[Event]` — the same list that events will be appended to while the context is active.
+Returns `EventsListened` — the list-like object that events will be appended to while the context is active.
 
 #### `EventCollector.__exit__()`
 
 Stops event collection so subsequent events are no longer captured.
+
+#### EventsListened
+
+The object returned by `EventCollector.__enter__()`. Stores captured events and supports list operations (`len()`, iteration, indexing) and filtering by event type.
+
+**Properties:**
+
+| Property | Type | Description |
+|----------|------|-------------|
+| `domain_events` | `list[Event]` | Events that are NOT `IntegrationEvent` instances |
+| `integration_events` | `list[IntegrationEvent]` | Events that ARE `IntegrationEvent` instances |
+
+**Example:**
+
+```python
+with EventCollector() as events:
+    order.place()
+    payment.process()
+
+assert len(events) == 2
+assert len(events.domain_events) == 1
+assert len(events.integration_events) == 1
+```
 
 ## Event Assertions
 

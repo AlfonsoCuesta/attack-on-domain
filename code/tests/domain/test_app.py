@@ -1,7 +1,9 @@
 import pytest
 from aod._internal.core.domain_exception import DuplicateDomainTypeError
-from aod._internal.domain.app import App
-from aod._internal.domain.bounded_context import BoundedContext
+from aod._internal.schema.app import App
+from aod._internal.schema.bounded_context import BoundedContext
+from aod._internal.schema.module import Module
+from aod._internal.schema.infrastructure import Infrastructure
 from aod._internal.domain.entity import Entity, RootEntity
 from aod._internal.domain.service import Service
 from aod._internal.domain.value_object import ValueObject
@@ -14,10 +16,10 @@ def test_app_accepts_single_context() -> None:
 
     sales = BoundedContext(aggregate_roots=[Order], name="Sales")
 
-    app = App("MyApp", sales)
+    app = App("MyApp", modules=[Module("Sales", sales, Infrastructure())])
 
     assert app.name == "MyApp"
-    assert app.contexts == (sales,)
+    assert len(app.modules) == 1
 
 
 def test_app_accepts_multiple_non_overlapping_contexts() -> None:
@@ -30,9 +32,15 @@ def test_app_accepts_multiple_non_overlapping_contexts() -> None:
     sales = BoundedContext(aggregate_roots=[Order], name="Sales")
     catalog = BoundedContext(aggregate_roots=[Product], name="Catalog")
 
-    app = App("MyApp", sales, catalog)
+    app = App(
+        "MyApp",
+        modules=[
+            Module("Sales", sales, Infrastructure()),
+            Module("Catalog", catalog, Infrastructure()),
+        ],
+    )
 
-    assert len(app.contexts) == 2
+    assert len(app.modules) == 2
 
 
 def test_app_rejects_duplicate_entity_across_contexts() -> None:
@@ -54,7 +62,13 @@ def test_app_rejects_duplicate_entity_across_contexts() -> None:
         DuplicateDomainTypeError,
         match="LineItem.*Entity.*already registered.*Ordering",
     ):
-        App("MyApp", ordering, billing)
+        App(
+            "MyApp",
+            modules=[
+                Module("Ordering", ordering, Infrastructure()),
+                Module("Billing", billing, Infrastructure()),
+            ],
+        )
 
 
 def test_app_rejects_duplicate_root_entity_across_contexts() -> None:
@@ -68,7 +82,13 @@ def test_app_rejects_duplicate_root_entity_across_contexts() -> None:
         DuplicateDomainTypeError,
         match="Product.*Entity.*already registered.*Inventory",
     ):
-        App("MyApp", inventory, catalog)
+        App(
+            "MyApp",
+            modules=[
+                Module("Inventory", inventory, Infrastructure()),
+                Module("Catalog", catalog, Infrastructure()),
+            ],
+        )
 
 
 def test_app_rejects_duplicate_service_across_contexts() -> None:
@@ -82,7 +102,13 @@ def test_app_rejects_duplicate_service_across_contexts() -> None:
         DuplicateDomainTypeError,
         match="Pricing.*Service.*already registered.*Sales",
     ):
-        App("MyApp", sales, billing)
+        App(
+            "MyApp",
+            modules=[
+                Module("Sales", sales, Infrastructure()),
+                Module("Billing", billing, Infrastructure()),
+            ],
+        )
 
 
 def test_app_accepts_duplicate_value_object_across_contexts() -> None:
@@ -100,9 +126,15 @@ def test_app_accepts_duplicate_value_object_across_contexts() -> None:
     sales = BoundedContext(aggregate_roots=[Order], name="Sales")
     crm = BoundedContext(aggregate_roots=[Customer], name="CRM")
 
-    app = App("MyApp", sales, crm)
+    app = App(
+        "MyApp",
+        modules=[
+            Module("Sales", sales, Infrastructure()),
+            Module("CRM", crm, Infrastructure()),
+        ],
+    )
 
-    assert len(app.contexts) == 2
+    assert len(app.modules) == 2
 
 
 def test_app_rejects_duplicate_discovered_entity_across_contexts() -> None:
@@ -125,7 +157,13 @@ def test_app_rejects_duplicate_discovered_entity_across_contexts() -> None:
         DuplicateDomainTypeError,
         match="TaxBreakdown.*Entity.*already registered.*Ordering",
     ):
-        App("MyApp", ordering, billing)
+        App(
+            "MyApp",
+            modules=[
+                Module("Ordering", ordering, Infrastructure()),
+                Module("Billing", billing, Infrastructure()),
+            ],
+        )
 
 
 def test_app_error_message_mentions_first_context() -> None:
@@ -136,7 +174,13 @@ def test_app_error_message_mentions_first_context() -> None:
     reporting = BoundedContext(aggregate_roots=[Report], name="Reporting")
 
     with pytest.raises(DuplicateDomainTypeError) as exc_info:
-        App("MyApp", analytics, reporting)
+        App(
+            "MyApp",
+            modules=[
+                Module("Analytics", analytics, Infrastructure()),
+                Module("Reporting", reporting, Infrastructure()),
+            ],
+        )
 
     assert "Report" in str(exc_info.value)
     assert "Analytics" in str(exc_info.value)

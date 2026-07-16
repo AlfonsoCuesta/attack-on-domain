@@ -39,7 +39,7 @@ type ContractType = type[Command] | type[Query]
 type PortType = type[Port]
 
 
-class BoundedContextSchema:
+class BoundedContext:
     def __init__(
         self,
         aggregate_roots: Iterable[RootEntityType] | None = None,

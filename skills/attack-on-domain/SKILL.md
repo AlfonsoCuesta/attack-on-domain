@@ -1090,8 +1090,8 @@ The schema system provides introspection and documentation generation for your D
 
 | Class | Purpose |
 |-------|---------|
-| `AppSchema` | Aggregates modules, validates no duplicate types |
-| `BoundedContextSchema` | Discovers entities, value objects, services |
+| `App` | Aggregates modules, validates no duplicate types |
+| `BoundedContext` | Discovers entities, value objects, services |
 | `Infrastructure` | Validates handler-port wiring |
 | `Module` | Validates contracts have handlers, ports have implementations |
 | `AutoDoc` | Generates zensical documentation sites |
@@ -1101,7 +1101,7 @@ The schema system provides introspection and documentation generation for your D
 All schema classes enforce consistency at construction time:
 
 ```python
-from aod.schema import AppSchema, BoundedContextSchema, Infrastructure, Module
+from aod.schema import App, BoundedContext, Infrastructure, Module
 
 # App rejects duplicate entities across modules
 # BoundedContext rejects non-RootEntity as aggregate roots
@@ -1122,9 +1122,9 @@ from aod.schema import AppSchema, BoundedContextSchema, Infrastructure, Module
 ### Generating Documentation with AutoDoc
 
 ```python
-from aod.schema import AppSchema, BoundedContextSchema, Module, Infrastructure, AutoDoc
+from aod.schema import App, BoundedContext, Module, Infrastructure, AutoDoc
 
-bc = BoundedContextSchema(
+bc = BoundedContext(
     aggregate_roots=[Order],
     use_cases=[OrderUseCase],
     name="Orders",
@@ -1137,7 +1137,7 @@ infra = Infrastructure(
 )
 
 mod = Module(name="orders", context=bc, infrastructure=infra)
-app = AppSchema(name="MyApp", modules=[mod], description="App description")
+app = App(name="MyApp", modules=[mod], description="App description")
 
 doc = AutoDoc(
     app,
@@ -1159,8 +1159,8 @@ doc.generate()
 
 ```
 code/aod/_internal/schema/
-├── app.py              # AppSchema: aggregates modules
-├── bounded_context.py  # BoundedContextSchema: type discovery + validation
+├── app.py              # App: aggregates modules
+├── bounded_context.py  # BoundedContext: type discovery + validation
 ├── infrastructure.py   # Infrastructure: handlers, sessions, projections
 ├── module.py           # Module: validates handler-port wiring
 ├── docs/               # Doc dataclasses for each type

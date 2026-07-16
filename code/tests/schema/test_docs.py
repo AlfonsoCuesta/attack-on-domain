@@ -30,8 +30,8 @@ from aod._internal.infrastructure.projection import (
     WriteProjection,
 )
 from aod._internal.infrastructure.session import AsyncSession, Session
-from aod._internal.schema.app import AppSchema
-from aod._internal.schema.bounded_context import BoundedContextSchema
+from aod._internal.schema.app import App
+from aod._internal.schema.bounded_context import BoundedContext
 from aod._internal.schema.describe_utils import extract_fields, extract_methods, extract_params
 from aod._internal.schema.docs.app_doc import AppDoc
 from aod._internal.schema.docs.bounded_context_doc import BoundedContextDoc
@@ -676,7 +676,7 @@ class TestUseCaseDoc:
 
 class TestBoundedContextDoc:
     def test_from_bounded_context(self) -> None:
-        bc = BoundedContextSchema(
+        bc = BoundedContext(
             aggregate_roots=[Order],
             services=[PricingService],
             name="orders",
@@ -690,7 +690,7 @@ class TestBoundedContextDoc:
         assert doc.services[0].name == "PricingService"
 
     def test_from_bounded_context_no_name(self) -> None:
-        bc = BoundedContextSchema(aggregate_roots=[Order])
+        bc = BoundedContext(aggregate_roots=[Order])
         doc = BoundedContextDoc.from_bounded_context(bc)
         assert doc.name is None
 
@@ -806,7 +806,7 @@ class TestInfrastructureDoc:
 
 class TestModuleDoc:
     def test_from_module(self) -> None:
-        bc = BoundedContextSchema(aggregate_roots=[Order], name="orders")
+        bc = BoundedContext(aggregate_roots=[Order], name="orders")
         infra = Infrastructure(handlers=[PlaceOrderHandler])
         mod = Module(name="orders_mod", context=bc, infrastructure=infra)
         doc = ModuleDoc.from_module(mod)
@@ -817,10 +817,10 @@ class TestModuleDoc:
 
 class TestAppDoc:
     def test_from_app(self) -> None:
-        bc = BoundedContextSchema(aggregate_roots=[Order], name="orders")
+        bc = BoundedContext(aggregate_roots=[Order], name="orders")
         infra = Infrastructure(handlers=[PlaceOrderHandler])
         mod = Module(name="orders", context=bc, infrastructure=infra)
-        app = AppSchema(name="ecommerce", modules=[mod])
+        app = App(name="ecommerce", modules=[mod])
         doc = AppDoc.from_app(app)
         assert doc.name == "ecommerce"
         assert len(doc.modules) == 1
@@ -1026,8 +1026,8 @@ class TestUseCaseDocEdgeCases:
 
 class TestBoundedContextDocEdgeCases:
     def test_from_bounded_context_with_use_cases(self) -> None:
-        """BoundedContextSchema with use cases exercises all branches."""
-        bc = BoundedContextSchema(
+        """BoundedContext with use cases exercises all branches."""
+        bc = BoundedContext(
             aggregate_roots=[Order],
             use_cases=[PlaceOrderUseCase],
             name="orders",

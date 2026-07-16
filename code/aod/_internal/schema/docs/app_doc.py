@@ -6,7 +6,7 @@ from typing import TYPE_CHECKING
 from aod._internal.schema.docs.module_doc import ModuleDoc
 
 if TYPE_CHECKING:
-    from aod._internal.schema.app import AppSchema
+    from aod._internal.schema.app import App
 
 
 @dataclass
@@ -16,7 +16,7 @@ class AppDoc:
     description: str = ""
 
     @classmethod
-    def from_app(cls, app: AppSchema) -> AppDoc:
+    def from_app(cls, app: App) -> AppDoc:
         return cls(
             name=app.name,
             description=app.description,

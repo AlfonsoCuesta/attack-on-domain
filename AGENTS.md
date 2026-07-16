@@ -121,9 +121,9 @@ code/
 │               ├── __init__.py
 │               └── faker.py          # DomainType, FakeDomain
 │       └── schema/                   # Schema system — introspection + docs generation
-│           ├── __init__.py           # Public: AppSchema, BoundedContextSchema, Module, Infrastructure, AutoDoc, all Doc types
-│           ├── app.py                # AppSchema: main entry point, aggregates modules
-│           ├── bounded_context.py    # BoundedContextSchema: aggregate_roots, services, use_cases, contracts, ports
+│           ├── __init__.py           # Public: App, BoundedContext, Module, Infrastructure, AutoDoc, all Doc types
+│           ├── app.py                # App: main entry point, aggregates modules
+│           ├── bounded_context.py    # BoundedContext: aggregate_roots, services, use_cases, contracts, ports
 │           ├── infrastructure.py     # Infrastructure: handlers, sessions, projections, ports
 │           ├── module.py             # Module: validates handler-port wiring
 │           ├── describe_utils.py     # extract_fields(), extract_methods(), extract_params()

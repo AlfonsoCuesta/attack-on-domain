@@ -20,8 +20,8 @@ from aod._internal.domain.entity import RootEntity
 from aod._internal.domain.value_object import ValueObject
 from aod._internal.infrastructure.handlers import CommandHandler, QueryHandler
 from aod._internal.infrastructure.session import Session
-from aod._internal.schema.app import AppSchema
-from aod._internal.schema.bounded_context import BoundedContextSchema
+from aod._internal.schema.app import App
+from aod._internal.schema.bounded_context import BoundedContext
 from aod._internal.schema.infrastructure import Infrastructure
 from aod._internal.schema.module import Module
 from aod._internal.schema.render import AutoDoc
@@ -118,7 +118,7 @@ class TestRealGeneration:
     """Generates a full zensical site to a temp dir and validates the output."""
 
     def test_generates_all_files(self, tmp_path: Path) -> None:
-        bc = BoundedContextSchema(
+        bc = BoundedContext(
             aggregate_roots=[Order],
             use_cases=[OrderUseCase],
             name="Orders",
@@ -128,7 +128,7 @@ class TestRealGeneration:
             ports=[FakeUnitOfWork, SmtpSender],
         )
         mod = Module(name="orders", context=bc, infrastructure=infra)
-        app = AppSchema(name="MyApp", modules=[mod], description="App description")
+        app = App(name="MyApp", modules=[mod], description="App description")
 
         doc = AutoDoc(app, tmp_path, site_name="MyApp Docs")
         doc.generate()
@@ -188,10 +188,10 @@ class TestRealGeneration:
         assert "Sessions" in infra
 
     def test_content_non_empty(self, tmp_path: Path) -> None:
-        bc = BoundedContextSchema(aggregate_roots=[Order], name="Test")
+        bc = BoundedContext(aggregate_roots=[Order], name="Test")
         infra = Infrastructure()
         mod = Module(name="test", context=bc, infrastructure=infra)
-        app = AppSchema(name="App", modules=[mod])
+        app = App(name="App", modules=[mod])
         doc = AutoDoc(app, tmp_path)
         doc.generate()
 
@@ -208,10 +208,10 @@ class TestRealGeneration:
         custom_logo.parent.mkdir(parents=True)
         custom_logo.write_text("fake png")
 
-        bc = BoundedContextSchema(aggregate_roots=[Order], name="X")
+        bc = BoundedContext(aggregate_roots=[Order], name="X")
         infra = Infrastructure()
         mod = Module(name="x", context=bc, infrastructure=infra)
-        app = AppSchema(name="X", modules=[mod])
+        app = App(name="X", modules=[mod])
         doc = AutoDoc(app, tmp_path)
         doc.generate()
 
