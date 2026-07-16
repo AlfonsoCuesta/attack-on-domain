@@ -418,6 +418,11 @@ make typecheck      # pyright (when configured)
 6. Never import from `_internal` in user-facing code -- only through `aod.domain`, `aod.domain.validation`, `aod.exceptions`, `aod.application`, `aod.infrastructure`
 7. Every `__init__.py` must define `__all__` to suppress `F401` ("imported but unused") warnings. Public `async_.py` aggregators also define `__all__`.
 8. Sync/async duality: every port, handler, and use case has sync and async versions. Sync classes keep the base name (`Cache`, `Session`, `UnitOfWork`, `CommandHandler`, etc.), async classes use the `Async` prefix (`AsyncCache`, `AsyncSession`, `AsyncUnitOfWork`, `AsyncCommandHandler`). Both live in the same file.
+9. **No `TYPE_CHECKING` imports** -- they signal poor module structure. All imports go at the top of the file (except in test files where local imports are fine).
+10. **No local imports in source code** -- all imports at module level. Local imports inside functions are not allowed outside of test files.
+11. **No `# ty: ignore` in source code** -- try to use strict typing
+12. **All source files must exceed 90% coverage** -- run `uv run pytest code/tests --cov=code/aod/ --cov-report=term-missing` to verify. New code must not lower overall coverage.
+13. **Rigorous typing** -- every public method and function must have type annotations. No `Any` as fallback without strong justification.
 
 ## When Modifying This Code
 

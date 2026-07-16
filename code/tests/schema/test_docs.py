@@ -3,6 +3,8 @@
 import inspect
 
 from aod._internal.application.cache import AsyncCache, Cache
+from aod._internal.application.cache.cache_key import CacheInvalidation, CacheKey
+from aod._internal.application.cache.null_cache import NullCache
 from aod._internal.application.contracts import Command, Query
 from aod._internal.application.event_bus import AsyncEventBus, EventBus
 from aod._internal.application.handler import (
@@ -35,6 +37,7 @@ from aod._internal.schema.bounded_context import BoundedContext
 from aod._internal.schema.describe_utils import extract_fields, extract_methods, extract_params
 from aod._internal.schema.docs.app_doc import AppDoc
 from aod._internal.schema.docs.bounded_context_doc import BoundedContextDoc
+from aod._internal.schema.docs.cache_doc import CacheDoc, CacheKeyDoc
 from aod._internal.schema.docs.contract_doc import ContractDoc
 from aod._internal.schema.docs.entity_doc import EntityDoc
 from aod._internal.schema.docs.generic_docs import (
@@ -777,16 +780,90 @@ class TestProjectionDoc:
 
 
 # ============================================================
+# CacheDoc / CacheKeyDoc
+# ============================================================
+
+
+class TestCacheDoc:
+    def test_from_cache_sync(self) -> None:
+        doc = CacheDoc.from_cache(NullCache)
+        assert doc.name == "NullCache"
+        assert doc.is_async is False
+
+    def test_from_cache_async(self) -> None:
+        doc = CacheDoc.from_cache(AsyncCache)
+        assert doc.name == "AsyncCache"
+        assert doc.is_async is True
+
+    def test_from_cache_handles_missing_docstring(self) -> None:
+        doc = CacheDoc.from_cache(NullCache)
+        assert doc.description == ""
+
+
+class TestCacheKeyDoc:
+    def test_from_cache_key_with_query_type(self) -> None:
+        class _TestKey(CacheKey[GetOrder]):
+            def key(self, query: GetOrder) -> str:
+                return ""
+
+            def invalidate(self) -> list[CacheInvalidation]:
+                return []
+
+        doc = CacheKeyDoc.from_cache_key(_TestKey)
+        assert doc.name == "_TestKey"
+        assert doc.query_type == "GetOrder"
+
+    def test_from_cache_key_with_invalidation(self) -> None:
+        class _InvalidatingKey(CacheKey[GetOrder]):
+            def key(self, query: GetOrder) -> str:
+                return ""
+
+            def invalidate(self) -> list[CacheInvalidation]:
+                return [CacheInvalidation(command_type=PlaceOrder, key_fn=lambda c: c.order_id)]
+
+        doc = CacheKeyDoc.from_cache_key(_InvalidatingKey)
+        assert doc.query_type == "GetOrder"
+        assert doc.invalidating_commands == ["PlaceOrder"]
+
+    def test_from_cache_key_no_query_type(self) -> None:
+        class _NoQueryKey(CacheKey[GetOrder]):
+            def key(self, query: GetOrder) -> str:
+                return ""
+
+            def invalidate(self) -> list[CacheInvalidation]:
+                return []
+
+        doc = CacheKeyDoc.from_cache_key(_NoQueryKey)
+        assert doc.name == "_NoQueryKey"
+
+    def test_from_cache_key_abstract_cachekey(self) -> None:
+        doc = CacheKeyDoc.from_cache_key(CacheKey)
+        assert doc.query_type == ""
+        assert doc.invalidating_commands == []
+
+
+# ============================================================
 # InfrastructureDoc
 # ============================================================
 
 
 class TestInfrastructureDoc:
     def test_from_infrastructure(self) -> None:
+        class _GetOrderKey(CacheKey[GetOrder]):
+            ttl = 60.0
+
+            def key(self, query: GetOrder) -> str:
+                return f"order:{query.order_id}"
+
+            def invalidate(self) -> list[CacheInvalidation]:
+                return []
+
+        cache = NullCache(keys=[_GetOrderKey()])
         infra = Infrastructure(
             handlers=[PlaceOrderHandler],
             projections=[MyReadProjection],
             ports=[EmailSender],
+            caches=[cache],
         )
         doc = InfrastructureDoc.from_infrastructure(infra)
         assert len(doc.handlers) == 1
@@ -797,6 +874,10 @@ class TestInfrastructureDoc:
         assert doc.projections[0].name == "MyReadProjection"
         port_names = {p.name for p in doc.ports}
         assert "EmailSender" in port_names
+        assert len(doc.caches) == 1
+        assert doc.caches[0].name == "NullCache"
+        assert len(doc.cache_keys) == 1
+        assert doc.cache_keys[0].name == "_GetOrderKey"
 
 
 # ============================================================

@@ -110,6 +110,8 @@ class TestPublicAPIImports:
 
         assert "App" in schema_mod.__all__
         assert "BoundedContext" in schema_mod.__all__
+        assert "CacheDoc" in schema_mod.__all__
+        assert "CacheKeyDoc" in schema_mod.__all__
         assert "Infrastructure" in schema_mod.__all__
         assert "Module" in schema_mod.__all__
         assert "AutoDoc" in schema_mod.__all__

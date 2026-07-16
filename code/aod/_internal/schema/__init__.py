@@ -1,5 +1,6 @@
 from aod._internal.schema.app import App
 from aod._internal.schema.docs.app_doc import AppDoc
+from aod._internal.schema.docs.cache_doc import CacheDoc, CacheKeyDoc
 from aod._internal.schema.docs.module_doc import ModuleDoc
 from aod._internal.schema.bounded_context import BoundedContext
 from aod._internal.schema.docs.bounded_context_doc import BoundedContextDoc
@@ -26,6 +27,8 @@ __all__ = [
     "AutoDoc",
     "BoundedContext",
     "BoundedContextDoc",
+    "CacheDoc",
+    "CacheKeyDoc",
     "ContractDoc",
     "HandlerPortDoc",
     "EntityDoc",
