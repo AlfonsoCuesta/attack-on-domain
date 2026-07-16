@@ -25,8 +25,8 @@ from aod._internal.infrastructure.projection import (
     WriteProjection,
 )
 from aod._internal.infrastructure.session import AsyncSession, Session
-from aod._internal.schema.app import App
-from aod._internal.schema.bounded_context import BoundedContext
+from aod._internal.schema.app import AppSchema
+from aod._internal.schema.bounded_context import BoundedContextSchema
 from aod._internal.schema.infrastructure import Infrastructure
 from aod._internal.schema.module import Module
 from aod._internal.schema.render import AutoDoc
@@ -217,7 +217,7 @@ def _make_spy(d: AutoDoc) -> list[tuple[Path, str]]:
 @pytest.fixture
 def doc_spy() -> tuple[AutoDoc, list[tuple[Path, str]]]:
     """Single-module AutoDoc with write spy."""
-    bc = BoundedContext(
+    bc = BoundedContextSchema(
         aggregate_roots=[Order],
         use_cases=[OrderUseCase],
         name="Orders",
@@ -227,7 +227,7 @@ def doc_spy() -> tuple[AutoDoc, list[tuple[Path, str]]]:
         ports=[SmtpSender],
     )
     mod = Module(name="orders", context=bc, infrastructure=infra)
-    app = App(name="TestApp", modules=[mod], description="Test app description")
+    app = AppSchema(name="TestApp", modules=[mod], description="Test app description")
     d = AutoDoc(app, "/out")
     captured = _make_spy(d)
     return d, captured
@@ -236,7 +236,7 @@ def doc_spy() -> tuple[AutoDoc, list[tuple[Path, str]]]:
 @pytest.fixture
 def doc_proj_spy() -> tuple[AutoDoc, list[tuple[Path, str]]]:
     """Single-module AutoDoc with projections."""
-    bc = BoundedContext(
+    bc = BoundedContextSchema(
         aggregate_roots=[Order],
         use_cases=[OrderUseCase],
         name="Orders",
@@ -247,7 +247,7 @@ def doc_proj_spy() -> tuple[AutoDoc, list[tuple[Path, str]]]:
         ports=[SmtpSender],
     )
     mod = Module(name="orders", context=bc, infrastructure=infra)
-    app = App(name="TestApp", modules=[mod], description="Test")
+    app = AppSchema(name="TestApp", modules=[mod], description="Test")
     d = AutoDoc(app, "/out")
     captured = _make_spy(d)
     return d, captured
@@ -271,7 +271,7 @@ class TestHome:
         assert "feature-card" in html
 
     def test_without_modules(self) -> None:
-        app = App(name="Empty", modules=[])
+        app = AppSchema(name="Empty", modules=[])
         d = AutoDoc(app, "/out")
         _make_spy(d)
         html = d._render_home()
@@ -280,10 +280,10 @@ class TestHome:
         assert "feature-card" not in html
 
     def test_without_description(self) -> None:
-        bc = BoundedContext(aggregate_roots=[Order])
+        bc = BoundedContextSchema(aggregate_roots=[Order])
         infra = Infrastructure()
         mod = Module(name="orders", context=bc, infrastructure=infra)
-        app = App(name="NoDesc", modules=[mod])
+        app = AppSchema(name="NoDesc", modules=[mod])
         d = AutoDoc(app, "/out")
         _make_spy(d)
         html = d._render_home()
@@ -291,13 +291,13 @@ class TestHome:
         assert "description" not in html
 
     def test_multiple_modules(self) -> None:
-        bc1 = BoundedContext(aggregate_roots=[Order], name="Orders")
-        bc2 = BoundedContext(name="Sales")
+        bc1 = BoundedContextSchema(aggregate_roots=[Order], name="Orders")
+        bc2 = BoundedContextSchema(name="Sales")
         infra1 = Infrastructure()
         infra2 = Infrastructure()
         mod1 = Module(name="orders", context=bc1, infrastructure=infra1)
         mod2 = Module(name="sales", context=bc2, infrastructure=infra2)
-        app = App(name="Multi", modules=[mod1, mod2])
+        app = AppSchema(name="Multi", modules=[mod1, mod2])
         d = AutoDoc(app, "/out")
         _make_spy(d)
         html = d._render_home()
@@ -306,7 +306,7 @@ class TestHome:
         assert "sales" in html
 
     def test_site_name_override(self) -> None:
-        app = App(name="RealName", modules=[], description="Desc")
+        app = AppSchema(name="RealName", modules=[], description="Desc")
         d = AutoDoc(app, "/out", site_name="Custom Name")
         _make_spy(d)
         html = d._render_home()
@@ -314,7 +314,7 @@ class TestHome:
         assert "RealName" not in html
 
     def test_site_description_override(self) -> None:
-        app = App(name="X", modules=[], description="Original")
+        app = AppSchema(name="X", modules=[], description="Original")
         d = AutoDoc(app, "/out", site_description="Custom desc")
         _make_spy(d)
         html = d._render_home()
@@ -323,7 +323,7 @@ class TestHome:
 
 
 # ============================================================
-# BoundedContext page
+# BoundedContextSchema page
 # ============================================================
 
 
@@ -357,10 +357,10 @@ class TestBoundedContextPage:
         assert "FullOrderProjection" in html
 
     def test_no_use_cases(self) -> None:
-        bc = BoundedContext(aggregate_roots=[Order])
+        bc = BoundedContextSchema(aggregate_roots=[Order])
         infra = Infrastructure()
         mod = Module(name="empty", context=bc, infrastructure=infra)
-        app = App(name="Empty", modules=[mod])
+        app = AppSchema(name="Empty", modules=[mod])
         d = AutoDoc(app, "/out")
         _make_spy(d)
         html = d._render_bc_page(d.modules[0])
@@ -388,23 +388,23 @@ class TestGlossary:
         assert "Address" in html
 
     def test_empty_domain(self) -> None:
-        bc = BoundedContext(name="empty")
+        bc = BoundedContextSchema(name="empty")
         infra = Infrastructure()
         mod = Module(name="empty", context=bc, infrastructure=infra)
-        app = App(name="Empty", modules=[mod])
+        app = AppSchema(name="Empty", modules=[mod])
         d = AutoDoc(app, "/out")
         _make_spy(d)
         html = d._render_glossary(d.modules[0])
         assert "No domain types defined" in html
 
     def test_with_services(self) -> None:
-        bc = BoundedContext(
+        bc = BoundedContextSchema(
             aggregate_roots=[Order],
             services=[PricingService],
         )
         infra = Infrastructure()
         mod = Module(name="full", context=bc, infrastructure=infra)
-        app = App(name="Full", modules=[mod])
+        app = AppSchema(name="Full", modules=[mod])
         d = AutoDoc(app, "/out")
         _make_spy(d)
         html = d._render_glossary(d.modules[0])
@@ -435,23 +435,23 @@ class TestEntities:
         assert "Address" in html
 
     def test_empty(self) -> None:
-        bc = BoundedContext(name="empty")
+        bc = BoundedContextSchema(name="empty")
         infra = Infrastructure()
         mod = Module(name="empty", context=bc, infrastructure=infra)
-        app = App(name="Empty", modules=[mod])
+        app = AppSchema(name="Empty", modules=[mod])
         d = AutoDoc(app, "/out")
         _make_spy(d)
         html = d._render_entities(d.modules[0])
         assert "No domain entities defined" in html
 
     def test_with_services(self) -> None:
-        bc = BoundedContext(
+        bc = BoundedContextSchema(
             aggregate_roots=[Order],
             services=[PricingService],
         )
         infra = Infrastructure()
         mod = Module(name="full", context=bc, infrastructure=infra)
-        app = App(name="Full", modules=[mod])
+        app = AppSchema(name="Full", modules=[mod])
         d = AutoDoc(app, "/out")
         _make_spy(d)
         html = d._render_entities(d.modules[0])
@@ -492,10 +492,10 @@ class TestInfrastructure:
         assert "FullOrderProjection" in html
 
     def test_async_handler(self) -> None:
-        bc = BoundedContext(aggregate_roots=[Order])
+        bc = BoundedContextSchema(aggregate_roots=[Order])
         infra = Infrastructure(handlers=[AsyncPlaceOrderHandler])
         mod = Module(name="as", context=bc, infrastructure=infra)
-        app = App(name="As", modules=[mod])
+        app = AppSchema(name="As", modules=[mod])
         d = AutoDoc(app, "/out")
         _make_spy(d)
         html = d._render_infrastructure(d.modules[0])
@@ -503,10 +503,10 @@ class TestInfrastructure:
         assert "AsyncPlaceOrderHandler" in html
 
     def test_empty(self) -> None:
-        bc = BoundedContext(name="empty")
+        bc = BoundedContextSchema(name="empty")
         infra = Infrastructure()
         mod = Module(name="empty", context=bc, infrastructure=infra)
-        app = App(name="Empty", modules=[mod])
+        app = AppSchema(name="Empty", modules=[mod])
         d = AutoDoc(app, "/out")
         _make_spy(d)
         html = d._render_infrastructure(d.modules[0])
@@ -530,21 +530,21 @@ class TestZensicalConfig:
         assert "orders" in toml
 
     def test_without_modules(self) -> None:
-        app = App(name="Empty", modules=[])
+        app = AppSchema(name="Empty", modules=[])
         d = AutoDoc(app, "/out")
         _make_spy(d)
         toml = d._render_zensical_toml()
         assert "Bounded Contexts" not in toml
 
     def test_repo_url_included(self) -> None:
-        app = App(name="X", modules=[])
+        app = AppSchema(name="X", modules=[])
         d = AutoDoc(app, "/out", repo_url="https://github.com/test")
         _make_spy(d)
         toml = d._render_zensical_toml()
         assert "github.com" in toml
 
     def test_site_description_in_config(self) -> None:
-        app = App(name="X", modules=[], description="App desc")
+        app = AppSchema(name="X", modules=[], description="App desc")
         d = AutoDoc(app, "/out", site_description="Custom desc")
         _make_spy(d)
         toml = d._render_zensical_toml()
@@ -558,7 +558,7 @@ class TestZensicalConfig:
 
 class TestNavFormatting:
     def test_simple(self) -> None:
-        app = App(name="X", modules=[])
+        app = AppSchema(name="X", modules=[])
         d = AutoDoc(app, "/out")
         _make_spy(d)
         nav = d._format_nav([{"Home": "index.md"}, {"Page": "page.md"}])
@@ -566,7 +566,7 @@ class TestNavFormatting:
         assert "index.md" in nav
 
     def test_nested(self) -> None:
-        app = App(name="X", modules=[])
+        app = AppSchema(name="X", modules=[])
         d = AutoDoc(app, "/out")
         _make_spy(d)
         nav = d._format_nav(
@@ -585,7 +585,7 @@ class TestNavFormatting:
         assert "sub/index.md" in nav
 
     def test_string_items(self) -> None:
-        app = App(name="X", modules=[])
+        app = AppSchema(name="X", modules=[])
         d = AutoDoc(app, "/out")
         _make_spy(d)
         nav = d._format_nav(["a.md", "b.md"])
@@ -619,13 +619,13 @@ class TestGenerate:
             assert len(content) > 0
 
     def test_multiple_modules(self) -> None:
-        bc1 = BoundedContext(aggregate_roots=[Order], name="Orders", use_cases=[OrderUseCase])
-        bc2 = BoundedContext(name="Sales")
+        bc1 = BoundedContextSchema(aggregate_roots=[Order], name="Orders", use_cases=[OrderUseCase])
+        bc2 = BoundedContextSchema(name="Sales")
         infra1 = Infrastructure(handlers=[PlaceOrderHandler, GetOrderHandler], ports=[SmtpSender])
         infra2 = Infrastructure()
         mod1 = Module(name="orders", context=bc1, infrastructure=infra1)
         mod2 = Module(name="sales", context=bc2, infrastructure=infra2)
-        app = App(name="Multi", modules=[mod1, mod2])
+        app = AppSchema(name="Multi", modules=[mod1, mod2])
         d = AutoDoc(app, "/out")
         captured = _make_spy(d)
         d.generate()
@@ -655,22 +655,22 @@ class TestGenerate:
 
 class TestConstruction:
     def test_site_name_defaults_to_app_name(self) -> None:
-        app = App(name="MyApp", modules=[])
+        app = AppSchema(name="MyApp", modules=[])
         d = AutoDoc(app, "/out")
         assert d.site_name == "MyApp"
 
     def test_site_name_override(self) -> None:
-        app = App(name="MyApp", modules=[])
+        app = AppSchema(name="MyApp", modules=[])
         d = AutoDoc(app, "/out", site_name="Custom")
         assert d.site_name == "Custom"
 
     def test_repo_name_defaults_to_app_name(self) -> None:
-        app = App(name="MyApp", modules=[])
+        app = AppSchema(name="MyApp", modules=[])
         d = AutoDoc(app, "/out")
         assert d.repo_name == "MyApp"
 
     def test_output_dir_string(self) -> None:
-        app = App(name="X", modules=[])
+        app = AppSchema(name="X", modules=[])
         d = AutoDoc(app, "some/path")
         assert str(d.output_dir) == "some/path"
 
@@ -689,10 +689,10 @@ class TestShared:
         assert "use case" in desc
 
     def test_bc_description_empty(self) -> None:
-        bc = BoundedContext(name="empty")
+        bc = BoundedContextSchema(name="empty")
         infra = Infrastructure()
         mod = Module(name="empty", context=bc, infrastructure=infra)
-        app = App(name="X", modules=[mod])
+        app = AppSchema(name="X", modules=[mod])
         d = AutoDoc(app, "/out")
         desc = d._bc_description(d.modules[0].domain)
         assert desc == "No domain types defined"
@@ -752,22 +752,24 @@ class TestShared:
 
 class TestAsyncUseCase:
     def test_async_use_case_in_home(self) -> None:
-        bc = BoundedContext(aggregate_roots=[Order], use_cases=[AsyncOrderUseCase], name="Async")
+        bc = BoundedContextSchema(
+            aggregate_roots=[Order], use_cases=[AsyncOrderUseCase], name="Async"
+        )
         infra = Infrastructure(
             handlers=[AsyncPlaceOrderHandler, GetOrderHandler], ports=[SmtpSender]
         )
         mod = Module(name="async-mod", context=bc, infrastructure=infra)
-        app = App(name="AsyncApp", modules=[mod])
+        app = AppSchema(name="AsyncApp", modules=[mod])
         d = AutoDoc(app, "/out")
         _make_spy(d)
         html = d._render_bc_page(d.modules[0])
         assert "AsyncOrderUseCase" in html
 
     def test_async_handler_in_infra(self) -> None:
-        bc = BoundedContext(aggregate_roots=[Order])
+        bc = BoundedContextSchema(aggregate_roots=[Order])
         infra = Infrastructure(handlers=[AsyncPlaceOrderHandler])
         mod = Module(name="async", context=bc, infrastructure=infra)
-        app = App(name="Async", modules=[mod])
+        app = AppSchema(name="Async", modules=[mod])
         d = AutoDoc(app, "/out")
         _make_spy(d)
         html = d._render_infrastructure(d.modules[0])
@@ -775,10 +777,10 @@ class TestAsyncUseCase:
         assert "Async:" in html
 
     def test_async_projection_in_infra(self) -> None:
-        bc = BoundedContext(aggregate_roots=[Order])
+        bc = BoundedContextSchema(aggregate_roots=[Order])
         infra = Infrastructure(projections=[AsyncOrderProjection])
         mod = Module(name="async", context=bc, infrastructure=infra)
-        app = App(name="Async", modules=[mod])
+        app = AppSchema(name="Async", modules=[mod])
         d = AutoDoc(app, "/out")
         _make_spy(d)
         html = d._render_infrastructure(d.modules[0])

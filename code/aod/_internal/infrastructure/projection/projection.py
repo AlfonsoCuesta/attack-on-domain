@@ -34,7 +34,7 @@ def _make_projection_wrapper(
         @wraps(fn)
         async def async_wrapper(self: Any, *args: Any, **kwargs: Any) -> Any:
             token = _CommitContext.set(True) if is_write else None
-            exception: BaseException | None = None
+            exception: Exception | None = None
             try:
                 if is_write:
                     for session in self._sessions:
@@ -42,7 +42,7 @@ def _make_projection_wrapper(
                 with EventCollector() as events:
                     try:
                         result = await should_await(fn(self, *args, **kwargs))
-                    except BaseException as e:
+                    except Exception as e:
                         exception = e
                         result = None
                     self.events = list(events)
@@ -75,12 +75,12 @@ def _make_projection_wrapper(
     @wraps(fn)
     def sync_wrapper(self: Any, *args: Any, **kwargs: Any) -> Any:
         token = _CommitContext.set(True) if is_write else None
-        exception: BaseException | None = None
+        exception: Exception | None = None
         try:
             with EventCollector() as events:
                 try:
                     result = fn(self, *args, **kwargs)
-                except BaseException as e:
+                except Exception as e:
                     exception = e
                     result = None
                 self.events = list(events)

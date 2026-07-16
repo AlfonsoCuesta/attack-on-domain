@@ -464,3 +464,23 @@ async def test_uow_registers_handler_on_init() -> None:
     handler = _SaveHandler(session=session)
     uc = _MyUC(save=handler)
     assert session in object.__getattribute__(uc, "_uow").sessions
+
+
+async def test_keyboard_interrupt_propagates_through_async_use_case() -> None:
+    class Interrupting(UseCase):
+        async def run(self) -> None:
+            raise KeyboardInterrupt()
+
+    uc = Interrupting()
+    with pytest.raises(KeyboardInterrupt):
+        await uc.run()
+
+
+async def test_system_exit_propagates_through_async_use_case() -> None:
+    class Exiting(UseCase):
+        async def run(self) -> None:
+            raise SystemExit(1)
+
+    uc = Exiting()
+    with pytest.raises(SystemExit):
+        await uc.run()

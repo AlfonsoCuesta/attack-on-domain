@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 
-from aod._internal.schema.bounded_context import BoundedContext
+from aod._internal.schema.bounded_context import BoundedContextSchema
 from aod._internal.schema.docs.entity_doc import EntityDoc
 from aod._internal.schema.docs.root_entity_doc import RootEntityDoc
 from aod._internal.schema.docs.service_doc import ServiceDoc
@@ -20,7 +20,7 @@ class BoundedContextDoc:
     use_cases: list[UseCaseDoc] = field(default_factory=list)
 
     @classmethod
-    def from_bounded_context(cls, bc: BoundedContext) -> BoundedContextDoc:
+    def from_bounded_context(cls, bc: BoundedContextSchema) -> BoundedContextDoc:
         doc = cls(name=bc.name)
 
         for root_cls in bc.aggregate_roots:

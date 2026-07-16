@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from aod._internal.core.domain_exception import MissingHandlerError, MissingPortError
 from aod._internal.core.type_handlers.generic_utils import get_generic_arg_from_orig_bases
-from aod._internal.schema.bounded_context import BoundedContext
+from aod._internal.schema.bounded_context import BoundedContextSchema
 from aod._internal.schema.infrastructure import HandlerType, Infrastructure
 
 
@@ -10,7 +10,7 @@ class Module:
     def __init__(
         self,
         name: str,
-        context: BoundedContext,
+        context: BoundedContextSchema,
         infrastructure: Infrastructure,
     ):
         self._validate(context, infrastructure)
@@ -20,7 +20,7 @@ class Module:
         self.infrastructure = infrastructure
 
     @staticmethod
-    def _validate(context: BoundedContext, infrastructure: Infrastructure) -> None:
+    def _validate(context: BoundedContextSchema, infrastructure: Infrastructure) -> None:
         handler_contracts: dict[type, HandlerType] = Module._map_handler_contracts(
             infrastructure.handlers
         )

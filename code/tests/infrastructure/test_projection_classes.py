@@ -186,6 +186,24 @@ class TestReadProjection:
         result = p.read(UserReadModel(user_id=1))
         assert result == {"found": True}
 
+    def test_keyboard_interrupt_propagates_through_read(self) -> None:
+        class Interrupting(ReadProjection):
+            def read(self, model: UserReadModel) -> str:
+                raise KeyboardInterrupt()
+
+        p = Interrupting()
+        with pytest.raises(KeyboardInterrupt):
+            p.read(UserReadModel(user_id=1))
+
+    def test_system_exit_propagates_through_read(self) -> None:
+        class Exiting(ReadProjection):
+            def read(self, model: UserReadModel) -> str:
+                raise SystemExit(1)
+
+        p = Exiting()
+        with pytest.raises(SystemExit):
+            p.read(UserReadModel(user_id=1))
+
 
 class TestWriteProjection:
     def test_is_abstract(self) -> None:
@@ -278,6 +296,24 @@ class TestWriteProjection:
         with pytest.raises(ValueError):
             p.write(UserWriteModel(user_id=1, name="test"))
         assert _CommitContext.get(False) is False
+
+    def test_keyboard_interrupt_propagates_through_write(self) -> None:
+        class Interrupting(WriteProjection):
+            def write(self, model: UserWriteModel) -> str:
+                raise KeyboardInterrupt()
+
+        p = Interrupting()
+        with pytest.raises(KeyboardInterrupt):
+            p.write(UserWriteModel(user_id=1, name="test"))
+
+    def test_system_exit_propagates_through_write(self) -> None:
+        class Exiting(WriteProjection):
+            def write(self, model: UserWriteModel) -> str:
+                raise SystemExit(1)
+
+        p = Exiting()
+        with pytest.raises(SystemExit):
+            p.write(UserWriteModel(user_id=1, name="test"))
 
 
 class TestProjection:
@@ -439,6 +475,24 @@ class TestAsyncReadProjection:
         result = await p.read(UserReadModel(user_id=1))
         assert result == "ok"
 
+    async def test_keyboard_interrupt_propagates_through_async_read(self) -> None:
+        class Interrupting(AsyncReadProjection):
+            async def read(self, model: UserReadModel) -> str:
+                raise KeyboardInterrupt()
+
+        p = Interrupting()
+        with pytest.raises(KeyboardInterrupt):
+            await p.read(UserReadModel(user_id=1))
+
+    async def test_system_exit_propagates_through_async_read(self) -> None:
+        class Exiting(AsyncReadProjection):
+            async def read(self, model: UserReadModel) -> str:
+                raise SystemExit(1)
+
+        p = Exiting()
+        with pytest.raises(SystemExit):
+            await p.read(UserReadModel(user_id=1))
+
 
 class TestAsyncWriteProjection:
     async def test_is_abstract(self) -> None:
@@ -522,6 +576,24 @@ class TestAsyncWriteProjection:
         with pytest.raises(ValueError):
             await p.write(UserWriteModel(user_id=1, name="test"))
         assert _CommitContext.get(False) is False
+
+    async def test_keyboard_interrupt_propagates_through_async_write(self) -> None:
+        class Interrupting(AsyncWriteProjection):
+            async def write(self, model: UserWriteModel) -> str:
+                raise KeyboardInterrupt()
+
+        p = Interrupting()
+        with pytest.raises(KeyboardInterrupt):
+            await p.write(UserWriteModel(user_id=1, name="test"))
+
+    async def test_system_exit_propagates_through_async_write(self) -> None:
+        class Exiting(AsyncWriteProjection):
+            async def write(self, model: UserWriteModel) -> str:
+                raise SystemExit(1)
+
+        p = Exiting()
+        with pytest.raises(SystemExit):
+            await p.write(UserWriteModel(user_id=1, name="test"))
 
 
 class TestAsyncProjection:

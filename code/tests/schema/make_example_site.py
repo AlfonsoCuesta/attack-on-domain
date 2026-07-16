@@ -34,8 +34,8 @@ from aod._internal.infrastructure.projection import (
     WriteProjection,
 )
 from aod._internal.infrastructure.session import AsyncSession, Session
-from aod._internal.schema.app import App
-from aod._internal.schema.bounded_context import BoundedContext
+from aod._internal.schema.app import AppSchema
+from aod._internal.schema.bounded_context import BoundedContextSchema
 from aod._internal.schema.infrastructure import Infrastructure
 from aod._internal.schema.module import Module
 from aod._internal.schema.render import AutoDoc
@@ -315,14 +315,14 @@ OUTPUT = Path(__file__).parent / "example-site"
 
 
 def main() -> None:
-    bc_orders = BoundedContext(
+    bc_orders = BoundedContextSchema(
         aggregate_roots=[Order],
         services=[PricingService, TaxService],
         use_cases=[OrderUseCase],
         name="Orders",
     )
 
-    bc_invoicing = BoundedContext(
+    bc_invoicing = BoundedContextSchema(
         aggregate_roots=[Invoice],
         use_cases=[InvoiceUseCase],
         name="Invoicing",
@@ -362,7 +362,7 @@ def main() -> None:
     mod_orders = Module(name="orders", context=bc_orders, infrastructure=infra_orders)
     mod_invoicing = Module(name="invoicing", context=bc_invoicing, infrastructure=infra_invoicing)
 
-    app = App(
+    app = AppSchema(
         name="E-Commerce Platform",
         modules=[mod_orders, mod_invoicing],
         description="A domain-driven e-commerce platform built with attack-on-domain.",

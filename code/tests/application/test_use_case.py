@@ -545,3 +545,23 @@ def test_use_case_returns_complex_value() -> None:
     uc = GetUser()
     result = uc.run("Alice")
     assert result == {"name": "Alice", "id": "1"}
+
+
+def test_keyboard_interrupt_propagates_through_use_case() -> None:
+    class Interrupting(UseCase):
+        def run(self) -> None:
+            raise KeyboardInterrupt()
+
+    uc = Interrupting()
+    with pytest.raises(KeyboardInterrupt):
+        uc.run()
+
+
+def test_system_exit_propagates_through_use_case() -> None:
+    class Exiting(UseCase):
+        def run(self) -> None:
+            raise SystemExit(1)
+
+    uc = Exiting()
+    with pytest.raises(SystemExit):
+        uc.run()

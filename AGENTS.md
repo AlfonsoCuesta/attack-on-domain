@@ -14,7 +14,7 @@
 code/
 ├── aod/                              # Package root
 │   ├── __init__.py                   # Empty package marker
-│   ├── events.py                     # Public: Event, EventCollector (cross-layer)
+│   ├── events/                       # Public: Event, IntegrationEvent, EventCollector (cross-layer)
 │   ├── py.typed                      # PEP 561 marker
 │   ├── domain/                       # Public domain layer (re-exports from _internal)
 │   │   ├── __init__.py               # Re-exports: Entity, RootEntity, Service, ValueObject, Field, PrivateField, DomainException
@@ -121,9 +121,9 @@ code/
 │               ├── __init__.py
 │               └── faker.py          # DomainType, FakeDomain
 │       └── schema/                   # Schema system — introspection + docs generation
-│           ├── __init__.py           # Public: App, BoundedContext, Module, Infrastructure, AutoDoc, all Doc types
-│           ├── app.py                # App: main entry point, aggregates modules
-│           ├── bounded_context.py    # BoundedContext: aggregate_roots, services, use_cases, contracts, ports
+│           ├── __init__.py           # Public: AppSchema, BoundedContextSchema, Module, Infrastructure, AutoDoc, all Doc types
+│           ├── app.py                # AppSchema: main entry point, aggregates modules
+│           ├── bounded_context.py    # BoundedContextSchema: aggregate_roots, services, use_cases, contracts, ports
 │           ├── infrastructure.py     # Infrastructure: handlers, sessions, projections, ports
 │           ├── module.py             # Module: validates handler-port wiring
 │           ├── describe_utils.py     # extract_fields(), extract_methods(), extract_params()
@@ -212,6 +212,7 @@ BaseValidator (metaclass: ValidationModelMeta -> ABCMeta)
     |   +-- BaseSealed              (always blocks mutation)
     |       +-- ValueObject(ReconstructMixin, BaseSealed) -> has reconstruct
     |       +-- Event
+    |       |   +-- IntegrationEvent
     |       +-- Command
     |       +-- Query
     +-- BaseGuarded (direct inheritance for Port, Session, etc.)
@@ -256,6 +257,16 @@ When an attribute is read outside a mutation context, `BaseGuarded.__getattribut
 
 ### Event Collection via ContextVar
 `EventEmitter.emit()` always appends to its local list. If an `EventCollector` context manager is active (via ContextVar), it also appends to the collector's list. This enables aggregate-level event collection without explicit child traversal.
+
+`EventCollector.domain_events` and `EventCollector.integration_events` properties filter the collected events by type. `IntegrationEvent` is a marker subclass of `Event` for events that cross bounded context boundaries.
+
+### Framework Scope Boundaries
+The framework is a generic sandbox. Key boundaries:
+- **No Repository abstraction** — CQRS is enforced via handlers (`CommandHandler`/`QueryHandler`). The `Session` IS the data access layer.
+- **No domain primitives** (Email, Currency, Money, etc.) — each project defines its own ValueObjects.
+- **No Sagas / Process Managers** — infrastructure orchestration is the user's responsibility.
+- **Outbox pattern** is already covered by the UseCase and Projection wrappers (commit → publish).
+- **`should_await` is intentional** — async handlers can use sync sessions without blocking the event loop via runtime detection. This is a design feature, not a bug.
 
 ### `__post_init__` Hook (mechanism)
 Defined on `BaseValidator` (empty) and called from `BaseValidator.__init__`. Only runs on normal `__init__`, **not** on `reconstruct`. It executes after fields are set via `__set_model_attributes`. For `BaseGuarded` subclasses, `__mutating_context__` already exists (created before `super().__init__()`), so:
@@ -434,13 +445,13 @@ make typecheck      # pyright (when configured)
 
 ## Dependencies
 
-- **Runtime**: `pydantic>=2.12.4`, `polyfactory>=3.3.0`, `typing-inspect>=0.9.0`
-- **Dev**: `ruff`, `ty`, `pre-commit`, `pytest`, `pytest-cov`, `pytest-asyncio`
+- **Runtime**: `pydantic>=2.12.4`, `typing-inspect>=0.9.0`
+- **Dev**: `ruff`, `ty`, `pre-commit`, `pytest`, `pytest-cov`, `pytest-asyncio`, `polyfactory`
 - **Build**: `setuptools`, `wheel`
 
 ## Test Count
 
-1169 tests, 3 skipped (no `patch`/`mock.patch` in any test file)
+1186 tests, 3 skipped (no `patch`/`mock.patch` in any test file)
 97% code coverage (98/3656 lines missing)
 
 ## At the end of a task

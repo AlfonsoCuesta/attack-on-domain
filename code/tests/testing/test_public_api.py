@@ -14,7 +14,7 @@ import aod.infrastructure
 import aod.infrastructure.async_
 import aod.infrastructure.exceptions
 from aod._internal.core.application_exception import UnresolvableEntityError
-from aod._internal.core.event_emitter import Event
+from aod._internal.core.event_emitter import Event, IntegrationEvent
 from aod._internal.core.infrastructure_exception import HandlerResultTypeError
 
 
@@ -175,8 +175,10 @@ def test_aod_events_documented_api() -> None:
     assert aod.events.__all__ == [
         "Event",
         "EventCollector",
+        "IntegrationEvent",
     ]
     assert aod.events.Event is Event
+    assert aod.events.IntegrationEvent is IntegrationEvent
     assert aod.events.EventCollector.__name__ == "EventCollector"
 
 

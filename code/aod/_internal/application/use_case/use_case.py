@@ -42,13 +42,13 @@ class UseCase(BaseOperation):
     def _wrap_run_with_collector(fn: Callable[..., Any]) -> Callable[..., Any]:
         @wraps(fn)
         def wrapper(self: UseCase, *args: Any, **kwargs: Any) -> None:
-            exception: BaseException | None = None
+            exception: Exception | None = None
 
             self._uow.begin()
             with EventCollector() as events:
                 try:
                     result = fn(self, *args, **kwargs)
-                except BaseException as e:
+                except Exception as e:
                     exception = e
 
                 self.events = list(events)
@@ -61,7 +61,7 @@ class UseCase(BaseOperation):
 
             try:
                 self._uow.commit()
-            except BaseException:
+            except Exception:
                 self._uow.rollback()
                 for logger in self._loggers:
                     logger.error(f"{type(self).__name__} commit failed")
@@ -108,13 +108,13 @@ class AsyncUseCase(BaseOperation):
     def _wrap_run_with_collector(fn: Callable[..., Any]) -> Callable[..., Any]:
         @wraps(fn)
         async def wrapper(self: AsyncUseCase, *args: Any, **kwargs: Any) -> None:
-            exception: BaseException | None = None
+            exception: Exception | None = None
 
             await should_await(self._uow.begin())
             with EventCollector() as events:
                 try:
                     result = await should_await(fn(self, *args, **kwargs))
-                except BaseException as e:
+                except Exception as e:
                     exception = e
 
                 self.events = list(events)
@@ -129,7 +129,7 @@ class AsyncUseCase(BaseOperation):
 
             try:
                 await should_await(self._uow.commit())
-            except BaseException:
+            except Exception:
                 await should_await(self._uow.rollback())
                 for logger in self._loggers:
                     await should_await(logger.error(f"{type(self).__name__} commit failed"))

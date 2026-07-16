@@ -7,7 +7,7 @@ from aod._internal.core.domain_exception import DuplicateDomainTypeError
 from aod._internal.schema.module import Module
 
 
-class App:
+class AppSchema:
     def __init__(
         self,
         name: str,

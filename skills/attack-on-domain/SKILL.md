@@ -158,6 +158,7 @@ place_order.run(PlaceOrderInput(order_id="1", product_id="p1", quantity=2, price
 | `from aod.domain import Field` | Field wrapper with constraints and `id=True` for identity |
 | `from aod.domain import PrivateField` | Private fields for internal state |
 | `from aod.events import Event` | Event base class |
+| `from aod.events import IntegrationEvent` | Event sub-type for cross-boundary events |
 | `from aod.events import EventCollector` | Cross-aggregate event capture |
 | `from aod.domain.validation import field_invariance, invariance, mutable` | Validation decorators |
 | `from aod.domain.validation import AfterValidator, BeforeValidator` | Pydantic validators |
@@ -880,6 +881,20 @@ with EventCollector() as events:
 # events contains OrderPlaced and OrderShipped
 ```
 
+Use `EventCollector.domain_events` and `EventCollector.integration_events` to filter by event type. `IntegrationEvent` is a marker subclass of `Event` for events that cross bounded context boundaries:
+
+```python
+with EventCollector() as events:
+    order.place(item)
+    payment.process()
+
+# All events
+evts = list(events)          # OrderPlaced, PaymentCompleted
+# Filtered:
+domain = events.domain_events       # non-IntegrationEvent only
+integration = events.integration_events  # IntegrationEvent only
+```
+
 ## BoundedContext
 
 Organize your domain into type-safe boundaries. Use in the **entry point** of your app (container), not in `domain/__init__.py`.
@@ -1075,8 +1090,8 @@ The schema system provides introspection and documentation generation for your D
 
 | Class | Purpose |
 |-------|---------|
-| `App` | Aggregates modules, validates no duplicate types |
-| `BoundedContext` | Discovers entities, value objects, services |
+| `AppSchema` | Aggregates modules, validates no duplicate types |
+| `BoundedContextSchema` | Discovers entities, value objects, services |
 | `Infrastructure` | Validates handler-port wiring |
 | `Module` | Validates contracts have handlers, ports have implementations |
 | `AutoDoc` | Generates zensical documentation sites |
@@ -1086,7 +1101,7 @@ The schema system provides introspection and documentation generation for your D
 All schema classes enforce consistency at construction time:
 
 ```python
-from aod.schema import App, BoundedContext, Infrastructure, Module
+from aod.schema import AppSchema, BoundedContextSchema, Infrastructure, Module
 
 # App rejects duplicate entities across modules
 # BoundedContext rejects non-RootEntity as aggregate roots
@@ -1107,9 +1122,9 @@ from aod.schema import App, BoundedContext, Infrastructure, Module
 ### Generating Documentation with AutoDoc
 
 ```python
-from aod.schema import App, BoundedContext, Module, Infrastructure, AutoDoc
+from aod.schema import AppSchema, BoundedContextSchema, Module, Infrastructure, AutoDoc
 
-bc = BoundedContext(
+bc = BoundedContextSchema(
     aggregate_roots=[Order],
     use_cases=[OrderUseCase],
     name="Orders",
@@ -1122,7 +1137,7 @@ infra = Infrastructure(
 )
 
 mod = Module(name="orders", context=bc, infrastructure=infra)
-app = App(name="MyApp", modules=[mod], description="App description")
+app = AppSchema(name="MyApp", modules=[mod], description="App description")
 
 doc = AutoDoc(
     app,
@@ -1144,8 +1159,8 @@ doc.generate()
 
 ```
 code/aod/_internal/schema/
-├── app.py              # App: aggregates modules
-├── bounded_context.py  # BoundedContext: type discovery + validation
+├── app.py              # AppSchema: aggregates modules
+├── bounded_context.py  # BoundedContextSchema: type discovery + validation
 ├── infrastructure.py   # Infrastructure: handlers, sessions, projections
 ├── module.py           # Module: validates handler-port wiring
 ├── docs/               # Doc dataclasses for each type
@@ -1158,6 +1173,16 @@ code/tests/schema/
 ├── test_schema.py      # Tests for schema classes
 └── make_example_site.py  # Example script to generate site
 ```
+
+## Framework Scope Boundaries
+
+This library is a **generic sandbox** — it provides DDD building blocks without dictating infrastructure choices or domain primitives.
+
+- **No Repository pattern** — CQRS is enforced via `CommandHandler`/`QueryHandler`. The `Session` IS the data access abstraction. Handlers work directly with sessions, not repositories.
+- **No domain primitives** (Email, Currency, Money, etc.) — each project defines its own ValueObjects tailored to its domain.
+- **No Sagas / Process Managers** — long-running transaction coordination is the user's responsibility.
+- **Outbox pattern** is already covered by the UseCase and Projection wrappers (commit → event publish).
+- **should_await is intentional** — async handlers can use sync sessions portably via runtime detection. This avoids blocking the event loop and is a designed feature, not a workaround.
 
 ## Conventions
 

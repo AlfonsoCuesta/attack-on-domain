@@ -17,7 +17,7 @@ from aod._internal.domain.entity import Entity, RootEntity
 from aod._internal.domain.service import Service
 from aod._internal.infrastructure.handlers import CommandHandler, QueryHandler
 from aod._internal.infrastructure.session import Session
-from aod._internal.schema import App, AutoDoc, BoundedContext, Infrastructure, Module
+from aod._internal.schema import AppSchema, AutoDoc, BoundedContextSchema, Infrastructure, Module
 from aod.domain import Field
 
 # ---- Test domain types ----
@@ -85,12 +85,12 @@ class TestPublicAPIImports:
     """Verify that key classes are importable from aod._internal.schema."""
 
     def test_app_importable(self) -> None:
-        assert App is not None
-        assert hasattr(App, "__init__")
+        assert AppSchema is not None
+        assert hasattr(AppSchema, "__init__")
 
     def test_bounded_context_importable(self) -> None:
-        assert BoundedContext is not None
-        assert hasattr(BoundedContext, "__init__")
+        assert BoundedContextSchema is not None
+        assert hasattr(BoundedContextSchema, "__init__")
 
     def test_infrastructure_importable(self) -> None:
         assert Infrastructure is not None
@@ -108,35 +108,35 @@ class TestPublicAPIImports:
     def test_all_exports(self) -> None:
         import aod._internal.schema as schema_mod
 
-        assert "App" in schema_mod.__all__
-        assert "BoundedContext" in schema_mod.__all__
+        assert "AppSchema" in schema_mod.__all__
+        assert "BoundedContextSchema" in schema_mod.__all__
         assert "Infrastructure" in schema_mod.__all__
         assert "Module" in schema_mod.__all__
         assert "AutoDoc" in schema_mod.__all__
 
 
 class TestSchemaConsistencyChecks:
-    """Verify that App, Infrastructure, Module, BoundedContext enforce consistency."""
+    """Verify that AppSchema, Infrastructure, Module, BoundedContextSchema enforce consistency."""
 
     def test_app_rejects_duplicate_entities(self) -> None:
-        bc1 = BoundedContext(aggregate_roots=[Order], name="A")
-        bc2 = BoundedContext(aggregate_roots=[Order], name="B")
+        bc1 = BoundedContextSchema(aggregate_roots=[Order], name="A")
+        bc2 = BoundedContextSchema(aggregate_roots=[Order], name="B")
         infra = Infrastructure()
         mod1 = Module(name="a", context=bc1, infrastructure=infra)
         mod2 = Module(name="b", context=bc2, infrastructure=infra)
 
         with pytest.raises(DuplicateDomainTypeError):
-            App(name="Dup", modules=[mod1, mod2])
+            AppSchema(name="Dup", modules=[mod1, mod2])
 
     def test_module_rejects_missing_handler(self) -> None:
-        bc = BoundedContext(aggregate_roots=[Order], use_cases=[OrderUseCase])
+        bc = BoundedContextSchema(aggregate_roots=[Order], use_cases=[OrderUseCase])
         infra = Infrastructure()
 
         with pytest.raises(MissingHandlerError):
             Module(name="bad", context=bc, infrastructure=infra)
 
     def test_module_rejects_missing_port(self) -> None:
-        bc = BoundedContext(aggregate_roots=[Order], use_cases=[OrderUseCase])
+        bc = BoundedContextSchema(aggregate_roots=[Order], use_cases=[OrderUseCase])
         infra = Infrastructure(handlers=[PlaceOrderHandler, GetOrderHandler])
 
         with pytest.raises(Exception):
@@ -147,8 +147,8 @@ class TestSchemaConsistencyChecks:
             id: int = Field(id=True)
 
         with pytest.raises(InvalidRootEntityTypeError):
-            BoundedContext(aggregate_roots=[LineItem])  # ty: ignore[invalid-argument-type]
+            BoundedContextSchema(aggregate_roots=[LineItem])  # ty: ignore[invalid-argument-type]
 
     def test_bounded_context_rejects_non_service(self) -> None:
         with pytest.raises(InvalidServiceTypeError):
-            BoundedContext(services=[Order])  # ty: ignore[invalid-argument-type]
+            BoundedContextSchema(services=[Order])  # ty: ignore[invalid-argument-type]
