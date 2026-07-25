@@ -13,7 +13,6 @@ from aod._internal.application.handler import (
 )
 from aod._internal.application.logger import AsyncLogger, Logger
 from aod._internal.application.port import Port
-from aod._internal.application.unit_of_work import AsyncUnitOfWork, UnitOfWork
 from aod._internal.application.use_case import AsyncUseCase, UseCase
 from aod._internal.core.domain_exception import (
     ClassExpectedError,
@@ -26,9 +25,7 @@ from aod._internal.domain.entity import Entity, RootEntity
 from aod._internal.domain.service import Service
 from aod._internal.domain.value_object import ValueObject
 
-_INTERNAL_PORT_TYPES = frozenset(
-    {UnitOfWork, AsyncUnitOfWork, Logger, AsyncLogger, EventBus, AsyncEventBus, Cache, AsyncCache}
-)
+_INTERNAL_PORT_TYPES = frozenset({Logger, AsyncLogger, EventBus, AsyncEventBus, Cache, AsyncCache})
 
 type RootEntityType = type[RootEntity]
 type EntityType = type[Entity]

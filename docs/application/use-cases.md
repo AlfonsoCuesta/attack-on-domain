@@ -70,7 +70,6 @@ Base class for synchronous use cases. Inherits from `BaseOperation`.
 
 | Field | Type | Default | Description |
 |-------|------|---------|-------------|
-| `_uow` | `UnitOfWork` | `UnitOfWork()` | Private, auto-created. Transaction boundary. Auto-commits on success (flushing caches internally), rollbacks on failure |
 | `events` | `list[Event]` | `[]` | Collected events from last `run()` call. Read-only outside mutation context |
 | `_event_emitter` | `EventEmitter` | `EventEmitter()` | Private event emitter for emitting events during `run()` |
 | `_loggers` | `list[Logger \| AsyncLogger]` | `[]` | Private list of declared logger ports |
@@ -92,12 +91,12 @@ class CreateUserUseCase(UseCase):
 
 Abstract method. Subclasses define specific parameters. Values are passed here, not as class fields. The method is automatically wrapped to:
 
-1. Begin an internal UnitOfWork
+1. Begin an internal Transaction
 2. Open an `EventCollector` context
 3. Invoke the original `run()` body
 4. Collect emitted events into `self.events`
-5. On success: commit UoW (flushing caches internally), log completion, publish events
-6. On failure: rollback UoW, log error, re-raise
+5. On success: commit Transaction (flushing caches internally), log completion, publish events
+6. On failure: rollback Transaction, log error, re-raise
 
 **Parameters:** Defined by the subclass — any number of positional and keyword arguments representing input values.
 
@@ -113,7 +112,7 @@ Base class for asynchronous use cases. Inherits from `BaseOperation`.
 |-----------|------|-------------|
 | `*port_fields` | `Port` subclass | All declared Port fields as keyword arguments |
 
-**Auto-wired fields:** Same as `UseCase`, except `_uow` accepts `UnitOfWork | AsyncUnitOfWork`.
+**Auto-wired fields:** Same as `UseCase`.
 
 #### `async run(self, *args, **kwargs) -> Any`
 
@@ -206,8 +205,8 @@ class CreateUserUseCase(UseCase):
 
 The auto-wrapper handles errors:
 
-1. If `run()` raises: UoW is rolled back, error is logged, exception is re-raised
-2. If `commit()` fails: UoW is rolled back, error is logged, exception is re-raised
+1. If `run()` raises: Transaction is rolled back, error is logged, exception is re-raised
+2. If `commit()` fails: Transaction is rolled back, error is logged, exception is re-raised
 
 ```python
 class CreateUserUseCase(UseCase):

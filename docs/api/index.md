@@ -1150,7 +1150,7 @@ from aod.exceptions import (
 |-----------|--------|-------------|
 | `ApplicationException` | `Exception` | Base for application errors. |
 | `UnresolvableEntityError` | `ApplicationException` | Cannot determine RootEntity from Command/Query. |
-| `CommitOutsideUnitOfWorkError` | `ApplicationException` | Commit outside a UoW context. |
+| `CommitOutsideUnitOfWorkError` | `ApplicationException` | Commit outside a Transaction context. |
 | `InvalidUseCasePortFieldError` | `ApplicationException` | UseCase field is not a Port subclass. |
 | `InvalidHandlerPortFieldError` | `ApplicationException` | HandlerProtocol port missing generic type argument. |
 

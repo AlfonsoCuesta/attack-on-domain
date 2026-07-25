@@ -137,13 +137,12 @@ class CreateUserUseCase(UseCase):
 
 ### Auto-Wired Fields
 
-Use cases have one private auto-wired field:
+Use cases do not expose a transaction field. A fresh `Transaction` is created internally for each `run()` call:
 
 ```python
 class CreateUser(UseCase):
-    # _uow is private and auto-created, no need to declare
-    # It manages transactions, committing on success and rolling back on failure
-    # Cache flushing happens inside _uow.commit() — not visible to the UseCase
+    # A Transaction is created internally for each run() call,
+    # managing begin/commit/rollback and cache flushing automatically.
 
     def run(self) -> None:
         pass

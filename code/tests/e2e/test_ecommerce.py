@@ -7,7 +7,6 @@ from aod._internal.application.event_bus.null_event_bus import NullEventBus
 from aod._internal.application.logger import Logger
 from aod._internal.application.logger.null_logger import NullLogger
 from aod._internal.application.port import Port
-from aod._internal.application.unit_of_work import UnitOfWork
 from aod._internal.application.use_case import UseCase
 from aod._internal.core.domain_exception import MutationForbiddenException
 from aod._internal.core.event_emitter import Event
@@ -415,7 +414,6 @@ class TestUseCase:
     def test_use_case_with_uow_logger_event_bus(self) -> None:
         email_sender = FakeEmailSender()
         inventory = FakeInventoryClient()
-        uow = port_stub(UnitOfWork)()
         logger = port_stub(Logger)()
         bus = port_stub(EventBus)()
         uc = PlaceOrderUseCase(
@@ -424,10 +422,7 @@ class TestUseCase:
             logger=logger,
             event_bus=bus,
         )
-        object.__setattr__(uc, "_uow", uow)
         uc.run()
-        assert uow.commit.called
-        assert not uow.rollback.called
         completions = [c for c in logger.info.call_args_list if "completed" in str(c.args[0])]
         assert len(completions) == 1
         assert bus.publish.call_count >= 1

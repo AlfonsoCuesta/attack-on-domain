@@ -8,7 +8,8 @@ from aod._internal.application.logger import Logger
 from aod._internal.core.domain_exception import MutationForbiddenException
 from aod._internal.core.event_emitter import EventCollector
 from aod._internal.core.fields.fields import PrivateField
-from aod._internal.application.unit_of_work import UnitOfWork
+from aod._internal.infrastructure.handlers.handlers import BaseHandler
+from aod._internal.infrastructure.session import Session
 from aod.application import UseCase
 from aod.testing.doubles import port_stub
 from tests.application._use_case_scenarios import (
@@ -358,13 +359,13 @@ def test_re_run_does_not_keep_old_events() -> None:
 def test_cannot_set_fields_from_outside() -> None:
     uc = CreateUser()
     with pytest.raises(MutationForbiddenException):
-        uc._uow = None  # type: ignore
+        uc.events = None  # type: ignore
 
 
 def test_cannot_del_fields() -> None:
     uc = CreateUser()
     with pytest.raises(MutationForbiddenException):
-        del uc._uow
+        del uc.events
 
 
 def test_no_public_methods_exposed_besides_run() -> None:
@@ -397,44 +398,70 @@ def test_use_case_can_emit_events_directly() -> None:
     assert uc.events[0].name == "from_uc"
 
 
-def test_uow_auto_commit_on_success() -> None:
+class _TxTestSession(Session):
+    _committed: bool = PrivateField(default=False)
+    _rolled_back: bool = PrivateField(default=False)
+
+    def begin(self) -> None:
+        pass
+
+    def commit(self) -> None:
+        self._committed = True
+
+    def rollback(self) -> None:
+        self._rolled_back = True
+
+    def close(self) -> None:
+        pass
+
+    def is_dirty(self) -> bool:
+        return True
+
+    def execute(self, operation: object) -> object:
+        return operation
+
+    def query(self, operation: object) -> object:
+        return operation
+
+
+class _TxHandler(BaseHandler):
+    session: _TxTestSession
+
+
+def test_tx_auto_commit_on_success() -> None:
+    session = _TxTestSession()
+    handler = _TxHandler(session=session)
+
     class Create(UseCase):
+        __skip_port_check__ = True
+        save: _TxHandler
+
         def run(self) -> None:
             pass
 
-    uow = port_stub(UnitOfWork)()
-    uc = Create()
-    object.__setattr__(uc, "_uow", uow)
+    uc = Create(save=handler)
     uc.run()
-    assert uow.commit.called
-    assert not uow.rollback.called
+    assert session._committed
+    assert not session._rolled_back
 
 
-def test_uow_always_commits_on_success() -> None:
-    class NoOp(UseCase):
-        def run(self) -> None:
-            pass
+def test_tx_auto_rollback_on_failure() -> None:
+    session = _TxTestSession()
+    handler = _TxHandler(session=session)
 
-    uow = port_stub(UnitOfWork)()
-    uc = NoOp()
-    object.__setattr__(uc, "_uow", uow)
-    uc.run()
-    assert uow.commit.called
-    assert not uow.rollback.called
-
-
-def test_uow_auto_rollback_on_failure() -> None:
     class Fail(UseCase):
-        def run(self) -> None:
-            raise ValueError("oops")
+        __skip_port_check__ = True
+        save: _TxHandler
 
-    uow = port_stub(UnitOfWork)()
-    uc = Fail()
-    object.__setattr__(uc, "_uow", uow)
+        def run(self) -> None:
+            msg = "oops"
+            raise ValueError(msg)
+
+    uc = Fail(save=handler)
     with pytest.raises(ValueError):
         uc.run()
-    assert uow.rollback.called
-    assert not uow.commit.called
+    assert session._rolled_back
+    assert not session._committed
 
 
 def test_logger_auto_logs_completion() -> None:
@@ -499,21 +526,27 @@ def test_event_bus_auto_publishes_on_success() -> None:
 
 
 def test_commit_failure_rolls_back_and_logs() -> None:
+    class _FailOnCommitSession(_TxTestSession):
+        def commit(self) -> None:
+            raise RuntimeError("commit failed")
+
+    session = _FailOnCommitSession()
+    handler = _TxHandler(session=session)
+
     class Simple(UseCase):
+        __skip_port_check__ = True
         logger: Logger
+        save: _TxHandler
 
         def run(self) -> None:
             pass
 
-    uow = port_stub(UnitOfWork)()
-    uow.commit.side_effect = RuntimeError("commit failed")
     logger = port_stub(Logger)()
-    uc = Simple(logger=logger)
-    object.__setattr__(uc, "_uow", uow)
+    uc = Simple(logger=logger, save=handler)
     with pytest.raises(RuntimeError):
         uc.run()
-    assert uow.rollback.called
-    errors = [c for c in logger.error.call_args_list if "commit failed" in str(c.args[0])]
+    assert session._rolled_back
+    errors = [c for c in logger.error.call_args_list if "failed" in str(c.args[0])]
     assert len(errors) >= 1
 
 

@@ -15,7 +15,6 @@ from aod._internal.application.handler import (
 )
 from aod._internal.application.logger import AsyncLogger, Logger
 from aod._internal.application.port import Port
-from aod._internal.application.unit_of_work import AsyncUnitOfWork, UnitOfWork
 from aod._internal.application.use_case import AsyncUseCase, UseCase
 from aod._internal.domain.entity import Entity, RootEntity
 from aod._internal.domain.service import Service
@@ -485,15 +484,6 @@ class TestPortDoc:
 
     def test_async_eventbus(self) -> None:
         doc = PortDoc.from_port(AsyncEventBus)
-        assert doc.is_async is True
-
-    def test_uow_port(self) -> None:
-        doc = PortDoc.from_port(UnitOfWork)
-        assert doc.name == "UnitOfWork"
-
-    def test_async_uow_port(self) -> None:
-        doc = PortDoc.from_port(AsyncUnitOfWork)
-        assert doc.name == "AsyncUnitOfWork"
         assert doc.is_async is True
 
     def test_custom_port(self) -> None:

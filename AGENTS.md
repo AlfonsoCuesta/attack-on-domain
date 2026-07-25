@@ -23,9 +23,9 @@ code/
 │   ├── testing/                       # Public testing utilities
 │   │   ├── __init__.py                # FakeDomain, build, events_of, assert_*
 │   │   └── doubles/
-│   │       ├── __init__.py            # Empty (package marker)
+│   │   ├── __init__.py                # SpyLogger, SpyEventBus, SpyCache, SpySession, SpyAsyncSession, port_stub
 │   │       ├── application/
-│   │       │   ├── __init__.py        # SpyLogger, SpyEventBus, SpyUnitOfWork, SpyCache
+│   │   │       ├── __init__.py        # SpyLogger, SpyEventBus, SpyCache
 │   │       │   ├── spies.py          # Generated via port_stub (replaces hand-written spies)
 │   │       │   └── async_/
 │   │       │       └── __init__.py    # Async re-exports (plain names)
@@ -76,10 +76,11 @@ code/
 │       │   ├── logger/               # Logger port — sync + async
 │       │   │   ├── __init__.py
 │       │   │   └── logger.py          # Logger(Port) + AsyncLogger(Port)
-│       │   ├── unit_of_work/         # UnitOfWork (concrete, sessions + caches)
-│       │   │   ├── __init__.py
-│       │   │   └── unit_of_work.py   # _UnitOfWorkBase (shared logic), UnitOfWork (sync), AsyncUnitOfWork (async, accepts sync/async sessions)
-│       │   └── use_case/             # UseCase base — sync + async
+│   │       ├── transaction/          # Transaction (sessions + caches + events + log + event_bus)
+│   │       │   ├── __init__.py
+│   │       │   └── transaction.py    # TransactionBase, Transaction (sync), AsyncTransaction (async)
+│   │       ├── commit_context.py     # _CommitContext contextvar (set during operation body)
+│   │       └── use_case/             # UseCase base — sync + async
 │       │       ├── __init__.py
 │       │       └── use_case.py       # UseCase(BaseOperation) + AsyncUseCase(BaseOperation)
 │   ├── infrastructure/           # Infrastructure layer (packages)
@@ -99,7 +100,7 @@ code/
 │   │   │   ├── container.py      # AdapterContainer orchestrator
 │   │   │   ├── types.py          # Type helpers and aliases
 │   │   │   ├── port_manager.py   # Port index, resolution, injection
-│   │   │   ├── session_manager.py  # Session lifecycle, UoW creation
+│   │   │   ├── session_manager.py  # Session lifecycle, Transaction creation
 │   │   │   └── handler_manager.py  # Handler discovery, validation, instantiation
 │       └── testing/                  # Testing utilities (implementation)
 │           ├── __init__.py           # Re-exports: DomainType, FakeDomain, build, helpers
@@ -181,7 +182,7 @@ code/
     │   ├── test_inject.py
     │   ├── test_projection_classes.py
     │   ├── test_session.py
-    │   └── test_unit_of_work.py
+    │   └── test_transaction.py
     └── e2e/                          # End-to-end real-world usage tests
         ├── test_ecommerce.py         # E-commerce domain: VOs, entities, bounded context, app, use case, container, inject, faker, build
         ├── test_invariances.py       # field_invariance, invariance, check_invariant helper
@@ -197,8 +198,8 @@ BaseValidator (metaclass: ValidationModelMeta -> ABCMeta)
 +-- BaseGuarded                     (mutation-guarded)
     +-- BaseBehaviour               (extends BaseGuarded -- allows mutation inside methods)
     |   +-- BaseOperation           (adds _event_emitter, events, _loggers, _event_buses, _caches)
-    |   |   +-- UseCase             -> +_uow, +run()
-    |   |   +-- AsyncUseCase        -> +_uow, +async run()
+    |   |   +-- UseCase             -> +run()
+    |   |   +-- AsyncUseCase        -> +async run()
     |   |   +-- ProjectionBase
     |   |   |   +-- ReadProjectionBase
     |   |   |   |   +-- ReadProjection       -> +read()
@@ -265,7 +266,7 @@ The framework is a generic sandbox. Key boundaries:
 - **No Repository abstraction** — CQRS is enforced via handlers (`CommandHandler`/`QueryHandler`). The `Session` IS the data access layer.
 - **No domain primitives** (Email, Currency, Money, etc.) — each project defines its own ValueObjects.
 - **No Sagas / Process Managers** — infrastructure orchestration is the user's responsibility.
-- **Outbox pattern** is already covered by the UseCase and Projection wrappers (commit → publish).
+- **Outbox pattern** is already covered by the Transaction wrapper used in UseCase and Projection (commit → publish).
 - **`should_await` is intentional** — async handlers can use sync sessions without blocking the event loop via runtime detection. This is a design feature, not a bug.
 
 ### `__post_init__` Hook (mechanism)
@@ -347,11 +348,11 @@ All framework exceptions re-exported from `aod.exceptions`. Per-layer base excep
 
 ### `UseCase` Base Class (internals)
 `UseCase` extends `BaseOperation`. Key mechanics:
-- **`_uow` is private** -- auto-created via `PrivateField(default_factory=UnitOfWork)`, auto-registers all handler fields in `__init__`
-- **`__init_subclass__`** wraps `run` to: (1) open EventCollector context, (2) invoke original run, (3) replace `self.events` with captured list
+- **Transaction is ephemeral** -- created fresh per `run()` call via `_build_tx()`, configured with loggers, event buses, and handler sessions/caches, then discarded after `run_transaction()`.
+- **`__init_subclass__`** wraps `run` to: (1) build Transaction, (2) invoke original run via `tx.run_transaction()`, (3) copy events from Transaction to `self.events` in `finally`.
 - **Field validation**: `BaseOperation.__init_subclass__` checks fields. Only `Port` subclasses allowed. `BaseHandler`/`AsyncBaseHandler` and `Session`/`AsyncSession` rejected. `AppCommandHandler[T]`/`AppQueryHandler[T]` accepted (inherit from `HandlerProtocol(Port)`). Non-Port fields raise `InvalidUseCasePortFieldError`.
 - **`__skip_port_check__`** check uses `cls.__dict__.get("__skip_port_check__")` -- only current class's own dict, not inherited
-- **Container sessions**: `AdapterContainer.sessions` holds session **classes**, not instances. `get_session()` instantiates and caches. `HandlerManager` creates handler instances with session instances; UseCase's `UnitOfWork` collects them via `add_handler()`.
+- **Container sessions**: `AdapterContainer.sessions` holds session **classes**, not instances. `get_session()` instantiates and caches. `HandlerManager` creates handler instances with session instances; UseCase's `_build_tx()` extracts sessions and caches from handlers at run time.
 
 ### `Port` Base Class (internals)
 `Port` extends `BaseGuarded`:
@@ -373,7 +374,7 @@ All application-layer handler types (`CommandHandler`, `QueryHandler`, etc.) inh
 ### Projection System (tech details)
 `ProjectionBase(BaseOperation)` inherits `_event_emitter`, `events`, `logger`, `event_bus`. Fields must be `Port` subclasses (except session fields). `HandlerProtocol` rejected via `__not_allowed_port_types__ = (HandlerProtocol,)`. Multiple session fields allowed with concrete types. `ProjectionBase.__init_subclass__` calls `typing.get_type_hints(cls)` and raises `AbstractSessionTypeError` for direct `Session`/`AsyncSession` fields.
 
-`ReadProjectionBase`/`WriteProjectionBase` wrap `read()`/`write()` with EventCollector + log + event_bus publish. `WriteProjectionBase` additionally wraps with `CommitContext` + rollback on failure.
+`ReadProjectionBase`/`WriteProjectionBase` wrap `read()`/`write()` by creating a fresh `Transaction` from `self._loggers`, `self._event_buses`, `self._sessions` and delegating to `run_transaction`. `WriteProjectionBase` uses `only_read=False` so `CommitContext` is set during the body for manual `session.commit()` calls.
 
 ### Test Doubles (directory structure)
 ```
@@ -417,7 +418,7 @@ make typecheck      # pyright (when configured)
 5. Tests mirror source structure under `code/tests/`
 6. Never import from `_internal` in user-facing code -- only through `aod.domain`, `aod.domain.validation`, `aod.exceptions`, `aod.application`, `aod.infrastructure`
 7. Every `__init__.py` must define `__all__` to suppress `F401` ("imported but unused") warnings. Public `async_.py` aggregators also define `__all__`.
-8. Sync/async duality: every port, handler, and use case has sync and async versions. Sync classes keep the base name (`Cache`, `Session`, `UnitOfWork`, `CommandHandler`, etc.), async classes use the `Async` prefix (`AsyncCache`, `AsyncSession`, `AsyncUnitOfWork`, `AsyncCommandHandler`). Both live in the same file.
+8. Sync/async duality: every port, handler, and use case has sync and async versions. Sync classes keep the base name (`Cache`, `Session`, `CommandHandler`, etc.), async classes use the `Async` prefix (`AsyncCache`, `AsyncSession`, `AsyncCommandHandler`). Both live in the same file.
 9. **No `TYPE_CHECKING` imports** -- they signal poor module structure. All imports go at the top of the file (except in test files where local imports are fine).
 10. **No local imports in source code** -- all imports at module level. Local imports inside functions are not allowed outside of test files.
 11. **No `# ty: ignore` in source code** -- try to use strict typing
@@ -437,7 +438,7 @@ make typecheck      # pyright (when configured)
 - If you change the handler layer, update `handlers.py` and/or `base_handler.py` and verify `test_async_handlers.py`
 - If you change `BaseOperation` field validation, update `base_operation.py` and verify `test_base_operation_port_check.py`
 - If you change the application layer, update `port.py` and/or `use_case.py` and verify `test_port.py` / `test_use_case.py`
-- If you change the UnitOfWork, update `unit_of_work.py` (sync + async) and verify `test_port.py` / `test_async_port.py` (includes `is_dirty` tests)
+- If you change the Transaction, update `transaction.py` and verify `test_transaction.py`
 - If you change async counterparts (aggregated in `aod.application.async_` / `aod.infrastructure.async_`), update both sync and async test files
 - If you change the container, update files in `container/` package (container.py, port_manager.py, session_manager.py, handler_manager.py, types.py) and verify `test_container.py`, `test_inject.py`, and container-related e2e tests
 - Always add `__all__` to every `__init__.py` and `async_.py` to avoid `F401` lint warnings
@@ -456,8 +457,7 @@ make typecheck      # pyright (when configured)
 
 ## Test Count
 
-1186 tests, 3 skipped (no `patch`/`mock.patch` in any test file)
-97% code coverage (98/3656 lines missing)
+1250 tests, 3 skipped (no `patch`/`mock.patch` in any test file)
 
 ## At the end of a task
 

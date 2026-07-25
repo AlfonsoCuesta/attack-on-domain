@@ -19,7 +19,6 @@ from aod._internal.infrastructure.container import AdapterContainer
 from aod._internal.infrastructure.handlers import AsyncCommandHandler
 from aod._internal.infrastructure.projection import ReadProjection
 from aod._internal.infrastructure.session import AsyncSession, Session
-from aod._internal.application.unit_of_work import UnitOfWork
 from aod._internal.testing.doubles.infrastructure.container import spy_adapter_container
 from aod.application import Command, Query, UseCase
 from aod.domain import RootEntity
@@ -505,13 +504,13 @@ def test_copy_preserves_port_values() -> None:
 # ── adapt UseCase ──
 
 
-def test_adapt_use_case_injects_uow() -> None:
+def test_adapt_use_case_succeeds() -> None:
     class _UC(UseCase):
         def run(self) -> None: ...
 
     container = AdapterContainer()
     uc = container.adapt(_UC)
-    assert isinstance(object.__getattribute__(uc, "_uow"), UnitOfWork)
+    assert isinstance(uc, _UC)
 
 
 def test_adapt_use_case_injects_handler_ports() -> None:
@@ -576,7 +575,7 @@ def test_adapt_use_case_with_overrides() -> None:
     container = AdapterContainer()
     uc = container.adapt(_UC, sessions={_SyncSession})
     assert container.sessions == set()
-    assert isinstance(object.__getattribute__(uc, "_uow"), UnitOfWork)
+    assert isinstance(uc, _UC)
 
 
 # ── adapt Projection ──

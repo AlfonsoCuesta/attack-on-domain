@@ -3,13 +3,13 @@ from __future__ import annotations
 import pytest
 from aod._internal.application.event_bus import AsyncEventBus, EventBus
 from aod._internal.application.handler import CommandPort
-from aod._internal.application.logger import AsyncLogger, Logger
-from aod._internal.application.unit_of_work import AsyncUnitOfWork, UnitOfWork
+from aod._internal.application.logger import Logger
 from aod._internal.application.contracts import Command
 from aod._internal.application.use_case import AsyncUseCase as UseCase
 from aod._internal.core.domain_exception import MutationForbiddenException
-from aod._internal.infrastructure.handlers.handlers import CommandHandler
-from aod._internal.infrastructure.session import Session
+from aod._internal.core.fields.fields import PrivateField
+from aod._internal.infrastructure.handlers.handlers import BaseHandler, CommandHandler
+from aod._internal.infrastructure.session import AsyncSession, Session
 from aod.testing.doubles import port_stub
 from tests.application._use_case_scenarios import (
     _RUN_BODIES,
@@ -23,15 +23,64 @@ from tests.application._use_case_scenarios import (
 )
 
 
-class _TestSession(Session):
-    def execute(self, operation: object) -> None: ...
-    def query(self, operation: object) -> object: ...
-    def begin(self) -> None: ...
-    def commit(self) -> None: ...
-    def rollback(self) -> None: ...
-    def close(self) -> None: ...
+class _TxTestSession(AsyncSession):
+    _committed: bool = PrivateField(default=False)
+    _rolled_back: bool = PrivateField(default=False)
+
+    async def begin(self) -> None:
+        pass
+
+    async def commit(self) -> None:
+        self._committed = True
+
+    async def rollback(self) -> None:
+        self._rolled_back = True
+
+    async def close(self) -> None:
+        pass
+
     def is_dirty(self) -> bool:
-        return False
+        return True
+
+    async def execute(self, operation: object) -> object:
+        return operation
+
+    async def query(self, operation: object) -> object:
+        return operation
+
+
+class _TxSyncSession(Session):
+    _committed: bool = PrivateField(default=False)
+    _rolled_back: bool = PrivateField(default=False)
+
+    def begin(self) -> None:
+        pass
+
+    def commit(self) -> None:
+        self._committed = True
+
+    def rollback(self) -> None:
+        self._rolled_back = True
+
+    def close(self) -> None:
+        pass
+
+    def is_dirty(self) -> bool:
+        return True
+
+    def execute(self, operation: object) -> object:
+        return operation
+
+    def query(self, operation: object) -> object:
+        return operation
+
+
+class _TxHandler(BaseHandler):
+    session: _TxTestSession
+
+
+class _TxSyncSessionHandler(BaseHandler):
+    session: _TxSyncSession
 
 
 class _SaveUser(Command[User, None]):
@@ -39,7 +88,7 @@ class _SaveUser(Command[User, None]):
 
 
 class _SaveHandler(CommandHandler[_SaveUser]):
-    session: _TestSession
+    session: _TxSyncSession
 
     def handle(self, command: _SaveUser) -> None: ...
 
@@ -231,44 +280,39 @@ async def test_events_not_shared_across_instances() -> None:
     assert uc2.events == []
 
 
-async def test_uow_auto_commit_on_success() -> None:
+async def test_tx_auto_commit_on_success() -> None:
+    session = _TxTestSession()
+    handler = _TxHandler(session=session)
+
     class Create(UseCase):
+        __skip_port_check__ = True
+        save: _TxHandler
+
         async def run(self) -> None:
             pass
 
-    uow = port_stub(AsyncUnitOfWork)()
-    uc = Create()
-    object.__setattr__(uc, "_uow", uow)
+    uc = Create(save=handler)
     await uc.run()
-    assert uow.commit.called
-    assert not uow.rollback.called
+    assert session._committed
+    assert not session._rolled_back
 
 
-async def test_uow_always_commits_on_success() -> None:
-    class NoOp(UseCase):
-        async def run(self) -> None:
-            pass
+async def test_tx_auto_rollback_on_failure() -> None:
+    session = _TxTestSession()
+    handler = _TxHandler(session=session)
 
-    uow = port_stub(AsyncUnitOfWork)()
-    uc = NoOp()
-    object.__setattr__(uc, "_uow", uow)
-    await uc.run()
-    assert uow.commit.called
-    assert not uow.rollback.called
-
-
-async def test_uow_auto_rollback_on_failure() -> None:
     class Fail(UseCase):
+        __skip_port_check__ = True
+        save: _TxHandler
+
         async def run(self) -> None:
             raise ValueError("oops")
 
-    uow = port_stub(AsyncUnitOfWork)()
-    uc = Fail()
-    object.__setattr__(uc, "_uow", uow)
+    uc = Fail(save=handler)
     with pytest.raises(ValueError):
         await uc.run()
-    assert uow.rollback.called
-    assert not uow.commit.called
+    assert session._rolled_back
+    assert not session._committed
 
 
 async def test_logger_auto_logs_completion() -> None:
@@ -299,20 +343,26 @@ async def test_event_bus_auto_publishes_on_success() -> None:
 
 
 async def test_commit_failure_rolls_back_and_logs() -> None:
+    class _FailOnCommitSession(_TxTestSession):
+        async def commit(self) -> None:
+            raise RuntimeError("commit failed")
+
+    session = _FailOnCommitSession()
+    handler = _TxHandler(session=session)
+
     class Simple(UseCase):
+        __skip_port_check__ = True
         logger: Logger
+        save: _TxHandler
 
         async def run(self) -> None:
             pass
 
-    uow = port_stub(AsyncUnitOfWork)()
-    uow.commit.side_effect = RuntimeError("commit failed")
     logger = port_stub(Logger)()
-    uc = Simple(logger=logger)
-    object.__setattr__(uc, "_uow", uow)
+    uc = Simple(logger=logger, save=handler)
     with pytest.raises(RuntimeError):
         await uc.run()
-    assert uow.rollback.called
+    assert session._rolled_back
 
 
 async def test_use_case_can_emit_events_directly() -> None:
@@ -341,92 +391,66 @@ async def test_post_init_runs_on_use_case() -> None:
 
 
 async def test_mixed_all_sync_ports_on_success() -> None:
+    session = _TxSyncSession()
+    handler = _TxSyncSessionHandler(session=session)
+
     class Simple(UseCase):
+        __skip_port_check__ = True
         logger: Logger
         event_bus: EventBus
+        save: _TxSyncSessionHandler
 
         async def run(self) -> None:
             pass
 
-    uow = port_stub(UnitOfWork)()
     logger = port_stub(Logger)()
     bus = port_stub(EventBus)()
-    uc = Simple(logger=logger, event_bus=bus)
-    object.__setattr__(uc, "_uow", uow)
+    uc = Simple(logger=logger, event_bus=bus, save=handler)
     await uc.run()
-    assert uow.commit.called
-    assert not uow.rollback.called
+    assert session._committed
+    assert not session._rolled_back
     completions = [c for c in logger.info.call_args_list if "completed" in str(c.args[0])]
     assert len(completions) == 1
 
 
 async def test_mixed_all_sync_ports_on_failure() -> None:
+    session = _TxSyncSession()
+    handler = _TxSyncSessionHandler(session=session)
+
     class Fail(UseCase):
+        __skip_port_check__ = True
         logger: Logger
+        save: _TxSyncSessionHandler
 
         async def run(self) -> None:
             raise ValueError("oops")
 
-    uow = port_stub(UnitOfWork)()
     logger = port_stub(Logger)()
-    uc = Fail(logger=logger)
-    object.__setattr__(uc, "_uow", uow)
+    uc = Fail(logger=logger, save=handler)
     with pytest.raises(ValueError):
         await uc.run()
-    assert uow.rollback.called
-    assert not uow.commit.called
+    assert session._rolled_back
+    assert not session._committed
     assert any("failed" in str(e) for e in [str(c.args[0]) for c in logger.error.call_args_list])
 
 
-async def test_mixed_sync_uow_async_event_bus() -> None:
+async def test_mixed_sync_session_async_event_bus() -> None:
+    session = _TxSyncSession()
+    handler = _TxSyncSessionHandler(session=session)
+
     class Emit(UseCase):
+        __skip_port_check__ = True
         event_bus: AsyncEventBus
+        save: _TxSyncSessionHandler
 
         async def run(self) -> None:
             self._event_emitter.emit(UserCreated(user_id=1, name="test"))
 
-    uow = port_stub(UnitOfWork)()
     bus = port_stub(AsyncEventBus)()
-    uc = Emit(event_bus=bus)
-    object.__setattr__(uc, "_uow", uow)
+    uc = Emit(event_bus=bus, save=handler)
     await uc.run()
-    assert uow.commit.called
+    assert session._committed
     assert bus.publish.call_count == 1
-
-
-async def test_mixed_async_uow_sync_logger() -> None:
-    class Simple(UseCase):
-        logger: Logger
-
-        async def run(self) -> None:
-            pass
-
-    uow = port_stub(AsyncUnitOfWork)()
-    logger = port_stub(Logger)()
-    uc = Simple(logger=logger)
-    object.__setattr__(uc, "_uow", uow)
-    await uc.run()
-    assert uow.commit.called
-    assert not uow.rollback.called
-    completions = [c for c in logger.info.call_args_list if "completed" in str(c.args[0])]
-    assert len(completions) == 1
-
-
-async def test_mixed_sync_event_bus_async_logger() -> None:
-    class Emit(UseCase):
-        event_bus: EventBus
-        logger: AsyncLogger
-
-        async def run(self) -> None:
-            self._event_emitter.emit(UserCreated(user_id=1, name="test"))
-
-    bus = port_stub(EventBus)()
-    logger = port_stub(AsyncLogger)()
-    uc = Emit(event_bus=bus, logger=logger)
-    await uc.run()
-    assert bus.publish.call_count == 1
-    completions = [c for c in logger.info.call_args_list if "completed" in str(c.args[0])]
-    assert len(completions) == 1
 
 
 async def test_async_use_case_returns_run_value() -> None:
@@ -459,11 +483,12 @@ async def test_async_use_case_returns_complex_value() -> None:
     assert result == {"name": "Alice", "id": "1"}
 
 
-async def test_uow_registers_handler_on_init() -> None:
-    session = _TestSession()
+async def test_tx_picks_up_handler_session_on_run() -> None:
+    session = _TxSyncSession()
     handler = _SaveHandler(session=session)
     uc = _MyUC(save=handler)
-    assert session in object.__getattribute__(uc, "_uow").sessions
+    await uc.run()
+    assert session._committed
 
 
 async def test_keyboard_interrupt_propagates_through_async_use_case() -> None:

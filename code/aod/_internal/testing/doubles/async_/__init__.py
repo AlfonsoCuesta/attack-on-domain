@@ -1,8 +1,7 @@
-from ..application import AsyncSpyCache, AsyncSpyEventBus, AsyncSpyLogger, AsyncSpyUnitOfWork
+from ..application import AsyncSpyCache, AsyncSpyEventBus, AsyncSpyLogger
 
 __all__ = [
     "AsyncSpyCache",
     "AsyncSpyEventBus",
     "AsyncSpyLogger",
-    "AsyncSpyUnitOfWork",
 ]

@@ -86,7 +86,7 @@ Create a use case or projection instance with all dependencies wired automatical
 For use cases:
 - Injects matching handler ports (`CommandPort[C]`, `QueryPort[Q]`) by contract type.
 - Injects custom ports by field name, with type-based fallback from `ports` dict.
-- The UseCase creates its own UnitOfWork internally -- the container does not inject it.
+- The UseCase creates its own Transaction internally -- the container does not inject it.
 
 For projections:
 - Injects sessions by type annotation for any field with a `Session`/`AsyncSession` annotation.
@@ -123,7 +123,7 @@ Cache instances passed via the `caches` parameter are automatically wired to mat
 
 - Each cache instance carries `CacheKey` definitions that declare which `Query` and `Command` types they intercept.
 - When instantiating a handler, the container iterates all caches and calls `handler.add_cache(cache)` for each matching pair.
-- Read-through, invalidation, and cache flushing happen inside the UnitOfWork, which the UseCase creates internally.
+- Read-through, invalidation, and cache flushing happen inside the Transaction, which the UseCase creates internally.
 
 ## Session Caching
 
@@ -131,7 +131,7 @@ Once a session is instantiated via `get_session()`, the same instance is returne
 
 ## Multi-Session Support
 
-The container supports both sync and async sessions simultaneously. The UseCase's internal UnitOfWork automatically detects session types and handles transactions appropriately.
+The container supports both sync and async sessions simultaneously. The UseCase's internal Transaction automatically detects session types and handles transactions appropriately.
 
 ## Auto-Wiring Logic
 
@@ -144,7 +144,7 @@ When adapting a `UseCase` or `AsyncUseCase`:
 | `CommandPort[C]` / `QueryPort[Q]` | `container.get_handler(contract_type)` |
 | Custom ports | Named ports or `ports` dict (see Port Resolution Order) |
 
-The UseCase's UnitOfWork is created internally -- the container never injects it.
+The UseCase's Transaction is created internally -- the container never injects it.
 
 ### Projection Wiring
 
@@ -186,7 +186,7 @@ class MyAsyncUseCase(UseCase):
 use_case = container.adapt(MyAsyncUseCase)
 ```
 
-The UseCase internally creates an `AsyncUnitOfWork` when async handlers or sessions are present.
+The UseCase internally creates an `AsyncTransaction` when async handlers or sessions are present.
 
 ## Common Patterns
 

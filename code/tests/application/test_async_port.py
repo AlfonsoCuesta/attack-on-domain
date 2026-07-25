@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import pytest
 from aod._internal.core.event_emitter import Event
-from aod._internal.application.unit_of_work import AsyncUnitOfWork as UnitOfWork
 from aod.application.async_ import EventBus, Logger
 from aod.testing.doubles import port_stub
 
@@ -56,15 +55,3 @@ async def test_async_event_bus_publish() -> None:
     await bus.publish(e1, e2)
     assert bus.publish.call_count == 1
     assert len(bus.publish.call_args_list[0].args) == 2
-
-
-async def test_async_unit_of_work_commit() -> None:
-    uow = port_stub(UnitOfWork)()
-    await uow.commit()
-    assert uow.commit.called
-
-
-async def test_async_unit_of_work_rollback() -> None:
-    uow = port_stub(UnitOfWork)()
-    await uow.rollback()
-    assert uow.rollback.called

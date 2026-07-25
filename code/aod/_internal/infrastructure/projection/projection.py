@@ -6,12 +6,11 @@ from functools import wraps
 from typing import Any, Callable
 
 from aod._internal.application.handler.handler import HandlerProtocol
+from aod._internal.application.transaction import AsyncTransaction, Transaction
 from aod._internal.core.async_utils import should_await
 from aod._internal.core.base_operation import BaseOperation
-from aod._internal.core.event_emitter import EventCollector
 from aod._internal.core.fields.fields import PrivateField
 from aod._internal.core.infrastructure_exception import AbstractSessionTypeError
-from aod._internal.infrastructure.commit_context import _CommitContext
 from aod._internal.infrastructure.session import AsyncSession, Session
 
 _PROJECTION_WRAPPED_KEY = "__aod_projection_wrapped__"
@@ -29,81 +28,41 @@ def _make_projection_wrapper(
     is_write: bool,
     operation: str,
 ) -> Callable[..., Any]:
+    only_read = not is_write
+
     if is_async:
 
         @wraps(fn)
         async def async_wrapper(self: Any, *args: Any, **kwargs: Any) -> Any:
-            token = _CommitContext.set(True) if is_write else None
-            exception: Exception | None = None
+            tx = AsyncTransaction(
+                only_read=only_read, operation_name=f"{type(self).__name__} {operation}"
+            )
+            for logger in self._loggers:
+                tx.add_logger(logger)
+            for bus in self._event_buses:
+                tx.add_event_bus(bus)
+            for session in self._sessions:
+                tx.add_session(session)
             try:
-                if is_write:
-                    for session in self._sessions:
-                        await should_await(session.begin())
-                with EventCollector() as events:
-                    try:
-                        result = await should_await(fn(self, *args, **kwargs))
-                    except Exception as e:
-                        exception = e
-                        result = None
-                    self.events = list(events)
-                if exception is not None:
-                    if is_write:
-                        for session in self._sessions:
-                            await should_await(session.rollback())
-                    for logger in self._loggers:
-                        await should_await(
-                            logger.error(
-                                f"{type(self).__name__} {operation} failed with exception: {exception}"
-                            )
-                        )
-                    raise exception
-                for logger in self._loggers:
-                    await should_await(
-                        logger.info(f"{type(self).__name__} {operation} events", events=self.events)
-                    )
-                for bus in self._event_buses:
-                    await should_await(bus.publish(*self.events))
-                for logger in self._loggers:
-                    await should_await(logger.info(f"{type(self).__name__} {operation} completed"))
-                return result
+                return await should_await(tx.run_transaction(fn, self, *args, **kwargs))
             finally:
-                if token is not None:
-                    _CommitContext.reset(token)
+                self.events = tx.get_events()
 
         return async_wrapper
 
     @wraps(fn)
     def sync_wrapper(self: Any, *args: Any, **kwargs: Any) -> Any:
-        token = _CommitContext.set(True) if is_write else None
-        exception: Exception | None = None
+        tx = Transaction(only_read=only_read, operation_name=f"{type(self).__name__} {operation}")
+        for logger in self._loggers:
+            tx.add_logger(logger)
+        for bus in self._event_buses:
+            tx.add_event_bus(bus)
+        for session in self._sessions:
+            tx.add_session(session)
         try:
-            with EventCollector() as events:
-                try:
-                    result = fn(self, *args, **kwargs)
-                except Exception as e:
-                    exception = e
-                    result = None
-                self.events = list(events)
-            if exception is not None:
-                if is_write:
-                    for session in self._sessions:
-                        if session.is_dirty():
-                            session.rollback()
-                for logger in self._loggers:
-                    logger.error(
-                        f"{type(self).__name__} {operation} failed with exception: {exception}"
-                    )
-                raise exception
-            for logger in self._loggers:
-                logger.info(f"{type(self).__name__} {operation} events", events=self.events)
-            for bus in self._event_buses:
-                bus.publish(*self.events)
-            for logger in self._loggers:
-                logger.info(f"{type(self).__name__} {operation} completed")
-            return result
+            return tx.run_transaction(fn, self, *args, **kwargs)
         finally:
-            if token is not None:
-                _CommitContext.reset(token)
+            self.events = tx.get_events()
 
     return sync_wrapper
 

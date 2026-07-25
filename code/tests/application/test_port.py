@@ -5,7 +5,6 @@ from abc import abstractmethod
 import pytest
 from aod._internal.core.domain_exception import MutationForbiddenException
 from aod._internal.core.event_emitter import Event
-from aod._internal.application.unit_of_work import UnitOfWork
 from aod.application import EventBus, Logger, Port, UseCase
 from aod.testing.doubles import port_stub
 
@@ -121,15 +120,3 @@ def test_event_bus_publish() -> None:
     bus.publish(e1, e2)
     assert bus.publish.call_count == 1
     assert len(bus.publish.call_args_list[0].args) == 2
-
-
-def test_unit_of_work_commit() -> None:
-    uow = port_stub(UnitOfWork)()
-    uow.commit()
-    assert uow.commit.called
-
-
-def test_unit_of_work_rollback() -> None:
-    uow = port_stub(UnitOfWork)()
-    uow.rollback()
-    assert uow.rollback.called

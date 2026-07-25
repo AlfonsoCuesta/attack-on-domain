@@ -14,7 +14,6 @@ import pytest
 from aod._internal.application.contracts import Command, Query
 from aod._internal.application.handler import CommandPort, QueryPort
 from aod._internal.application.port import Port
-from aod._internal.application.unit_of_work import UnitOfWork
 from aod._internal.application.use_case import UseCase
 from aod._internal.domain.entity import RootEntity
 from aod._internal.domain.value_object import ValueObject
@@ -62,12 +61,6 @@ class EmailSender(Port):
 
 class SmtpSender(EmailSender):
     def send(self, to: str) -> None: ...
-
-
-class FakeUnitOfWork(UnitOfWork):
-    def begin(self) -> None: ...
-    def commit(self) -> None: ...
-    def rollback(self) -> None: ...
 
 
 # ---- handlers ----
@@ -125,7 +118,7 @@ class TestRealGeneration:
         )
         infra = Infrastructure(
             handlers=[PlaceOrderHandler, GetOrderHandler],
-            ports=[FakeUnitOfWork, SmtpSender],
+            ports=[SmtpSender],
         )
         mod = Module(name="orders", context=bc, infrastructure=infra)
         app = App(name="MyApp", modules=[mod], description="App description")
