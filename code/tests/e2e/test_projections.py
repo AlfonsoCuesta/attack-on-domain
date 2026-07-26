@@ -235,10 +235,10 @@ class TestWriteProjection:
         assert len(p.events) == 1
         assert p.events[0].name == "Alice"
 
-    def test_write_commit_context_enabled(self) -> None:
+    def test_write_commit_context_inactive_during_body(self) -> None:
         class CheckContext(WriteProjection):
             def write(self, model: UserWriteModel) -> str:
-                assert _CommitContext.get(False) is True
+                assert _CommitContext.get(False) is False
                 return "ok"
 
         p = CheckContext()
@@ -305,14 +305,14 @@ class TestFullProjection:
         p.write(UserWriteModel(user_id=1, name="Alice"))
         assert len(p.events) == 1
 
-    def test_commit_context_active_during_write_only(self) -> None:
+    def test_commit_context_inactive_during_write_only(self) -> None:
         class CheckContext(Projection):
             def read(self, model: UserReadModel) -> str:
                 assert _CommitContext.get(False) is False
                 return "ok"
 
             def write(self, model: UserWriteModel) -> str:
-                assert _CommitContext.get(False) is True
+                assert _CommitContext.get(False) is False
                 return "ok"
 
         p = CheckContext()
@@ -357,10 +357,10 @@ class TestAsyncWriteProjection:
         await p.write(UserWriteModel(user_id=1, name="Alice"))
         assert len(p.events) == 1
 
-    async def test_write_commit_context_enabled(self) -> None:
+    async def test_write_commit_context_inactive_during_body(self) -> None:
         class CheckContext(AsyncWriteProjection):
             async def write(self, model: UserWriteModel) -> str:
-                assert _CommitContext.get(False) is True
+                assert _CommitContext.get(False) is False
                 return "ok"
 
         p = CheckContext()

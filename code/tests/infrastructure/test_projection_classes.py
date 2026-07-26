@@ -5,6 +5,7 @@ from typing import cast
 import pytest
 from aod._internal.application.event_bus import EventBus
 from aod._internal.application.logger import Logger
+from aod._internal.core.application_exception import CommitOutsideUnitOfWorkError
 from aod._internal.core.event_emitter import Event
 from aod._internal.infrastructure.commit_context import _CommitContext
 from aod._internal.infrastructure.projection import (
@@ -229,17 +230,17 @@ class TestWriteProjection:
         assert len(p.events) == 1
         assert p.events[0].name == "Alice"
 
-    def test_write_commit_context_enabled(self) -> None:
+    def test_write_commit_context_inactive_during_body(self) -> None:
         class CreateUser(WriteProjection):
             def write(self, model: UserWriteModel) -> str:
-                assert _CommitContext.get(False) is True
+                assert _CommitContext.get(False) is False
                 return "created"
 
         p = CreateUser()
         result = p.write(UserWriteModel(user_id=1, name="Alice"))
         assert result == "created"
 
-    def test_write_can_commit_session(self) -> None:
+    def test_write_commit_inside_raises_error(self) -> None:
         class CreateUser(WriteProjection):
             session: _TestSession
 
@@ -250,8 +251,9 @@ class TestWriteProjection:
 
         session = _TestSession()
         p = CreateUser(session=session)
-        p.write(UserWriteModel(user_id=1, name="Alice"))
-        assert session._committed
+        with pytest.raises(CommitOutsideUnitOfWorkError):
+            p.write(UserWriteModel(user_id=1, name="Alice"))
+        assert not session._committed
 
     def test_write_rolls_back_session_on_error(self) -> None:
         class FailingWrite(WriteProjection):
@@ -371,13 +373,13 @@ class TestProjection:
         assert len(p.events) == 1
         assert p.events[0].name == "from_write"
 
-    def test_commit_context_active_during_write(self) -> None:
+    def test_commit_context_inactive_during_write(self) -> None:
         class UserProjection(Projection):
             def read(self, model: DTO) -> str:
                 return "ok"
 
             def write(self, model: DTO) -> str:
-                assert _CommitContext.get(False) is True
+                assert _CommitContext.get(False) is False
                 return "ok"
 
         p = UserProjection()
@@ -518,17 +520,17 @@ class TestAsyncWriteProjection:
         assert len(p.events) == 1
         assert p.events[0].name == "Alice"
 
-    async def test_write_commit_context_enabled(self) -> None:
+    async def test_write_commit_context_inactive_during_body(self) -> None:
         class CreateUser(AsyncWriteProjection):
             async def write(self, model: UserWriteModel) -> str:
-                assert _CommitContext.get(False) is True
+                assert _CommitContext.get(False) is False
                 return "created"
 
         p = CreateUser()
         result = await p.write(UserWriteModel(user_id=1, name="Alice"))
         assert result == "created"
 
-    async def test_write_can_commit_session(self) -> None:
+    async def test_write_commit_inside_raises_error(self) -> None:
         class CreateUser(AsyncWriteProjection):
             session: _TestAsyncSession
 
@@ -539,8 +541,9 @@ class TestAsyncWriteProjection:
 
         session = _TestAsyncSession()
         p = CreateUser(session=session)
-        await p.write(UserWriteModel(user_id=1, name="Alice"))
-        assert session._committed
+        with pytest.raises(CommitOutsideUnitOfWorkError):
+            await p.write(UserWriteModel(user_id=1, name="Alice"))
+        assert not session._committed
 
     async def test_write_rolls_back_session_on_error(self) -> None:
         class FailingWrite(AsyncWriteProjection):

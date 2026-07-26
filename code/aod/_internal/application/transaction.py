@@ -8,7 +8,7 @@ from aod._internal.core.async_utils import should_await
 from aod._internal.core.base_behaviour import BaseBehaviour
 from aod._internal.core.event_emitter import Event, EventCollector
 from aod._internal.core.fields import Field, PrivateField
-from aod._internal.infrastructure.commit_context import _CommitContext, commit_context
+from aod._internal.infrastructure.commit_context import commit_context
 from aod._internal.infrastructure.session import AsyncSession, Session
 
 
@@ -44,17 +44,12 @@ class Transaction(TransactionBase):
         if not self.only_read:
             self._begin_sessions()
 
-        token = _CommitContext.set(True) if not self.only_read else None
-        try:
-            with EventCollector() as events:
-                try:
-                    result = fn(*args, **kwargs)
-                except Exception as e:
-                    exception = e
-                self._events = list(events)
-        finally:
-            if token is not None:
-                _CommitContext.reset(token)
+        with EventCollector() as events:
+            try:
+                result = fn(*args, **kwargs)
+            except Exception as e:
+                exception = e
+            self._events = list(events)
 
         if exception is not None:
             self._handle_operation_failure(exception)
@@ -117,17 +112,12 @@ class AsyncTransaction(TransactionBase):
         if not self.only_read:
             await self._begin_sessions()
 
-        token = _CommitContext.set(True) if not self.only_read else None
-        try:
-            with EventCollector() as events:
-                try:
-                    result = await should_await(fn(*args, **kwargs))
-                except Exception as e:
-                    exception = e
-                self._events = list(events)
-        finally:
-            if token is not None:
-                _CommitContext.reset(token)
+        with EventCollector() as events:
+            try:
+                result = await should_await(fn(*args, **kwargs))
+            except Exception as e:
+                exception = e
+            self._events = list(events)
 
         if exception is not None:
             await self._handle_operation_failure(exception)

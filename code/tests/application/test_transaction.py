@@ -8,6 +8,7 @@ from aod._internal.application.event_bus import EventBus
 from aod._internal.application.logger import Logger
 from aod._internal.application.transaction import AsyncTransaction, Transaction
 from aod._internal.core.event_emitter import Event, IntegrationEvent
+from aod._internal.core.application_exception import CommitOutsideUnitOfWorkError
 from aod._internal.infrastructure.commit_context import _CommitContext
 from aod._internal.infrastructure.session import AsyncSession, Session
 from aod._internal.core.fields.fields import PrivateField
@@ -457,7 +458,7 @@ class TestTransactionSessionLifecycle:
         _run(tx, emit)
         assert order == ["begin", "fn", "commit"]
 
-    def test_commit_context_active_during_fn(self) -> None:
+    def test_commit_context_inactive_during_fn(self) -> None:
         s = _CommitTrackSession()
         tx = Transaction(sessions=[s])
         checked: list[bool] = []
@@ -466,7 +467,7 @@ class TestTransactionSessionLifecycle:
             checked.append(_CommitContext.get(False))
 
         _run(tx, check_context)
-        assert checked == [True]
+        assert checked == [False]
 
     def test_commit_context_inactive_during_read_only_fn(self) -> None:
         s = _CommitTrackSession()
@@ -499,32 +500,27 @@ class TestTransactionSessionLifecycle:
             _run(tx, fail)
         assert _CommitContext.get(False) is False
 
-    def test_user_can_commit_inside_fn(self) -> None:
+    def test_user_commit_inside_fn_raises_error(self) -> None:
         s = _CommitTrackSession()
         tx = Transaction(sessions=[s])
 
         def user_commit() -> None:
             s.commit()
 
-        _run(tx, user_commit)
-        assert s._committed
+        with pytest.raises(CommitOutsideUnitOfWorkError):
+            _run(tx, user_commit)
+        assert not s._committed
 
-    def test_user_commit_inside_then_tx_commits_dirty(self) -> None:
-        call_count: list[int] = [0]
-
-        class _CountCommitsSession(_CommitTrackSession):
-            def commit(self) -> None:
-                call_count[0] += 1
-                super().commit()
-
-        s = _CountCommitsSession()
+    def test_user_commit_inside_prevents_auto_commit(self) -> None:
+        s = _CommitTrackSession()
 
         def user_commit() -> None:
             s.commit()
 
         tx = Transaction(sessions=[s])
-        _run(tx, user_commit)
-        assert call_count[0] == 2
+        with pytest.raises(CommitOutsideUnitOfWorkError):
+            _run(tx, user_commit)
+        assert not s._committed
 
 
 class TestTransactionCaches:
@@ -1022,7 +1018,7 @@ class TestAsyncTransactionSessionLifecycle:
         assert s1._committed
         assert s2._committed
 
-    async def test_commit_context_active_during_fn(self) -> None:
+    async def test_commit_context_inactive_during_fn(self) -> None:
         s = _CommitTrackAsyncSession()
         tx = AsyncTransaction(sessions=[s])
         checked: list[bool] = []
@@ -1031,7 +1027,7 @@ class TestAsyncTransactionSessionLifecycle:
             checked.append(_CommitContext.get(False))
 
         await _run_async(tx, check_context)
-        assert checked == [True]
+        assert checked == [False]
 
     async def test_commit_context_inactive_during_read_only(self) -> None:
         s = _CommitTrackAsyncSession()
