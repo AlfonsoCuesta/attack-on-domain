@@ -3,7 +3,7 @@ from __future__ import annotations
 from typing import get_type_hints
 
 from aod._internal.application.cache.cache import BaseCache
-from aod._internal.application.cache.cache_key import CacheKey
+from aod._internal.application.cache.cache_key_contracts import ContractCacheKey
 from aod._internal.application.port import Port
 from aod._internal.core.domain_exception import DuplicateDomainTypeError
 from aod._internal.core.type_handlers.generic_utils import get_generic_arg_from_orig_bases
@@ -50,7 +50,7 @@ class Infrastructure:
                     all_caches.append(c)
 
         cache_types: set[type[BaseCache]] = set()
-        cache_key_types: set[type[CacheKey]] = set()
+        cache_key_types: set[type[ContractCacheKey]] = set()
         for c in all_caches:
             cache_types.add(type(c))
             for key in object.__getattribute__(c, "keys"):
@@ -63,7 +63,7 @@ class Infrastructure:
         self.caches: tuple[type[BaseCache], ...] = tuple(
             sorted(cache_types, key=lambda t: t.__name__)
         )
-        self.cache_keys: tuple[type[CacheKey], ...] = tuple(
+        self.cache_keys: tuple[type[ContractCacheKey], ...] = tuple(
             sorted(cache_key_types, key=lambda t: t.__name__)
         )
         self.adapters: tuple[AdapterContainer, ...] = tuple(adapters)

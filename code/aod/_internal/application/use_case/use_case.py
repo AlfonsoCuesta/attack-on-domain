@@ -18,7 +18,7 @@ class UseCase(BaseOperation):
     __not_allowed_port_types__ = (Session, AsyncSession)
 
     def _build_tx(self) -> Transaction:
-        tx = Transaction(operation_name=type(self).__name__)
+        tx = Transaction(operation=self)
         for logger in self._loggers:
             tx.add_logger(logger)
         for bus in self._event_buses:
@@ -28,8 +28,6 @@ class UseCase(BaseOperation):
             if isinstance(value, BaseHandler):
                 for session in value._get_sessions():
                     tx.add_session(session)
-                for cache in value._get_caches():
-                    tx.add_cache(cache)
         return tx
 
     def __init_subclass__(cls, **kwargs: Any) -> None:
@@ -47,10 +45,8 @@ class UseCase(BaseOperation):
             tx = self._build_tx()
             try:
                 result = tx.run_transaction(fn, self, *args, **kwargs)
-            except Exception:
+            finally:
                 self.events = tx.get_events()
-                raise
-            self.events = tx.get_events()
             return result
 
         return wrapper
@@ -64,7 +60,7 @@ class AsyncUseCase(BaseOperation):
     __not_allowed_port_types__ = (Session, AsyncSession)
 
     def _build_tx(self) -> AsyncTransaction:
-        tx = AsyncTransaction(operation_name=type(self).__name__)
+        tx = AsyncTransaction(operation=self)
         for logger in self._loggers:
             tx.add_logger(logger)
         for bus in self._event_buses:
@@ -74,8 +70,6 @@ class AsyncUseCase(BaseOperation):
             if isinstance(value, BaseHandler):
                 for session in value._get_sessions():
                     tx.add_session(session)
-                for cache in value._get_caches():
-                    tx.add_cache(cache)
         return tx
 
     def __init_subclass__(cls, **kwargs: Any) -> None:
@@ -93,10 +87,8 @@ class AsyncUseCase(BaseOperation):
             tx = self._build_tx()
             try:
                 result = await should_await(tx.run_transaction(fn, self, *args, **kwargs))
-            except Exception:
+            finally:
                 self.events = tx.get_events()
-                raise
-            self.events = tx.get_events()
             return result
 
         return wrapper

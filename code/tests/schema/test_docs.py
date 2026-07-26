@@ -4,6 +4,10 @@ import inspect
 
 from aod._internal.application.cache import AsyncCache, Cache
 from aod._internal.application.cache.cache_key import CacheInvalidation, CacheKey
+from aod._internal.application.cache.cache_key_contracts import (
+    ContractCacheInvalidation,
+    ContractCacheKey,
+)
 from aod._internal.application.cache.null_cache import NullCache
 from aod._internal.application.contracts import Command, Query
 from aod._internal.application.event_bus import AsyncEventBus, EventBus
@@ -785,14 +789,14 @@ class TestCacheDoc:
         assert doc.name == "AsyncCache"
         assert doc.is_async is True
 
-    def test_from_cache_handles_missing_docstring(self) -> None:
+    def test_from_cache_handles_docstring(self) -> None:
         doc = CacheDoc.from_cache(NullCache)
-        assert doc.description == ""
+        assert doc.description == "No-op cache that discards all operations."
 
 
 class TestCacheKeyDoc:
     def test_from_cache_key_with_query_type(self) -> None:
-        class _TestKey(CacheKey[GetOrder]):
+        class _TestKey(ContractCacheKey[GetOrder]):
             def key(self, query: GetOrder) -> str:
                 return ""
 
@@ -804,19 +808,21 @@ class TestCacheKeyDoc:
         assert doc.query_type == "GetOrder"
 
     def test_from_cache_key_with_invalidation(self) -> None:
-        class _InvalidatingKey(CacheKey[GetOrder]):
+        class _InvalidatingKey(ContractCacheKey[GetOrder]):
             def key(self, query: GetOrder) -> str:
                 return ""
 
             def invalidate(self) -> list[CacheInvalidation]:
-                return [CacheInvalidation(command_type=PlaceOrder, key_fn=lambda c: c.order_id)]
+                return [
+                    ContractCacheInvalidation(target_type=PlaceOrder, key_fn=lambda c: c.order_id)
+                ]
 
         doc = CacheKeyDoc.from_cache_key(_InvalidatingKey)
         assert doc.query_type == "GetOrder"
         assert doc.invalidating_commands == ["PlaceOrder"]
 
     def test_from_cache_key_no_query_type(self) -> None:
-        class _NoQueryKey(CacheKey[GetOrder]):
+        class _NoQueryKey(ContractCacheKey[GetOrder]):
             def key(self, query: GetOrder) -> str:
                 return ""
 
@@ -839,7 +845,7 @@ class TestCacheKeyDoc:
 
 class TestInfrastructureDoc:
     def test_from_infrastructure(self) -> None:
-        class _GetOrderKey(CacheKey[GetOrder]):
+        class _GetOrderKey(ContractCacheKey[GetOrder]):
             ttl = 60.0
 
             def key(self, query: GetOrder) -> str:

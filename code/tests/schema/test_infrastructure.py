@@ -2,7 +2,8 @@
 
 from __future__ import annotations
 
-from aod._internal.application.cache.cache_key import CacheInvalidation, CacheKey
+from aod._internal.application.cache.cache_key import CacheInvalidation
+from aod._internal.application.cache.cache_key_contracts import ContractCacheKey
 from aod._internal.application.cache.null_cache import NullCache
 from aod._internal.application.contracts import Query
 from aod._internal.domain.entity import RootEntity
@@ -28,7 +29,7 @@ class TestInfrastructureCaches:
         assert infra.cache_keys == ()
 
     def test_cache_key_extraction(self) -> None:
-        class GetOrderKey(CacheKey[GetOrder]):
+        class GetOrderKey(ContractCacheKey[GetOrder]):
             ttl = 60.0
 
             def key(self, query: GetOrder) -> str:

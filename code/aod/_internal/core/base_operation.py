@@ -9,7 +9,6 @@ from aod._internal.core.application_exception import InvalidUseCasePortFieldErro
 from aod._internal.core.base_behaviour import BaseBehaviour
 from aod._internal.core.event_emitter import Event, EventEmitter
 from aod._internal.core.fields.fields import Field, PrivateField
-from aod._internal.infrastructure.handlers.handlers import AsyncBaseHandler, BaseHandler
 
 
 _SPECIAL_PORT_TYPES = (
@@ -56,6 +55,7 @@ class BaseOperation(BaseBehaviour):
         except Exception:
             hints = {}
         own_annotations = getattr(cls, "__annotations__", {})
+
         for field_name in own_annotations:
             if field_name.startswith("_"):
                 continue
@@ -69,14 +69,20 @@ class BaseOperation(BaseBehaviour):
                     cls.__name__,
                     str(tp),
                 )
-            if issubclass(
-                resolved, (BaseHandler, AsyncBaseHandler, *cls.__not_allowed_port_types__)
+            if issubclass(resolved, cls.__not_allowed_port_types__) or getattr(
+                resolved, "__aod_handler__", False
             ):
                 raise InvalidUseCasePortFieldError(
                     field_name,
                     cls.__name__,
                     str(tp),
                 )
+
+    def add_logger(self, logger: Logger | AsyncLogger) -> None:
+        self._loggers.append(logger)
+
+    def add_event_bus(self, event_bus: EventBus | AsyncEventBus) -> None:
+        self._event_buses.append(event_bus)
 
     def _collect_special_ports(self) -> None:
         loggers: list[Logger | AsyncLogger] = []

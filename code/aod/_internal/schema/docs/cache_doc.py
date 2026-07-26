@@ -31,15 +31,19 @@ class CacheKeyDoc:
 
     @classmethod
     def from_cache_key(cls, key_cls: type[CacheKey]) -> CacheKeyDoc:
-        query_type = ""
-        invalidating: list[str] = []
         try:
-            qtype = key_cls.get_query_type()
+            qtype = key_cls.get_type()
             query_type = qtype.__name__
         except Exception:
+            query_type = ""
+        ctypes: set[type] = set()
+        try:
+            key = key_cls()
+        except TypeError:
             pass
-        ctypes = key_cls.get_command_types()
-        invalidating = sorted(t.__name__ for t in ctypes)
+        else:
+            ctypes = key.get_command_types()
+        invalidating = sorted(t.__name__ for t in ctypes) if ctypes else []
         return cls(
             name=getattr(key_cls, "__name__", ""),
             query_type=query_type,

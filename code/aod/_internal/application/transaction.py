@@ -2,10 +2,12 @@ from __future__ import annotations
 
 from typing import Any, Callable
 
+from aod._internal.application.cache.cache_manager import get_cache_context
 from aod._internal.application.event_bus import AsyncEventBus, EventBus
 from aod._internal.application.logger import AsyncLogger, Logger
 from aod._internal.core.async_utils import should_await
 from aod._internal.core.base_behaviour import BaseBehaviour
+from aod._internal.core.base_operation import BaseOperation
 from aod._internal.core.event_emitter import Event, EventCollector
 from aod._internal.core.fields import Field, PrivateField
 from aod._internal.infrastructure.commit_context import commit_context
@@ -14,18 +16,18 @@ from aod._internal.infrastructure.session import AsyncSession, Session
 
 class TransactionBase(BaseBehaviour):
     sessions: list[Session | AsyncSession] = Field(default_factory=list)
-    caches: list[Any] = Field(default_factory=list)
     loggers: list[Logger | AsyncLogger] = Field(default_factory=list)
     event_buses: list[EventBus | AsyncEventBus] = Field(default_factory=list)
-    operation_name: str = Field(default="")
     only_read: bool = Field(default=False)
+    operation: BaseOperation
     _events: list[Event] = PrivateField(default_factory=list)
+
+    @property
+    def operation_name(self) -> str:
+        return type(self.operation).__name__
 
     def add_session(self, session: Session | AsyncSession) -> None:
         self.sessions.append(session)
-
-    def add_cache(self, cache: Any) -> None:
-        self.caches.append(cache)
 
     def add_logger(self, logger: Logger | AsyncLogger) -> None:
         self.loggers.append(logger)
@@ -39,8 +41,12 @@ class TransactionBase(BaseBehaviour):
 
 class Transaction(TransactionBase):
     def run_transaction(self, fn: Callable[..., Any], *args: Any, **kwargs: Any) -> Any:
-        exception: Exception | None = None
+        cache_ctx = get_cache_context()
+        cached = cache_ctx.get(self.operation)
+        if cached is not None:
+            return cached
 
+        exception: Exception | None = None
         if not self.only_read:
             self._begin_sessions()
 
@@ -59,6 +65,10 @@ class Transaction(TransactionBase):
         except Exception as e:
             self._handle_operation_failure(e)
 
+        cache_ctx.set(self.operation, result)
+        cache_ctx.delete(self.operation)
+        cache_ctx.flush()
+
         return result
 
     def _begin_sessions(self) -> None:
@@ -68,7 +78,6 @@ class Transaction(TransactionBase):
     def _commit_and_publish(self) -> None:
         if not self.only_read:
             self._commit_sessions()
-            self._flush_caches()
         self._log_transaction_completion()
 
     def _commit_sessions(self) -> None:
@@ -82,19 +91,11 @@ class Transaction(TransactionBase):
             for session in self.sessions:
                 if session.is_dirty():
                     session.rollback()
-            self._discard_caches()
+        cache_ctx = get_cache_context()
+        cache_ctx.discard()
         for logger in self.loggers:
             logger.error(f"{self.operation_name} failed with message: {exception}")
         raise exception
-
-    def _flush_caches(self) -> None:
-        for cache in self.caches:
-            cache._flush()
-
-    def _discard_caches(self) -> None:
-        for cache in self.caches:
-            cache._to_set.clear()
-            cache._to_delete.clear()
 
     def _log_transaction_completion(self) -> None:
         for logger in self.loggers:
@@ -107,8 +108,12 @@ class Transaction(TransactionBase):
 
 class AsyncTransaction(TransactionBase):
     async def run_transaction(self, fn: Callable[..., Any], *args: Any, **kwargs: Any) -> Any:
-        exception: Exception | None = None
+        cache_ctx = get_cache_context()
+        cached = await cache_ctx.get_async(self.operation)
+        if cached is not None:
+            return cached
 
+        exception: Exception | None = None
         if not self.only_read:
             await self._begin_sessions()
 
@@ -127,6 +132,10 @@ class AsyncTransaction(TransactionBase):
         except Exception as e:
             await self._handle_operation_failure(e)
 
+        cache_ctx.set(self.operation, result)
+        cache_ctx.delete(self.operation)
+        await cache_ctx.flush_async()
+
         return result
 
     async def _begin_sessions(self) -> None:
@@ -136,7 +145,8 @@ class AsyncTransaction(TransactionBase):
     async def _handle_operation_failure(self, exception: Exception) -> None:
         if not self.only_read:
             await self._rollback()
-            await self._discard_caches()
+        cache_ctx = get_cache_context()
+        cache_ctx.discard()
         for logger in self.loggers:
             await should_await(
                 logger.error(f"{self.operation_name} failed with exception: {exception}")
@@ -146,7 +156,6 @@ class AsyncTransaction(TransactionBase):
     async def _commit_and_publish(self) -> None:
         if not self.only_read:
             await self._commit_sessions()
-            await self._flush_caches()
         await self._log_transaction_completion()
 
     async def _commit_sessions(self) -> None:
@@ -159,15 +168,6 @@ class AsyncTransaction(TransactionBase):
         for session in self.sessions:
             if session.is_dirty():
                 await should_await(session.rollback())
-
-    async def _flush_caches(self) -> None:
-        for cache in self.caches:
-            await should_await(cache._flush())
-
-    async def _discard_caches(self) -> None:
-        for cache in self.caches:
-            cache._to_set.clear()
-            cache._to_delete.clear()
 
     async def _log_transaction_completion(self) -> None:
         for logger in self.loggers:

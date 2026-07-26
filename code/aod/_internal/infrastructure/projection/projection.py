@@ -34,9 +34,7 @@ def _make_projection_wrapper(
 
         @wraps(fn)
         async def async_wrapper(self: Any, *args: Any, **kwargs: Any) -> Any:
-            tx = AsyncTransaction(
-                only_read=only_read, operation_name=f"{type(self).__name__} {operation}"
-            )
+            tx = AsyncTransaction(only_read=only_read, operation=self)
             for logger in self._loggers:
                 tx.add_logger(logger)
             for bus in self._event_buses:
@@ -52,7 +50,7 @@ def _make_projection_wrapper(
 
     @wraps(fn)
     def sync_wrapper(self: Any, *args: Any, **kwargs: Any) -> Any:
-        tx = Transaction(only_read=only_read, operation_name=f"{type(self).__name__} {operation}")
+        tx = Transaction(only_read=only_read, operation=self)
         for logger in self._loggers:
             tx.add_logger(logger)
         for bus in self._event_buses:

@@ -3,15 +3,9 @@ from __future__ import annotations
 from typing import Any
 
 import pytest
-from aod._internal.application.cache import (
-    Cache,
-    CacheInvalidation,
-    ContractCacheInvalidation,
-    ContractCacheKey,
-)
 from aod._internal.application.handler import CommandPort, QueryPort
 from aod._internal.application.port import Port
-from aod._internal.core.fields.fields import Field, PrivateField
+from aod._internal.core.fields.fields import Field
 from aod._internal.core.infrastructure_exception import (
     AbstractSessionTypeError,
     DuplicateHandlerError,
@@ -435,66 +429,6 @@ def test_get_session_returns_concrete_class() -> None:
     container = AdapterContainer(sessions={_SyncSession})
     result = container.get_session(_SyncSession)
     assert isinstance(result, _SyncSession)
-
-
-# ── Caches ──
-
-
-class _UserCacheKey(ContractCacheKey[GetUser]):
-    def key(self, query: GetUser) -> str:
-        return f"user:{query.user_id}"
-
-    def invalidate(self) -> list[CacheInvalidation]:
-        return [
-            ContractCacheInvalidation(target_type=CreateUser, key_fn=lambda c: f"user:{c.name}"),
-        ]
-
-
-class _ConcreteCache(Cache):
-    _stored: dict[str, object] = PrivateField(default_factory=dict)
-
-    def get(self, key: str, default: Any = None) -> object:
-        return self._stored.get(key)
-
-    def set(self, key: str, value: object, ttl: float | None = None) -> None:
-        self._stored[key] = value
-
-    def delete(self, key: str) -> None:
-        self._stored.pop(key, None)
-
-
-def test_container_wires_cache_to_handler() -> None:
-    class _QueryHandler(QueryHandler[GetUser]):
-        session: _SyncSession
-
-        def handle(self, query: GetUser) -> User | None:
-            return User(id=query.user_id, name="cached")
-
-    cache = _ConcreteCache(keys=[_UserCacheKey()])
-    container = AdapterContainer(
-        handlers=[_QueryHandler],
-        sessions={_SyncSession},
-        caches=[cache],
-    )
-    handler = container._handler_manager.get_handler(GetUser)
-    assert cache in handler._get_caches()
-
-
-def test_container_wires_cache_to_command_handler() -> None:
-    class _CommandHandler(CommandHandler[CreateUser]):
-        session: _SyncSession
-
-        def handle(self, command: CreateUser) -> User:
-            return User(id=1, name=command.name)
-
-    cache = _ConcreteCache(keys=[_UserCacheKey()])
-    container = AdapterContainer(
-        handlers=[_CommandHandler],
-        sessions={_SyncSession},
-        caches=[cache],
-    )
-    handler = container._handler_manager.get_handler(CreateUser)
-    assert cache in handler._get_caches()
 
 
 # ── copy / with_adapters ──

@@ -2,7 +2,6 @@ from __future__ import annotations
 
 from typing import Any, cast, get_args, get_origin, get_type_hints
 
-from aod._internal.application.cache import Cache
 from aod._internal.application.contracts import Command, Query
 from aod._internal.application.handler.handler import HandlerProtocol
 from aod._internal.core.base_operation import BaseOperation
@@ -26,12 +25,9 @@ class HandlerManager:
         self,
         handlers: list[AnyHandler] | None = None,
         session_manager: SessionManager | None = None,
-        *,
-        caches: list[Cache] | None = None,
     ) -> None:
         self._handlers: list[AnyHandler] = handlers if handlers is not None else []
         self._session_manager = session_manager
-        self._caches: list[Cache] = caches if caches is not None else []
         self._validate_no_duplicates()
 
     @staticmethod
@@ -56,25 +52,6 @@ class HandlerManager:
                 return h_cls
         raise HandlerNotFoundError("handler", contract.__name__)
 
-    def _apply_caches(self, handler: _SYNC_HANDLERS | _ASYNC_HANDLERS) -> None:
-        if not self._caches:
-            return
-        contract = self.contract_from_handler(type(handler))
-        is_query = isinstance(contract, type) and issubclass(contract, Query)
-        is_command = isinstance(contract, type) and issubclass(contract, Command)
-        for cache in self._caches:
-            if not isinstance(cache, Cache):
-                continue
-            if not cache.keys:
-                continue
-            for key_obj in cache.keys:
-                if is_query and key_obj.get_query_type() is contract:
-                    handler.add_cache(cache)
-                    break
-                if is_command and contract in key_obj.get_command_types():
-                    handler.add_cache(cache)
-                    break
-
     def get_handler(
         self, contract: type[Command] | type[Query]
     ) -> _ASYNC_HANDLERS | _SYNC_HANDLERS:
@@ -87,7 +64,6 @@ class HandlerManager:
                     kwargs[field_name] = self._session_manager.get_session(tp)
 
         instance = self._instantiate_handler(handler, kwargs)
-        self._apply_caches(instance)
         return instance
 
     def _instantiate_handler(
