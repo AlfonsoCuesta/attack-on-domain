@@ -3,7 +3,12 @@ from __future__ import annotations
 from typing import Any
 
 import pytest
-from aod._internal.application.cache import Cache, CacheKey, CacheInvalidation
+from aod._internal.application.cache import (
+    Cache,
+    CacheInvalidation,
+    ContractCacheInvalidation,
+    ContractCacheKey,
+)
 from aod._internal.application.handler import CommandPort, QueryPort
 from aod._internal.application.port import Port
 from aod._internal.core.fields.fields import Field, PrivateField
@@ -435,13 +440,13 @@ def test_get_session_returns_concrete_class() -> None:
 # ── Caches ──
 
 
-class _UserCacheKey(CacheKey[GetUser]):
+class _UserCacheKey(ContractCacheKey[GetUser]):
     def key(self, query: GetUser) -> str:
         return f"user:{query.user_id}"
 
     def invalidate(self) -> list[CacheInvalidation]:
         return [
-            CacheInvalidation(CreateUser, lambda c: f"user:{c.name}"),
+            ContractCacheInvalidation(target_type=CreateUser, key_fn=lambda c: f"user:{c.name}"),
         ]
 
 

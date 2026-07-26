@@ -1,75 +1,37 @@
 from __future__ import annotations
 
-from abc import ABC, abstractmethod
-from dataclasses import dataclass
-from typing import Any, Callable, ClassVar, Generic, TypeVar, get_type_hints
+from abc import abstractmethod
+from typing import Any, Callable, ClassVar, TypeVar
 
-from aod._internal.application.contracts import Command, Query
+from aod._internal.application.contracts import Query
+from aod._internal.core.base_guarded import BaseGuarded
+from aod._internal.core.base_sealed import BaseSealed
 
 TQuery_co = TypeVar("TQuery_co", bound=Query, covariant=True)
+TOperation = TypeVar("TOperation")
 
 
-@dataclass(frozen=True, slots=True)
-class CacheInvalidation:
-    command_type: type[Command]
-    key_fn: Callable[[Any], str]
+class CacheInvalidation(BaseSealed):
+    target_type: type
+    key_fn: Callable[..., str]
 
 
-class CacheKey(ABC, Generic[TQuery_co]):
+class CacheKey(BaseGuarded):
+    __skip_method_wrapping__: ClassVar[bool] = True
     ttl: float | None = None
-    _query_type: ClassVar[type[Query]]
-    _command_types: ClassVar[set[type[Command]]] = set()
-    _invalidation_map: ClassVar[dict[type[Command], Callable[[Any], str]]] = {}
-
-    def __init_subclass__(cls, **kwargs: Any) -> None:
-        super().__init_subclass__(**kwargs)
-        key_method = cls.__dict__.get("key")
-        if key_method is not None and not getattr(key_method, "__isabstractmethod__", False):
-            cls._extract_and_store_query_type(cls)
-        invalidate_method = cls.__dict__.get("invalidate")
-        if invalidate_method is not None and not getattr(
-            invalidate_method, "__isabstractmethod__", False
-        ):
-            cls._extract_and_store_invalidation_info(cls)
-
-    @classmethod
-    def _extract_and_store_query_type(cls, target_cls: type[CacheKey]) -> None:
-        hints = get_type_hints(target_cls.key)
-        for name, tp in hints.items():
-            if name in ("self", "return"):
-                continue
-            if isinstance(tp, type) and issubclass(tp, Query):
-                target_cls._query_type = tp
-                return
-        raise TypeError(
-            f"Could not determine Query type for {target_cls.__name__}. "
-            "Ensure the key() method has a type hint for its first parameter."
-        )
-
-    @classmethod
-    def _extract_and_store_invalidation_info(cls, target_cls: type[CacheKey]) -> None:
-        instance = target_cls()
-        invs: list[CacheInvalidation] = instance.invalidate()
-        target_cls._invalidation_map = {}
-        target_cls._command_types = set()
-        for inv in invs:
-            target_cls._invalidation_map[inv.command_type] = inv.key_fn
-            target_cls._command_types.add(inv.command_type)
 
     @abstractmethod
-    def key(self, query: TQuery_co) -> str: ...
+    def key(self, *args: Any, **kwargs: Any) -> str: ...
 
     @abstractmethod
     def invalidate(self) -> list[CacheInvalidation]: ...
 
     @classmethod
-    def get_query_type(cls) -> type[Query]:
-        return cls._query_type
+    @abstractmethod
+    def get_type(cls) -> type: ...
 
-    @classmethod
-    def get_command_types(cls) -> set[type[Command]]:
-        return cls._command_types
-
-    @classmethod
-    def get_invalidation_key_fn(cls, command_type: type[Command]) -> Callable[[Any], str] | None:
-        return cls._invalidation_map.get(command_type)
+    def get_invalidation_key_fn(self, invalidation_type: type) -> Callable[..., str] | None:
+        for inv in self.invalidate():
+            if inv.target_type is invalidation_type:
+                return inv.key_fn
+        return None

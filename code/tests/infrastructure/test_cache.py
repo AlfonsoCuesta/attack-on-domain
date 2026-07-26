@@ -3,7 +3,11 @@ from __future__ import annotations
 from typing import Any
 
 import pytest
-from aod._internal.application.cache.cache_key import CacheKey, CacheInvalidation
+from aod._internal.application.cache.cache_key import CacheInvalidation
+from aod._internal.application.cache.cache_key_contracts import (
+    ContractCacheInvalidation,
+    ContractCacheKey,
+)
 from aod._internal.application.contracts import Command, Query
 from aod._internal.application.handler import CommandPort, QueryPort
 from aod._internal.core.fields.fields import Field, PrivateField
@@ -155,54 +159,60 @@ class TestAsyncCache:
 
 class TestCacheInvalidation:
     def test_creates_invalidation(self) -> None:
-        inv = CacheInvalidation(CreateUser, lambda c: f"user:{c.name}")
-        assert inv.command_type is CreateUser
+        inv = ContractCacheInvalidation(target_type=CreateUser, key_fn=lambda c: f"user:{c.name}")
+        assert inv.target_type is CreateUser
         assert inv.key_fn(CreateUser(name="Alice")) == "user:Alice"
 
     def test_is_frozen(self) -> None:
-        inv = CacheInvalidation(CreateUser, lambda c: "key")
-        assert inv.command_type is CreateUser
+        inv = ContractCacheInvalidation(target_type=CreateUser, key_fn=lambda c: "key")
+        assert inv.target_type is CreateUser
         assert inv.key_fn(CreateUser(name="Alice")) == "key"
 
 
 class TestCacheKey:
     def test_extracts_query_type_from_key(self) -> None:
-        class UserCacheKey(CacheKey[GetUser]):
+        class UserCacheKey(ContractCacheKey[GetUser]):
             def key(self, query: GetUser) -> str:
                 return f"user:{query.user_id}"
 
             def invalidate(self) -> list[CacheInvalidation]:
                 return [
-                    CacheInvalidation(CreateUser, lambda c: f"user:{c.name}"),
-                    CacheInvalidation(DeleteUser, lambda c: f"user:{c.user_id}"),
+                    ContractCacheInvalidation(
+                        target_type=CreateUser, key_fn=lambda c: f"user:{c.name}"
+                    ),
+                    ContractCacheInvalidation(
+                        target_type=DeleteUser, key_fn=lambda c: f"user:{c.user_id}"
+                    ),
                 ]
 
-        assert UserCacheKey.get_query_type() is GetUser
-        assert UserCacheKey.get_command_types() == {CreateUser, DeleteUser}
+        assert UserCacheKey.get_type() is GetUser
+        assert UserCacheKey().get_command_types() == {CreateUser, DeleteUser}
 
     def test_extracts_invalidation_key_fns(self) -> None:
-        class UserCacheKey(CacheKey[GetUser]):
+        class UserCacheKey(ContractCacheKey[GetUser]):
             def key(self, query: GetUser) -> str:
                 return f"user:{query.user_id}"
 
             def invalidate(self) -> list[CacheInvalidation]:
                 return [
-                    CacheInvalidation(CreateUser, lambda c: f"created:{c.name}"),
+                    ContractCacheInvalidation(
+                        target_type=CreateUser, key_fn=lambda c: f"created:{c.name}"
+                    ),
                 ]
 
-        fn = UserCacheKey.get_invalidation_key_fn(CreateUser)
+        fn = UserCacheKey().get_invalidation_key_fn(CreateUser)
         assert fn is not None
         assert fn(CreateUser(name="Alice")) == "created:Alice"
 
     def test_get_invalidation_returns_none_for_unknown_command(self) -> None:
-        class UserCacheKey(CacheKey[GetUser]):
+        class UserCacheKey(ContractCacheKey[GetUser]):
             def key(self, query: GetUser) -> str:
                 return f"user:{query.user_id}"
 
             def invalidate(self) -> list[CacheInvalidation]:
                 return []
 
-        assert UserCacheKey.get_invalidation_key_fn(CreateUser) is None
+        assert UserCacheKey().get_invalidation_key_fn(CreateUser) is None
 
 
 class TestCacheWithKeys:
@@ -334,12 +344,14 @@ class TestHandlerAddCacheCommand:
         assert cache.get("user:Alice") is None
 
     def test_multiple_caches_on_command_handler(self) -> None:
-        class UserListCacheKey(CacheKey[GetUser]):
+        class UserListCacheKey(ContractCacheKey[GetUser]):
             def key(self, query: GetUser) -> str:
                 return "users:list"
 
             def invalidate(self) -> list[CacheInvalidation]:
-                return [CacheInvalidation(CreateUser, lambda c: "users:list")]
+                return [
+                    ContractCacheInvalidation(target_type=CreateUser, key_fn=lambda c: "users:list")
+                ]
 
         cache1 = ConcreteCache(keys=[_make_user_key()])
         cache2 = ConcreteCache(keys=[UserListCacheKey()])
@@ -440,15 +452,19 @@ class TestAsyncHandlerCache:
         assert len(cache._to_delete) == 1
 
 
-def _make_user_key() -> CacheKey:
-    class UserCacheKey(CacheKey[GetUser]):
+def _make_user_key() -> ContractCacheKey:
+    class UserCacheKey(ContractCacheKey[GetUser]):
         def key(self, query: GetUser) -> str:
             return f"user:{query.user_id}"
 
         def invalidate(self) -> list[CacheInvalidation]:
             return [
-                CacheInvalidation(CreateUser, lambda c: f"user:{c.name}"),
-                CacheInvalidation(DeleteUser, lambda c: f"user:{c.user_id}"),
+                ContractCacheInvalidation(
+                    target_type=CreateUser, key_fn=lambda c: f"user:{c.name}"
+                ),
+                ContractCacheInvalidation(
+                    target_type=DeleteUser, key_fn=lambda c: f"user:{c.user_id}"
+                ),
             ]
 
     return UserCacheKey()
@@ -464,23 +480,11 @@ class TestResolveTtlReturnsNone:
 
 
 class TestCacheKeyTypeError:
-    def test_key_without_query_type_hint_raises(self) -> None:
-        with pytest.raises(TypeError, match="Could not determine Query type"):
+    def test_contract_cache_key_requires_generic_param(self) -> None:
+        with pytest.raises(TypeError, match="must be parameterized with a Query type"):
 
-            class _(CacheKey[GetUser]):  # type: ignore[type-arg]
-                def key(self, query):  # no type hint on parameter
-                    return "k"
-
-                def invalidate(self) -> list[CacheInvalidation]:
-                    return []
-
-    def test_key_with_wrong_type_hint_raises(self) -> None:
-        with pytest.raises(TypeError, match="Could not determine Query type"):
-
-            class _(CacheKey[GetUser]):  # type: ignore[type-arg]
-                def key(
-                    self, query: str
-                ) -> str:  # type hint is not a Query type  # ty:ignore[invalid-method-override]
+            class _(ContractCacheKey):  # type: ignore[type-arg]
+                def key(self, query: str) -> str:
                     return query
 
                 def invalidate(self) -> list[CacheInvalidation]:
@@ -505,14 +509,18 @@ class TestAsyncCacheConcrete:
         assert stored.name == "x"  # ty: ignore[unresolved-attribute]
 
     async def test_async_flush_with_delete(self) -> None:
-        class DelKey(CacheKey[GetUser]):
+        class DelKey(ContractCacheKey[GetUser]):
             ttl = 60.0
 
             def key(self, query: GetUser) -> str:
                 return f"user:{query.user_id}"
 
             def invalidate(self) -> list[CacheInvalidation]:
-                return [CacheInvalidation(DeleteUser, lambda c: f"user:{c.user_id}")]
+                return [
+                    ContractCacheInvalidation(
+                        target_type=DeleteUser, key_fn=lambda c: f"user:{c.user_id}"
+                    )
+                ]
 
         cache = ConcreteAsyncCache(keys=[DelKey()])
         await cache.set("user:1", User(id=1, name="x"))

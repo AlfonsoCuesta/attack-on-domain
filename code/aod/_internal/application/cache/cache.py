@@ -2,15 +2,13 @@ from __future__ import annotations
 
 from abc import abstractmethod
 from dataclasses import dataclass
-from typing import Any, TypeVar
+from typing import Any
 
 from aod._internal.application.cache.cache_key import CacheKey
 from aod._internal.application.contracts import Command, Query
 from aod._internal.application.port import Port
+from aod._internal.core.base_operation import BaseOperation
 from aod._internal.core.fields.fields import Field, PrivateField
-
-TCommand = TypeVar("TCommand", bound=Command)
-TQuery = TypeVar("TQuery", bound=Query)
 
 
 @dataclass
@@ -25,34 +23,33 @@ class BaseCache(Port):
     _to_set: list[_CacheEntry] = PrivateField(default_factory=list)
     _to_delete: list[str] = PrivateField(default_factory=list)
 
-    def _set(self, query: TQuery, value: Any) -> None:
-        key = self._resolve_key(query)
-        ttl = self._resolve_ttl(query)
+    def _set(self, key_material: Query | BaseOperation, value: Any) -> None:
+        key = self._resolve_key(key_material)
+        ttl = self._resolve_ttl(key_material)
         self._to_set.append(_CacheEntry(key, value, ttl))
 
-    def _delete(self, command: TCommand) -> None:
+    def _delete(self, command: Command | BaseOperation) -> None:
         for key_obj in self.keys:
             fn = key_obj.get_invalidation_key_fn(type(command))
             if fn is not None:
                 self._to_delete.append(fn(command))
 
-    def _resolve_key(self, query: object) -> str:
+    def _resolve_key(self, key_material: Query | BaseOperation) -> str:
         for key_obj in self.keys:
-            query_type = key_obj.get_query_type()
-            if isinstance(query, query_type):
-                return key_obj.key(query)
-        raise RuntimeError(f"No cache key registered for {type(query).__name__}")
+            if isinstance(key_material, key_obj.get_type()):
+                return key_obj.key(key_material)
+        raise RuntimeError(f"No cache key registered for {type(key_material).__name__}")
 
-    def _resolve_ttl(self, query: object) -> float | None:
+    def _resolve_ttl(self, key_material: Query | BaseOperation) -> float | None:
         for key_obj in self.keys:
-            if isinstance(query, key_obj.get_query_type()):
+            if isinstance(key_material, key_obj.get_type()):
                 return key_obj.ttl
         return None
 
 
 class Cache(BaseCache):
-    def _get(self, query: TQuery) -> Any:
-        key = self._resolve_key(query)
+    def _get(self, key_material: Query | BaseOperation) -> Any:
+        key = self._resolve_key(key_material)
         return self.get(key)
 
     def _flush(self) -> None:
@@ -79,8 +76,8 @@ class Cache(BaseCache):
 
 
 class AsyncCache(BaseCache):
-    async def _get(self, query: TQuery) -> Any:
-        key = self._resolve_key(query)
+    async def _get(self, key_material: Query | BaseOperation) -> Any:
+        key = self._resolve_key(key_material)
         return await self.get(key)
 
     async def _flush(self) -> None:

@@ -63,12 +63,16 @@ def test_aod_application_exports_documented_api() -> None:
     assert aod.application.__all__ == [
         "ApplicationException",
         "Cache",
-        "CacheKey",
         "CacheInvalidation",
+        "CacheKey",
         "Command",
         "CommandPort",
+        "ContractCacheInvalidation",
+        "ContractCacheKey",
         "EventBus",
         "Logger",
+        "OperationCacheInvalidation",
+        "OperationCacheKey",
         "Port",
         "Query",
         "QueryPort",
@@ -78,6 +82,11 @@ def test_aod_application_exports_documented_api() -> None:
     assert aod.application.Cache.__name__ == "Cache"
     assert aod.application.CacheKey.__name__ == "CacheKey"
     assert aod.application.CacheInvalidation.__name__ == "CacheInvalidation"
+    assert aod.application.ContractCacheKey.__name__ == "ContractCacheKey"
+    assert aod.application.ContractCacheInvalidation.__name__ == "ContractCacheInvalidation"
+    assert aod.application.OperationCacheKey.__name__ == "OperationCacheKey"
+    assert aod.application.OperationCacheKey.get_type is not None
+    assert aod.application.OperationCacheInvalidation.__name__ == "OperationCacheInvalidation"
     assert inspect.iscoroutinefunction(aod.application.async_.Cache._get)
 
     assert aod.application.async_.__all__ == [

@@ -65,8 +65,10 @@ code/
 │       │   ├── cache/                # Cache system — sync + async
 │       │   │   ├── __init__.py
 │       │   │   ├── cache.py           # Cache(Port), AsyncCache(Port), BaseCache, _CacheEntry
-│       │   │   ├── cache_key.py       # CacheKey, CacheInvalidation
-│       │   │   └── null_cache.py      # NullCache (no-op default)
+│       │   │   ├── cache_key.py       # CacheKey(BaseGuarded), CacheInvalidation(BaseSealed), TQuery_co, TOperation — abstract `invalidate()` and `get_type()`
+│       │   │   ├── cache_key_contracts.py  # ContractCacheKey(CacheKey, Generic[TQuery]), ContractCacheInvalidation — for Query/Command-based invalidation
+│       │   │   ├── cache_key_operations.py # OperationCacheKey(CacheKey, Generic[TOperation]), OperationCacheInvalidation — for UseCase/Projection-based invalidation
+│       │   │   ├── null_cache.py      # NullCache (no-op default)
 │       │   ├── contracts/            # Command, Query — application contracts
 │       │   │   ├── __init__.py       # Command, Query
 │       │   │   └── contracts.py      # Command(BaseSealed), Query(BaseSealed) with field validation
@@ -365,7 +367,38 @@ All application-layer handler types (`CommandHandler`, `QueryHandler`, etc.) inh
 
 `HandlerProtocol.__init_subclass__` wraps `handle()` with type checker: verifies command/query matches generic type parameter. Raises `TypeError` on mismatch.
 
-### Contracts (`Command` / `Query`) (validation)
+### Cache Key Hierarchy (mechanism)
+`CacheKey(BaseGuarded)` is the abstract base. It declares:
+- `key()` — abstract, resolves a query/operation to a cache key string
+- `invalidate()` — `@abstractmethod`, returns `list[CacheInvalidation]` (instance method, iterated at runtime)
+- `get_type()` — `@classmethod @abstractmethod`, returns the query or operation type
+
+Two concrete subclasses serve different invalidation strategies:
+
+**`ContractCacheKey(CacheKey, Generic[TQuery])`** — for Query/Command-based invalidation.
+- `key()` parameter must be typed with a `Query` subclass (extracted at class creation via `_extract_and_store_query_type`)
+- `invalidate()` returns `list[ContractCacheInvalidation]` where each entry specifies `command_type` and a `key_fn` that derives the invalidation key from the command
+- `get_invalidation_key_fn(command_type)` is an **instance method** — iterates `self.invalidate()` at runtime
+- `get_command_types()` is an **instance method** — iterates `self.invalidate()` at runtime
+
+**`OperationCacheKey(CacheKey, Generic[TOperation])`** — for UseCase/Projection-based invalidation.
+- Generic parameter `TOperation` must have a `run` or `read` entrypoint (no `write`)
+- `key()` signature is validated against the operation's entrypoint signature at class creation
+- `invalidate()` returns `list[OperationCacheInvalidation]` where each entry specifies `operation_type` and `key_fn`
+- `get_invalidation_key_fn(operation_type)` is an **instance method** — iterates `self.invalidate()` at runtime
+
+**`CacheInvalidation(BaseSealed)`** is the base invalidation descriptor with `key_fn: Callable[..., str]`. Subclasses:
+- `ContractCacheInvalidation(CacheInvalidation)` adds `command_type: type[Command]`
+- `OperationCacheInvalidation(CacheInvalidation)` adds `operation_type: type`
+
+No ClassVar pre-computation. Both `get_invalidation_key_fn()` and `get_command_types()` iterate `self.invalidate()` at runtime, keeping the invalidation info in a single source of truth.
+
+**Read-through cache flow**: `UseCase.run()` / `ReadProjection.read()` check cache before executing the body. On miss, the body runs normally; after the transaction completes, the result is stored in the cache via `_to_set`. On hit, the body is skipped entirely and the cached value is returned. Only non-None results are cached.
+
+**`BaseCache._delete(command)`** iterates `self.keys` and calls `key_obj.get_invalidation_key_fn(type(command))` on each key instance to compute invalidation keys. The `_to_delete` batch is flushed on `_flush()`.
+
+### `__aod_handler__` marker
+`BaseHandler` declares `__aod_handler__ = True` as a class-level attribute. `base_operation.py` uses `getattr(resolved, "__aod_handler__", False)` to validate handler port fields without importing from `handlers.py`, breaking the `cache.py → base_operation.py → handlers.py → cache` circular import cycle.
 `Command[TEntity, TResult]` / `Query[TEntity, TResult]` extend `BaseSealed`. Validate `TEntity` is `RootEntity` subclass at class creation. Field types checked: any field referencing non-root `Entity` raises `DomainException`. `Query` additionally requires `TResult` to contain at least one `RootEntity`.
 
 ### CommandHandler / QueryHandler (result checking)
