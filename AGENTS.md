@@ -65,9 +65,10 @@ code/
 │       │   ├── cache/                # Cache system — sync + async
 │       │   │   ├── __init__.py
 │       │   │   ├── cache.py           # Cache(Port), AsyncCache(Port), BaseCache, _CacheEntry
-│       │   │   ├── cache_key.py       # CacheKey(BaseGuarded), CacheInvalidation(BaseSealed), TQuery_co, TOperation — abstract `invalidate()` and `get_type()`
+│       │   │   ├── cache_key.py       # CacheKey(BaseGuarded), CacheInvalidation(BaseSealed) — abstract `invalidate()` and `get_type()`
 │       │   │   ├── cache_key_contracts.py  # ContractCacheKey(CacheKey, Generic[TQuery]), ContractCacheInvalidation — for Query/Command-based invalidation
 │       │   │   ├── cache_key_operations.py # OperationCacheKey(CacheKey, Generic[TOperation]), OperationCacheInvalidation — for UseCase/Projection-based invalidation
+│       │   │   ├── cache_manager.py   # CacheManager (context manager), CacheContext, get_cache_context()
 │       │   │   ├── null_cache.py      # NullCache (no-op default)
 │       │   ├── contracts/            # Command, Query — application contracts
 │       │   │   ├── __init__.py       # Command, Query
@@ -75,28 +76,27 @@ code/
 │       │   ├── event_bus/            # EventBus port — sync + async
 │       │   │   ├── __init__.py
 │       │   │   └── event_bus.py       # EventBus(Port) + AsyncEventBus(Port)
+│       │   ├── handler/              # HandlerProtocol — handler port types + handle() wrapping
+│       │   │   ├── __init__.py
+│       │   │   └── handler.py         # HandlerProtocol(Port), CommandPort, QueryPort, AsyncCommandPort, AsyncQueryPort, _wrap_handler_validation, _wrap_handler_cache
 │       │   ├── logger/               # Logger port — sync + async
 │       │   │   ├── __init__.py
 │       │   │   └── logger.py          # Logger(Port) + AsyncLogger(Port)
-│   │       ├── transaction/          # Transaction (sessions + caches + events + log + event_bus)
-│   │       │   ├── __init__.py
-│   │       │   └── transaction.py    # TransactionBase, Transaction (sync), AsyncTransaction (async)
-│   │       ├── commit_context.py     # _CommitContext contextvar (set during operation body)
+│   │       ├── transaction.py        # Transaction (sessions + caches + events + log + event_bus) — TransactionBase, Transaction (sync), AsyncTransaction (async)
 │   │       └── use_case/             # UseCase base — sync + async
 │       │       ├── __init__.py
 │       │       └── use_case.py       # UseCase(BaseOperation) + AsyncUseCase(BaseOperation)
 │   ├── infrastructure/           # Infrastructure layer (packages)
+│   │   ├── commit_context.py     # _CommitContext contextvar (set during operation body)
 │   │   ├── session/              # Session (database abstraction)
 │   │   │   ├── __init__.py
 │   │   │   └── session.py        # Session(Port) + AsyncSession(Port)
 │   │   ├── handlers/             # CommandHandler, QueryHandler — sync + async
 │   │   │   ├── __init__.py
-│   │   │   ├── base_handler.py   # BaseHandler + AsyncBaseHandler
-│   │   │   └── handlers.py       # CommandHandler, QueryHandler, AsyncCommandHandler, AsyncQueryHandler
+│   │   │   └── handlers.py       # BaseHandler, AsyncBaseHandler, CommandHandler, QueryHandler, AsyncCommandHandler, AsyncQueryHandler
 │   │   ├── projection/           # Projection models + base classes — sync + async
 │   │   │   ├── __init__.py
-│   │   │   ├── models.py         # ReadModel(BaseSealed), WriteModel(BaseSealed)
-│   │   │   └── projection.py     # ProjectionBase, ReadProjectionBase, WriteProjectionBase, ReadProjection, WriteProjection, Projection, AsyncReadProjection, AsyncWriteProjection, AsyncProjection
+│   │   │   └── projection.py     # ProjectionBase, ReadProjectionBase, WriteProjectionBase, AsyncReadProjectionBase, AsyncWriteProjectionBase, ReadProjection, WriteProjection, Projection, AsyncReadProjection, AsyncWriteProjection, AsyncProjection
 │   │   ├── container/            # AdapterContainer, PortManager, SessionManager, HandlerManager
 │   │   │   ├── __init__.py
 │   │   │   ├── container.py      # AdapterContainer orchestrator
@@ -199,7 +199,7 @@ code/
 BaseValidator (metaclass: ValidationModelMeta -> ABCMeta)
 +-- BaseGuarded                     (mutation-guarded)
     +-- BaseBehaviour               (extends BaseGuarded -- allows mutation inside methods)
-    |   +-- BaseOperation           (adds _event_emitter, events, _loggers, _event_buses, _caches)
+    |   +-- BaseOperation           (adds _event_emitter, events, _loggers, _event_buses)
     |   |   +-- UseCase             -> +run()
     |   |   +-- AsyncUseCase        -> +async run()
     |   |   +-- ProjectionBase
@@ -350,11 +350,11 @@ All framework exceptions re-exported from `aod.exceptions`. Per-layer base excep
 
 ### `UseCase` Base Class (internals)
 `UseCase` extends `BaseOperation`. Key mechanics:
-- **Transaction is ephemeral** -- created fresh per `run()` call via `_build_tx()`, configured with loggers, event buses, and handler sessions/caches, then discarded after `run_transaction()`.
+- **Transaction is ephemeral** -- created fresh per `run()` call via `_build_tx()` with `operation=self` (required field), configured with loggers, event buses, and handler sessions, then discarded after `run_transaction()`.
 - **`__init_subclass__`** wraps `run` to: (1) build Transaction, (2) invoke original run via `tx.run_transaction()`, (3) copy events from Transaction to `self.events` in `finally`.
 - **Field validation**: `BaseOperation.__init_subclass__` checks fields. Only `Port` subclasses allowed. `BaseHandler`/`AsyncBaseHandler` and `Session`/`AsyncSession` rejected. `AppCommandHandler[T]`/`AppQueryHandler[T]` accepted (inherit from `HandlerProtocol(Port)`). Non-Port fields raise `InvalidUseCasePortFieldError`.
 - **`__skip_port_check__`** check uses `cls.__dict__.get("__skip_port_check__")` -- only current class's own dict, not inherited
-- **Container sessions**: `AdapterContainer.sessions` holds session **classes**, not instances. `get_session()` instantiates and caches. `HandlerManager` creates handler instances with session instances; UseCase's `_build_tx()` extracts sessions and caches from handlers at run time.
+- **Container sessions**: `AdapterContainer.sessions` holds session **classes**, not instances. `get_session()` instantiates and caches. `HandlerManager` creates handler instances with session instances; UseCase's `_build_tx()` extracts sessions from handlers at run time.
 
 ### `Port` Base Class (internals)
 `Port` extends `BaseGuarded`:
@@ -365,7 +365,17 @@ All framework exceptions re-exported from `aod.exceptions`. Per-layer base excep
 ### `HandlerProtocol` (runtime checking)
 All application-layer handler types (`CommandHandler`, `QueryHandler`, etc.) inherit from `HandlerProtocol(Port)`. Infrastructure handler types inherit from both `BaseHandler` and the corresponding app-layer `HandlerProtocol`.
 
-`HandlerProtocol.__init_subclass__` wraps `handle()` with type checker: verifies command/query matches generic type parameter. Raises `TypeError` on mismatch.
+`HandlerProtocol.__init_subclass__` orchestrates **two wrappers**:
+1. **`_wrap_handler_validation`** — contract type checker: verifies command/query matches generic type parameter. Raises `TypeError` on mismatch.
+2. **`_wrap_handler_cache`** — read-through/invalidation via `get_cache_context()`. On cache hit (queries only), skips body and returns cached value. On cache miss or commands, runs body, then deletes stale cache entries before flush.
+
+Each wrapper dispatches to separate maker functions per sync/async variant: `_make_validate_handle` / `_make_async_validate_handle` / `_make_cache_handle` / `_make_async_cache_handle`. `validate_handle` preserves the async-ness of the original `handle` — if it's a coroutine function, the wrapper is async too. `is_query` checks both `QueryPort` and `AsyncQueryPort` in `cls.__mro__`.
+
+### `__aod_handler__` marker
+`BaseHandler` declares `__aod_handler__ = True` as a class-level attribute. `base_operation.py` uses `getattr(resolved, "__aod_handler__", False)` to validate handler port fields without importing from `handlers.py`, breaking the `cache.py → base_operation.py → handlers.py → cache` circular import cycle.
+
+### Contracts: Command / Query
+`Command[TEntity, TResult]` / `Query[TEntity, TResult]` extend `BaseSealed`. Validate `TEntity` is `RootEntity` subclass at class creation. Field types checked: any field referencing non-root `Entity` raises `DomainException`. `Query` additionally requires `TResult` to contain at least one `RootEntity`.
 
 ### Cache Key Hierarchy (mechanism)
 `CacheKey(BaseGuarded)` is the abstract base. It declares:
@@ -397,17 +407,12 @@ No ClassVar pre-computation. Both `get_invalidation_key_fn()` and `get_command_t
 
 **`BaseCache._delete(command)`** iterates `self.keys` and calls `key_obj.get_invalidation_key_fn(type(command))` on each key instance to compute invalidation keys. The `_to_delete` batch is flushed on `_flush()`.
 
-### `__aod_handler__` marker
-`BaseHandler` declares `__aod_handler__ = True` as a class-level attribute. `base_operation.py` uses `getattr(resolved, "__aod_handler__", False)` to validate handler port fields without importing from `handlers.py`, breaking the `cache.py → base_operation.py → handlers.py → cache` circular import cycle.
-`Command[TEntity, TResult]` / `Query[TEntity, TResult]` extend `BaseSealed`. Validate `TEntity` is `RootEntity` subclass at class creation. Field types checked: any field referencing non-root `Entity` raises `DomainException`. `Query` additionally requires `TResult` to contain at least one `RootEntity`.
-
-### CommandHandler / QueryHandler (result checking)
-`BaseHandler` has `_wrap_handle()` that validates `handle()` return type against generic parameter at runtime using `get_last_generic_arg`.
-
 ### Projection System (tech details)
 `ProjectionBase(BaseOperation)` inherits `_event_emitter`, `events`, `logger`, `event_bus`. Fields must be `Port` subclasses (except session fields). `HandlerProtocol` rejected via `__not_allowed_port_types__ = (HandlerProtocol,)`. Multiple session fields allowed with concrete types. `ProjectionBase.__init_subclass__` calls `typing.get_type_hints(cls)` and raises `AbstractSessionTypeError` for direct `Session`/`AsyncSession` fields.
 
 `ReadProjectionBase`/`WriteProjectionBase` wrap `read()`/`write()` by creating a fresh `Transaction` from `self._loggers`, `self._event_buses`, `self._sessions` and delegating to `run_transaction`. `WriteProjectionBase` uses `only_read=False` so `CommitContext` is set during the body for manual `session.commit()` calls.
+
+Async variants (`AsyncReadProjectionBase`, `AsyncWriteProjectionBase`) use `AsyncTransaction` with `await should_await(session.commit())`.
 
 ### Test Doubles (directory structure)
 ```
@@ -490,7 +495,7 @@ make typecheck      # pyright (when configured)
 
 ## Test Count
 
-1250 tests, 3 skipped (no `patch`/`mock.patch` in any test file)
+1246 tests, 3 skipped (no `patch`/`mock.patch` in any test file)
 
 ## At the end of a task
 

@@ -65,6 +65,7 @@ def test_aod_application_exports_documented_api() -> None:
         "Cache",
         "CacheInvalidation",
         "CacheKey",
+        "CacheManager",
         "Command",
         "CommandPort",
         "ContractCacheInvalidation",
@@ -82,6 +83,7 @@ def test_aod_application_exports_documented_api() -> None:
     assert aod.application.Cache.__name__ == "Cache"
     assert aod.application.CacheKey.__name__ == "CacheKey"
     assert aod.application.CacheInvalidation.__name__ == "CacheInvalidation"
+    assert aod.application.CacheManager.__name__ == "CacheManager"
     assert aod.application.ContractCacheKey.__name__ == "ContractCacheKey"
     assert aod.application.ContractCacheInvalidation.__name__ == "ContractCacheInvalidation"
     assert aod.application.OperationCacheKey.__name__ == "OperationCacheKey"
