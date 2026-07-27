@@ -2,6 +2,10 @@ from __future__ import annotations
 
 from typing import Any, Self, cast
 
+from inspect import iscoroutinefunction
+
+from aod._internal.application.cache.cache import BaseCache
+from aod._internal.application.cache.cache_manager import CacheManager
 from aod._internal.application.port import Port
 from aod._internal.application.use_case import AsyncUseCase, UseCase
 from aod._internal.core.base_behaviour import BaseBehaviour
@@ -24,6 +28,7 @@ class AdapterContainer(BaseBehaviour):
     sessions: set[type[Session] | type[AsyncSession]] = Field(default_factory=set)
     handlers: list = Field(default_factory=list)
     ports: dict[type[Port], Port] = Field(default_factory=dict)
+    caches: list[BaseCache] = Field(default_factory=list)
     _session_manager: SessionManager = PrivateField()
     _handler_manager: HandlerManager = PrivateField()
     _port_manager: PortManager = PrivateField()
@@ -95,6 +100,40 @@ class AdapterContainer(BaseBehaviour):
             f"Expected UseCase, AsyncUseCase, or ProjectionBase subclass, got {operation_cls.__name__}"
         )
 
+    @staticmethod
+    def _wrap_with_cache(
+        operation: TOperation,
+        caches: list[BaseCache],
+    ) -> TOperation:
+        if not caches:
+            return operation
+
+        for method_name in ("run", "read", "write"):
+            original = getattr(operation, method_name, None)
+            if original is None:
+                continue
+            if not callable(original):
+                continue
+
+            if iscoroutinefunction(original):
+
+                async def async_wrapper(
+                    *args: Any, _original=original, _caches=caches, **kwargs: Any
+                ) -> Any:
+                    with CacheManager(*_caches):
+                        return await _original(*args, **kwargs)
+
+                object.__setattr__(operation, method_name, async_wrapper)
+            else:
+
+                def wrapper(*args: Any, _original=original, _caches=caches, **kwargs: Any) -> Any:
+                    with CacheManager(*_caches):
+                        return _original(*args, **kwargs)
+
+                object.__setattr__(operation, method_name, wrapper)
+
+        return operation
+
     def _adapt_use_case(self, use_case_cls: type[TUseCase], **overrides: Any) -> TUseCase:
         container = self.with_adapters(**overrides) if overrides else self
 
@@ -102,7 +141,8 @@ class AdapterContainer(BaseBehaviour):
 
         container._port_manager.inject_ports(use_case_cls, kwargs)
         container._handler_manager.inject_handlers(use_case_cls, kwargs)
-        return use_case_cls(**kwargs)
+        operation = use_case_cls(**kwargs)
+        return self._wrap_with_cache(operation, container.caches)
 
     def _adapt_projection(self, projection_cls: type[TProjection], **overrides: Any) -> TProjection:
         container = self.with_adapters(**overrides) if overrides else self
@@ -111,7 +151,8 @@ class AdapterContainer(BaseBehaviour):
 
         self._inject_projection(container, projection_cls, kwargs)
         container._port_manager.inject_ports(projection_cls, kwargs)
-        return projection_cls(**kwargs)
+        operation = projection_cls(**kwargs)
+        return self._wrap_with_cache(operation, container.caches)
 
     @staticmethod
     def _inject_projection(

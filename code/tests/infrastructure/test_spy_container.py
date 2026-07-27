@@ -4,6 +4,9 @@ from typing import Any, cast
 
 import pytest
 from aod._internal.application.cache import Cache
+from aod._internal.application.cache.cache_key import CacheInvalidation
+from aod._internal.application.cache.cache_key_contracts import ContractCacheKey
+from aod._internal.application.cache.cache_manager import get_cache_context
 from aod._internal.application.event_bus import EventBus
 from aod._internal.application.handler import CommandPort
 from aod._internal.application.logger import Logger
@@ -12,10 +15,10 @@ from aod._internal.application.use_case import UseCase
 from aod._internal.core.event_emitter import Event
 from aod._internal.core.fields.fields import Field
 from aod._internal.core.infrastructure_exception import PortNotFoundError
+from aod._internal.infrastructure.commit_context import commit_context
 from aod._internal.infrastructure.container import AdapterContainer
 from aod._internal.infrastructure.projection import ReadProjection
 from aod._internal.infrastructure.session import AsyncSession, Session
-from aod._internal.infrastructure.commit_context import commit_context
 from aod._internal.testing.doubles.infrastructure.container import spy_adapter_container
 from aod.application import Command, Query
 from aod.domain import RootEntity
@@ -364,6 +367,38 @@ def test_stub_projection_write_raises() -> None:
     proj = container.adapt(_Proj)
     with pytest.raises(ValueError, match="fail"):
         proj.write(DTO())
+
+
+# ── Spy adapt with caches ──
+
+
+class _UserKey(ContractCacheKey[GetUser]):
+    def key(self, query: GetUser) -> str:
+        return f"user:{query.user_id}"
+
+    def invalidate(self) -> list[CacheInvalidation]:
+        return []
+
+
+class _CachedUC(UseCase):
+    def run(self) -> bool:
+        ctx = get_cache_context()
+        return ctx.get_for(GetUser(user_id=1)) is not None
+
+
+def test_spy_adapt_ignores_caches() -> None:
+    cache = port_stub(Cache)(keys=[_UserKey()])
+    container = spy_adapter_container(AdapterContainer(caches=[cache]))
+    uc = container.adapt(_CachedUC)
+    assert uc.run() is False
+
+
+def test_spy_adapt_with_caches_and_stub() -> None:
+    cache = port_stub(Cache)(keys=[_UserKey()])
+    container = spy_adapter_container(AdapterContainer(caches=[cache]))
+    container.stub_use_case(_CachedUC, returns="stubbed")
+    uc = container.adapt(_CachedUC)
+    assert uc.run() == "stubbed"
 
 
 # ── Fake managers standalone (no stub_factory) ──

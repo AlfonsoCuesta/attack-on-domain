@@ -495,7 +495,7 @@ make typecheck      # pyright (when configured)
 
 ## Test Count
 
-1246 tests, 3 skipped (no `patch`/`mock.patch` in any test file)
+1253 tests, 3 skipped (no `patch`/`mock.patch` in any test file)
 
 ## At the end of a task
 

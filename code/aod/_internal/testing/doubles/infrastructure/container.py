@@ -91,6 +91,9 @@ def _create_spy_adapter(container_cls: type[T]) -> type[T]:
             write_raises=write_raises,
         )
 
+    def _wrap_with_cache_noop(self: Any, operation: Any, caches: Any) -> Any:
+        return operation
+
     def _adapt_use_case_spy(
         self: Any,
         use_case_cls: type[UseCase | AsyncUseCase],
@@ -165,6 +168,7 @@ def _create_spy_adapter(container_cls: type[T]) -> type[T]:
                 "stub_projection": stub_projection,
                 "_adapt_use_case_spy": _adapt_use_case_spy,
                 "_adapt_projection_spy": _adapt_projection_spy,
+                "_wrap_with_cache": _wrap_with_cache_noop,
                 "adapt": adapt,
             },
         ),

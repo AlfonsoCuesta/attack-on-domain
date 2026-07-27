@@ -3,8 +3,15 @@ from __future__ import annotations
 from typing import Any
 
 import pytest
-from aod._internal.application.handler import CommandPort, QueryPort
+from aod._internal.application.cache.cache_key import CacheInvalidation
+from aod._internal.application.cache.cache_key_contracts import ContractCacheKey
+from aod._internal.application.cache.cache_manager import get_cache_context
+from aod._internal.application.handler import (
+    CommandPort,
+    QueryPort,
+)
 from aod._internal.application.port import Port
+from aod._internal.application.use_case import AsyncUseCase
 from aod._internal.core.fields.fields import Field
 from aod._internal.core.infrastructure_exception import (
     AbstractSessionTypeError,
@@ -16,8 +23,9 @@ from aod._internal.core.infrastructure_exception import (
 )
 from aod._internal.infrastructure.container import AdapterContainer
 from aod._internal.infrastructure.handlers import AsyncCommandHandler
-from aod._internal.infrastructure.projection import ReadProjection
+from aod._internal.infrastructure.projection import ReadProjection, WriteProjection
 from aod._internal.infrastructure.session import AsyncSession, Session
+from aod._internal.testing.doubles.application import SpyCache
 from aod._internal.testing.doubles.infrastructure.container import spy_adapter_container
 from aod.application import Command, Query, UseCase
 from aod.domain import RootEntity
@@ -605,6 +613,77 @@ def test_adapt_projection_rejects_abstract_async_session() -> None:
 
             def read(self, model: DTO) -> str:
                 return "ok"
+
+
+# ── adapt with caches ──
+
+
+class _UserKey(ContractCacheKey[GetUser]):
+    def key(self, query: GetUser) -> str:
+        return f"user:{query.user_id}"
+
+    def invalidate(self) -> list[CacheInvalidation]:
+        return []
+
+
+class _CachedUseCase(UseCase):
+    def run(self) -> bool:
+        ctx = get_cache_context()
+        return ctx.get_for(GetUser(user_id=1)) is not None
+
+
+class _CachedAsyncUseCase(AsyncUseCase):
+    async def run(self) -> bool:
+        ctx = get_cache_context()
+        return ctx.get_for(GetUser(user_id=1)) is not None
+
+
+class _CachedReadProjection(ReadProjection):
+    def read(self) -> bool:
+        ctx = get_cache_context()
+        return ctx.get_for(GetUser(user_id=1)) is not None
+
+
+class _CachedWriteProjection(WriteProjection):
+    def write(self) -> bool:
+        ctx = get_cache_context()
+        return ctx.get_for(GetUser(user_id=1)) is not None
+
+
+def test_adapt_use_case_activates_cache_context() -> None:
+    cache = SpyCache(keys=[_UserKey()])
+    container = AdapterContainer(caches=[cache])
+    uc = container.adapt(_CachedUseCase)
+    assert uc.run() is True
+
+
+def test_adapt_use_case_no_caches() -> None:
+    container = AdapterContainer()
+    uc = container.adapt(_CachedUseCase)
+    assert uc.run() is False
+
+
+def test_adapt_projection_read_activates_cache_context() -> None:
+    cache = SpyCache(keys=[_UserKey()])
+    container = AdapterContainer(caches=[cache])
+    proj = container.adapt(_CachedReadProjection)
+    assert proj.read() is True
+
+
+def test_adapt_projection_write_activates_cache_context() -> None:
+    cache = SpyCache(keys=[_UserKey()])
+    container = AdapterContainer(caches=[cache])
+    proj = container.adapt(_CachedWriteProjection)
+    assert proj.write() is True
+
+
+@pytest.mark.asyncio
+async def test_adapt_async_use_case_activates_cache_context() -> None:
+    cache = SpyCache(keys=[_UserKey()])
+    container = AdapterContainer(caches=[cache])
+    uc = container.adapt(_CachedAsyncUseCase)
+    result = await uc.run()
+    assert result is True
 
 
 # ── Error handling ──
