@@ -96,18 +96,18 @@ tx.begin()                              # calls session.begin() on ALL sessions
     # QueryHandlers read via session.query()
 if run() succeeds:
     tx.commit()                         # calls session.commit() ONLY on dirty sessions
-    tx.flush_caches()                   # flushes caches wired to handlers via add_cache()
+    # caches flushed (via CacheContext.flush())
     for bus in _event_buses:
         bus.publish(*events)            # publishes collected events
 if run() fails:
     tx.rollback()                       # calls session.rollback() ONLY on dirty sessions
-    tx.discard_caches()                 # discards buffered cache entries
+    # caches discarded (via CacheContext.discard())
     error re-raised                     # exception propagates to caller
 ```
 
 Key points:
 - The Transaction is created internally by the UseCase -- you never construct or inject one.
-- Caches flushed during `tx.commit()` come from handlers that registered them via `add_cache()`. The container auto-wires caches to matching handlers when the handler is instantiated.
+- Caches are managed via `CacheContext` (activated by `CacheManager`). The container wraps operations with `CacheManager` automatically. Flush happens after commit, discard happens on rollback.
 - Only dirty sessions are committed/rolled back (checked via `is_dirty()`)
 - `commit()` is guarded by `_CommitContext` ContextVar -- raises `CommitOutsideUnitOfWorkError` if called outside a Transaction
 - `begin()` and `rollback()` are NOT guarded -- they can be called anywhere (though you should never need to)

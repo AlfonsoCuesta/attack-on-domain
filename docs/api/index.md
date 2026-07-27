@@ -352,7 +352,7 @@ from aod.domain.validation import field_invariance, invariance, AfterValidator, 
 ## Application Layer
 
 ```python
-from aod.application import UseCase, Port, Logger, EventBus, Cache, CacheKey, CacheInvalidation, Command, Query
+from aod.application import UseCase, Port, Logger, EventBus, Cache, CacheManager, CacheKey, CacheInvalidation, ContractCacheKey, OperationCacheKey, ContractCacheInvalidation, OperationCacheInvalidation, Command, Query
 from aod.application import CommandPort, QueryPort
 from aod.application import ApplicationException
 from aod.application.async_ import UseCase, Logger, EventBus, Cache
@@ -566,6 +566,22 @@ Synchronous cache port.
 | `value` | `Any` | Value to cache. |
 | `ttl` | `float \| None` | Time-to-live in seconds. `None` means no expiry. |
 
+### CacheManager
+
+```python
+from aod.application import CacheManager
+from aod.application.cache import CacheManager
+```
+
+`CacheManager` is a context manager that activates cache context for the duration of a block. Wraps a list of `Cache`/`AsyncCache` instances. Inside the context, `get_cache_context()` returns a context that routes cache operations to the registered caches.
+
+```python
+with CacheManager(cache):
+    result = use_case.run(...)  # handler reads through cache
+```
+
+The `AdapterContainer.adapt()` method wraps operations with `CacheManager` automatically when `caches` are configured — you rarely need it directly.
+
 ### AsyncCache
 
 ```python
@@ -574,34 +590,38 @@ from aod.application.async_ import Cache
 
 Same interface but `get`, `set`, and `delete` are async.
 
+**Warning:** `AsyncCache` only works in async operations (`AsyncUseCase`, `AsyncReadProjection`, `AsyncWriteProjection`). Sync `UseCase`/`Projection` silently skip async cache operations — reads return `None` and writes are discarded.
+
 ### CacheKey
 
 ```python
 from aod.application import CacheKey
 ```
 
-`CacheKey(ABC, Generic[TQuery_co])` — Abstract base for defining cache key strategies.
+`CacheKey(BaseGuarded)` — Abstract base for cache key definitions. Subclass via `ContractCacheKey` (for Query/Command patterns) or `OperationCacheKey` (for operation-based patterns).
 
-#### Class Variables
+### ContractCacheKey
 
-| Variable | Type | Description |
-|----------|------|-------------|
-| `ttl` | `float \| None` | Default TTL for this key. `None` means no expiry. |
+```python
+from aod.application import ContractCacheKey
+```
+
+`ContractCacheKey(CacheKey, Generic[TQuery])` — Maps a `Query` to a cache key and lists which `Command` types invalidate it.
 
 #### Abstract Methods
 
 | Method | Signature | Description |
 |--------|-----------|-------------|
-| `key` | `abstractmethod key(self, query: TQuery_co) -> str` | Compute the cache key string from a query. |
-| `invalidate` | `abstractmethod invalidate(self) -> list[CacheInvalidation]` | Return invalidation rules for this key. |
+| `key` | `abstractmethod key(self, query: TQuery) -> str` | Compute the cache key string from a query. |
+| `invalidate` | `abstractmethod invalidate(self) -> list[CacheInvalidation]` | Return invalidation rules for this key (list of `ContractCacheInvalidation`). |
 
-#### Class Methods
+### OperationCacheKey
 
-| Method | Signature | Description |
-|--------|-----------|-------------|
-| `get_query_type` | `get_query_type(cls) -> type[Query]` | Return the query type this key is associated with. |
-| `get_command_types` | `get_command_types(cls) -> set[type[Command]]` | Return all command types that invalidate this key. |
-| `get_invalidation_key_fn` | `get_invalidation_key_fn(cls, command_type: type[Command]) -> Callable[[Any], str] \| None` | Return the key function for a given command type, or `None`. |
+```python
+from aod.application import OperationCacheKey
+```
+
+`OperationCacheKey(CacheKey, Generic[TOperation])` — Maps a UseCase/Projection operation to a cache key and lists which operations invalidate it.
 
 ### CacheInvalidation
 
@@ -609,14 +629,30 @@ from aod.application import CacheKey
 from aod.application import CacheInvalidation
 ```
 
-`CacheInvalidation` is a frozen `dataclass` that maps a command type to a key extraction function.
+`CacheInvalidation(BaseSealed)` — Base invalidation descriptor. Subclass via `ContractCacheInvalidation` or `OperationCacheInvalidation`.
+
+### ContractCacheInvalidation
+
+```python
+from aod.application import ContractCacheInvalidation
+```
+
+Frozen dataclass pairing a `Command` type with a key extraction function. Used inside `ContractCacheKey.invalidate()`.
 
 #### Fields
 
 | Field | Type | Description |
 |-------|------|-------------|
-| `command_type` | `type[Command]` | The command class that triggers invalidation. |
+| `target_type` | `type[Command]` | The command class that triggers invalidation. |
 | `key_fn` | `Callable[[Any], str]` | Function that extracts the cache key from a command instance. |
+
+### OperationCacheInvalidation
+
+```python
+from aod.application import OperationCacheInvalidation
+```
+
+Frozen dataclass pairing an operation type with a key extraction function. Used inside `OperationCacheKey.invalidate()`.
 
 ### Command
 

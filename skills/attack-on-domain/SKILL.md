@@ -166,8 +166,8 @@ place_order.run(PlaceOrderInput(order_id="1", product_id="p1", quantity=2, price
 | `from aod.application import Port` | Abstract port/gateway base class |
 | `from aod.application import Logger, EventBus` | Built-in port types (sync) |
 | `from aod.application.async_ import EventBus, Logger` | Async versions |
-| `from aod.application.cache import Cache, CacheKey, CacheInvalidation` | Cache port with automatic query/command key resolution |
-| `from aod.application.cache import AsyncCache` | Async cache port |
+| `from aod.application.cache import Cache, ContractCacheKey, ContractCacheInvalidation` | Cache port with automatic query/command key resolution |
+| `from aod.application.cache import AsyncCache` | Async cache port. Only works in async operations (`AsyncUseCase`, `AsyncProjection`). |
 | `from aod.domain.validation import get_base_model` | Get BaseModel from a Entity, RootEntity or ValueObject |
 | `from aod.application import Command, Query` | Application contracts (internal — created by UseCase, not the user) |
 | `from aod.application import CommandPort, QueryPort` | Application handler protocols |
@@ -476,24 +476,28 @@ uc.run(PlaceOrderInput(order_id="1", product_id="p1", quantity=2, price=9.99))
 
 ### Cache
 
-Cache is injected **magically** — UseCases and Handlers never declare cache fields. The framework intercepts Query/Command handlers and applies read-through caching and write-through invalidation automatically.
+Caching uses a **contextvar-based** system activated by `CacheManager`. The framework intercepts Query/Command handlers at the `HandlerProtocol` level and applies read-through caching and write-through invalidation automatically when the cache context is active. The container wraps operations with `CacheManager` automatically when `caches` are configured.
 
-**How it works**: Define a `CacheKey` subclass mapping a Query to a cache key and listing which Commands invalidate it. Create a `Cache` implementation (Redis, Memcached, in-memory) with those keys. Attach it to handlers via `handler.add_cache(cache)` or let the container auto-wire it.
+**How it works**: Define a `ContractCacheKey[Query]` subclass mapping a Query to a cache key and listing which Commands invalidate it. Create a `Cache` implementation (Redis, Memcached, in-memory) with those keys. Pass the cache to the container via `caches=[...]`. When `container.adapt(MyUseCase)` is called, the operation's entry point (`run`/`read`/`write`) is wrapped with a `CacheManager` context — all handler calls within that operation will use the cache.
 
 ```python
-from aod.application.cache import Cache, CacheKey, CacheInvalidation
+from aod.application.cache import Cache, ContractCacheKey, ContractCacheInvalidation
 
 # 1. Define what to cache and when to invalidate
-class UserById(CacheKey[GetUser]):
-    ttl = 300.0  # 5-minute TTL (optional)
-
+class UserById(ContractCacheKey[GetUser]):
     def key(self, query: GetUser) -> str:
         return f"user:{query.user_id}"
 
     def invalidate(self) -> list[CacheInvalidation]:
         return [
-            CacheInvalidation(CreateUser, lambda c: f"user:{c.name}"),
-            CacheInvalidation(DeleteUser, lambda c: f"user:{c.user_id}"),
+            ContractCacheInvalidation(
+                target_type=CreateUser,
+                key_fn=lambda c: f"user:{c.name}",
+            ),
+            ContractCacheInvalidation(
+                target_type=DeleteUser,
+                key_fn=lambda c: f"user:{c.user_id}",
+            ),
         ]
 
 # 2. Implement the storage backend
@@ -502,25 +506,28 @@ class RedisCache(Cache):
     def set(self, key: str, value: Any, ttl: float | None = None) -> None: ...
     def delete(self, key: str) -> None: ...
 
-# 3. Attach to handlers — the handler itself never mentions cache
+# 3. Register on the container — adapt() activates CacheManager automatically
 cache = RedisCache(keys=[UserById()])
 
-handler = GetUserHandler()
-handler.add_cache(cache)  # read-through on queries
-
-handler = CreateUserHandler()
-handler.add_cache(cache)  # invalidates on commands
-
-# 4. Or let the container auto-wire
 container = AdapterContainer(
     caches=[cache],
     handlers=[GetUserHandler, CreateUserHandler],
 )
+use_case = container.adapt(MyUseCase)
+use_case.run(...)  # cache context active during run()
 ```
 
-**Cache flow**: On QueryHandler, the framework checks `cache._get(query)` before executing `handle()`. If cached, returns immediately. Otherwise executes the handler and calls `cache._set(query, result)`. On CommandHandler, after success it calls `cache._delete(command)`. All writes are deferred — the UnitOfWork flushes caches on commit.
+**Cache flow**: On QueryHandler, the framework checks the cache before executing `handle()`. If cached, returns immediately. Otherwise executes the handler and stores the result. On CommandHandler, after success it deletes stale cache entries. All writes are deferred — the `Transaction` flushes caches on commit and discards on rollback.
 
-**For advanced cache features** (pipeline operations, Lua scripts, pub/sub), inject a Redis-like session directly into the handler as a regular `Port` field. The built-in cache is for the simple read-through/invalidation pattern.
+> **Warning:** `AsyncCache` instances only work in async contexts (`AsyncUseCase`, `AsyncReadProjection`, `AsyncWriteProjection`). Sync `UseCase`/`Projection` cannot `await` async cache operations — cache reads silently return `None` and writes are skipped.
+
+**`CacheManager` context:** Outside a `CacheManager` block, `get_cache_context()` returns an empty context (all operations are no-ops). You can also nest `CacheManager` manually:
+```python
+with CacheManager(cache):
+    result = use_case.run(user_id=1)
+```
+
+**Spy container:** The `spy_adapter_container` ignores caches — it overrides `_wrap_with_cache` as a no-op, so tests never activate the cache context.
 
 ### Session
 

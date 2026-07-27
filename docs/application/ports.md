@@ -164,7 +164,7 @@ Interface for caching query results with automatic invalidation.
 
 **Import:** `from aod.application.cache import Cache`
 
-`Cache` provides the backing store interface. Higher-level cache behavior (read-through, invalidation, deferred writes) is built on top and applied to handlers via `handler.add_cache(cache)`.
+`Cache` provides the backing store interface. Higher-level cache behavior (read-through, invalidation, deferred writes) is built on top and activated via `CacheManager` context — the container wraps operations automatically when `caches` are configured.
 
 **Constructor:**
 
@@ -188,13 +188,11 @@ Interface for caching query results with automatic invalidation.
 | `value` | `Any` | Value to store |
 | `ttl` | `float \| None` | Time-to-live in seconds. `None` means no expiration |
 
-#### CacheKey
+#### ContractCacheKey
 
-`CacheKey` defines how a `Query` maps to a cache key and which `Command` types invalidate it.
+`ContractCacheKey[TQuery]` defines how a `Query` maps to a cache key and which `Command` types invalidate it.
 
-**Import:** `from aod.application.cache import CacheKey`
-
-**Constructor:** Takes no required parameters. Override `ttl` to set a per-key TTL.
+**Import:** `from aod.application.cache import ContractCacheKey`
 
 **Abstract methods:**
 
@@ -203,34 +201,32 @@ Interface for caching query results with automatic invalidation.
 | `key` | `query: TQuery` | `str` | Map a query instance to a cache key string |
 | `invalidate` | *(none)* | `list[CacheInvalidation]` | Return invalidations — which commands clear which keys |
 
-**Class attributes:**
+#### OperationCacheKey
 
-| Attribute | Type | Default | Description |
-|-----------|------|---------|-------------|
-| `ttl` | `float \| None` | `None` | TTL in seconds for entries under this key. Set as a class attribute |
+`OperationCacheKey[TOperation]` defines cache keys for UseCase/Projection-based operations, mapping an operation's entry-point parameters to a cache key.
+
+**Import:** `from aod.application.cache import OperationCacheKey`
 
 #### CacheInvalidation
 
-`CacheInvalidation` pairs a `Command` type with a key function that derives the cache key to delete when that command executes.
+`CacheInvalidation` is the base invalidation descriptor. Use `ContractCacheInvalidation` (for Command-based invalidation) or `OperationCacheInvalidation` (for operation-based invalidation).
 
-**Import:** `from aod.application.cache import CacheInvalidation`
-
-`CacheInvalidation` is a frozen dataclass — construct it, never mutate it.
-
-**Parameters:**
+**Import:** `from aod.application.cache import ContractCacheInvalidation`
 
 | Parameter | Type | Description |
 |-----------|------|-------------|
-| `command_type` | `type[Command]` | The Command type that triggers invalidation |
+| `target_type` | `type[Command]` | The Command type that triggers invalidation |
 | `key_fn` | `Callable[[Any], str]` | Function taking the command and returning the cache key to delete |
 
-#### Applying Cache to Handlers
+#### Applying Cache
 
-Cache is wired to handlers via `handler.add_cache(cache)`, not directly to UseCases or Projections. The container does this automatically when caches are registered.
+Cache is activated via `CacheManager` context — the container wraps operations automatically when `caches` are configured in `AdapterContainer`:
 
 ```python
-from aod.application.cache import Cache, CacheKey, CacheInvalidation
-from aod.infrastructure import QueryHandler
+from aod.application.cache import Cache, ContractCacheKey, ContractCacheInvalidation, OperationCacheKey, OperationCacheInvalidation
+from aod.infrastructure import QueryHandler, AdapterContainer
+
+# ── Handler-level: cache query results, invalidate on commands ──
 
 class GetUser(Query[User, User | None]):
     user_id: int
@@ -241,16 +237,14 @@ class CreateUser(Command[User, User]):
 class DeleteUser(Command[User, None]):
     user_id: int
 
-class UserCacheKey(CacheKey[GetUser]):
-    ttl = 300
-
+class UserCacheKey(ContractCacheKey[GetUser]):
     def key(self, query: GetUser) -> str:
         return f"user:{query.user_id}"
 
     def invalidate(self) -> list[CacheInvalidation]:
         return [
-            CacheInvalidation(CreateUser, lambda c: f"user:{c.name}"),
-            CacheInvalidation(DeleteUser, lambda c: f"user:{c.user_id}"),
+            ContractCacheInvalidation(target_type=CreateUser, key_fn=lambda c: f"user:{c.name}"),
+            ContractCacheInvalidation(target_type=DeleteUser, key_fn=lambda c: f"user:{c.user_id}"),
         ]
 
 class RedisCache(Cache):
@@ -267,12 +261,34 @@ class GetUserHandler(QueryHandler[GetUser]):
     def handle(self, query: GetUser) -> User | None:
         return self.session.query(query)
 
-cache = RedisCache(keys=[UserCacheKey()])
-handler = GetUserHandler(session=PsqlSession())
-handler.add_cache(cache)
+# ── Operation-level: cache the entire use case result ──
+
+class LookupUser(OperationCacheKey[LookupUserUseCase]):
+    def key(self, user_id: int) -> str:
+        return f"lookup:{user_id}"
+
+    def invalidate(self) -> list[CacheInvalidation]:
+        return [
+            OperationCacheInvalidation(
+                target_type=UpdateUserUseCase,
+                key_fn=lambda user_id, name: f"lookup:{user_id}",
+            ),
+        ]
+
+# Both key types in the same cache instance
+cache = RedisCache(keys=[UserCacheKey(), LookupUser()])
+
+container = AdapterContainer(
+    caches=[cache],
+    handlers=[GetUserHandler],
+)
+use_case = container.adapt(MyUseCase)
+use_case.run(...)  # cache context active automatically
 ```
 
-When `handler.handle(GetUser(user_id=1))` is called, the cache checks for a hit first. On miss, the handler runs and the result is written back to the cache. When a `CreateUser` or `DeleteUser` command is handled, the matching cache keys are invalidated automatically via `CacheKey.invalidate()`.
+When `container.adapt()` is called, the container wraps `run()`/`read()`/`write()` with a `CacheManager` context. Inside that context, handler calls check the cache before executing — read-through for queries, invalidation for commands.
+
+> **Warning:** `AsyncCache` instances (with async `get`, `set`, `delete`) are only compatible with async operations (`AsyncUseCase`, `AsyncReadProjection`, `AsyncWriteProjection`). If you pass an `AsyncCache` to a sync `UseCase` or sync `Projection`, cache reads silently return `None` and cache writes are skipped — the framework cannot `await` in a sync context.
 
 ## Async Ports
 
@@ -288,7 +304,9 @@ Each async variant has the same methods but declared as `async`:
 |------|-------------|------------|
 | `AsyncLogger` | `aod.application.async_` | All log methods are `async` |
 | `AsyncEventBus` | `aod.application.async_` | `publish()` is `async` |
-| `AsyncCache` | `aod.application.async_` | `get`, `set`, `delete` are `async` |
+| `AsyncCache` | `aod.application.async_` | `get`, `set`, `delete` are `async`. Only works in async operations. |
+
+> **Warning:** `AsyncCache` only functions inside `AsyncUseCase`, `AsyncReadProjection`, or `AsyncWriteProjection`. Sync `UseCase`/`Projection` silently skip async cache operations.
 
 `CacheKey` and `CacheInvalidation` are plain data structures — import them from `aod.application.cache` regardless of sync or async use.
 
