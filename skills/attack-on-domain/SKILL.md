@@ -193,7 +193,7 @@ The testing doubles live under `aod.testing.doubles`. The main tool is `spy_adap
 
 ### The Canonical Flow
 
-This is the pattern for most use-case tests. Create a real container, wrap it with the spy, stub the operations you want to bypass, then `adapt()` and call:
+This is the pattern for most use-case tests. Create a real container (usually via your project's `make_container()`), wrap it with the spy, stub the operations you want to bypass, then `adapt()` and call:
 
 ```python
 from aod.testing.doubles import spy_adapter_container
@@ -209,14 +209,40 @@ container.stub_use_case(GetCenter, raises=CenterNotFound("xyz"))
 # adapt() returns a wired instance — run() returns your stubbed value
 uc = container.adapt(CreateCenter)
 result = await uc.run(dto)  # → my_center
-
-# Without stubbing, run() executes real code with stubbed dependencies
-container2 = spy_adapter_container(AdapterContainer(sessions={MySession}, handlers=[MyHandler]))
-uc2 = container2.adapt(CreateCenter)
-uc2.run(dto)  # real run(), handler stub injected
 ```
 
-`stub_use_case` is the key API — without it, the spy container returns use cases whose handlers are stubs returning `None`, which is rarely useful. Stub everything you don't want to execute. Also works for projections:
+When you stub a use case, you replace its entire `run()`. If you need finer control — one handler port returning a value while another fails — configure the handler stubs individually instead of stubbing the whole use case.
+
+### Stubbing Individual Handlers
+
+`stub_use_case` replaces `run()` entirely. To control individual `CommandPort`/`QueryPort` fields inside a use case that has multiple handlers, configure the handler stubs directly through the spy container. Each handler's `handle()` is a `MagicMock` returning `None` by default:
+
+```python
+container = spy_adapter_container(
+    AdapterContainer(sessions={MySession}, handlers=[GetCenterHandler, CreateCenterHandler])
+)
+
+# Configure specific handler behaviors
+container.get_handler(GetCenter).handle.return_value = my_center
+container.get_handler(CreateCenter).handle.side_effect = ValueError("db down")
+
+uc = container.adapt(ManageCenter)
+uc.run(dto)  # get_center handle() returns my_center, create handle() raises ValueError
+```
+
+For tests that don't use the container at all (Level 2 — manual DI), create handler instances with `port_stub` and configure them before passing to the use case constructor:
+
+```python
+get_handler = port_stub(GetCenterHandler)()
+get_handler.handle.return_value = my_center
+
+uc = ManageCenter(get_center=get_handler, create=port_stub(CreateCenterHandler)())
+uc.run(dto)
+```
+
+### Stubbing Projections
+
+Same pattern as use cases — stub individual `read()`/`write()` or both:
 
 ```python
 container.stub_projection(MyProjection, read_returns=["item1", "item2"])
@@ -247,6 +273,25 @@ uc.run(...)
 Pre-built spy classes save a line: `SpyLogger`, `SpyEventBus`, `SpyCache` (and their `AsyncSpy*` counterparts) are the same as `port_stub(Logger)` etc. Use whichever reads better.
 
 If you're using `spy_adapter_container`, you already get `get_port_stub("name")` which returns the **original** port instance (not a mock). Port stubs are for Level 2.
+
+### Session Stubs
+
+`session_stub` generates a stub class for any `Session` or `AsyncSession` subclass. All methods become mocks, `is_dirty()` returns `False` by default. Use it when you need a session with specific return values, in manual-DI tests:
+
+```python
+from aod.testing.doubles import session_stub, SpySession
+
+# Pre-built for the abstract Session
+session = SpySession()
+session.is_dirty.return_value = True
+
+# For your custom session class
+StubPg = session_stub(PgSession)
+pg = StubPg()
+pg.query.return_value = [{"id": 1, "name": "Alf"}]
+```
+
+In the spy container, `container.get_session_stub(Session)` already does this — you don't need `session_stub` manually unless you're bypassing the container.
 
 ### Level 1 — Domain Logic (fastest, zero container)
 
@@ -304,7 +349,10 @@ users = fake.batch(3, [{"id": 1}, {"id": 2}, {"id": 3}])
 
 | I want to... | Use |
 |-------------|-----|
+| Create a test container that wires real handlers with stubs | `spy_adapter_container(AdapterContainer(sessions=..., handlers=...))` |
 | Replace a use case's `run()` with a fixed return | `container.stub_use_case(UC, returns=X)` |
+| Make a use case's `run()` raise an exception | `container.stub_use_case(UC, raises=Exception(...))` |
+| Configure return value for one handler inside a use case | `container.get_handler(Contract).handle.return_value = X` |
 | Replace a projection's `read()` / `write()` | `container.stub_projection(Proj, read_returns=X)` |
 | Assert a specific event was emitted | `assert_event_emitted(events_of(entity), EventType, **attrs)` |
 | Test an invariant in isolation | `check_invariant(Class, "invariant_name", field=value)` |
@@ -312,6 +360,7 @@ users = fake.batch(3, [{"id": 1}, {"id": 2}, {"id": 3}])
 | Generate random domain objects | `FakeDomain(Class, defaults...)(overrides...)` |
 | Verify a port was called inside a use case | `port_stub(PortClass)().method.call_count` |
 | Verify a handler was called through the container | `container.get_handler(Contract).handle.called` |
+| Create a session stub with custom return values | `session_stub(MySession)()` or `SpySession()` |
 | Test cache behavior | `with CacheManager(cache): uc.run(...)` |
 
 ## Domain Primitives
