@@ -181,20 +181,221 @@ place_order.run(PlaceOrderInput(order_id="1", product_id="p1", quantity=2, price
 | `from aod.application import ApplicationException` | Application base exception |
 | `from aod.infrastructure import InfrastructureException` | Infrastructure base exception |
 
-## Testing Utilities
+## Testing
 
-| Import | What |
-|--------|------|
-| `from aod.testing import build` | Construct domain objects skipping validation |
-| `from aod.testing import events_of` | Extract events emitted by an entity/service/vo |
-| `from aod.testing import assert_event_emitted, assert_no_events` | Event assertions |
-| `from aod.testing import check_invariant` | Run a single invariant validator |
-| `from aod.testing.doubles import Params` | `Params` objects with `.args()` and `.kwargs()` from stub calls |
-| `from aod.testing.doubles import port_stub` | Create stub class from any `Port` subclass |
-| `from aod.testing.doubles import spy_adapter_container` | Container with stubbed sessions/ports/handlers |
-| `from aod.testing.doubles import SpyLogger, SpyEventBus, SpyUnitOfWork, SpyCache` | Generated via `port_stub` |
-| `from aod.testing.doubles import SpySession, SpyAsyncSession` | Session stubs (generated via `session_stub`) |
-| `from aod.testing.doubles.application.async_ import SpyLogger, SpyEventBus, SpyUnitOfWork, SpyCache` | Async variants (backed by `port_stub`) |
+Testing in this framework follows three **levels** — pick the fastest one that answers your question.
+
+### Level 1 — Domain Logic (fastest, zero container)
+
+Test entities and value objects in complete isolation. No sessions, no handlers, no container.
+
+**`build()`** constructs domain objects skipping validation validators (type-checking still applies):
+
+```python
+from aod.testing import build
+
+order = build(Order, id="ORD-001", customer_id="CUST-001", lines=[], total=0.0)
+# Works on Entity, RootEntity, ValueObject — bypasses @field_invariance and @invariance
+```
+
+**`events_of()`** extracts events from an entity's emitter:
+
+```python
+from aod.testing import events_of, assert_event_emitted, assert_no_events
+
+order.place()
+events = events_of(order)
+
+assert_event_emitted(events, OrderPlaced, order_id="ORD-001", total=0.0)
+assert_no_events(events_of(order))  # fails if events were emitted
+```
+
+**`check_invariant()`** tests a single `@field_invariance` or `@invariance` in isolation:
+
+```python
+from aod.testing import check_invariant
+
+class User(RootEntity):
+    id: int = Field(id=True)
+    username: str
+
+    @field_invariance("username")
+    def username_not_empty(cls, value: str) -> str:
+        if not value.strip():
+            raise ValueError("must not be empty")
+        return value
+
+check_invariant(User, "username_not_empty", id=1, username="Alf")  # passes
+# Raises InvarianceException:
+check_invariant(User, "username_not_empty", id=1, username="")
+# Raises ValueError with list of valid names:
+check_invariant(User, "does_not_exist", id=1, username="x")
+```
+
+**`FakeDomain()`** auto-fills domain objects with realistic random data via `polyfactory`:
+
+```python
+from aod.testing import FakeDomain
+
+# Auto-fill all fields
+user = FakeDomain(User)()
+assert isinstance(user.id, int)
+assert isinstance(user.name, str)
+
+# Lock specific fields, auto-fill the rest
+user = FakeDomain(User, name="Pablo")(id=1)
+
+# Batch with overrides
+users = FakeDomain(User).batch(3, [{"id": 1}, {"id": 2}, {"id": 3}])
+```
+
+### Level 2 — Application Logic (medium, manual DI)
+
+Test use cases without the container. Inject real or fake ports directly. This is faster than the container and gives you full control.
+
+**`port_stub()`** generates a stub **class** from any `Port` subclass — every public method becomes a `MagicMock` that records calls and returns `None` by default:
+
+```python
+from aod.testing.doubles import port_stub
+
+logger = port_stub(Logger)()
+logger.info("test")
+assert logger.info.call_count == 1
+
+bus = port_stub(EventBus)()
+bus.publish.return_value = None  # default
+
+uc = PlaceOrderUseCase(
+    logger=logger,
+    event_bus=bus,
+    email_sender=FakeEmailSender(),
+    inventory=FakeInventoryClient(),
+)
+uc.run(...)
+assert bus.publish.call_count >= 1
+```
+
+**Pre-built spy classes** are generated the same way — available for common ports:
+
+```python
+from aod.testing.doubles import SpyLogger, SpyEventBus, SpyCache
+# Async: from aod.testing.doubles import AsyncSpyLogger, AsyncSpyEventBus, AsyncSpyCache
+# Or: from aod.testing.doubles.application.async_ import SpyLogger  # async under sync name
+```
+
+**Fake ports** are plain `Port` subclasses you write — they record what happened so you can assert on it:
+
+```python
+class FakeEmailSender(EmailSender):
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        object.__setattr__(self, "sent", [])
+
+    def send(self, to: str, subject: str, body: str) -> None:
+        self.sent.append((to, subject, body))
+
+sender = FakeEmailSender()
+uc = MyUseCase(email_sender=sender)
+uc.run(...)
+assert len(sender.sent) == 1
+```
+
+**Cache testing** — use `CacheManager` manually to activate cache context for a block:
+
+```python
+from aod.application.cache import CacheManager
+
+cache = RedisCache(keys=[UserById()])
+with CacheManager(cache):
+    result = use_case.run(user_id=1)  # reads through cache
+# CacheManager auto-exits outside the block
+```
+
+### Level 3 — Integration (slowest, container wiring)
+
+The **`spy_adapter_container()`** replaces all ports, sessions, and handlers with stubs while keeping the container wiring. The container creates a spy **subclass** of your container — `isinstance(spy, AdapterContainer)` is `True`.
+
+```python
+from aod.testing.doubles import port_stub, spy_adapter_container
+
+container = spy_adapter_container(
+    AdapterContainer(
+        weather=FakePort(),
+        logger=port_stub(Logger)(),
+        event_bus=port_stub(EventBus)(),
+    )
+)
+```
+
+**Stub operations** so they don't execute real logic:
+
+```python
+# Stub and return a value
+container.stub_use_case(MyUseCase, returns=42)
+uc = container.adapt(MyUseCase)
+assert uc.run() == 42
+
+# Stub to raise
+container.stub_use_case(MyUseCase, raises=ValueError("boom"))
+with pytest.raises(ValueError, match="boom"):
+    container.adapt(MyUseCase).run()
+
+# Stub a projection
+container.stub_projection(MyProjection, read_returns="stubbed")
+container.stub_projection(MyProjection, write_raises=ValueError("fail"))
+```
+
+**Without stubbing**, operations run normally — handlers and sessions are stubs, but the use case/projection code executes:
+
+```python
+container = spy_adapter_container(
+    AdapterContainer(sessions={MySession}, handlers=[CreateUserHandler])
+)
+uc = container.adapt(CreateUserUseCase)
+uc.run(...)  # runs real code, injects stubbed handler/session
+assert uc.events
+```
+
+**Inspect stubs** to verify what was called:
+
+```python
+spy = spy_adapter_container(AdapterContainer(handlers=[MyHandler]))
+handler = spy.get_handler(MyCommand)  # returns stub (isinstance(handler, MyHandler) == True)
+handler.handle(MyCommand(...))
+assert handler.handle.called
+assert handler.handle.call_args_list[0].args == (MyCommand(...),)
+
+session = spy.get_session_stub(Session)
+session.is_dirty.return_value = True  # configure the stub
+```
+
+**`session_stub()`** generates stub classes for custom session types:
+
+```python
+from aod.testing.doubles import SpySession  # stub for the abstract Session
+
+class PgSession(Session):
+    def query(self, sql: str) -> list[dict]: ...
+    def execute(self, sql: str) -> None: ...
+    # ...
+
+StubPg = session_stub(PgSession)
+session = StubPg()
+session.query.return_value = [{"id": 1, "name": "Alf"}]
+```
+
+**Spy container ignores caches** — `_wrap_with_cache` is overridden as a no-op. Cache context is never activated in spy containers. Testing cache behavior requires the real container or manual `with CacheManager(...)`.
+
+### Which Level When
+
+| Question | Level | Tools |
+|----------|-------|-------|
+| Is my entity invariant correct? | Level 1 | `check_invariant`, `build` |
+| Did my entity emit the right event? | Level 1 | `events_of`, `assert_event_emitted` |
+| Does my use case call the right ports? | Level 2 | `port_stub`, `SpyLogger`, fake ports |
+| Does my use case wire up correctly? | Level 3 | `spy_adapter_container`, `stub_use_case` |
+| Is the handler-to-contract wiring working? | Level 3 | `get_handler`, assert on handler stub |
+| Need lots of test data? | Level 1 | `FakeDomain`, `build` |
 
 ## Domain Primitives
 
