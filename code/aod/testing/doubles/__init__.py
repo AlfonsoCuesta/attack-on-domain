@@ -5,10 +5,9 @@ from aod._internal.testing.doubles import (
     SpyCache,
     SpyEventBus,
     SpyLogger,
+    spy_session,
 )
 from aod._internal.testing.doubles.infrastructure import (
-    SpyAsyncSession,
-    SpySession,
     spy_adapter_container,
     spy_async_command_handler,
     spy_async_query_handler,
@@ -21,15 +20,14 @@ __all__ = [
     "AsyncSpyCache",
     "AsyncSpyEventBus",
     "AsyncSpyLogger",
-    "SpyAsyncSession",
     "SpyCache",
     "SpyEventBus",
     "SpyLogger",
-    "SpySession",
     "port_stub",
     "spy_adapter_container",
     "spy_async_command_handler",
     "spy_async_query_handler",
     "spy_command_handler",
     "spy_query_handler",
+    "spy_session",
 ]

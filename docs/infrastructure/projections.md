@@ -189,29 +189,27 @@ Events emitted during `read()` or `write()` are automatically collected:
 - Events are published on the event bus after a successful operation.
 - Write projections require a successful commit before events are published.
 
-## Testing with SpySession
+## Testing with Spy Sessions
 
 ```python
-from aod.testing.doubles import SpySession
+from aod.testing.doubles import spy_session
 from pydantic import BaseModel
 
 class UserSearch(BaseModel):
     user_id: int
 
+StubMySession = spy_session(MySession)
+
 class MyReadProjection(ReadProjection):
+    session: StubMySession
+
     def read(self, model: UserSearch) -> Any:
         result = self.session.query("SELECT * FROM users")
         ...
 
-class MyReadProjection(ReadProjection):
-    session: SpySession
-
-    def read(self, model: UserSearch) -> Any:
-        ...
-
-proj = MyReadProjection(session=SpySession())
+proj = MyReadProjection(session=StubMySession())
 result = proj.read(UserSearch(user_id=42))
-assert proj.session.is_dirty.called
+assert proj.session.query.called
 ```
 
 ## Next Steps

@@ -7,7 +7,7 @@ from aod._internal.infrastructure.container.handler_manager import HandlerManage
 from aod._internal.infrastructure.container.port_manager import PortManager
 from aod._internal.infrastructure.container.session_manager import SessionManager
 from aod._internal.infrastructure.session import AsyncSession, Session
-from aod._internal.testing.doubles.infrastructure.session import session_stub
+from aod._internal.testing.doubles.infrastructure.session import spy_session
 from aod._internal.testing.doubles.stubs import port_stub
 
 
@@ -26,7 +26,7 @@ class FakeSessionManager(SessionManager):
     ) -> Session | AsyncSession:
         if self._stub_factory is not None:
             return self._stub_factory(session_cls)
-        return session_stub(session_cls)()
+        return spy_session(session_cls)()
 
 
 class FakeHandlerManager(HandlerManager):

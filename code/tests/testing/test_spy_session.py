@@ -1,7 +1,7 @@
 import pytest
 
 from aod._internal.infrastructure.session import Session
-from aod._internal.testing.doubles.infrastructure.session import session_stub
+from aod._internal.testing.doubles.infrastructure.session import spy_session
 
 
 class SqlSession(Session):
@@ -29,25 +29,25 @@ class SqlSession(Session):
 
 class TestSpySession:
     def test_spy_session_inherits_from_user_session(self) -> None:
-        MySpySession = session_stub(SqlSession)
+        MySpySession = spy_session(SqlSession)
         session = MySpySession()
         assert isinstance(session, SqlSession)
 
     def test_method_returns_configured_values(self) -> None:
-        session = session_stub(SqlSession)()
+        session = spy_session(SqlSession)()
         session.find.side_effect = [{"id": "1"}, {"id": "2"}]
         assert session.find("1") == {"id": "1"}
         assert session.find("2") == {"id": "2"}
 
     def test_method_raises_stop_iteration_when_exhausted(self) -> None:
-        session = session_stub(SqlSession)()
+        session = spy_session(SqlSession)()
         session.find.side_effect = [{"id": "1"}]
         session.find("1")
         with pytest.raises(StopIteration):
             session.find("2")
 
     def test_method_tracks_calls(self) -> None:
-        session = session_stub(SqlSession)()
+        session = spy_session(SqlSession)()
         session.find("1")
         session.find("2")
         assert session.find.call_count == 2
@@ -55,13 +55,13 @@ class TestSpySession:
         assert session.find.call_args_list[1].args == ("2",)
 
     def test_method_called_property(self) -> None:
-        session = session_stub(SqlSession)()
+        session = spy_session(SqlSession)()
         assert not session.find.called
         session.find("1")
         assert session.find.called
 
     def test_multiple_methods(self) -> None:
-        session = session_stub(SqlSession)()
+        session = spy_session(SqlSession)()
         session.find.side_effect = [{"id": "1"}]
         session.execute.side_effect = [[{"id": "1"}]]
         assert session.find("1") == {"id": "1"}

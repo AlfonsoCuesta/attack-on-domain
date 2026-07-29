@@ -191,12 +191,12 @@ result = handler.handle(CreateUser(...))
 
 ## Testing
 
-Use `SpySession` for handler testing:
+Use `spy_session` for handler testing:
 
 ```python
-from aod.testing.doubles import SpySession
+from aod.testing.doubles import spy_session
 
-session = SpySession()
+session = spy_session(MySession)()
 handler = CreateUserHandler(session=session)
 
 handler.handle(CreateUser(user_id="1", name="Alice"))

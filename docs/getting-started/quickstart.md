@@ -107,11 +107,11 @@ use_case.run(user_id="2", email="alice@example.com", name="Alice")
 
 ## 5. Test It
 
-Use `build()` to construct objects without validation, `events_of()` to inspect emitted events, `assert_event_emitted()` for assertions, and `SpySession` for handler testing.
+Use `build()` to construct objects without validation, `events_of()` to inspect emitted events, `assert_event_emitted()` for assertions, and `spy_session` for handler testing.
 
 ```python
 from aod.testing import build, events_of, assert_event_emitted
-from aod.testing.doubles import SpyLogger, SpySession
+from aod.testing.doubles import SpyLogger, spy_session
 
 
 user = build(User, id="1", email=Email(value="test@example.com"), name="Test")
@@ -121,8 +121,9 @@ user.register()
 assert len(events_of(user)) == 1
 assert_event_emitted(user, UserRegistered)
 
-# Test handler with SpySession
-handler = RegisterUserHandler(session=SpySession())
+# Test handler with a spy session
+session = spy_session(MySession)()
+handler = RegisterUserHandler(session=session)
 handler.handle(RegisterUser(user_id="2", email="alice@example.com", name="Alice"))
 assert handler.handle.called
 ```

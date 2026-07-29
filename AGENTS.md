@@ -23,7 +23,7 @@ code/
 │   ├── testing/                       # Public testing utilities
 │   │   ├── __init__.py                # FakeDomain, build, events_of, assert_*
 │   │   └── doubles/
-│   │   ├── __init__.py                # SpyLogger, SpyEventBus, SpyCache, SpySession, SpyAsyncSession, port_stub
+│   │   ├── __init__.py                # SpyLogger, SpyEventBus, SpyCache, port_stub, spy_session
 │   │       ├── application/
 │   │   │       ├── __init__.py        # SpyLogger, SpyEventBus, SpyCache
 │   │       │   ├── spies.py          # Generated via port_stub (replaces hand-written spies)
@@ -119,7 +119,7 @@ code/
 │           │       ├── __init__.py
 │           │       ├── container.py  # SpyAdapterContainer
 │           │       ├── fakes.py      # FakeSessionManager, FakeHandlerManager, FakePortManager
-│           │       └── session.py    # SpySession, SpyAsyncSession
+│           │       └── session.py    # spy_session
 │           └── faker/
 │               ├── __init__.py
 │               └── faker.py          # DomainType, FakeDomain
@@ -430,7 +430,7 @@ aod/_internal/testing/
 |       +-- __init__.py
 |       +-- container.py            # SpyAdapterContainer
 |       +-- fakes.py                # FakeSessionManager, FakeHandlerManager, FakePortManager
-|       +-- session.py              # SpySession, SpyAsyncSession
+|       +-- session.py              # spy_session
 +-- faker/
     +-- __init__.py
     +-- faker.py                    # DomainType, FakeDomain

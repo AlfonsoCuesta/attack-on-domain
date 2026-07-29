@@ -963,8 +963,8 @@ Dependency injection container. Can be used directly or subclassed.
 from aod.testing import build, events_of, assert_event_emitted, assert_no_events, check_invariant
 from aod.testing import FakeDomain
 from aod.testing.doubles import (
-    SpyLogger, SpyEventBus, SpyCache, SpySession, SpyAsyncSession,
-    port_stub, session_stub, spy_adapter_container,
+    SpyLogger, SpyEventBus, SpyCache,
+    port_stub, spy_session, spy_adapter_container,
     spy_command_handler, spy_query_handler,
     spy_async_command_handler, spy_async_query_handler,
 )
@@ -1083,19 +1083,13 @@ Method: `publish(*events)`.
 
 Methods: `get(key)`, `set(key, value, ttl=None)`, `delete(key)`.
 
-### SpySession / SpyAsyncSession
+### `spy_session`
 
-Each required lifecycle method records calls and lets you configure return values:
+```
+spy_session(session_cls: type[Session | AsyncSession]) -> type
+```
 
-| Property | Type | Description |
-|----------|------|-------------|
-| `begin` | stub | `unittest.mock` API: `.called`, `.call_count`, `.call_args_list`, `.return_value`, `.side_effect` |
-| `commit` | stub | `unittest.mock` API: `.called`, `.call_count`, `.call_args_list`, `.return_value`, `.side_effect` |
-| `rollback` | stub | `unittest.mock` API: `.called`, `.call_count`, `.call_args_list`, `.return_value`, `.side_effect` |
-| `close` | stub | `unittest.mock` API: `.called`, `.call_count`, `.call_args_list`, `.return_value`, `.side_effect` |
-| `is_dirty` | stub | Pre-configured to `return_value = False`. Use `.return_value`, `.side_effect` |
-
-SpyAsyncSession mirrors SpySession with async lifecycle methods.
+Create a stub class from any `Session` or `AsyncSession` subclass. Every required and custom method becomes a `MagicMock` (or `AsyncMock` for async sessions), and `is_dirty()` returns `False` by default.
 
 ### Async Spy Classes
 

@@ -8,11 +8,10 @@ The framework provides testing utilities for building domain objects, inspecting
 from aod.testing import build, events_of, assert_event_emitted, assert_no_events, check_invariant
 from aod.testing import FakeDomain
 from aod.testing.doubles import (
-    SpySession,
-    SpyAsyncSession,
     SpyLogger,
     SpyEventBus,
     port_stub,
+    spy_session,
     spy_adapter_container,
     spy_command_handler,
     spy_query_handler,
@@ -343,22 +342,25 @@ bus.publish(OrderPlaced(order_id=1))
 assert bus.publish.called
 ```
 
-### SpySession / SpyAsyncSession
+### `spy_session`
 
 ```python
-from aod.testing.doubles import SpySession, SpyAsyncSession
+from aod.testing.doubles import spy_session
 ```
 
-`SpySession` is a stub implementation of `Session` that records lifecycle calls:
+Create a stub class from any `Session` or `AsyncSession` subclass. Every method (including custom methods your concrete session defines) becomes a `MagicMock` (or `AsyncMock` for async sessions). `is_dirty()` returns `False` by default.
 
 ```python
-session = SpySession()
-session.is_dirty.return_value = False
-session.begin()
-session.commit()
+StubPg = spy_session(PgSession)
+session = StubPg()
+session.is_dirty.return_value = True
+session.query.return_value = [{"id": 1}]
+session.set.return_value = True  # custom PgSession method
 assert session.begin.called
 assert session.commit.called
 ```
+
+In the spy container, `container.get_session_stub(Session)` already does this for you.
 
 ## FakeDomain
 

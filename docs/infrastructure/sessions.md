@@ -158,26 +158,24 @@ class PostgresSession(Session):
         return self._conn.status == "dirty"
 ```
 
-## Testing with SpySession
+## Testing with Spy Sessions
 
 ```python
-from aod.testing.doubles import SpySession, SpyAsyncSession
+from aod.testing.doubles import spy_session
 ```
 
-`SpySession` and `SpyAsyncSession` track calls and let you configure return values on every lifecycle method:
+`spy_session` generates a stub class from any `Session` or `AsyncSession` subclass. Every method — including custom methods your concrete session defines — becomes a `MagicMock` (or `AsyncMock` for async sessions). `is_dirty()` returns `False` by default.
 
 ```python
-spy = SpySession()
+StubPg = spy_session(PgSession)
+session = StubPg()
 
-spy.is_dirty.return_value = True      # always returns True
-spy.is_dirty.side_effect = [True, False]  # first True, then False
-spy.is_dirty.called                  # True if called
-spy.is_dirty.call_count              # number of calls
-spy.is_dirty.call_args_list          # list of call objects, each with .args and .kwargs
-spy.begin.called                     # tracks begin() too
+session.is_dirty.return_value = True
+session.query.return_value = [{"id": 1}]
+session.set.return_value = True  # custom method is also mocked
+assert session.begin.called
+assert session.commit.called
 ```
-
-For user-defined methods (e.g. `get`, `set`, `execute`), extend the spy or use your own test double.
 
 ## Next Steps
 

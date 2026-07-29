@@ -12,7 +12,7 @@ from aod._internal.infrastructure.container.port_manager import PortManager
 from aod._internal.infrastructure.handlers import AsyncCommandHandler
 from aod._internal.infrastructure.projection import ProjectionBase, ReadProjection
 from aod._internal.infrastructure.session import AsyncSession, Session
-from aod._internal.testing.doubles.infrastructure.session import session_stub
+from aod._internal.testing.doubles.infrastructure.session import spy_session
 
 
 class CustomPort(Port):
@@ -37,8 +37,8 @@ class SaveUser(Command[User, None]):
     user_id: str
 
 
-StubSession = session_stub(Session)
-StubAsyncSession = session_stub(AsyncSession)
+StubSession = spy_session(Session)
+StubAsyncSession = spy_session(AsyncSession)
 
 
 class TestAsyncHandler:

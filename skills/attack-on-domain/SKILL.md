@@ -182,8 +182,8 @@ place_order.run(PlaceOrderInput(order_id="1", product_id="p1", quantity=2, price
 | `from aod.infrastructure import InfrastructureException` | Infrastructure base exception |
 | `from aod.testing import build, events_of, assert_event_emitted, assert_no_events, check_invariant, FakeDomain` | Domain testing tools |
 | `from aod.testing.doubles import spy_command_handler, spy_query_handler, spy_async_command_handler, spy_async_query_handler` | Handler port spy factories — each call returns a fresh instance |
-| `from aod.testing.doubles import SpyLogger, SpyEventBus, SpyCache, SpySession` | Pre-built port/session spies |
-| `from aod.testing.doubles import spy_adapter_container, port_stub, session_stub` | Test container + stub generators |
+| `from aod.testing.doubles import SpyLogger, SpyEventBus, SpyCache` | Pre-built port spies |
+| `from aod.testing.doubles import spy_adapter_container, port_stub, spy_session` | Test container + stub generators |
 | `from aod.testing.doubles.application.async_ import SpyLogger, SpyEventBus, SpyCache` | Async pre-built spies |
 
 ## Testing
@@ -297,22 +297,22 @@ If you're using `spy_adapter_container`, you already get `get_port_stub("name")`
 
 ### Session Stubs
 
-`session_stub` generates a stub class for any `Session` or `AsyncSession` subclass. All methods become mocks, `is_dirty()` returns `False` by default. Use it when you need a session with specific return values, in manual-DI tests:
+`spy_session` generates a stub class for any `Session` or `AsyncSession` subclass. All methods become mocks (including any extra methods your concrete session defines — `set`, `get`, `delete`, etc.), and `is_dirty()` returns `False` by default. Use it when you need a session with specific return values, in manual-DI tests:
 
 ```python
-from aod.testing.doubles import session_stub, SpySession
+from aod.testing.doubles import spy_session
 
-# Pre-built for the abstract Session
-session = SpySession()
-session.is_dirty.return_value = True
-
-# For your custom session class
-StubPg = session_stub(PgSession)
+# For your concrete session class
+StubPg = spy_session(PgSession)
 pg = StubPg()
 pg.query.return_value = [{"id": 1, "name": "Alf"}]
+pg.set.return_value = True  # custom method on PgSession
+
+# For the abstract Session (only core lifecycle methods mocked)
+stub = spy_session(Session)
 ```
 
-In the spy container, `container.get_session_stub(Session)` already does this — you don't need `session_stub` manually unless you're bypassing the container.
+In the spy container, `container.get_session_stub(Session)` already does this — you don't need `spy_session` manually unless you're bypassing the container.
 
 ### Level 1 — Domain Logic (fastest, zero container)
 
@@ -383,7 +383,7 @@ users = fake.batch(3, [{"id": 1}, {"id": 2}, {"id": 3}])
 | Verify a port was called inside a use case | `port_stub(PortClass)().method.call_count` |
 | Verify a handler was called through the container | `container.get_handler(Contract).handle.called` |
 | Verify a handler spy was called without the container | `my_spy.handle.call_count`, `my_spy.handle.call_args_list[0].args` |
-| Create a session stub with custom return values | `session_stub(MySession)()` or `SpySession()` |
+| Create a session stub with custom return values | `spy_session(MySession)()` |
 | Test cache behavior | `with CacheManager(cache): uc.run(...)` |
 
 ## Domain Primitives

@@ -12,7 +12,7 @@ from aod._internal.testing.doubles.infrastructure.fakes import (
     FakePortManager,
     FakeSessionManager,
 )
-from aod._internal.testing.doubles.infrastructure.session import session_stub
+from aod._internal.testing.doubles.infrastructure.session import spy_session
 from aod._internal.testing.doubles.stubs import _make_callable_stub, port_stub
 
 T = TypeVar("T", bound=AdapterContainer)
@@ -37,7 +37,7 @@ def _create_spy_adapter(container_cls: type[T]) -> type[T]:
 
     def get_session_stub(self: Any, session_cls: type[Session] | type[AsyncSession]) -> Any:
         if session_cls not in self._session_stubs:
-            self._session_stubs[session_cls] = session_stub(session_cls)()
+            self._session_stubs[session_cls] = spy_session(session_cls)()
         return self._session_stubs[session_cls]
 
     def make_session_manager(self: Any) -> FakeSessionManager:
