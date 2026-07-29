@@ -14,6 +14,10 @@ from aod.testing.doubles import (
     SpyEventBus,
     port_stub,
     spy_adapter_container,
+    spy_command_handler,
+    spy_query_handler,
+    spy_async_command_handler,
+    spy_async_query_handler,
 )
 ```
 
@@ -118,37 +122,35 @@ check_invariant(User, "valid_email", email="not-an-email")
 The recommended approach for testing use cases is to create a spy version of your container. This replaces sessions and ports with stubs that record calls and let you configure return values.
 
 ```python
-from aod.application import Logger
 from aod.infrastructure import AdapterContainer
 from aod.testing.doubles import spy_adapter_container
 
-
 container = spy_adapter_container(
-    AdapterContainer(
-        sessions={MySession},
-        handlers=[CreateUserHandler, GetUserHandler],
-        logger=SpyLogger(),
-    )
+    AdapterContainer(sessions={MySession}, handlers=[CreateUserHandler, GetUserHandler])
 )
 
-# Configure session behavior
-container.get_session_stub(MySession).is_dirty.return_value = True
-container.get_session_stub(MySession).begin.return_value = None
+# Replace a use case's run() with a fixed return or exception
+container.stub_use_case(CreateUserUseCase, returns=user)
+container.stub_use_case(GetUserUseCase, raises=ValueError("not found"))
 
-# Configure port behavior (optional)
-container.get_port_stub("logger").info.return_value = None
+# adapt() returns a fully wired instance
+uc = container.adapt(CreateUserUseCase)
+result = uc.run(user_id=1, name="Alice")  # → user
 
-# Configure handler stub
-container.get_handler_stub(CreateUserHandler).handle.return_value = None
+# Assert events and handler calls
+assert result.name == "Alice"
+assert container.get_handler(CreateUser).handle.call_count == 1
+```
 
-# Configure and inject
-container.stub_use_case(CreateUserUseCase, returns=None)
-use_case = container.adapt(CreateUserUseCase)
-use_case.run(user_id=1, name="Alice")
+To control individual `CommandPort`/`QueryPort` fields inside a use case that has multiple handlers, configure handlers directly without stubbing the whole use case:
 
-# Assert handler was called
-handler = container.get_handler(CreateUser)
-assert handler.handle.called
+```python
+# Each handler's handle() is a MagicMock returning None by default
+container.get_handler(CreateUser).handle.return_value = user
+container.get_handler(GetUser).handle.side_effect = ValueError("db down")
+
+uc = container.adapt(ManageUserUseCase)
+uc.run(dto)  # create.handle() returns user, get.handle() raises
 ```
 
 ### `get_session_stub`
@@ -254,6 +256,64 @@ Every stub method is a `unittest.mock` mock object:
 | `.called` | Whether the method was called |
 | `.call_count` | Number of calls |
 | `.call_args_list` | List of `call` objects — each has `.args` and `.kwargs` |
+
+## Spy Handler Factories
+
+### `spy_command_handler` / `spy_query_handler`
+
+```python
+from aod.testing.doubles import (
+    spy_command_handler,
+    spy_query_handler,
+    spy_async_command_handler,
+    spy_async_query_handler,
+)
+```
+
+Factory functions that create handler port spies. Each call returns a fresh instance with its own `handle()` mock — no shared state.
+
+#### Parameters
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `returns` | `Any` | Value that `handle()` returns on every call. Default: `None`. |
+| `raises` | `Exception \| None` | Exception that `handle()` raises on every call. Takes precedence over `returns`. |
+
+#### Sync Handler Spies
+
+```python
+spy = spy_command_handler(returns=user)
+result = spy.handle(my_command)  # returns `user`
+assert spy.handle.call_count == 1
+```
+
+```python
+spy = spy_query_handler(raises=ValueError("not found"))
+spy.handle(my_query)  # raises ValueError
+```
+
+#### Async Handler Spies
+
+```python
+spy = spy_async_command_handler(returns=user)
+result = await spy.handle(my_command)  # returns `user` (awaitable)
+assert spy.handle.call_count == 1
+```
+
+#### Use in UseCases
+
+```python
+class CreateUserUseCase(UseCase):
+    save_user: CommandPort[CreateUser]
+
+    def run(self, name: str) -> User:
+        return self.save_user.handle(CreateUser(name=name))
+
+spy = spy_command_handler(returns=user)
+uc = CreateUserUseCase(save_user=spy)
+uc.run(name="Alice")
+assert spy.handle.call_count == 1
+```
 
 ## Spy Classes
 

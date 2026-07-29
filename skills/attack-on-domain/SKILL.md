@@ -181,8 +181,9 @@ place_order.run(PlaceOrderInput(order_id="1", product_id="p1", quantity=2, price
 | `from aod.application import ApplicationException` | Application base exception |
 | `from aod.infrastructure import InfrastructureException` | Infrastructure base exception |
 | `from aod.testing import build, events_of, assert_event_emitted, assert_no_events, check_invariant, FakeDomain` | Domain testing tools |
-| `from aod.testing.doubles import spy_adapter_container, port_stub, session_stub` | Test container + stub generators |
+| `from aod.testing.doubles import spy_command_handler, spy_query_handler, spy_async_command_handler, spy_async_query_handler` | Handler port spy factories — each call returns a fresh instance |
 | `from aod.testing.doubles import SpyLogger, SpyEventBus, SpyCache, SpySession` | Pre-built port/session spies |
+| `from aod.testing.doubles import spy_adapter_container, port_stub, session_stub` | Test container + stub generators |
 | `from aod.testing.doubles.application.async_ import SpyLogger, SpyEventBus, SpyCache` | Async pre-built spies |
 
 ## Testing
@@ -270,6 +271,26 @@ uc = MyUseCase(logger=logger, event_bus=port_stub(EventBus)())
 uc.run(...)
 ```
 
+**`spy_command_handler()` / `spy_query_handler()`** are factory functions that create handler port spies. Each call returns a fresh instance with its own `handle()` mock — no shared state across instances:
+
+```python
+from aod.testing.doubles import spy_command_handler, spy_query_handler
+
+create = spy_command_handler(returns=my_center)
+get = spy_query_handler(raises=CenterNotFound("xyz"))
+
+uc = ManageCenter(create=create, get=get)
+uc.run(dto)
+# assert create.handle.call_count == 1
+# assert get.handle.called
+```
+
+**`returns=`** configures `handle()` to return a fixed value. **`raises=`** makes it raise an exception. If neither is passed, `handle()` returns `None`.
+
+These are the quickest way to stub handler ports when you don't need the container. Unlike `port_stub`, they work with the UseCase port check because they implement `CommandPort`/`QueryPort` directly — no `__skip_port_check__` needed.
+
+Async variants: `spy_async_command_handler()`, `spy_async_query_handler()`. Same API, `handle()` is an `AsyncMock`.
+
 Pre-built spy classes save a line: `SpyLogger`, `SpyEventBus`, `SpyCache` (and their `AsyncSpy*` counterparts) are the same as `port_stub(Logger)` etc. Use whichever reads better.
 
 If you're using `spy_adapter_container`, you already get `get_port_stub("name")` which returns the **original** port instance (not a mock). Port stubs are for Level 2.
@@ -349,6 +370,7 @@ users = fake.batch(3, [{"id": 1}, {"id": 2}, {"id": 3}])
 
 | I want to... | Use |
 |-------------|-----|
+| Create a handler port spy without importing the handler class | `spy_command_handler(returns=X)` or `spy_query_handler(raises=Exception(...))` |
 | Create a test container that wires real handlers with stubs | `spy_adapter_container(AdapterContainer(sessions=..., handlers=...))` |
 | Replace a use case's `run()` with a fixed return | `container.stub_use_case(UC, returns=X)` |
 | Make a use case's `run()` raise an exception | `container.stub_use_case(UC, raises=Exception(...))` |
@@ -360,6 +382,7 @@ users = fake.batch(3, [{"id": 1}, {"id": 2}, {"id": 3}])
 | Generate random domain objects | `FakeDomain(Class, defaults...)(overrides...)` |
 | Verify a port was called inside a use case | `port_stub(PortClass)().method.call_count` |
 | Verify a handler was called through the container | `container.get_handler(Contract).handle.called` |
+| Verify a handler spy was called without the container | `my_spy.handle.call_count`, `my_spy.handle.call_args_list[0].args` |
 | Create a session stub with custom return values | `session_stub(MySession)()` or `SpySession()` |
 | Test cache behavior | `with CacheManager(cache): uc.run(...)` |
 

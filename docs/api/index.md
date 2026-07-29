@@ -964,7 +964,9 @@ from aod.testing import build, events_of, assert_event_emitted, assert_no_events
 from aod.testing import FakeDomain
 from aod.testing.doubles import (
     SpyLogger, SpyEventBus, SpyCache, SpySession, SpyAsyncSession,
-    Params, port_stub, spy_adapter_container,
+    port_stub, session_stub, spy_adapter_container,
+    spy_command_handler, spy_query_handler,
+    spy_async_command_handler, spy_async_query_handler,
 )
 from aod.testing.doubles.application.async_ import SpyLogger, SpyEventBus, SpyCache
 ```
@@ -1120,6 +1122,39 @@ Create a version of a container where sessions and ports are replaced with stubs
 | `stub_use_case` | `stub_use_case(cls, *, returns=UNSET, raises=UNSET)` | Configure a use case stub before `adapt`. `returns=` stubs `instance.run` to return the given value; `raises=` makes it raise. |
 | `stub_projection` | `stub_projection(cls, *, read_returns=UNSET, read_raises=UNSET, write_returns=UNSET, write_raises=UNSET)` | Configure a projection stub before `adapt`. Stubs `read()` or `write()` to return or raise. |
 | `adapt` | `adapt(operation_cls, **overrides) -> operation` | Same as base container. Creates the operation with injected stubs. Call after `stub_use_case` or `stub_projection` to apply the configuration. |
+
+### `spy_command_handler` / `spy_query_handler`
+
+```
+spy_command_handler(*, returns: Any = None, raises: Exception | None = None) -> CommandPort
+spy_query_handler(*, returns: Any = None, raises: Exception | None = None) -> QueryPort
+spy_async_command_handler(*, returns: Any = None, raises: Exception | None = None) -> AsyncCommandPort
+spy_async_query_handler(*, returns: Any = None, raises: Exception | None = None) -> AsyncQueryPort
+```
+
+Factory functions that create handler port spies. Each call returns a fresh instance with its own `handle()` mock — no shared state.
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `returns` | `Any` | Value that `handle()` returns on every call. Default: `None`. |
+| `raises` | `Exception \| None` | Exception that `handle()` raises on every call. Takes precedence over `returns`. |
+
+These implement `CommandPort`/`QueryPort` directly so they pass the UseCase port check without `__skip_port_check__`. Use in manual-DI tests:
+
+```python
+spy = spy_command_handler(returns=user)
+uc = CreateUserUseCase(save_user=spy)
+uc.run(name="Alice")
+assert spy.handle.called
+```
+
+### `session_stub`
+
+```
+session_stub(session_cls: type[Session | AsyncSession]) -> type
+```
+
+Create a stub class from any `Session` or `AsyncSession` subclass. Every required method becomes a `MagicMock` (or `AsyncMock` for async sessions), and `is_dirty()` returns `False` by default.
 
 ### `port_stub`
 
