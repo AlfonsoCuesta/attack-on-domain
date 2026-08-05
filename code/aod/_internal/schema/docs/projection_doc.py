@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import inspect
 from dataclasses import dataclass, field
-from typing import get_type_hints
+from typing import get_args, get_origin, get_type_hints
 
 from aod._internal.infrastructure.projection import ProjectionBase
 from aod._internal.infrastructure.projection.projection import (
@@ -94,10 +94,9 @@ def _resolve_projection_type(cls: type) -> str:
 def _session_name(tp: object) -> str:
     if tp is None:
         return ""
-    origin = getattr(tp, "__origin__", None)
+    origin = get_origin(tp)
     if origin is not None:
-        args = getattr(tp, "__args__", ())
-        for arg in args:
+        for arg in get_args(tp):
             if isinstance(arg, type) and issubclass(arg, (Session, AsyncSession)):
                 return arg.__name__
         return ""

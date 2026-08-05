@@ -19,7 +19,7 @@ Welcome to `attack-on-domain`! This section will help you get up and running qui
 
 ## Prerequisites
 
-- Python 3.14 or later
+- Python 3.12 or later
 - Basic understanding of Python type hints
 - (Optional) Familiarity with Domain-Driven Design concepts
 

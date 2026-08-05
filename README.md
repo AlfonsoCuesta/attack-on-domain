@@ -1,6 +1,6 @@
 # attack-on-domain
 
-**Domain-Driven Design building blocks for Python 3.14+** — entities, value objects, aggregates, CQRS, ports and adapters, use cases, domain events, invariants, and dependency injection. All running on Pydantic v2, fully typed, with mutation guards that actually work.
+**Domain-Driven Design building blocks for Python 3.12+** — entities, value objects, aggregates, CQRS, ports and adapters, use cases, domain events, invariants, and dependency injection. All running on Pydantic v2, fully typed, with mutation guards that actually work.
 
 No ORM. No framework lock-in. No "just pip install django and pray."
 
@@ -161,7 +161,7 @@ Or with pip:
 pip install attack-on-domain
 ```
 
-Requires **Python 3.14+**.
+Requires **Python 3.12+**.
 
 ## Documentation
 

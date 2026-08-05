@@ -5,7 +5,7 @@
 <img src="img/dark-logo.png" alt="attack-on-domain" class="hero-logo">
 <h1>attack-on-domain</h1>
 </div>
-<p class="subtitle">DDD building blocks for Python 3.14+</p>
+<p class="subtitle">DDD building blocks for Python 3.12+</p>
 <p class="description">
 Build maintainable domain models with entities, value objects, aggregates, CQRS, and hexagonal architecture — fully typed, immutable, with built-in validation, and designed for real-world applications.
 </p>

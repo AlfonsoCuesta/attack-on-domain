@@ -2,7 +2,7 @@
 
 ## Overview
 
-`attack-on-domain` is a Python 3.14+ library providing Domain-Driven Design building blocks using Pydantic v2 under the hood. It implements entities, value objects, bounded contexts, domain events, and a validation system.
+`attack-on-domain` is a Python 3.12+ library providing Domain-Driven Design building blocks using Pydantic v2 under the hood. It implements entities, value objects, bounded contexts, domain events, and a validation system.
 
 **Source code is under `code/`** — this directory is mapped as the package root in `pyproject.toml`.
 
@@ -449,7 +449,7 @@ make typecheck      # pyright (when configured)
 
 ## Coding Conventions
 
-1. **Python 3.14+** -- use `|` for unions, `type[X]`, `Self`, etc.
+1. **Python 3.12+** -- use `|` for unions, `type[X]`, `Self`, etc.
 2. **Keyword-only arguments** everywhere
 3. **No comments** in source code -- code should be self-documenting
 4. **No emojis** unless explicitly requested by the user
@@ -515,6 +515,6 @@ Guidelines:
 - If a code path can only be triggered by patches, remove the test -- the defensive code is trivially correct
 - **No inline imports in tests** -- every import must be at the top of the file. Test-local classes are fine, but imports from `aod`, `pydantic`, `unittest`, `types`, `inspect`, etc. must be at module level.
 - **No fake `__model_fields__` workarounds** -- never create a fake class with a hand-crafted `__model_fields__` dict. Use real `BaseOperation`/`ProjectionBase` subclasses instead. If the code path you're testing is unreachable with real objects, remove both the dead code and the test.
-- **Python 3.14 `issubclass` accepts Union** -- `issubclass(MySession, Session | None)` returns `True` in Python 3.14. No need to strip `None` before checking.
-- **Python 3.14 `get_type_hints` doesn't raise** -- unlike older Python versions, `typing.get_type_hints` in Python 3.14 silently drops unresolvable forward references and returns `{}` instead of raising. A `try/except Exception: return {}` wrapper is dead code.
-- **Python 3.14 `except` without parentheses (PEP 758)** -- `except ValueError, TypeError:` (no parens) is valid Python 3.14 and equivalent to `except (ValueError, TypeError):`. `ruff` strips the parens. Keep the form `ruff` produces.
+- **Python 3.12 `issubclass` rejects Union** -- `issubclass(MySession, Session | None)` raises `TypeError` in Python 3.12. Never pass a union to `issubclass`; use a tuple of classes or strip `None` before checking.
+- **Python 3.12 `get_type_hints` raises on unresolvable references** -- `typing.get_type_hints` raises (e.g. `NameError`/`TypeError`) for unresolvable forward references. The `try/except` wrappers around it are required, not dead code.
+- **Python 3.12 requires parenthesized `except`** -- `except (ValueError, TypeError):` with parens is required; the without-parens form (PEP 758) is Python 3.14-only syntax.

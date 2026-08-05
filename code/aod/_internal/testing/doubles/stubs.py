@@ -22,6 +22,9 @@ def _make_callable_stub(func: Callable[..., Any]) -> Any:
     mock.__qualname__ = getattr(func, "__qualname__", name)
     mock.__type_params__ = getattr(func, "__type_params__", ())
     mock.return_value = None
+    annotations = getattr(func, "__annotations__", None)
+    if isinstance(annotations, dict):
+        mock.__annotations__ = annotations
     if getattr(mock, "__isabstractmethod__", False):
         mock.__isabstractmethod__ = False
     return mock

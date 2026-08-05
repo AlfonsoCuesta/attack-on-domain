@@ -5,7 +5,7 @@ description: "Use when the user wants to BUILD a Domain-Driven Design system WIT
 
 # attack-on-domain — Domain-Driven Design Library
 
-Python 3.14+ DDD building blocks with Pydantic v2 under the hood.
+Python 3.12+ DDD building blocks with Pydantic v2 under the hood.
 
 Source code is under `code/` (mapped as package root in `pyproject.toml`).
 
@@ -1383,7 +1383,7 @@ This library is a **generic sandbox** — it provides DDD building blocks withou
 
 ## Conventions
 
-- Python 3.14+ — use `|` for unions, `type[X]`, `Self`, etc.
+- Python 3.12+ — use `|` for unions, `type[X]`, `Self`, etc.
 - No repositories — use `CommandHandler`/`QueryHandler` for database access
 - Application handlers (`aod.application`) = protocols
 - Infrastructure handlers (`aod.infrastructure`) = implementations with session injection

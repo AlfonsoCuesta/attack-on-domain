@@ -15,7 +15,7 @@ from aod._internal.schema.docs.generic_docs import (
 def extract_params(func: Callable[..., object]) -> list[ParamDoc]:
     try:
         sig = inspect.signature(func)
-    except ValueError, TypeError:
+    except (ValueError, TypeError):
         return []
     params: list[ParamDoc] = []
     for pname, p in sig.parameters.items():

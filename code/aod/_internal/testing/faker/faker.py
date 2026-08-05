@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from functools import lru_cache
+from types import UnionType
 from typing import Any, Generic, TypeVar, Union, cast, get_args, get_origin
 
 from aod._internal.application.handler.handler import HandlerProtocol
@@ -31,7 +32,7 @@ def _flatten(tp: Any) -> type:
     origin = get_origin(tp)
     if origin is not None:
         args = get_args(tp)
-        if origin is Union:
+        if origin is Union or origin is UnionType:
             _check_no_dependency_in_union(args)
         non_none = tuple(a for a in args if a is not type(None))
         if len(non_none) < len(args):

@@ -2,7 +2,7 @@
 
 ## Requirements
 
-- Python 3.14 or later
+- Python 3.12 or later
 - Pydantic v2 (automatically installed)
 
 ## Install

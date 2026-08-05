@@ -2,7 +2,8 @@ from __future__ import annotations
 
 import inspect
 from dataclasses import dataclass, field
-from typing import Any
+from types import UnionType
+from typing import Any, Union, get_args, get_origin
 
 from pydantic.fields import FieldInfo
 from pydantic_core import PydanticUndefined
@@ -13,11 +14,12 @@ def type_str(tp: object) -> str:
         return ""
     if isinstance(tp, type):
         return tp.__name__
-    origin = getattr(tp, "__origin__", None)
+    origin = get_origin(tp)
     if origin is not None:
-        args = getattr(tp, "__args__", ())
+        args = get_args(tp)
         args_str = ", ".join(type_str(a) for a in args)
-        return f"{type_str(origin)}[{args_str}]"
+        origin_str = "Union" if origin is Union or origin is UnionType else type_str(origin)
+        return f"{origin_str}[{args_str}]"
     return str(tp)
 
 
@@ -67,7 +69,7 @@ class MethodDoc:
         func_name = getattr(func, "__name__", "")
         try:
             sig = inspect.signature(func)
-        except ValueError, TypeError:
+        except (ValueError, TypeError):
             return cls(name=func_name)
         params: list[ParamDoc] = []
         for pname, p in sig.parameters.items():
