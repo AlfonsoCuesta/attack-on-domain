@@ -20,7 +20,7 @@ from aod._internal.domain.service import Service
 from aod._internal.domain.value_object import ValueObject
 from aod._internal.infrastructure.container import AdapterContainer
 from aod._internal.infrastructure.session import Session
-from aod._internal.testing.doubles.stubs import port_stub
+from aod._internal.testing.doubles.spies import spy_port
 from aod._internal.testing.faker import FakeDomain
 from aod._internal.testing.helpers import assert_event_emitted, build, events_of
 
@@ -414,8 +414,8 @@ class TestUseCase:
     def test_use_case_with_uow_logger_event_bus(self) -> None:
         email_sender = FakeEmailSender()
         inventory = FakeInventoryClient()
-        logger = port_stub(Logger)()
-        bus = port_stub(EventBus)()
+        logger = spy_port(Logger)()
+        bus = spy_port(EventBus)()
         uc = PlaceOrderUseCase(
             email_sender=email_sender,
             inventory=inventory,
@@ -484,8 +484,8 @@ class TestContainerAndInjection:
     def test_full_integration_via_container(self) -> None:
         email_sender = FakeEmailSender()
         inventory = FakeInventoryClient()
-        logger = port_stub(Logger)()
-        bus = port_stub(EventBus)()
+        logger = spy_port(Logger)()
+        bus = spy_port(EventBus)()
         container = AdapterContainer(
             email_sender=email_sender,
             inventory=inventory,

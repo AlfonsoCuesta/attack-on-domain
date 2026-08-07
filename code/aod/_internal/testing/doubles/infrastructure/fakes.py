@@ -8,7 +8,7 @@ from aod._internal.infrastructure.container.port_manager import PortManager
 from aod._internal.infrastructure.container.session_manager import SessionManager
 from aod._internal.infrastructure.session import AsyncSession, Session
 from aod._internal.testing.doubles.infrastructure.session import spy_session
-from aod._internal.testing.doubles.stubs import port_stub
+from aod._internal.testing.doubles.spies import spy_port
 
 
 class FakeSessionManager(SessionManager):
@@ -72,7 +72,7 @@ class FakePortManager(PortManager):
             if self._stub_factory is not None:
                 self.ports_by_name[name] = self._stub_factory(name, port_cls)
             else:
-                self.ports_by_name[name] = port_stub(port_cls)()
+                self.ports_by_name[name] = spy_port(port_cls)()
 
 
 __all__ = [

@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "attack-on-domain"
-version = "0.0.37"
+version = "0.0.38"
 description = "DDD building blocks: entities, value objects, bounded contexts, and validation helpers."
 readme = "README.md"
 requires-python = ">=3.12"
@@ -43,7 +43,13 @@ aod = ["py.typed"]
 [tool.setuptools.packages.find]
 where = ["code"]
 include = ["aod*"]
-exclude = ["tests*", "tests"]
+exclude = ["aod.testing", "aod.testing.*", "tests*", "tests"]
+
+[project.optional-dependencies]
+testing = ["attack-on-domain-testing"]
+
+[tool.uv.sources]
+attack-on-domain-testing = { path = "testing_ext", editable = true }
 
 [dependency-groups]
 dev = [
@@ -57,7 +63,7 @@ dev = [
 ]
 
 [tool.pytest.ini_options]
-pythonpath = ["code"]
+pythonpath = ["code", "testing_ext"]
 testpaths = ["code/tests"]
 asyncio_mode = "auto"
 

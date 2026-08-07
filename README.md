@@ -163,6 +163,18 @@ pip install attack-on-domain
 
 Requires **Python 3.12+**.
 
+### Testing utilities (optional)
+
+The testing module (`aod.testing` — fakes, spies, stubs, and assertion helpers) is a separate package, useful in development but not needed in production:
+
+```bash
+uv add "attack-on-domain[testing]"
+```
+
+```bash
+pip install "attack-on-domain[testing]"
+```
+
 ## Documentation
 
 Full docs at [alfonsocuesta.github.io/attack-on-domain](https://alfonsocuesta.github.io/attack-on-domain/)

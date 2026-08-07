@@ -13,7 +13,7 @@ from aod._internal.core.base_operation import BaseOperation
 from aod._internal.infrastructure.commit_context import _CommitContext
 from aod._internal.infrastructure.session import AsyncSession, Session
 from aod._internal.core.fields.fields import PrivateField
-from aod.testing.doubles import port_stub
+from aod.testing.doubles import spy_port
 
 
 class _FakeOp(BaseOperation):
@@ -163,8 +163,8 @@ class TestTransactionConstruction:
 
     def test_custom_construction(self) -> None:
         session = _CommitTrackSession()
-        logger = port_stub(Logger)()
-        bus = port_stub(EventBus)()
+        logger = spy_port(Logger)()
+        bus = spy_port(EventBus)()
         tx = Transaction(
             operation=_OP,
             sessions=[session],
@@ -187,16 +187,16 @@ class TestTransactionConstruction:
 
     def test_add_logger(self) -> None:
         tx = Transaction(operation=_OP)
-        l1 = port_stub(Logger)()
-        l2 = port_stub(Logger)()
+        l1 = spy_port(Logger)()
+        l2 = spy_port(Logger)()
         tx.add_logger(l1)
         tx.add_logger(l2)
         assert tx.loggers == [l1, l2]
 
     def test_add_event_bus(self) -> None:
         tx = Transaction(operation=_OP)
-        b1 = port_stub(EventBus)()
-        b2 = port_stub(EventBus)()
+        b1 = spy_port(EventBus)()
+        b2 = spy_port(EventBus)()
         tx.add_event_bus(b1)
         tx.add_event_bus(b2)
         assert tx.event_buses == [b1, b2]
@@ -368,7 +368,7 @@ class TestTransactionSessionLifecycle:
                 raise RuntimeError("commit fail")
 
         s = _FailCommitSession()
-        logger = port_stub(Logger)()
+        logger = spy_port(Logger)()
         tx = Transaction(operation=_OP, sessions=[s], loggers=[logger])
         with pytest.raises(RuntimeError, match="commit fail"):
             _run(tx, lambda: None)
@@ -520,7 +520,7 @@ class TestTransactionSessionLifecycle:
 
 class TestTransactionLogging:
     def test_logs_completion_on_success(self) -> None:
-        logger = port_stub(Logger)()
+        logger = spy_port(Logger)()
         tx = Transaction(operation=_OP, loggers=[logger])
 
         _run(tx, lambda: None)
@@ -529,7 +529,7 @@ class TestTransactionLogging:
         assert "_FakeOp" in str(completions[0].args[0])
 
     def test_logs_events_on_success(self) -> None:
-        logger = port_stub(Logger)()
+        logger = spy_port(Logger)()
         tx = Transaction(operation=_OP, loggers=[logger])
 
         def emit() -> None:
@@ -546,7 +546,7 @@ class TestTransactionLogging:
         assert len(evts) == 1
 
     def test_logs_error_on_failure(self) -> None:
-        logger = port_stub(Logger)()
+        logger = spy_port(Logger)()
         tx = Transaction(operation=_OP, loggers=[logger])
 
         def fail() -> None:
@@ -563,7 +563,7 @@ class TestTransactionLogging:
             def commit(self) -> None:
                 raise RuntimeError("commit fail")
 
-        logger = port_stub(Logger)()
+        logger = spy_port(Logger)()
         s = _FailCommitSession()
         tx = Transaction(operation=_OP, sessions=[s], loggers=[logger])
 
@@ -573,8 +573,8 @@ class TestTransactionLogging:
         assert len(errors) >= 1
 
     def test_multiple_loggers_all_called(self) -> None:
-        l1 = port_stub(Logger)()
-        l2 = port_stub(Logger)()
+        l1 = spy_port(Logger)()
+        l2 = spy_port(Logger)()
         tx = Transaction(operation=_OP, loggers=[l1, l2])
 
         _run(tx, lambda: None)
@@ -584,7 +584,7 @@ class TestTransactionLogging:
 
 class TestTransactionEventBus:
     def test_publishes_on_success(self) -> None:
-        bus = port_stub(EventBus)()
+        bus = spy_port(EventBus)()
         tx = Transaction(operation=_OP, event_buses=[bus])
 
         def emit() -> None:
@@ -597,7 +597,7 @@ class TestTransactionEventBus:
         assert bus.publish.call_count == 1
 
     def test_does_not_publish_on_failure(self) -> None:
-        bus = port_stub(EventBus)()
+        bus = spy_port(EventBus)()
         tx = Transaction(operation=_OP, event_buses=[bus])
 
         def fail() -> None:
@@ -609,8 +609,8 @@ class TestTransactionEventBus:
         assert bus.publish.call_count == 0
 
     def test_multiple_buses_all_publish(self) -> None:
-        b1 = port_stub(EventBus)()
-        b2 = port_stub(EventBus)()
+        b1 = spy_port(EventBus)()
+        b2 = spy_port(EventBus)()
         tx = Transaction(operation=_OP, event_buses=[b1, b2])
 
         def emit() -> None:
@@ -624,7 +624,7 @@ class TestTransactionEventBus:
         assert b2.publish.call_count == 1
 
     def test_publishes_correct_events(self) -> None:
-        bus = port_stub(EventBus)()
+        bus = spy_port(EventBus)()
         tx = Transaction(operation=_OP, event_buses=[bus])
 
         def emit() -> None:
@@ -714,7 +714,7 @@ class TestTransactionOnlyRead:
         assert len(tx.get_events()) == 1
 
     def test_still_logs_on_read(self) -> None:
-        logger = port_stub(Logger)()
+        logger = spy_port(Logger)()
         tx = Transaction(operation=_OP, loggers=[logger], only_read=True)
 
         _run(tx, lambda: None)
@@ -722,7 +722,7 @@ class TestTransactionOnlyRead:
         assert len(completions) == 1
 
     def test_still_publishes_on_read(self) -> None:
-        bus = port_stub(EventBus)()
+        bus = spy_port(EventBus)()
         tx = Transaction(operation=_OP, event_buses=[bus], only_read=True)
 
         def emit() -> None:
@@ -792,8 +792,8 @@ class TestAsyncTransactionConstruction:
 
     async def test_custom_construction(self) -> None:
         session = _CommitTrackAsyncSession()
-        logger = port_stub(Logger)()
-        bus = port_stub(EventBus)()
+        logger = spy_port(Logger)()
+        bus = spy_port(EventBus)()
         tx = AsyncTransaction(
             operation=_OP,
             sessions=[session],
@@ -927,7 +927,7 @@ class TestAsyncTransactionSessionLifecycle:
                 raise RuntimeError("commit fail")
 
         s = _FailCommitSession()
-        logger = port_stub(Logger)()
+        logger = spy_port(Logger)()
         tx = AsyncTransaction(operation=_OP, sessions=[s], loggers=[logger])
         with pytest.raises(RuntimeError, match="commit fail"):
             await _run_async(tx, lambda: None)
@@ -999,7 +999,7 @@ class TestAsyncTransactionSessionLifecycle:
 
 class TestAsyncTransactionLogging:
     async def test_logs_completion_on_success(self) -> None:
-        logger = port_stub(Logger)()
+        logger = spy_port(Logger)()
         tx = AsyncTransaction(operation=_OP, loggers=[logger])
 
         await _run_async(tx, lambda: None)
@@ -1007,7 +1007,7 @@ class TestAsyncTransactionLogging:
         assert len(completions) >= 1
 
     async def test_logs_error_on_failure(self) -> None:
-        logger = port_stub(Logger)()
+        logger = spy_port(Logger)()
         tx = AsyncTransaction(operation=_OP, loggers=[logger])
 
         def fail() -> None:
@@ -1022,7 +1022,7 @@ class TestAsyncTransactionLogging:
 
 class TestAsyncTransactionEventBus:
     async def test_publishes_on_success(self) -> None:
-        bus = port_stub(EventBus)()
+        bus = spy_port(EventBus)()
         tx = AsyncTransaction(operation=_OP, event_buses=[bus])
 
         def emit() -> None:
@@ -1035,7 +1035,7 @@ class TestAsyncTransactionEventBus:
         assert bus.publish.call_count == 1
 
     async def test_does_not_publish_on_failure(self) -> None:
-        bus = port_stub(EventBus)()
+        bus = spy_port(EventBus)()
         tx = AsyncTransaction(operation=_OP, event_buses=[bus])
 
         def fail() -> None:
@@ -1099,7 +1099,7 @@ class TestAsyncTransactionOnlyRead:
         assert len(tx.get_events()) == 1
 
     async def test_still_logs_on_read(self) -> None:
-        logger = port_stub(Logger)()
+        logger = spy_port(Logger)()
         tx = AsyncTransaction(operation=_OP, loggers=[logger], only_read=True)
 
         await _run_async(tx, lambda: None)
@@ -1107,7 +1107,7 @@ class TestAsyncTransactionOnlyRead:
         assert len(completions) >= 1
 
     async def test_still_publishes_on_read(self) -> None:
-        bus = port_stub(EventBus)()
+        bus = spy_port(EventBus)()
         tx = AsyncTransaction(operation=_OP, event_buses=[bus], only_read=True)
 
         def emit() -> None:
@@ -1148,14 +1148,14 @@ class TestAsyncTransactionEdgeCases:
         assert s._committed
 
     async def test_mixed_sync_logger(self) -> None:
-        logger = port_stub(Logger)()
+        logger = spy_port(Logger)()
         tx = AsyncTransaction(operation=_OP, loggers=[logger])
 
         await _run_async(tx, lambda: None)
         assert logger.info.call_count >= 2
 
     async def test_mixed_sync_event_bus(self) -> None:
-        bus = port_stub(EventBus)()
+        bus = spy_port(EventBus)()
         tx = AsyncTransaction(operation=_OP, event_buses=[bus])
 
         def emit() -> None:

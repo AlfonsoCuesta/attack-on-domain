@@ -18,7 +18,7 @@ from aod._internal.application.event_bus import EventBus
 from aod._internal.application.event_bus.null_event_bus import NullEventBus
 from aod._internal.application.logger import Logger
 from aod._internal.application.logger.null_logger import NullLogger
-from aod._internal.testing.doubles.stubs import port_stub
+from aod._internal.testing.doubles.spies import spy_port
 from pydantic import BaseModel as DTO
 
 # ---------------------------------------------------------------------------
@@ -203,8 +203,8 @@ class TestReadProjection:
             p.read(UserReadModel(user_id=1))
 
     def test_read_with_logger_and_event_bus(self) -> None:
-        logger = port_stub(Logger)()
-        bus = port_stub(EventBus)()
+        logger = spy_port(Logger)()
+        bus = spy_port(EventBus)()
         p = GetUserProjection(logger=logger, event_bus=bus)
         p.read(UserReadModel(user_id=1))
         completions = [c for c in logger.info.call_args_list if "completed" in str(c.args[0])]
@@ -278,8 +278,8 @@ class TestWriteProjection:
         assert _CommitContext.get(False) is False
 
     def test_write_with_logger_and_event_bus(self) -> None:
-        logger = port_stub(Logger)()
-        bus = port_stub(EventBus)()
+        logger = spy_port(Logger)()
+        bus = spy_port(EventBus)()
         p = CreateUserProjection(logger=logger, event_bus=bus)
         p.write(UserWriteModel(user_id=1, name="Alice"))
         assert bus.publish.call_count >= 1
@@ -458,8 +458,8 @@ class TestProjectionInjection:
             def read(self, model: UserReadModel) -> str:
                 return "ok"
 
-        logger = port_stub(Logger)()
-        bus = port_stub(EventBus)()
+        logger = spy_port(Logger)()
+        bus = spy_port(EventBus)()
         container = AdapterContainer(
             sessions={_TestSession},
             logger=logger,

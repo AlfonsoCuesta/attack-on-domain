@@ -6,7 +6,7 @@ import pytest
 from aod._internal.core.domain_exception import MutationForbiddenException
 from aod._internal.core.event_emitter import Event
 from aod.application import EventBus, Logger, Port, UseCase
-from aod.testing.doubles import port_stub
+from aod.testing.doubles import spy_port
 
 
 class RestClientExample(Port):
@@ -85,7 +85,7 @@ def test_logger_abstract() -> None:
 
 
 def test_logger_concrete() -> None:
-    log = port_stub(Logger)()
+    log = spy_port(Logger)()
     log.info("hello", user_id=42)
     assert log.info.call_count == 1
     assert log.info.call_args_list[0].args == ("hello",)
@@ -93,7 +93,7 @@ def test_logger_concrete() -> None:
 
 
 def test_logger_debug() -> None:
-    log = port_stub(Logger)()
+    log = spy_port(Logger)()
     log.debug("debug msg", x=1)
     assert log.debug.call_count == 1
     assert log.debug.call_args_list[0].args == ("debug msg",)
@@ -101,7 +101,7 @@ def test_logger_debug() -> None:
 
 
 def test_logger_warning() -> None:
-    log = port_stub(Logger)()
+    log = spy_port(Logger)()
     log.warning("warn msg", y=2)
     assert log.warning.call_count == 1
     assert log.warning.call_args_list[0].args == ("warn msg",)
@@ -114,7 +114,7 @@ def test_event_bus_abstract() -> None:
 
 
 def test_event_bus_publish() -> None:
-    bus = port_stub(EventBus)()
+    bus = spy_port(EventBus)()
     e1 = Event()
     e2 = Event()
     bus.publish(e1, e2)

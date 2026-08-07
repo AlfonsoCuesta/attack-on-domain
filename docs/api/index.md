@@ -964,7 +964,7 @@ from aod.testing import build, events_of, assert_event_emitted, assert_no_events
 from aod.testing import FakeDomain
 from aod.testing.doubles import (
     SpyLogger, SpyEventBus, SpyCache,
-    port_stub, spy_session, spy_adapter_container,
+    spy_port, spy_session, spy_adapter_container,
     spy_command_handler, spy_query_handler,
     spy_async_command_handler, spy_async_query_handler,
 )
@@ -1110,7 +1110,7 @@ Create a version of a container where sessions and ports are replaced with stubs
 | Method | Signature | Description |
 |--------|-----------|-------------|
 | `get_session_stub` | `get_session_stub(session_cls) -> Any` | Returns a stub for the given session class |
-| `get_port_stub` | `get_port_stub(name: str) -> Any` | Returns a stub for the port registered under the given field name |
+| `get_port_spy` | `get_port_spy(name: str) -> Any` | Returns a stub for the port registered under the given field name |
 | `get_handler_stub` | `get_handler_stub(handler_cls) -> Any` | Returns a stub for the given handler class |
 | `get_handler` | `get_handler(contract) -> Any` | Returns the handler for a contract (handle is a stub) |
 | `stub_use_case` | `stub_use_case(cls, *, returns=UNSET, raises=UNSET)` | Configure a use case stub before `adapt`. `returns=` stubs `instance.run` to return the given value; `raises=` makes it raise. |
@@ -1150,10 +1150,10 @@ session_stub(session_cls: type[Session | AsyncSession]) -> type
 
 Create a stub class from any `Session` or `AsyncSession` subclass. Every required method becomes a `MagicMock` (or `AsyncMock` for async sessions), and `is_dirty()` returns `False` by default.
 
-### `port_stub`
+### `spy_port`
 
 ```
-port_stub(port_cls: type[Port]) -> type
+spy_port(port_cls: type[Port]) -> type
 ```
 
 Create a stub class from any `Port` subclass. Every public method records calls and lets you configure return values.

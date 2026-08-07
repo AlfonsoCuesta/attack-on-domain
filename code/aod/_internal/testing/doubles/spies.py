@@ -10,7 +10,7 @@ T = TypeVar("T")
 TPort = TypeVar("TPort", bound=Port)
 
 
-def port_stub(port_cls: type[TPort]) -> Any:
+def spy_port(port_cls: type[TPort]) -> Any:
     return _make_generic_stub(port_cls)
 
 

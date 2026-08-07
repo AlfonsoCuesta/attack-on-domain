@@ -10,10 +10,10 @@ class _CustomPort(Port):
     value: str = "default"
 
 
-def test_get_port_stub_cached() -> None:
+def test_get_port_spy_cached() -> None:
     container = spy_adapter_container(AdapterContainer(weather=_CustomPort()))
-    first = container.get_port_stub("weather")
-    second = container.get_port_stub("weather")
+    first = container.get_port_spy("weather")
+    second = container.get_port_spy("weather")
     assert first is second
 
 

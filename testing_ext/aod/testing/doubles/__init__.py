@@ -14,7 +14,7 @@ from aod._internal.testing.doubles.infrastructure import (
     spy_command_handler,
     spy_query_handler,
 )
-from aod._internal.testing.doubles.stubs import port_stub
+from aod._internal.testing.doubles.spies import spy_port
 
 __all__ = [
     "AsyncSpyCache",
@@ -23,7 +23,7 @@ __all__ = [
     "SpyCache",
     "SpyEventBus",
     "SpyLogger",
-    "port_stub",
+    "spy_port",
     "spy_adapter_container",
     "spy_async_command_handler",
     "spy_async_query_handler",

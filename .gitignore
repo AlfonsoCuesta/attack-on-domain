@@ -220,3 +220,6 @@ __marimo__/
 .vscode/
 .zed/
 opencode.json
+
+# aod/testing symlink (development only — it's a separate package for production)
+code/aod/testing

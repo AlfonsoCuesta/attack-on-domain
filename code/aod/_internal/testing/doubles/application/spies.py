@@ -5,12 +5,12 @@ from typing import Any
 from aod._internal.application.cache import AsyncCache, Cache
 from aod._internal.application.event_bus import AsyncEventBus, EventBus
 from aod._internal.application.logger import AsyncLogger, Logger
-from aod._internal.testing.doubles.stubs import port_stub
+from aod._internal.testing.doubles.spies import spy_port
 
-SpyLogger: Any = port_stub(Logger)
-SpyEventBus: Any = port_stub(EventBus)
-SpyCache: Any = port_stub(Cache)
+SpyLogger: Any = spy_port(Logger)
+SpyEventBus: Any = spy_port(EventBus)
+SpyCache: Any = spy_port(Cache)
 
-AsyncSpyLogger: Any = port_stub(AsyncLogger)
-AsyncSpyEventBus: Any = port_stub(AsyncEventBus)
-AsyncSpyCache: Any = port_stub(AsyncCache)
+AsyncSpyLogger: Any = spy_port(AsyncLogger)
+AsyncSpyEventBus: Any = spy_port(AsyncEventBus)
+AsyncSpyCache: Any = spy_port(AsyncCache)

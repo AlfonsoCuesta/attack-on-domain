@@ -183,10 +183,12 @@ place_order.run(PlaceOrderInput(order_id="1", product_id="p1", quantity=2, price
 | `from aod.testing import build, events_of, assert_event_emitted, assert_no_events, check_invariant, FakeDomain` | Domain testing tools |
 | `from aod.testing.doubles import spy_command_handler, spy_query_handler, spy_async_command_handler, spy_async_query_handler` | Handler port spy factories — each call returns a fresh instance |
 | `from aod.testing.doubles import SpyLogger, SpyEventBus, SpyCache` | Pre-built port spies |
-| `from aod.testing.doubles import spy_adapter_container, port_stub, spy_session` | Test container + stub generators |
+| `from aod.testing.doubles import spy_adapter_container, spy_port, spy_session` | Test container + stub generators |
 | `from aod.testing.doubles.application.async_ import SpyLogger, SpyEventBus, SpyCache` | Async pre-built spies |
 
 ## Testing
+
+> **Installation**: The testing module is a separate package. Install it with `pip install "attack-on-domain[testing]"` or `pip install attack-on-domain-testing`.
 
 The testing doubles live under `aod.testing.doubles`. The main tool is `spy_adapter_container` (also called the **test container** or **spy container** — same thing).
 
@@ -231,13 +233,13 @@ uc = container.adapt(ManageCenter)
 uc.run(dto)  # get_center handle() returns my_center, create handle() raises ValueError
 ```
 
-For tests that don't use the container at all (Level 2 — manual DI), create handler instances with `port_stub` and configure them before passing to the use case constructor:
+For tests that don't use the container at all (Level 2 — manual DI), create handler instances with `spy_port` and configure them before passing to the use case constructor:
 
 ```python
-get_handler = port_stub(GetCenterHandler)()
+get_handler = spy_port(GetCenterHandler)()
 get_handler.handle.return_value = my_center
 
-uc = ManageCenter(get_center=get_handler, create=port_stub(CreateCenterHandler)())
+uc = ManageCenter(get_center=get_handler, create=spy_port(CreateCenterHandler)())
 uc.run(dto)
 ```
 
@@ -258,16 +260,16 @@ container.stub_projection(MyProjection, write_raises=ValueError("fail"))
 
 ### Port Stubs — When to Use
 
-`port_stub` generates a class from any `Port` subclass where every public method becomes a `MagicMock` recording calls. Use it when you skip the container entirely (Level 2 — manual DI):
+`spy_port` generates a class from any `Port` subclass where every public method becomes a `MagicMock` recording calls. Use it when you skip the container entirely (Level 2 — manual DI):
 
 ```python
-from aod.testing.doubles import port_stub
+from aod.testing.doubles import spy_port
 
-logger = port_stub(Logger)()
+logger = spy_port(Logger)()
 logger.info("test")
 assert logger.info.call_count == 1
 
-uc = MyUseCase(logger=logger, event_bus=port_stub(EventBus)())
+uc = MyUseCase(logger=logger, event_bus=spy_port(EventBus)())
 uc.run(...)
 ```
 
@@ -287,13 +289,13 @@ uc.run(dto)
 
 **`returns=`** configures `handle()` to return a fixed value. **`raises=`** makes it raise an exception. If neither is passed, `handle()` returns `None`.
 
-These are the quickest way to stub handler ports when you don't need the container. Unlike `port_stub`, they work with the UseCase port check because they implement `CommandPort`/`QueryPort` directly — no `__skip_port_check__` needed.
+These are the quickest way to stub handler ports when you don't need the container. Unlike `spy_port`, they work with the UseCase port check because they implement `CommandPort`/`QueryPort` directly — no `__skip_port_check__` needed.
 
 Async variants: `spy_async_command_handler()`, `spy_async_query_handler()`. Same API, `handle()` is an `AsyncMock`.
 
-Pre-built spy classes save a line: `SpyLogger`, `SpyEventBus`, `SpyCache` (and their `AsyncSpy*` counterparts) are the same as `port_stub(Logger)` etc. Use whichever reads better.
+Pre-built spy classes save a line: `SpyLogger`, `SpyEventBus`, `SpyCache` (and their `AsyncSpy*` counterparts) are the same as `spy_port(Logger)` etc. Use whichever reads better.
 
-If you're using `spy_adapter_container`, you already get `get_port_stub("name")` which returns the **original** port instance (not a mock). Port stubs are for Level 2.
+If you're using `spy_adapter_container`, you already get `get_port_spy("name")` which returns the **original** port instance (not a mock). Port stubs are for Level 2.
 
 ### Session Stubs
 
@@ -380,7 +382,7 @@ users = fake.batch(3, [{"id": 1}, {"id": 2}, {"id": 3}])
 | Test an invariant in isolation | `check_invariant(Class, "invariant_name", field=value)` |
 | Build domain objects without triggering validators | `build(Class, field=value)` |
 | Generate random domain objects | `FakeDomain(Class, defaults...)(overrides...)` |
-| Verify a port was called inside a use case | `port_stub(PortClass)().method.call_count` |
+| Verify a port was called inside a use case | `spy_port(PortClass)().method.call_count` |
 | Verify a handler was called through the container | `container.get_handler(Contract).handle.called` |
 | Verify a handler spy was called without the container | `my_spy.handle.call_count`, `my_spy.handle.call_args_list[0].args` |
 | Create a session stub with custom return values | `spy_session(MySession)()` |

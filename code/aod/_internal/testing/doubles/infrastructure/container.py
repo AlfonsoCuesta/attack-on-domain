@@ -13,7 +13,7 @@ from aod._internal.testing.doubles.infrastructure.fakes import (
     FakeSessionManager,
 )
 from aod._internal.testing.doubles.infrastructure.session import spy_session
-from aod._internal.testing.doubles.stubs import _make_callable_stub, port_stub
+from aod._internal.testing.doubles.spies import _make_callable_stub, spy_port
 
 T = TypeVar("T", bound=AdapterContainer)
 
@@ -30,7 +30,7 @@ def spy_adapter_container(container: T) -> T:
 
 
 def _create_spy_adapter(container_cls: type[T]) -> type[T]:
-    def get_port_stub(self: Any, name: str) -> Any:
+    def get_port_spy(self: Any, name: str) -> Any:
         if name not in self._port_stubs:
             self._port_stubs[name] = self._port_manager.ports_by_name[name]
         return self._port_stubs[name]
@@ -57,7 +57,7 @@ def _create_spy_adapter(container_cls: type[T]) -> type[T]:
         self: Any, handler: type[Port], kwargs: dict[str, Any] | None = None
     ) -> Any:
         if handler not in self._handler_stubs:
-            self._handler_stubs[handler] = port_stub(handler)(**(kwargs or {}))
+            self._handler_stubs[handler] = spy_port(handler)(**(kwargs or {}))
         return self._handler_stubs[handler]
 
     def _apply_stub(stub: Any, *, returns: Any = _UNSET, raises: Any = _UNSET) -> None:
@@ -161,7 +161,7 @@ def _create_spy_adapter(container_cls: type[T]) -> type[T]:
                 "_make_session_manager": make_session_manager,
                 "_make_handler_manager": make_handler_manager,
                 "_make_port_manager": make_port_manager,
-                "get_port_stub": get_port_stub,
+                "get_port_spy": get_port_spy,
                 "get_session_stub": get_session_stub,
                 "get_handler_stub": get_handler_stub,
                 "stub_use_case": stub_use_case,

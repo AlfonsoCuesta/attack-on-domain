@@ -3,7 +3,7 @@ from unittest.mock import MagicMock
 import pytest
 
 from aod.application import Port
-from aod.testing.doubles import port_stub
+from aod.testing.doubles import spy_port
 
 
 class EmailGateway(Port):
@@ -16,18 +16,18 @@ class EmailGateway(Port):
 
 class TestPortStub:
     def test_stub_inherits_from_port(self) -> None:
-        StubEmailGateway = port_stub(EmailGateway)
+        StubEmailGateway = spy_port(EmailGateway)
         assert issubclass(StubEmailGateway, EmailGateway)
 
     def test_stub_methods_are_configurable(self) -> None:
-        StubEmailGateway = port_stub(EmailGateway)
+        StubEmailGateway = spy_port(EmailGateway)
         stub = StubEmailGateway()
         stub.send.side_effect = [True, False]
         assert stub.send("a@b.com", "Hi", "Body") is True
         assert stub.send("c@d.com", "Hi", "Body") is False
 
     def test_stub_methods_raise_stop_iteration_when_exhausted(self) -> None:
-        StubEmailGateway = port_stub(EmailGateway)
+        StubEmailGateway = spy_port(EmailGateway)
         stub = StubEmailGateway()
         stub.send.side_effect = [True]
         stub.send("a@b.com", "Hi", "Body")
@@ -35,7 +35,7 @@ class TestPortStub:
             stub.send("b@c.com", "Hi", "Body")
 
     def test_stub_methods_track_calls(self) -> None:
-        StubEmailGateway = port_stub(EmailGateway)
+        StubEmailGateway = spy_port(EmailGateway)
         stub = StubEmailGateway()
         stub.send("a@b.com", "Hi", "Body")
         stub.send("c@d.com", "Hi", "Body")
@@ -44,7 +44,7 @@ class TestPortStub:
         assert stub.send.call_args_list[1].args == ("c@d.com", "Hi", "Body")
 
     def test_stub_multiple_methods(self) -> None:
-        StubEmailGateway = port_stub(EmailGateway)
+        StubEmailGateway = spy_port(EmailGateway)
         stub = StubEmailGateway()
         stub.send.side_effect = [True]
         stub.validate.side_effect = [False]
@@ -54,6 +54,6 @@ class TestPortStub:
         assert stub.validate.call_count == 1
 
     def test_stub_is_magic_mock(self) -> None:
-        StubEmailGateway = port_stub(EmailGateway)
+        StubEmailGateway = spy_port(EmailGateway)
         stub = StubEmailGateway()
         assert isinstance(stub.send, MagicMock)

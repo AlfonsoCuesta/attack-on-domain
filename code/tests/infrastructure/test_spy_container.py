@@ -23,7 +23,7 @@ from aod._internal.testing.doubles.infrastructure.container import spy_adapter_c
 from aod.application import Command, Query
 from aod.domain import RootEntity
 from aod.infrastructure import CommandHandler, QueryHandler
-from aod.testing.doubles import port_stub
+from aod.testing.doubles import spy_port
 from pydantic import BaseModel
 
 
@@ -66,9 +66,9 @@ def test_returns_instance_of_original_class() -> None:
 def _full_container(**overrides: Any) -> AdapterContainer:
     defaults: dict[str, Port] = {
         "weather": _FakePort(),
-        "logger": port_stub(Logger)(),
-        "event_bus": port_stub(EventBus)(),
-        "cache": port_stub(Cache)(),
+        "logger": spy_port(Logger)(),
+        "event_bus": spy_port(EventBus)(),
+        "cache": spy_port(Cache)(),
     }
     defaults.update(overrides)
     return AdapterContainer(**cast(Any, defaults))
@@ -76,7 +76,7 @@ def _full_container(**overrides: Any) -> AdapterContainer:
 
 def test_spy_bundle_provides_port_and_session_stubs() -> None:
     container = spy_adapter_container(_full_container())
-    assert container.get_port_stub("logger") is not None
+    assert container.get_port_spy("logger") is not None
     assert container.get_session_stub(Session) is not None
 
 
@@ -86,9 +86,9 @@ def test_get_session_stub() -> None:
     assert session is not None
 
 
-def test_get_port_stub() -> None:
+def test_get_port_spy() -> None:
     container = spy_adapter_container(_full_container())
-    stub = container.get_port_stub("logger")
+    stub = container.get_port_spy("logger")
     assert stub is not None
 
 
@@ -142,7 +142,7 @@ def test_spy_session_commit_inside_uow_succeeds() -> None:
 
 def test_spy_logger_records_calls() -> None:
     container = spy_adapter_container(_full_container())
-    logger_stub = container.get_port_stub("logger")
+    logger_stub = container.get_port_spy("logger")
     logger_stub.info("test message")
     assert logger_stub.info.call_count == 1
     assert logger_stub.info.call_args_list[0].args == ("test message",)
@@ -153,7 +153,7 @@ def test_spy_event_bus_records_calls() -> None:
         pass
 
     container = spy_adapter_container(_full_container())
-    event_bus_stub = container.get_port_stub("event_bus")
+    event_bus_stub = container.get_port_spy("event_bus")
     event_bus_stub.publish(_TestEvent())
     assert event_bus_stub.publish.call_count == 1
 
@@ -387,14 +387,14 @@ class _CachedUC(UseCase):
 
 
 def test_spy_adapt_ignores_caches() -> None:
-    cache = port_stub(Cache)(keys=[_UserKey()])
+    cache = spy_port(Cache)(keys=[_UserKey()])
     container = spy_adapter_container(AdapterContainer(caches=[cache]))
     uc = container.adapt(_CachedUC)
     assert uc.run() is False
 
 
 def test_spy_adapt_with_caches_and_stub() -> None:
-    cache = port_stub(Cache)(keys=[_UserKey()])
+    cache = spy_port(Cache)(keys=[_UserKey()])
     container = spy_adapter_container(AdapterContainer(caches=[cache]))
     container.stub_use_case(_CachedUC, returns="stubbed")
     uc = container.adapt(_CachedUC)

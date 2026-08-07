@@ -17,7 +17,7 @@ from aod.application import Command, Query, UseCase
 from aod.application.async_ import UseCase as AsyncUseCase
 from aod.domain import RootEntity
 from aod.infrastructure import CommandHandler, QueryHandler
-from aod.testing.doubles import port_stub
+from aod.testing.doubles import spy_port
 from pydantic import BaseModel as DTO
 
 
@@ -112,9 +112,9 @@ class TestInjectAdapters:
 
         container = AdapterContainer(
             weather_client=_FakePort(),
-            logger=port_stub(Logger)(),
-            event_bus=port_stub(EventBus)(),
-            cache=port_stub(Cache)(),
+            logger=spy_port(Logger)(),
+            event_bus=spy_port(EventBus)(),
+            cache=spy_port(Cache)(),
         )
         uc = container.adapt(SimpleUseCase)
         assert isinstance(uc.logger, Logger)
@@ -211,9 +211,9 @@ class TestInjectProjection:
         container = AdapterContainer(
             weather_client=_FakePort(),
             sessions={_SyncSession},
-            logger=port_stub(Logger)(),
-            event_bus=port_stub(EventBus)(),
-            cache=port_stub(Cache)(),
+            logger=spy_port(Logger)(),
+            event_bus=spy_port(EventBus)(),
+            cache=spy_port(Cache)(),
         )
         p = container.adapt(TestProjection)
         assert isinstance(p.session, _SyncSession)

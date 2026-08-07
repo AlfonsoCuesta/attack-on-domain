@@ -14,7 +14,7 @@ from .infrastructure import (
     spy_query_handler,
 )
 from .infrastructure.session import spy_session
-from .stubs import port_stub
+from .spies import spy_port
 
 __all__ = [
     "AsyncSpyCache",
@@ -23,7 +23,7 @@ __all__ = [
     "SpyCache",
     "SpyEventBus",
     "SpyLogger",
-    "port_stub",
+    "spy_port",
     "spy_adapter_container",
     "spy_async_command_handler",
     "spy_async_query_handler",

@@ -6,6 +6,8 @@
 
 **Source code is under `code/`** — this directory is mapped as the package root in `pyproject.toml`.
 
+**Testing utilities are a separate package** — `attack-on-domain-testing` (installed via `pip install attack-on-domain[testing]`). Source lives in `testing_ext/`. In development, a symlink at `code/aod/testing -> ../../testing_ext/aod/testing` makes `aod.testing` importable.
+
 **For how to *use* the library** (workflow steps, code examples, common mistakes), load `skills/attack-on-domain/SKILL.md`. This file covers how to *build* the library itself.
 
 ## Project Structure
@@ -20,15 +22,6 @@ code/
 │   │   ├── __init__.py               # Re-exports: Entity, RootEntity, Service, ValueObject, Field, PrivateField, DomainException
 │   │   └── validation/               # Public: AfterValidator, BeforeValidator, field_invariance, invariance, mutable
 │   ├── exceptions/__init__.py        # Public: all domain/app/infra exceptions
-│   ├── testing/                       # Public testing utilities
-│   │   ├── __init__.py                # FakeDomain, build, events_of, assert_*
-│   │   └── doubles/
-│   │   ├── __init__.py                # SpyLogger, SpyEventBus, SpyCache, port_stub, spy_session
-│   │       ├── application/
-│   │   │       ├── __init__.py        # SpyLogger, SpyEventBus, SpyCache
-│   │       │   ├── spies.py          # Generated via port_stub (replaces hand-written spies)
-│   │       │   └── async_/
-│   │       │       └── __init__.py    # Async re-exports (plain names)
 │   └── _internal/                    # Private — not semver-stable
 │       ├── core/                     # Framework internals
 │       │   ├── async_utils.py        # should_await (sync/async bridge)
@@ -109,12 +102,12 @@ code/
 │           ├── helpers.py            # build(), events_of(), assert_event_emitted(), etc.
 │           ├── doubles/              # Spy implementations
 │           │   ├── __init__.py       # Re-exports all (sync + async)
-│           │   ├── stubs.py          # port_stub() generator
+│           │   ├── spies.py          # spy_port() generator
 │           │   ├── async_/
 │           │   │   └── __init__.py   # Re-exports async spies from application
 │           │   ├── application/
 │           │   │   ├── __init__.py
-│           │   │   └── spies.py      # All Spy* classes via port_stub (replaces 4 hand-written files)
+│           │   │   └── spies.py      # All Spy* classes via spy_port (replaces 4 hand-written files)
 │           │   └── infrastructure/
 │           │       ├── __init__.py
 │           │       ├── container.py  # SpyAdapterContainer
@@ -415,17 +408,31 @@ No ClassVar pre-computation. Both `get_invalidation_key_fn()` and `get_command_t
 Async variants (`AsyncReadProjectionBase`, `AsyncWriteProjectionBase`) use `AsyncTransaction` with `await should_await(session.commit())`.
 
 ### Test Doubles (directory structure)
+Implementation under `aod/_internal/testing/`. Public re-exports live in the separate `attack-on-domain-testing` package (`testing_ext/aod/testing/`).
+
 ```
-aod/_internal/testing/
+testing_ext/aod/testing/             # Public re-exports (separate distribution)
++-- __init__.py                     # FakeDomain, build, events_of, assert_*, check_invariant
++-- doubles/
+|   +-- __init__.py                 # All spies, spy_port, spy_session, spy_handlers
+|   +-- application/
+|   |   +-- __init__.py             # SpyLogger, SpyEventBus, SpyCache
+|   |   +-- async_/
+|   |       +-- __init__.py         # AsyncSpyLogger, AsyncSpyEventBus, AsyncSpyCache
+|   +-- infrastructure/
+|       +-- __init__.py             # spy_adapter_container
+```
+```
+aod/_internal/testing/              # Private implementation (shipped in main package)
 +-- __init__.py                     # Re-exports all spies
 +-- helpers.py                      # build(), events_of(), assert_event_emitted()
 +-- doubles/
 |   +-- __init__.py                 # Re-exports all (sync + async)
-|   +-- stubs.py                    # port_stub() generator
+|   +-- spies.py                    # spy_port() generator
 |   +-- async_/__init__.py          # Async spy re-exports
 |   +-- application/
 |   |   +-- __init__.py
-|   |   +-- spies.py                # All Spy* classes via port_stub
+|   |   +-- spies.py                # All Spy* classes via spy_port
 |   +-- infrastructure/
 |       +-- __init__.py
 |       +-- container.py            # SpyAdapterContainer
@@ -435,8 +442,6 @@ aod/_internal/testing/
     +-- __init__.py
     +-- faker.py                    # DomainType, FakeDomain
 ```
-
-Public re-exports at `aod/testing/`.
 
 ## Development Commands
 

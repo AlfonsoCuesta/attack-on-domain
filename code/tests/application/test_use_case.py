@@ -11,7 +11,7 @@ from aod._internal.core.fields.fields import PrivateField
 from aod._internal.infrastructure.handlers.handlers import BaseHandler
 from aod._internal.infrastructure.session import Session
 from aod.application import UseCase
-from aod.testing.doubles import port_stub
+from aod.testing.doubles import spy_port
 from tests.application._use_case_scenarios import (
     _RUN_BODIES,
     SCENARIOS,
@@ -471,7 +471,7 @@ def test_logger_auto_logs_completion() -> None:
         def run(self) -> None:
             pass
 
-    logger = port_stub(Logger)()
+    logger = spy_port(Logger)()
     uc = Simple(logger=logger)
     uc.run()
     completions = [c for c in logger.info.call_args_list if "completed" in str(c.args[0])]
@@ -485,7 +485,7 @@ def test_logger_auto_logs_events_count() -> None:
         def run(self) -> None:
             self._event_emitter.emit(UserCreated(user_id=1, name="test"))
 
-    logger = port_stub(Logger)()
+    logger = spy_port(Logger)()
     uc = Emit(logger=logger)
     uc.run()
     completions = [c for c in logger.info.call_args_list if "completed" in str(c.args[0])]
@@ -504,7 +504,7 @@ def test_logger_auto_logs_failure() -> None:
         def run(self) -> None:
             raise ValueError("oops")
 
-    logger = port_stub(Logger)()
+    logger = spy_port(Logger)()
     uc = Fail(logger=logger)
     with pytest.raises(ValueError):
         uc.run()
@@ -519,7 +519,7 @@ def test_event_bus_auto_publishes_on_success() -> None:
         def run(self) -> None:
             self._event_emitter.emit(UserCreated(user_id=1, name="test"))
 
-    bus = port_stub(EventBus)()
+    bus = spy_port(EventBus)()
     uc = Emit(event_bus=bus)
     uc.run()
     assert bus.publish.call_count == 1
@@ -541,7 +541,7 @@ def test_commit_failure_rolls_back_and_logs() -> None:
         def run(self) -> None:
             pass
 
-    logger = port_stub(Logger)()
+    logger = spy_port(Logger)()
     uc = Simple(logger=logger, save=handler)
     with pytest.raises(RuntimeError):
         uc.run()

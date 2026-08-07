@@ -1,0 +1,43 @@
+[build-system]
+requires = ["setuptools>=77.0.3", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "attack-on-domain-testing"
+version = "0.0.37"
+description = "Testing utilities for attack-on-domain: fakes, spies, stubs, and assertion helpers."
+readme = "README.md"
+requires-python = ">=3.12"
+license = "Apache-2.0"
+license-files = ["LICENSE"]
+authors = [
+    { name = "Alfonso Cuesta" },
+]
+keywords = ["ddd", "domain-driven-design", "testing"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Software Development :: Testing",
+    "Typing :: Typed",
+]
+dependencies = [
+    "attack-on-domain>=0.0.37",
+]
+
+[project.urls]
+Homepage = "https://github.com/AlfonsoCuesta/attack-on-domain"
+Repository = "https://github.com/AlfonsoCuesta/attack-on-domain"
+Issues = "https://github.com/AlfonsoCuesta/attack-on-domain/issues"
+
+[tool.setuptools.package-data]
+aod = ["py.typed"]
+
+[tool.setuptools.package-dir]
+"" = "."
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["aod.testing", "aod.testing.*"]

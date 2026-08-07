@@ -3,11 +3,11 @@ from __future__ import annotations
 import pytest
 from aod._internal.core.event_emitter import Event
 from aod.application.async_ import EventBus, Logger
-from aod.testing.doubles import port_stub
+from aod.testing.doubles import spy_port
 
 
 async def test_async_logger_concrete() -> None:
-    log = port_stub(Logger)()
+    log = spy_port(Logger)()
     await log.info("hello", user_id=42)
     assert log.info.call_count == 1
     assert log.info.call_args_list[0].args == ("hello",)
@@ -15,7 +15,7 @@ async def test_async_logger_concrete() -> None:
 
 
 async def test_async_logger_debug() -> None:
-    log = port_stub(Logger)()
+    log = spy_port(Logger)()
     await log.debug("dbg", z=3)
     assert log.debug.call_count == 1
     assert log.debug.call_args_list[0].args == ("dbg",)
@@ -23,7 +23,7 @@ async def test_async_logger_debug() -> None:
 
 
 async def test_async_logger_warning() -> None:
-    log = port_stub(Logger)()
+    log = spy_port(Logger)()
     await log.warning("wrn", w=4)
     assert log.warning.call_count == 1
     assert log.warning.call_args_list[0].args == ("wrn",)
@@ -31,7 +31,7 @@ async def test_async_logger_warning() -> None:
 
 
 async def test_async_logger_error() -> None:
-    log = port_stub(Logger)()
+    log = spy_port(Logger)()
     await log.error("err", v=5)
     assert log.error.call_count == 1
     assert log.error.call_args_list[0].args == ("err",)
@@ -49,7 +49,7 @@ async def test_async_event_bus_is_abstract() -> None:
 
 
 async def test_async_event_bus_publish() -> None:
-    bus = port_stub(EventBus)()
+    bus = spy_port(EventBus)()
     e1 = Event()
     e2 = Event()
     await bus.publish(e1, e2)

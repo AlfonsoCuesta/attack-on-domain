@@ -8,7 +8,7 @@ from aod._internal.application.handler import (
     CommandPort,
     QueryPort,
 )
-from aod._internal.testing.doubles.stubs import _make_callable_stub
+from aod._internal.testing.doubles.spies import _make_callable_stub
 
 TContract = TypeVar("TContract", bound=CommandPort | QueryPort | AsyncCommandPort | AsyncQueryPort)
 

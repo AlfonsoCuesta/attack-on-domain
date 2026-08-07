@@ -17,6 +17,22 @@ Or with [uv](https://docs.astral.sh/uv/):
 uv add attack-on-domain
 ```
 
+## Testing Utilities (optional)
+
+The testing utilities (`aod.testing` — fakes, spies, stubs, and assertion helpers) live in a separate package `attack-on-domain-testing`. Install it in your development environment:
+
+```bash
+pip install "attack-on-domain[testing]"
+```
+
+Or with [uv](https://docs.astral.sh/uv/):
+
+```bash
+uv add "attack-on-domain[testing]"
+```
+
+You can also install the testing package directly. It is not needed in production.
+
 ## Verify
 
 ```python

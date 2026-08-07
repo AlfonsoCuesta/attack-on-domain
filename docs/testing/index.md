@@ -2,6 +2,8 @@
 
 The framework provides testing utilities for building domain objects, inspecting events, and creating stub containers for integration testing.
 
+> **Installation**: The testing module is a separate package. Install it with `pip install "attack-on-domain[testing]"` (or `pip install attack-on-domain-testing`). It is not needed in production.
+
 ## Imports
 
 ```python
@@ -10,7 +12,7 @@ from aod.testing import FakeDomain
 from aod.testing.doubles import (
     SpyLogger,
     SpyEventBus,
-    port_stub,
+    spy_port,
     spy_session,
     spy_adapter_container,
     spy_command_handler,
@@ -167,13 +169,13 @@ stub.begin.called                     # tracks begin() too
 stub.commit.called                    # commit is called by the UseCase wrapper
 ```
 
-### `get_port_stub`
+### `get_port_spy`
 
 Access the stub for a given port field name. Works with any `Port` subclass registered on the container:
 
 ```python
 container = spy_adapter_container(AdapterContainer(logger=SpyLogger()))
-stub = container.get_port_stub("logger")
+stub = container.get_port_spy("logger")
 stub.info.return_value = None
 stub.info.called
 stub.info.call_args_list
@@ -190,7 +192,7 @@ assert handler.handle.called
 
 ### `get_handler_stub`
 
-Access the handler stub for a given handler class. Works like `get_port_stub` for handlers:
+Access the handler stub for a given handler class. Works like `get_port_spy` for handlers:
 
 ```python
 stub = container.get_handler_stub(CreateUserHandler)
@@ -219,14 +221,14 @@ proj.read(model)    # returns []
 proj.write(model)   # returns None
 ```
 
-## `port_stub`
+## `spy_port`
 
 For testing ports outside a container context, create stubs directly:
 
 ```python
-from aod.testing.doubles import port_stub
+from aod.testing.doubles import spy_port
 
-StubLogger = port_stub(Logger)
+StubLogger = spy_port(Logger)
 logger = StubLogger()
 logger.info("test")
 assert logger.info.called

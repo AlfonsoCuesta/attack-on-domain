@@ -10,7 +10,7 @@ from aod._internal.core.domain_exception import MutationForbiddenException
 from aod._internal.core.fields.fields import PrivateField
 from aod._internal.infrastructure.handlers.handlers import BaseHandler, CommandHandler
 from aod._internal.infrastructure.session import AsyncSession, Session
-from aod.testing.doubles import port_stub
+from aod.testing.doubles import spy_port
 from tests.application._use_case_scenarios import (
     _RUN_BODIES,
     SCENARIOS,
@@ -322,7 +322,7 @@ async def test_logger_auto_logs_completion() -> None:
         async def run(self) -> None:
             pass
 
-    logger = port_stub(Logger)()
+    logger = spy_port(Logger)()
     uc = Simple(logger=logger)
     await uc.run()
     completions = [c for c in logger.info.call_args_list if "completed" in str(c.args[0])]
@@ -336,7 +336,7 @@ async def test_event_bus_auto_publishes_on_success() -> None:
         async def run(self) -> None:
             self._event_emitter.emit(UserCreated(user_id=1, name="test"))
 
-    bus = port_stub(EventBus)()
+    bus = spy_port(EventBus)()
     uc = Emit(event_bus=bus)
     await uc.run()
     assert bus.publish.call_count == 1
@@ -358,7 +358,7 @@ async def test_commit_failure_rolls_back_and_logs() -> None:
         async def run(self) -> None:
             pass
 
-    logger = port_stub(Logger)()
+    logger = spy_port(Logger)()
     uc = Simple(logger=logger, save=handler)
     with pytest.raises(RuntimeError):
         await uc.run()
@@ -403,8 +403,8 @@ async def test_mixed_all_sync_ports_on_success() -> None:
         async def run(self) -> None:
             pass
 
-    logger = port_stub(Logger)()
-    bus = port_stub(EventBus)()
+    logger = spy_port(Logger)()
+    bus = spy_port(EventBus)()
     uc = Simple(logger=logger, event_bus=bus, save=handler)
     await uc.run()
     assert session._committed
@@ -425,7 +425,7 @@ async def test_mixed_all_sync_ports_on_failure() -> None:
         async def run(self) -> None:
             raise ValueError("oops")
 
-    logger = port_stub(Logger)()
+    logger = spy_port(Logger)()
     uc = Fail(logger=logger, save=handler)
     with pytest.raises(ValueError):
         await uc.run()
@@ -446,7 +446,7 @@ async def test_mixed_sync_session_async_event_bus() -> None:
         async def run(self) -> None:
             self._event_emitter.emit(UserCreated(user_id=1, name="test"))
 
-    bus = port_stub(AsyncEventBus)()
+    bus = spy_port(AsyncEventBus)()
     uc = Emit(event_bus=bus, save=handler)
     await uc.run()
     assert session._committed

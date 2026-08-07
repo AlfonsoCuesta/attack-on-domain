@@ -18,7 +18,7 @@ from aod._internal.infrastructure.projection import (
     WriteProjection,
 )
 from aod._internal.infrastructure.session import AsyncSession, Session
-from aod.testing.doubles import port_stub
+from aod.testing.doubles import spy_port
 from pydantic import BaseModel as DTO
 
 
@@ -173,7 +173,7 @@ class TestReadProjection:
             def read(self, model: UserReadModel) -> str:
                 raise ValueError("read failed")
 
-        logger = port_stub(Logger)()
+        logger = spy_port(Logger)()
         p = FailingRead(logger=logger)
         with pytest.raises(ValueError, match="read failed"):
             p.read(UserReadModel(user_id=1))
@@ -284,7 +284,7 @@ class TestWriteProjection:
             def write(self, model: UserWriteModel) -> str:
                 raise ValueError("write failed")
 
-        logger = port_stub(Logger)()
+        logger = spy_port(Logger)()
         p = FailingWrite(logger=logger)
         with pytest.raises(ValueError, match="write failed"):
             p.write(UserWriteModel(user_id=1, name="test"))
@@ -447,7 +447,7 @@ class TestAsyncReadProjection:
                 self._event_emitter.emit(UserCreated(user_id=model.user_id, name="test"))
                 return "ok"
 
-        logger = port_stub(Logger)()
+        logger = spy_port(Logger)()
         p = GetUser(logger=logger)
         result = await p.read(UserReadModel(user_id=1))
         assert result == "ok"
@@ -459,7 +459,7 @@ class TestAsyncReadProjection:
             async def read(self, model: UserReadModel) -> str:
                 raise ValueError("read failed")
 
-        logger = port_stub(Logger)()
+        logger = spy_port(Logger)()
         p = FailingRead(logger=logger)
         with pytest.raises(ValueError, match="read failed"):
             await p.read(UserReadModel(user_id=1))
@@ -472,7 +472,7 @@ class TestAsyncReadProjection:
                 self._event_emitter.emit(UserCreated(user_id=model.user_id, name="test"))
                 return "ok"
 
-        bus = port_stub(EventBus)()
+        bus = spy_port(EventBus)()
         p = GetUser(event_bus=bus)
         result = await p.read(UserReadModel(user_id=1))
         assert result == "ok"
@@ -565,7 +565,7 @@ class TestAsyncWriteProjection:
             async def write(self, model: UserWriteModel) -> str:
                 raise ValueError("write failed")
 
-        logger = port_stub(Logger)()
+        logger = spy_port(Logger)()
         p = FailingWrite(logger=logger)
         with pytest.raises(ValueError, match="write failed"):
             await p.write(UserWriteModel(user_id=1, name="test"))
