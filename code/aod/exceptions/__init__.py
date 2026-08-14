@@ -3,6 +3,7 @@ from aod._internal.core.application_exception import (
     CommitOutsideUnitOfWorkError,
     InvalidHandlerPortFieldError,
     InvalidUseCasePortFieldError,
+    PolicyEnforcementError,
     UnresolvableEntityError,
 )
 from aod._internal.core.domain_exception import (
@@ -62,8 +63,9 @@ __all__ = [
     "ModelValidationError",
     "MutationForbiddenException",
     "NoIdentityFieldException",
-    "TooManyIdentityFieldsException",
+    "PolicyEnforcementError",
     "PortNotFoundError",
     "SessionNotFoundError",
+    "TooManyIdentityFieldsException",
     "UnresolvableEntityError",
 ]

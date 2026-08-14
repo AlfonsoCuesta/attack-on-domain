@@ -4,7 +4,7 @@ from inspect import iscoroutinefunction
 from typing import Any, Callable, Generic, TypeVar
 
 from aod._internal.application.cache.cache_manager import get_cache_context
-from aod._internal.application.contracts import Command, Query
+from aod._internal.application.contracts import Command, PolicyContract, Query
 from aod._internal.application.port import Port
 from aod._internal.core.type_handlers.generic_utils import get_generic_arg_from_orig_bases
 
@@ -12,6 +12,7 @@ TResult = TypeVar("TResult")
 TEntity = TypeVar("TEntity")
 TCommand = TypeVar("TCommand", bound=Command)
 TQuery = TypeVar("TQuery", bound=Query)
+TPolicyContract = TypeVar("TPolicyContract", bound=PolicyContract)
 
 _CACHE_WRAPPED_KEY = "__aod_handler_cache_wrapped__"
 
@@ -22,8 +23,13 @@ class HandlerProtocol(Port):
         if not hasattr(cls, "handle") or not callable(cls.handle):
             return
         _wrap_handler_validation(cls)
-        if not getattr(cls.handle, "__isabstractmethod__", False) and not getattr(
-            cls.handle, _CACHE_WRAPPED_KEY, False
+        base_names = {base.__name__ for base in cls.__mro__}
+        is_command = bool(base_names & {"CommandPort", "AsyncCommandPort"})
+        is_query = bool(base_names & {"QueryPort", "AsyncQueryPort"})
+        if (
+            (is_command or is_query)
+            and not getattr(cls.handle, "__isabstractmethod__", False)
+            and not getattr(cls.handle, _CACHE_WRAPPED_KEY, False)
         ):
             _wrap_handler_cache(cls)
 
@@ -139,3 +145,13 @@ class AsyncCommandPort(HandlerProtocol, Generic[TCommand]):
 class AsyncQueryPort(HandlerProtocol, Generic[TQuery]):
     @abstractmethod
     async def handle(self, query: Query[TEntity, TResult]) -> TResult: ...
+
+
+class PolicyPort(HandlerProtocol, Generic[TPolicyContract]):
+    @abstractmethod
+    def handle(self, contract: TPolicyContract) -> None: ...
+
+
+class AsyncPolicyPort(HandlerProtocol, Generic[TPolicyContract]):
+    @abstractmethod
+    async def handle(self, contract: TPolicyContract) -> None: ...

@@ -2,9 +2,10 @@ from __future__ import annotations
 
 from typing import Any, cast, get_args, get_origin, get_type_hints
 
-from aod._internal.application.contracts import Command, Query
+from aod._internal.application.contracts import Command, PolicyContract, Query
 from aod._internal.application.handler.handler import HandlerProtocol
-from aod._internal.core.base_operation import BaseOperation
+from aod._internal.application.handler import AsyncPolicyPort, PolicyPort
+from aod._internal.core.base_validator import BaseValidator
 from aod._internal.core.infrastructure_exception import (
     DuplicateHandlerError,
     HandlerModelError,
@@ -31,29 +32,35 @@ class HandlerManager:
         self._validate_no_duplicates()
 
     @staticmethod
-    def contract_from_handler(h_cls: AnyHandler) -> type[Command] | type[Query]:
+    def contract_from_handler(
+        h_cls: AnyHandler,
+    ) -> type[Command] | type[PolicyContract] | type[Query]:
         hints = get_type_hints(h_cls.handle)
         for param_type in hints.values():
-            if isinstance(param_type, type) and issubclass(param_type, (Command, Query)):
+            if isinstance(param_type, type) and issubclass(
+                param_type, (Command, PolicyContract, Query)
+            ):
                 return param_type
         raise HandlerModelError(h_cls, "handle")
 
     def _validate_no_duplicates(self) -> None:
-        seen: set[type[Command] | type[Query]] = set()
+        seen: set[type[Command] | type[PolicyContract] | type[Query]] = set()
         for h_cls in self._handlers:
             contract = self.contract_from_handler(h_cls)
             if contract in seen:
                 raise DuplicateHandlerError(contract.__name__)
             seen.add(contract)
 
-    def find_handler(self, contract: type[Command] | type[Query]) -> AnyHandler:
+    def find_handler(
+        self, contract: type[Command] | type[PolicyContract] | type[Query]
+    ) -> AnyHandler:
         for h_cls in self._handlers:
             if self.contract_from_handler(h_cls) is contract:
                 return h_cls
         raise HandlerNotFoundError("handler", contract.__name__)
 
     def get_handler(
-        self, contract: type[Command] | type[Query]
+        self, contract: type[Command] | type[PolicyContract] | type[Query]
     ) -> _ASYNC_HANDLERS | _SYNC_HANDLERS:
         handler = self.find_handler(contract)
         cls_hints = get_type_hints(handler)
@@ -66,6 +73,22 @@ class HandlerManager:
         instance = self._instantiate_handler(handler, kwargs)
         return instance
 
+    def get_policy_handlers(
+        self,
+        *,
+        async_: bool = False,
+    ) -> list[PolicyPort[Any] | AsyncPolicyPort[Any]]:
+        policy_handlers: list[PolicyPort[Any] | AsyncPolicyPort[Any]] = []
+        for handler in self._handlers:
+            contract = self.contract_from_handler(handler)
+            if isinstance(contract, type) and issubclass(contract, PolicyContract):
+                if issubclass(handler, AsyncBaseHandler) != async_:
+                    continue
+                policy_handlers.append(
+                    cast(PolicyPort[Any] | AsyncPolicyPort[Any], self.get_handler(contract))
+                )
+        return policy_handlers
+
     def _instantiate_handler(
         self,
         handler: type[_ASYNC_HANDLERS | _SYNC_HANDLERS],
@@ -75,7 +98,7 @@ class HandlerManager:
             return cast(_ASYNC_HANDLERS, handler(**kwargs))
         return cast(_SYNC_HANDLERS, handler(**kwargs))
 
-    def inject_handlers(self, operation_cls: type[BaseOperation], kwargs: dict[str, Any]) -> None:
+    def inject_handlers(self, operation_cls: type[BaseValidator], kwargs: dict[str, Any]) -> None:
         for field_name, field_info in operation_cls.__model_fields__.items():
             if field_name in kwargs:
                 continue
@@ -89,5 +112,7 @@ class HandlerManager:
                 continue
             args = get_args(field_type)
             contract = args[0]
-            if isinstance(contract, type) and issubclass(contract, (Command, Query)):
+            if isinstance(contract, type) and issubclass(
+                contract, (Command, PolicyContract, Query)
+            ):
                 kwargs[field_name] = self.get_handler(contract)

@@ -27,3 +27,9 @@ class InvalidHandlerPortFieldError(ApplicationException):
             f"Field '{field_name}' on {cls_name} is a HandlerProtocol port missing its "
             f"generic type argument (e.g., CommandPort[PlaceOrder])"
         )
+
+
+class PolicyEnforcementError(ApplicationException):
+    def __init__(self, errors: list[Exception]) -> None:
+        self.errors = errors
+        super().__init__("All policy groups failed: " + "; ".join(str(e) for e in errors))

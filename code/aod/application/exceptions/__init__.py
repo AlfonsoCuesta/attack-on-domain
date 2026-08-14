@@ -3,6 +3,7 @@ from aod._internal.core.application_exception import (
     CommitOutsideUnitOfWorkError,
     InvalidHandlerPortFieldError,
     InvalidUseCasePortFieldError,
+    PolicyEnforcementError,
     UnresolvableEntityError,
 )
 
@@ -11,5 +12,6 @@ __all__ = [
     "CommitOutsideUnitOfWorkError",
     "InvalidHandlerPortFieldError",
     "InvalidUseCasePortFieldError",
+    "PolicyEnforcementError",
     "UnresolvableEntityError",
 ]

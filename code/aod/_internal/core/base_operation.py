@@ -5,7 +5,9 @@ from typing import Any, ClassVar, get_args, get_origin, get_type_hints
 from aod._internal.application.event_bus import AsyncEventBus, EventBus
 from aod._internal.application.logger import AsyncLogger, Logger
 from aod._internal.application.port import Port
-from aod._internal.core.application_exception import InvalidUseCasePortFieldError
+from aod._internal.core.application_exception import (
+    InvalidUseCasePortFieldError,
+)
 from aod._internal.core.base_behaviour import BaseBehaviour
 from aod._internal.core.event_emitter import Event, EventEmitter
 from aod._internal.core.fields.fields import Field, PrivateField

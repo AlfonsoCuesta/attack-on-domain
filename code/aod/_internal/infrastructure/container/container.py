@@ -7,6 +7,7 @@ from inspect import iscoroutinefunction
 from aod._internal.application.cache.cache import BaseCache
 from aod._internal.application.cache.cache_manager import CacheManager
 from aod._internal.application.port import Port
+from aod._internal.application.policy import AsyncPolicyManager, PolicyManager
 from aod._internal.application.use_case import AsyncUseCase, UseCase
 from aod._internal.core.base_behaviour import BaseBehaviour
 from aod._internal.core.fields.fields import Field, PrivateField
@@ -17,6 +18,7 @@ from aod._internal.infrastructure.container.types import (
     TOperation,
     TProjection,
     TUseCase,
+    AnyHandler,
     _is_session_annotation,
     _validate_concrete_session,
 )
@@ -26,7 +28,7 @@ from aod._internal.infrastructure.session import AsyncSession, Session
 
 class AdapterContainer(BaseBehaviour):
     sessions: set[type[Session] | type[AsyncSession]] = Field(default_factory=set)
-    handlers: list = Field(default_factory=list)
+    handlers: list[AnyHandler] = Field(default_factory=list)
     ports: dict[type[Port], Port] = Field(default_factory=dict)
     caches: list[BaseCache] = Field(default_factory=list)
     _session_manager: SessionManager = PrivateField()
@@ -97,7 +99,8 @@ class AdapterContainer(BaseBehaviour):
         if issubclass(operation_cls, ProjectionBase):
             return cast(TOperation, self._adapt_projection(operation_cls, **overrides))
         raise TypeError(
-            f"Expected UseCase, AsyncUseCase, or ProjectionBase subclass, got {operation_cls.__name__}"
+            f"Expected UseCase, AsyncUseCase, or ProjectionBase subclass, "
+            f"got {operation_cls.__name__}"
         )
 
     @staticmethod
@@ -143,6 +146,12 @@ class AdapterContainer(BaseBehaviour):
         container._handler_manager.inject_handlers(use_case_cls, kwargs)
         operation = use_case_cls(**kwargs)
         return self._wrap_with_cache(operation, container.caches)
+
+    def policy_manager(self) -> PolicyManager:
+        return PolicyManager(*self._handler_manager.get_policy_handlers(async_=False))
+
+    def async_policy_manager(self) -> AsyncPolicyManager:
+        return AsyncPolicyManager(*self._handler_manager.get_policy_handlers(async_=True))
 
     def _adapt_projection(self, projection_cls: type[TProjection], **overrides: Any) -> TProjection:
         container = self.with_adapters(**overrides) if overrides else self

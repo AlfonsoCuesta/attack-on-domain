@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from enum import Enum
 from typing import Generic, TypeVar, get_type_hints
 
 from aod._internal.core.base_sealed import BaseSealed
@@ -17,6 +18,34 @@ from aod._internal.domain.entity import Entity, RootEntity
 
 TEntity = TypeVar("TEntity")
 TResult = TypeVar("TResult")
+
+
+class PolicyContract(BaseSealed):
+    def __and__(self, other: PolicyInput) -> PolicyExpression:
+        return PolicyExpression(left=self, right=other, operator=_PolicyOperator.AND)
+
+    def __or__(self, other: PolicyInput) -> PolicyExpression:
+        return PolicyExpression(left=self, right=other, operator=_PolicyOperator.OR)
+
+
+class _PolicyOperator(Enum):
+    AND = "and"
+    OR = "or"
+
+
+class PolicyExpression(BaseSealed):
+    left: object
+    right: object
+    operator: _PolicyOperator
+
+    def __and__(self, other: PolicyInput) -> PolicyExpression:
+        return PolicyExpression(left=self, right=other, operator=_PolicyOperator.AND)
+
+    def __or__(self, other: PolicyInput) -> PolicyExpression:
+        return PolicyExpression(left=self, right=other, operator=_PolicyOperator.OR)
+
+
+PolicyInput = PolicyContract | PolicyExpression
 
 
 def _validate_fields_no_entity(cls: type) -> None:

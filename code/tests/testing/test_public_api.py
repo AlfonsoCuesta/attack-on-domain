@@ -74,6 +74,10 @@ def test_aod_application_exports_documented_api() -> None:
         "Logger",
         "OperationCacheInvalidation",
         "OperationCacheKey",
+        "PolicyContract",
+        "PolicyExpression",
+        "PolicyManager",
+        "PolicyPort",
         "Port",
         "Query",
         "QueryPort",
@@ -96,6 +100,10 @@ def test_aod_application_exports_documented_api() -> None:
         "CommandPort",
         "EventBus",
         "Logger",
+        "PolicyContract",
+        "PolicyExpression",
+        "PolicyManager",
+        "PolicyPort",
         "QueryPort",
         "UseCase",
     ]
@@ -107,6 +115,7 @@ def test_aod_application_exceptions_documented_api() -> None:
         "CommitOutsideUnitOfWorkError",
         "InvalidHandlerPortFieldError",
         "InvalidUseCasePortFieldError",
+        "PolicyEnforcementError",
         "UnresolvableEntityError",
     ]
 
@@ -118,6 +127,7 @@ def test_aod_infrastructure_exports_documented_api() -> None:
         "InfrastructureException",
         "Projection",
         "ProjectionBase",
+        "PolicyHandler",
         "QueryHandler",
         "ReadProjection",
         "Session",
@@ -128,6 +138,7 @@ def test_aod_infrastructure_exports_documented_api() -> None:
     assert aod.infrastructure.async_.__all__ == [
         "CommandHandler",
         "Projection",
+        "PolicyHandler",
         "QueryHandler",
         "ReadProjection",
         "Session",
@@ -175,9 +186,10 @@ def test_aod_exceptions_documented_api() -> None:
         "ModelValidationError",
         "MutationForbiddenException",
         "NoIdentityFieldException",
-        "TooManyIdentityFieldsException",
+        "PolicyEnforcementError",
         "PortNotFoundError",
         "SessionNotFoundError",
+        "TooManyIdentityFieldsException",
         "UnresolvableEntityError",
     ]
 

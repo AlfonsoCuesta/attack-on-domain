@@ -63,18 +63,23 @@ code/
 │       │   │   ├── cache_key_operations.py # OperationCacheKey(CacheKey, Generic[TOperation]), OperationCacheInvalidation — for UseCase/Projection-based invalidation
 │       │   │   ├── cache_manager.py   # CacheManager (context manager), CacheContext, get_cache_context()
 │       │   │   ├── null_cache.py      # NullCache (no-op default)
-│       │   ├── contracts/            # Command, Query — application contracts
-│       │   │   ├── __init__.py       # Command, Query
+│       │   ├── contracts/            # Command, Query, PolicyContract — application contracts
+│       │   │   ├── __init__.py       # Command, Query, PolicyContract
 │       │   │   └── contracts.py      # Command(BaseSealed), Query(BaseSealed) with field validation
 │       │   ├── event_bus/            # EventBus port — sync + async
 │       │   │   ├── __init__.py
 │       │   │   └── event_bus.py       # EventBus(Port) + AsyncEventBus(Port)
 │       │   ├── handler/              # HandlerProtocol — handler port types + handle() wrapping
 │       │   │   ├── __init__.py
-│       │   │   └── handler.py         # HandlerProtocol(Port), CommandPort, QueryPort, AsyncCommandPort, AsyncQueryPort, _wrap_handler_validation, _wrap_handler_cache
+│       │   │   └── handler.py         # HandlerProtocol(Port), command/query/policy ports, _wrap_handler_validation, _wrap_handler_cache
 │       │   ├── logger/               # Logger port — sync + async
 │       │   │   ├── __init__.py
 │       │   │   └── logger.py          # Logger(Port) + AsyncLogger(Port)
+│       │   ├── policy/               # Policy system — authorization before operations
+│       │   │   ├── __init__.py       # Re-exports policy contracts, managers, and expressions
+│       │   │   ├── policy_contract.py # PolicyContract(BaseSealed)
+│       │   │   ├── policy_expression.py # Immutable AND/OR builder
+│       │   │   └── policy_manager.py # PolicyManager + AsyncPolicyManager
 │   │       ├── transaction.py        # Transaction (sessions + caches + events + log + event_bus) — TransactionBase, Transaction (sync), AsyncTransaction (async)
 │   │       └── use_case/             # UseCase base — sync + async
 │       │       ├── __init__.py
@@ -84,9 +89,9 @@ code/
 │   │   ├── session/              # Session (database abstraction)
 │   │   │   ├── __init__.py
 │   │   │   └── session.py        # Session(Port) + AsyncSession(Port)
-│   │   ├── handlers/             # CommandHandler, QueryHandler — sync + async
+│   │   ├── handlers/             # CommandHandler, QueryHandler, PolicyHandler — sync + async
 │   │   │   ├── __init__.py
-│   │   │   └── handlers.py       # BaseHandler, AsyncBaseHandler, CommandHandler, QueryHandler, AsyncCommandHandler, AsyncQueryHandler
+│   │   │   └── handlers.py       # BaseHandler, AsyncBaseHandler, CommandHandler, QueryHandler, PolicyHandler, async variants
 │   │   ├── projection/           # Projection models + base classes — sync + async
 │   │   │   ├── __init__.py
 │   │   │   └── projection.py     # ProjectionBase, ReadProjectionBase, WriteProjectionBase, AsyncReadProjectionBase, AsyncWriteProjectionBase, ReadProjection, WriteProjection, Projection, AsyncReadProjection, AsyncWriteProjection, AsyncProjection
@@ -333,6 +338,7 @@ All framework exceptions re-exported from `aod.exceptions`. Per-layer base excep
 - `CommitOutsideUnitOfWorkError` -- commit outside a UnitOfWork context
 - `InvalidUseCasePortFieldError` -- UseCase field is not a Port subclass
 - `InvalidHandlerPortFieldError` -- HandlerProtocol port on a UseCase missing its generic type argument
+- `PolicyEnforcementError` -- all `or_` policy groups failed
 
 **InfrastructureException subclasses:**
 - `AbstractSessionTypeError` -- field uses `Session`/`AsyncSession` directly instead of concrete type
@@ -356,11 +362,11 @@ All framework exceptions re-exported from `aod.exceptions`. Per-layer base excep
 - Built-in port types: `Logger`/`AsyncLogger`, `EventBus`/`AsyncEventBus`, `Cache`/`AsyncCache`
 
 ### `HandlerProtocol` (runtime checking)
-All application-layer handler types (`CommandHandler`, `QueryHandler`, etc.) inherit from `HandlerProtocol(Port)`. Infrastructure handler types inherit from both `BaseHandler` and the corresponding app-layer `HandlerProtocol`.
+All application-layer handler types (`CommandPort`, `QueryPort`, `PolicyPort`, etc.) inherit from `HandlerProtocol(Port)`. Infrastructure handler types inherit from both `BaseHandler` and the corresponding app-layer handler protocol.
 
 `HandlerProtocol.__init_subclass__` orchestrates **two wrappers**:
-1. **`_wrap_handler_validation`** — contract type checker: verifies command/query matches generic type parameter. Raises `TypeError` on mismatch.
-2. **`_wrap_handler_cache`** — read-through/invalidation via `get_cache_context()`. On cache hit (queries only), skips body and returns cached value. On cache miss or commands, runs body, then deletes stale cache entries before flush.
+1. **`_wrap_handler_validation`** — contract type checker: verifies the contract matches the generic type parameter. Raises `TypeError` on mismatch.
+2. **`_wrap_handler_cache`** — read-through/invalidation via `get_cache_context()` for command/query handlers only. Policy handlers are never cache-wrapped.
 
 Each wrapper dispatches to separate maker functions per sync/async variant: `_make_validate_handle` / `_make_async_validate_handle` / `_make_cache_handle` / `_make_async_cache_handle`. `validate_handle` preserves the async-ness of the original `handle` — if it's a coroutine function, the wrapper is async too. `is_query` checks both `QueryPort` and `AsyncQueryPort` in `cls.__mro__`.
 
@@ -369,6 +375,26 @@ Each wrapper dispatches to separate maker functions per sync/async variant: `_ma
 
 ### Contracts: Command / Query
 `Command[TEntity, TResult]` / `Query[TEntity, TResult]` extend `BaseSealed`. Validate `TEntity` is `RootEntity` subclass at class creation. Field types checked: any field referencing non-root `Entity` raises `DomainException`. `Query` additionally requires `TResult` to contain at least one `RootEntity`.
+
+### Policy System (mechanism)
+Policies are independent application services. They do not belong to `UseCase`, `Projection`, transactions, or operation signatures.
+
+**Public API**:
+- `PolicyContract(BaseSealed)` — immutable authorization input defined by the caller.
+- `PolicyPort[PolicyContract]` / `AsyncPolicyPort` — application handler ports.
+- `PolicyHandler[PolicyContract]` / `AsyncPolicyHandler` — infrastructure implementations resolved by contract.
+- `PolicyManager` / `AsyncPolicyManager` — runtime collections of registered policy handlers.
+- `PolicyExpression` — immutable `BaseSealed` AND/OR expression built with `&` and `|`.
+
+The container creates the manager from registered policy handlers:
+
+```python
+manager = container.policy_manager()
+manager.enforce(auth_contract, admin_contract)  # AND
+manager.enforce(auth_contract | admin_contract)  # OR
+```
+
+Multiple contracts passed directly to `enforce()` are joined with AND. Contracts can be combined with `&` and `|`, including nested expressions. The manager resolves each contract by its concrete type and invokes the matching handler. If all OR branches fail, `PolicyEnforcementError` is raised. Enforcement is explicit and never runs from `UseCase`, `Projection`, or an operation wrapper.
 
 ### Cache Key Hierarchy (mechanism)
 `CacheKey(BaseGuarded)` is the abstract base. It declares:

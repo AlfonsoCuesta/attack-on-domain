@@ -7,8 +7,10 @@ from aod._internal.application.port import Port
 from aod._internal.application.use_case import AsyncUseCase, UseCase
 from aod._internal.infrastructure.handlers import (
     AsyncCommandHandler,
+    AsyncPolicyHandler,
     AsyncQueryHandler,
     CommandHandler,
+    PolicyHandler,
     QueryHandler,
 )
 from aod._internal.infrastructure.projection import ProjectionBase
@@ -17,13 +19,17 @@ from aod._internal.infrastructure.session import AsyncSession, Session
 
 _SESSION_BASES = (Session, AsyncSession)
 
-_SYNC_HANDLERS = CommandHandler | QueryHandler
-_ASYNC_HANDLERS = AsyncCommandHandler | AsyncQueryHandler
+_SYNC_HANDLERS = CommandHandler | PolicyHandler | QueryHandler
+_ASYNC_HANDLERS = AsyncCommandHandler | AsyncPolicyHandler | AsyncQueryHandler
 
 AnyHandler = (
-    type[CommandHandler] | type[QueryHandler] | type[AsyncCommandHandler] | type[AsyncQueryHandler]
+    type[CommandHandler]
+    | type[PolicyHandler]
+    | type[QueryHandler]
+    | type[AsyncCommandHandler]
+    | type[AsyncPolicyHandler]
+    | type[AsyncQueryHandler]
 )
-
 TUseCase = TypeVar("TUseCase", bound=UseCase | AsyncUseCase)
 TProjection = TypeVar("TProjection", bound=ProjectionBase)
 TOperation = TypeVar("TOperation", bound=UseCase | AsyncUseCase | ProjectionBase)

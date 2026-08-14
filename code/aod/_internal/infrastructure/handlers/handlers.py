@@ -7,16 +7,20 @@ from typing import Generic, TypeVar
 from aod._internal.application.contracts import Command, Query
 from aod._internal.application.handler import (
     AsyncCommandPort,
+    AsyncPolicyPort,
     AsyncQueryPort,
     CommandPort,
+    PolicyPort,
     QueryPort,
 )
+from aod._internal.application.policy.policy_contract import PolicyContract
 from aod._internal.core.base_behaviour import BaseBehaviour
 from aod._internal.core.infrastructure_exception import AbstractSessionTypeError
 from aod._internal.infrastructure.session import AsyncSession, Session
 
 TCommand = TypeVar("TCommand", bound=Command)
 TQuery = TypeVar("TQuery", bound=Query)
+TPolicyContract = TypeVar("TPolicyContract", bound=PolicyContract)
 
 
 def _raise_if_abstract_session(owner: str, field_name: str, tp: object) -> None:
@@ -67,3 +71,17 @@ class AsyncQueryHandler(AsyncBaseHandler, AsyncQueryPort, Generic[TQuery]):
 class AsyncCommandHandler(AsyncBaseHandler, AsyncCommandPort, Generic[TCommand]):
     @abstractmethod
     async def handle(self, command: TCommand) -> object: ...  # ty:ignore[invalid-method-override]
+
+
+class PolicyHandler(BaseHandler, PolicyPort[TPolicyContract], Generic[TPolicyContract]):
+    @abstractmethod
+    def handle(self, contract: TPolicyContract) -> None: ...
+
+
+class AsyncPolicyHandler(
+    AsyncBaseHandler,
+    AsyncPolicyPort[TPolicyContract],
+    Generic[TPolicyContract],
+):
+    @abstractmethod
+    async def handle(self, contract: TPolicyContract) -> None: ...
