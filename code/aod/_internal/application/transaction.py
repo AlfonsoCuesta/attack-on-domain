@@ -8,71 +8,44 @@ from aod._internal.application.event_bus import AsyncEventBus, EventBus
 from aod._internal.application.logger import AsyncLogger, Logger
 from aod._internal.core.async_utils import should_await
 from aod._internal.core.base_behaviour import BaseBehaviour
-from aod._internal.core.base_operation import BaseOperation
 from aod._internal.core.event_emitter import Event, EventCollector, EventsListened
 from aod._internal.core.fields import Field, PrivateField
+from aod._internal.core.transaction_context import _active_transaction
 from aod._internal.infrastructure.commit_context import commit_context
 from aod._internal.infrastructure.session import AsyncSession, Session
 
 
-_active_transaction: ContextVar[TransactionBase] = ContextVar("_active_transaction")
-
-
 class TransactionBase(BaseBehaviour):
-    sessions: list[Session | AsyncSession] = Field(default_factory=list)
     loggers: list[Logger | AsyncLogger] = Field(default_factory=list)
     event_buses: list[EventBus | AsyncEventBus] = Field(default_factory=list)
-    operation: BaseOperation
+    _sessions: dict[int, Session | AsyncSession] = PrivateField(default_factory=dict)
     _events: list[Event] = PrivateField(default_factory=list)
     _collector: EventCollector | None = PrivateField(default=None)
     _listened: EventsListened | None = PrivateField(default=None)
-    _token: Token[TransactionBase] | None = PrivateField(default=None)
+    _token: Token[object | None] | None = PrivateField(default=None)
 
     @property
-    def operation_name(self) -> str:
-        return type(self.operation).__name__
+    def sessions(self) -> list[Session | AsyncSession]:
+        return list(self._sessions.values())
 
     @property
     def events(self) -> list[Event]:
         return self._events
 
-    def _discover_sessions(self) -> list[Session | AsyncSession]:
-        sessions = list(self.sessions)
-        for field_name in self.operation.__model_fields__:
-            value = object.__getattribute__(self.operation, field_name)
-            get_sessions = getattr(value, "_get_sessions", None)
-            if callable(get_sessions):
-                sessions.extend(get_sessions())
-        sessions.extend(getattr(self.operation, "_sessions", []))
-        return list({id(session): session for session in sessions}.values())
+    def register_session(self, session: Session | AsyncSession) -> None:
+        self._sessions.setdefault(id(session), session)
 
-    def _load_operation_ports(self) -> None:
-        operation_loggers: list[Logger | AsyncLogger] = []
-        operation_event_buses: list[EventBus | AsyncEventBus] = []
-        for field_name in self.operation.__model_fields__:
-            value = object.__getattribute__(self.operation, field_name)
-            if isinstance(value, (Logger, AsyncLogger)):
-                operation_loggers.append(value)
-            elif isinstance(value, (EventBus, AsyncEventBus)):
-                operation_event_buses.append(value)
-        loggers = self.loggers + operation_loggers
-        event_buses = self.event_buses + operation_event_buses
-        object.__setattr__(self, "loggers", list({id(item): item for item in loggers}.values()))
-        object.__setattr__(
-            self,
-            "event_buses",
-            list({id(item): item for item in event_buses}.values()),
-        )
+    def register_operation(self, operation: Any) -> None:
+        for field_name in operation.__model_fields__:
+            value = object.__getattribute__(operation, field_name)
+            if isinstance(value, (Logger, AsyncLogger)) and value not in self.loggers:
+                self.loggers.append(value)
+            if isinstance(value, (EventBus, AsyncEventBus)) and value not in self.event_buses:
+                self.event_buses.append(value)
 
     def _start(self) -> None:
-        try:
-            _active_transaction.get()
-        except LookupError:
-            pass
-        else:
+        if _active_transaction.get() is not None:
             raise RuntimeError("Transactions cannot be nested")
-        object.__setattr__(self, "sessions", self._discover_sessions())
-        self._load_operation_ports()
         object.__setattr__(self, "_token", _active_transaction.set(self))
 
     def _finish_collection(self) -> None:
@@ -80,16 +53,13 @@ class TransactionBase(BaseBehaviour):
             self._collector.__exit__(None, None, None)
         if self._listened is not None:
             object.__setattr__(self, "_events", list(self._listened))
-        object.__setattr__(self.operation, "events", self._events)
 
     def _reset(self) -> None:
+        for session in self.sessions:
+            object.__setattr__(session, "_is_begun", False)
         if self._token is not None:
             _active_transaction.reset(self._token)
             object.__setattr__(self, "_token", None)
-
-    def _begin_sessions(self) -> None:
-        for session in self.sessions:
-            session.begin()
 
     def _commit_sessions(self) -> None:
         with commit_context():
@@ -104,15 +74,15 @@ class TransactionBase(BaseBehaviour):
 
     def _log_failure(self, exception: BaseException) -> None:
         for logger in self.loggers:
-            logger.error(f"{self.operation_name} failed with message: {exception}")
+            logger.error(f"Transaction failed with message: {exception}")
 
     def _log_completion(self) -> None:
         for logger in self.loggers:
-            logger.info(f"{self.operation_name} events", events=self._events)
+            logger.info("Transaction events", events=self._events)
         for bus in self.event_buses:
             bus.publish(*self._events)
         for logger in self.loggers:
-            logger.info(f"{self.operation_name} completed")
+            logger.info("Transaction completed")
 
     def _handle_failure(self, exception: BaseException) -> None:
         try:
@@ -127,7 +97,6 @@ class Transaction(TransactionBase):
     def __enter__(self) -> Transaction:
         self._start()
         try:
-            self._begin_sessions()
             collector = EventCollector()
             object.__setattr__(self, "_collector", collector)
             object.__setattr__(self, "_listened", collector.__enter__())
@@ -162,7 +131,6 @@ class AsyncTransaction(TransactionBase):
     async def __aenter__(self) -> AsyncTransaction:
         self._start()
         try:
-            await self._async_begin_sessions()
             collector = EventCollector()
             object.__setattr__(self, "_collector", collector)
             object.__setattr__(self, "_listened", collector.__enter__())
@@ -170,10 +138,6 @@ class AsyncTransaction(TransactionBase):
             self._reset()
             raise
         return self
-
-    async def _async_begin_sessions(self) -> None:
-        for session in self.sessions:
-            await should_await(session.begin())
 
     async def _async_commit_sessions(self) -> None:
         with commit_context():
@@ -188,25 +152,15 @@ class AsyncTransaction(TransactionBase):
 
     async def _async_log_failure(self, exception: BaseException) -> None:
         for logger in self.loggers:
-            await should_await(
-                logger.error(f"{self.operation_name} failed with exception: {exception}")
-            )
+            await should_await(logger.error(f"Transaction failed with message: {exception}"))
 
     async def _async_log_completion(self) -> None:
         for logger in self.loggers:
-            await should_await(logger.info(f"{self.operation_name} events", events=self._events))
+            await should_await(logger.info("Transaction events", events=self._events))
         for bus in self.event_buses:
             await should_await(bus.publish(*self._events))
         for logger in self.loggers:
-            await should_await(logger.info(f"{self.operation_name} completed"))
-
-    async def _async_handle_failure(self, exception: BaseException) -> None:
-        try:
-            await self._async_rollback_sessions()
-            get_cache_context().discard()
-            await self._async_log_failure(exception)
-        finally:
-            self._reset()
+            await should_await(logger.info("Transaction completed"))
 
     async def __aexit__(
         self,
@@ -216,14 +170,24 @@ class AsyncTransaction(TransactionBase):
     ) -> bool:
         self._finish_collection()
         if exc_value is not None:
-            await self._async_handle_failure(exc_value)
+            try:
+                await self._async_rollback_sessions()
+                get_cache_context().discard()
+                await self._async_log_failure(exc_value)
+            finally:
+                self._reset()
             return False
         try:
             await self._async_commit_sessions()
             await get_cache_context().flush_invalidations_async()
             await self._async_log_completion()
         except Exception as exception:
-            await self._async_handle_failure(exception)
+            try:
+                await self._async_rollback_sessions()
+                get_cache_context().discard()
+                await self._async_log_failure(exception)
+            finally:
+                self._reset()
             raise
         finally:
             self._reset()
@@ -231,7 +195,12 @@ class AsyncTransaction(TransactionBase):
 
 
 def get_transaction() -> TransactionBase:
-    try:
-        return _active_transaction.get()
-    except LookupError:
-        raise RuntimeError("No active transaction") from None
+    transaction = _active_transaction.get()
+    if transaction is None:
+        raise RuntimeError("No active transaction")
+    return transaction  # type: ignore[return-value]
+
+
+def get_active_transaction() -> TransactionBase | None:
+    transaction = _active_transaction.get()
+    return transaction  # type: ignore[return-value]

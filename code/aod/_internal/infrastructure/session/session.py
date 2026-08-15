@@ -1,39 +1,54 @@
 from __future__ import annotations
 
 from abc import abstractmethod
-from collections.abc import Callable, Coroutine
+from collections.abc import Coroutine
 from functools import wraps
-from typing import Any, cast
+from typing import Any, Callable, cast
 
 from aod._internal.application.port import Port
 from aod._internal.core.application_exception import CommitOutsideUnitOfWorkError
+from aod._internal.core.fields import PrivateField
+from aod._internal.core.transaction_context import get_active_transaction
 from aod._internal.infrastructure.commit_context import _CommitContext
 
 
-def check_commit_context(fn) -> Callable[..., None]:
+def check_commit_context(fn: Callable[..., None]) -> Callable[..., None]:
     @wraps(fn)
-    def wrapper(*args, **kwargs):
+    def wrapper(*args: Any, **kwargs: Any) -> None:
         if not _CommitContext.get(False):
             raise CommitOutsideUnitOfWorkError()
-        return fn(*args, **kwargs)
+        fn(*args, **kwargs)
 
-    return cast(Callable[..., None], wrapper)
+    return wrapper
 
 
-def check_async_commit_context(fn) -> Callable[..., Coroutine[Any, Any, None]]:
+def check_async_commit_context(
+    fn: Callable[..., Coroutine[Any, Any, None]],
+) -> Callable[..., Coroutine[Any, Any, None]]:
     @wraps(fn)
-    async def wrapper(*args, **kwargs):
+    async def wrapper(*args: Any, **kwargs: Any) -> None:
         if not _CommitContext.get(False):
             raise CommitOutsideUnitOfWorkError()
-        return await fn(*args, **kwargs)
+        await fn(*args, **kwargs)
 
     return cast(Callable[..., Coroutine[Any, Any, None]], wrapper)
 
 
 class Session(Port):
-    def __init_subclass__(cls, **kwargs):
+    _is_begun: bool = PrivateField(default=False)
+
+    def __init_subclass__(cls, **kwargs: Any) -> None:
         super().__init_subclass__(**kwargs)
-        cls.commit: Callable[..., None] = check_commit_context(cls.commit)
+        cls.commit = check_commit_context(cls.commit)
+
+    def _begin(self) -> None:
+        if self._is_begun:
+            return
+        transaction = get_active_transaction()
+        self.begin()
+        object.__setattr__(self, "_is_begun", True)
+        if transaction is not None:
+            transaction.register_session(self)
 
     @abstractmethod
     def begin(self) -> None: ...
@@ -52,11 +67,20 @@ class Session(Port):
 
 
 class AsyncSession(Port):
-    def __init_subclass__(cls, **kwargs):
+    _is_begun: bool = PrivateField(default=False)
+
+    def __init_subclass__(cls, **kwargs: Any) -> None:
         super().__init_subclass__(**kwargs)
-        cls.commit: Callable[..., Coroutine[Any, Any, None]] = check_async_commit_context(
-            cls.commit
-        )
+        cls.commit = check_async_commit_context(cls.commit)
+
+    async def _begin(self) -> None:
+        if self._is_begun:
+            return
+        transaction = get_active_transaction()
+        await self.begin()
+        object.__setattr__(self, "_is_begun", True)
+        if transaction is not None:
+            transaction.register_session(self)
 
     @abstractmethod
     async def begin(self) -> None: ...

@@ -78,32 +78,28 @@ class _AsyncSession(AsyncSession):
 
 
 def test_transaction_collects_events_and_updates_operation() -> None:
-    operation = _Operation()
-
-    with Transaction(operation=operation) as transaction:
+    with Transaction() as transaction:
         EventEmitter().emit(_Event(value="created"))
 
-    assert operation.events[0].value == "created"
-    assert transaction.events == operation.events
+    assert transaction.events[0].value == "created"
 
 
 def test_transaction_context_is_available_only_inside_block() -> None:
-    operation = _Operation()
     with pytest.raises(RuntimeError, match="No active transaction"):
         get_transaction()
-    with Transaction(operation=operation):
-        assert object.__getattribute__(get_transaction(), "operation") is operation
+    with Transaction():
+        assert isinstance(get_transaction(), Transaction)
     with pytest.raises(RuntimeError, match="No active transaction"):
         get_transaction()
 
 
 def test_transaction_commits_and_logs_and_publishes() -> None:
-    operation = _Operation()
     session = _Session()
     logger = spy_port(Logger)()
     bus = spy_port(EventBus)()
 
-    with Transaction(operation=operation, sessions=[session], loggers=[logger], event_buses=[bus]):
+    with Transaction(loggers=[logger], event_buses=[bus]):
+        session._begin()
         EventEmitter().emit(_Event(value="created"))
 
     assert session._begun
@@ -113,24 +109,22 @@ def test_transaction_commits_and_logs_and_publishes() -> None:
 
 
 def test_transaction_rolls_back_and_preserves_events_on_failure() -> None:
-    operation = _Operation()
     session = _Session()
 
     with pytest.raises(ValueError, match="boom"):
-        with Transaction(operation=operation, sessions=[session]):
+        with Transaction() as transaction:
+            session._begin()
             EventEmitter().emit(_Event(value="before-failure"))
             raise ValueError("boom")
 
     assert session._rolled_back
-    assert operation.events[0].value == "before-failure"
+    assert transaction.events[0].value == "before-failure"
 
 
 def test_transaction_rejects_nested_transactions() -> None:
-    operation = _Operation()
-
-    with Transaction(operation=operation):
+    with Transaction():
         with pytest.raises(RuntimeError, match="cannot be nested"):
-            with Transaction(operation=operation):
+            with Transaction():
                 pass
 
 
@@ -139,10 +133,9 @@ def test_transaction_resets_context_when_begin_fails() -> None:
         def begin(self) -> None:
             raise RuntimeError("begin failed")
 
-    operation = _Operation()
-    with pytest.raises(RuntimeError, match="begin failed"):
-        with Transaction(operation=operation, sessions=[FailingBegin()]):
-            pass
+    with Transaction():
+        with pytest.raises(RuntimeError, match="begin failed"):
+            FailingBegin().begin()
     with pytest.raises(RuntimeError, match="No active transaction"):
         get_transaction()
 
@@ -154,13 +147,12 @@ def test_transaction_rolls_back_when_commit_fails() -> None:
 
     session = FailingCommit()
     with pytest.raises(RuntimeError, match="commit failed"):
-        with Transaction(operation=_Operation(), sessions=[session]):
-            pass
+        with Transaction():
+            session._begin()
     assert session._rolled_back
 
 
 def test_transaction_commit_context_only_exists_during_commit() -> None:
-    operation = _Operation()
     session = _Session()
     observed: list[bool] = []
 
@@ -170,7 +162,8 @@ def test_transaction_commit_context_only_exists_during_commit() -> None:
             super().commit()
 
     session = TrackingSession()
-    with Transaction(operation=operation, sessions=[session]):
+    with Transaction():
+        session._begin()
         observed.append(_CommitContext.get(False))
 
     assert observed == [False, True]
@@ -190,9 +183,8 @@ def test_transaction_operation_can_supply_sessions_from_handler() -> None:
         def run(self) -> None:
             pass
 
-    operation = Operation(handler=Handler())
-    with Transaction(operation=operation):
-        pass
+    with Transaction():
+        session._begin()
 
     assert session._begun
     assert session._committed
@@ -200,24 +192,25 @@ def test_transaction_operation_can_supply_sessions_from_handler() -> None:
 
 @pytest.mark.asyncio
 async def test_async_transaction_commits_and_collects_events() -> None:
-    operation = _Operation()
     session = _AsyncSession()
 
-    async with AsyncTransaction(operation=operation, sessions=[session]):
+    async with AsyncTransaction() as transaction:
+        await session._begin()
+        await session.execute("operation")
         EventEmitter().emit(_Event(value="async"))
 
     assert session._begun
     assert session._committed
-    assert operation.events[0].value == "async"
+    assert transaction.events[0].value == "async"
 
 
 @pytest.mark.asyncio
 async def test_async_transaction_rolls_back_on_failure() -> None:
-    operation = _Operation()
     session = _AsyncSession()
 
     with pytest.raises(ValueError, match="boom"):
-        async with AsyncTransaction(operation=operation, sessions=[session]):
+        async with AsyncTransaction():
+            await session._begin()
             raise ValueError("boom")
 
     assert session._rolled_back
@@ -225,10 +218,9 @@ async def test_async_transaction_rolls_back_on_failure() -> None:
 
 @pytest.mark.asyncio
 async def test_async_transaction_logs_and_publishes() -> None:
-    operation = _Operation()
     logger = spy_port(Logger)()
     bus = spy_port(EventBus)()
-    async with AsyncTransaction(operation=operation, loggers=[logger], event_buses=[bus]):
+    async with AsyncTransaction(loggers=[logger], event_buses=[bus]):
         EventEmitter().emit(_Event(value="async"))
     assert logger.info.call_count == 2
     assert bus.publish.call_count == 1
