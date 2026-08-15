@@ -3,7 +3,7 @@ from __future__ import annotations
 from contextvars import ContextVar, Token
 from typing import Any
 
-from aod._internal.application.cache.cache import BaseCache
+from aod._internal.application.cache.cache import BaseCache, Cache
 from aod._internal.application.contracts import Command, Query
 from aod._internal.core.async_utils import should_await
 from aod._internal.core.base_operation import BaseOperation
@@ -37,6 +37,15 @@ class CacheContext:
         if cache is None:
             return
         cache._set(key_material, value)
+        if isinstance(cache, Cache):
+            cache._flush_sets()
+
+    async def set_async(self, key_material: Query | BaseOperation, value: Any) -> None:
+        cache = self.get_for(key_material)
+        if cache is None:
+            return
+        cache._set(key_material, value)
+        await should_await(cache._flush_sets())
 
     def delete(self, command: Command | BaseOperation) -> None:
         for cache in self._caches:
@@ -52,8 +61,15 @@ class CacheContext:
 
     def discard(self) -> None:
         for cache in self._caches:
-            cache._to_set.clear()
             cache._to_delete.clear()
+
+    def flush_invalidations(self) -> None:
+        for cache in self._caches:
+            cache._flush_deletes()
+
+    async def flush_invalidations_async(self) -> None:
+        for cache in self._caches:
+            await should_await(cache._flush_deletes())
 
 
 _cache_context: ContextVar[CacheContext] = ContextVar("_cache_context")

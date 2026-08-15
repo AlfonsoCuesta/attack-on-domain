@@ -166,7 +166,7 @@ stub.is_dirty.called                  # True if called at least once
 stub.is_dirty.call_count              # number of calls
 stub.is_dirty.call_args_list          # list of call objects, each with .args and .kwargs
 stub.begin.called                     # tracks begin() too
-stub.commit.called                    # commit is called by the UseCase wrapper
+                    stub.commit.called                    # commit is called by Transaction
 ```
 
 ### `get_port_spy`

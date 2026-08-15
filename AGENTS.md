@@ -30,7 +30,7 @@ code/
 │       │   ├── base_sealed.py        # BaseSealed (always-blocked mutation)
 │       │   ├── base_guarded/         # BaseGuarded, MutatingContext, make_immutable subsystem
 │       │   ├── base_behaviour.py     # BaseBehaviour (allows mutation inside methods)
-│       │   ├── base_operation.py     # BaseOperation(BaseBehaviour) — adds _event_emitter, events, _loggers, _event_buses
+│       │   ├── base_operation.py     # BaseOperation(BaseBehaviour) — adds _event_emitter and events
 │       │   ├── event_emitter.py      # Event, EventEmitter, EventCollector
 │       │   ├── model_maker.py        # Dual Pydantic model generation
 │       │   ├── domain_exception.py       # DomainException hierarchy
@@ -80,7 +80,7 @@ code/
 │       │   │   ├── policy_contract.py # PolicyContract(BaseSealed)
 │       │   │   ├── policy_expression.py # Immutable AND/OR builder
 │       │   │   └── policy_manager.py # PolicyManager + AsyncPolicyManager
-│   │       ├── transaction.py        # Transaction (sessions + caches + events + log + event_bus) — TransactionBase, Transaction (sync), AsyncTransaction (async)
+│   │       ├── transaction.py        # Transaction context managers (sessions + events + log + event_bus) — TransactionBase, Transaction (sync), AsyncTransaction (async)
 │   │       └── use_case/             # UseCase base — sync + async
 │       │       ├── __init__.py
 │       │       └── use_case.py       # UseCase(BaseOperation) + AsyncUseCase(BaseOperation)
@@ -197,7 +197,7 @@ code/
 BaseValidator (metaclass: ValidationModelMeta -> ABCMeta)
 +-- BaseGuarded                     (mutation-guarded)
     +-- BaseBehaviour               (extends BaseGuarded -- allows mutation inside methods)
-    |   +-- BaseOperation           (adds _event_emitter, events, _loggers, _event_buses)
+    |   +-- BaseOperation           (adds _event_emitter and events)
     |   |   +-- UseCase             -> +run()
     |   |   +-- AsyncUseCase        -> +async run()
     |   |   +-- ProjectionBase
@@ -266,7 +266,7 @@ The framework is a generic sandbox. Key boundaries:
 - **No Repository abstraction** — CQRS is enforced via handlers (`CommandHandler`/`QueryHandler`). The `Session` IS the data access layer.
 - **No domain primitives** (Email, Currency, Money, etc.) — each project defines its own ValueObjects.
 - **No Sagas / Process Managers** — infrastructure orchestration is the user's responsibility.
-- **Outbox pattern** is already covered by the Transaction wrapper used in UseCase and Projection (commit → publish).
+- **Outbox pattern** is covered by the external Transaction context (commit → publish), not by UseCase or Projection wrappers.
 - **`should_await` is intentional** — async handlers can use sync sessions without blocking the event loop via runtime detection. This is a design feature, not a bug.
 
 ### `__post_init__` Hook (mechanism)
@@ -349,11 +349,11 @@ All framework exceptions re-exported from `aod.exceptions`. Per-layer base excep
 
 ### `UseCase` Base Class (internals)
 `UseCase` extends `BaseOperation`. Key mechanics:
-- **Transaction is ephemeral** -- created fresh per `run()` call via `_build_tx()` with `operation=self` (required field), configured with loggers, event buses, and handler sessions, then discarded after `run_transaction()`.
-- **`__init_subclass__`** wraps `run` to: (1) build Transaction, (2) invoke original run via `tx.run_transaction()`, (3) copy events from Transaction to `self.events` in `finally`.
+- **Transaction is external** -- callers open `Transaction(use_case)` around one `run()` call. The transaction discovers handler sessions and copies collected events to `use_case.events`.
+- **`run()` is not wrapped** -- UseCase only contains application logic and emits domain events.
 - **Field validation**: `BaseOperation.__init_subclass__` checks fields. Only `Port` subclasses allowed. `BaseHandler`/`AsyncBaseHandler` and `Session`/`AsyncSession` rejected. `AppCommandHandler[T]`/`AppQueryHandler[T]` accepted (inherit from `HandlerProtocol(Port)`). Non-Port fields raise `InvalidUseCasePortFieldError`.
 - **`__skip_port_check__`** check uses `cls.__dict__.get("__skip_port_check__")` -- only current class's own dict, not inherited
-- **Container sessions**: `AdapterContainer.sessions` holds session **classes**, not instances. `get_session()` instantiates and caches. `HandlerManager` creates handler instances with session instances; UseCase's `_build_tx()` extracts sessions from handlers at run time.
+- **Container sessions**: `AdapterContainer.sessions` holds session **classes**, not instances. `get_session()` instantiates and caches. `HandlerManager` creates handler instances with session instances; Transaction extracts sessions from handlers at context entry.
 
 ### `Port` Base Class (internals)
 `Port` extends `BaseGuarded`:
@@ -422,14 +422,14 @@ Two concrete subclasses serve different invalidation strategies:
 
 No ClassVar pre-computation. Both `get_invalidation_key_fn()` and `get_command_types()` iterate `self.invalidate()` at runtime, keeping the invalidation info in a single source of truth.
 
-**Read-through cache flow**: `UseCase.run()` / `ReadProjection.read()` check cache before executing the body. On miss, the body runs normally; after the transaction completes, the result is stored in the cache via `_to_set`. On hit, the body is skipped entirely and the cached value is returned. Only non-None results are cached.
+**Read-through cache flow**: Query handlers check the active CacheContext before executing and store non-None misses immediately. Command invalidations are buffered and flushed by Transaction only after a successful commit. CacheManager is opened separately from the transaction.
 
 **`BaseCache._delete(command)`** iterates `self.keys` and calls `key_obj.get_invalidation_key_fn(type(command))` on each key instance to compute invalidation keys. The `_to_delete` batch is flushed on `_flush()`.
 
 ### Projection System (tech details)
 `ProjectionBase(BaseOperation)` inherits `_event_emitter`, `events`, `logger`, `event_bus`. Fields must be `Port` subclasses (except session fields). `HandlerProtocol` rejected via `__not_allowed_port_types__ = (HandlerProtocol,)`. Multiple session fields allowed with concrete types. `ProjectionBase.__init_subclass__` calls `typing.get_type_hints(cls)` and raises `AbstractSessionTypeError` for direct `Session`/`AsyncSession` fields.
 
-`ReadProjectionBase`/`WriteProjectionBase` wrap `read()`/`write()` by creating a fresh `Transaction` from `self._loggers`, `self._event_buses`, `self._sessions` and delegating to `run_transaction`. `WriteProjectionBase` uses `only_read=False` so `CommitContext` is set during the body for manual `session.commit()` calls.
+`ReadProjectionBase`/`WriteProjectionBase` do not wrap `read()`/`write()`. Callers open `Transaction(projection)` explicitly; it discovers projection sessions and collects events for `projection.events`.
 
 Async variants (`AsyncReadProjectionBase`, `AsyncWriteProjectionBase`) use `AsyncTransaction` with `await should_await(session.commit())`.
 

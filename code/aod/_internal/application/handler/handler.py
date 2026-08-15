@@ -91,7 +91,6 @@ def _make_cache_handle(original_handle: Callable, is_query: bool) -> Callable:
                 ctx.set(contract, result)
         else:
             ctx.delete(contract)
-        ctx.flush()
         return result
 
     return cache_handle
@@ -108,10 +107,9 @@ def _make_async_cache_handle(original_handle: Callable, is_query: bool) -> Calla
         result = await original_handle(self, contract, **kwargs)
         if is_query:
             if result is not None:
-                ctx.set(contract, result)
+                await ctx.set_async(contract, result)
         else:
             ctx.delete(contract)
-        await ctx.flush_async()
         return result
 
     return cache_handle

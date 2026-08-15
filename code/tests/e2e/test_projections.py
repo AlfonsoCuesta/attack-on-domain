@@ -18,8 +18,21 @@ from aod._internal.application.event_bus import EventBus
 from aod._internal.application.event_bus.null_event_bus import NullEventBus
 from aod._internal.application.logger import Logger
 from aod._internal.application.logger.null_logger import NullLogger
+from aod._internal.application.transaction import AsyncTransaction, Transaction
+from aod._internal.core.base_operation import BaseOperation
 from aod._internal.testing.doubles.spies import spy_port
 from pydantic import BaseModel as DTO
+
+
+def execute(projection: BaseOperation, method: str, *args: object) -> object:
+    with Transaction(operation=projection):
+        return getattr(projection, method)(*args)
+
+
+async def execute_async(projection: BaseOperation, method: str, *args: object) -> object:
+    async with AsyncTransaction(operation=projection):
+        return await getattr(projection, method)(*args)
+
 
 # ---------------------------------------------------------------------------
 # Domain events
@@ -167,7 +180,7 @@ class AsyncFullUserProjection(AsyncProjection):
 class TestReadProjection:
     def test_read_returns_result(self) -> None:
         p = GetUserProjection()
-        result = p.read(UserReadModel(user_id=42))
+        result = execute(p, "read", UserReadModel(user_id=42))
         assert result == {"id": 42, "name": "Alice"}
 
     def test_read_captures_events(self) -> None:
@@ -177,7 +190,7 @@ class TestReadProjection:
                 return "ok"
 
         p = EmittingRead()
-        p.read(UserReadModel(user_id=1))
+        execute(p, "read", UserReadModel(user_id=1))
         assert len(p.events) == 1
         assert p.events[0].user_id == 1
 
@@ -188,9 +201,9 @@ class TestReadProjection:
                 return "ok"
 
         p = EmittingRead()
-        p.read(UserReadModel(user_id=1))
+        execute(p, "read", UserReadModel(user_id=1))
         assert len(p.events) == 1
-        p.read(UserReadModel(user_id=2))
+        execute(p, "read", UserReadModel(user_id=2))
         assert len(p.events) == 1
 
     def test_read_exception_is_logged_and_re_raised(self) -> None:
@@ -200,13 +213,13 @@ class TestReadProjection:
 
         p = FailingRead()
         with pytest.raises(ValueError, match="read failed"):
-            p.read(UserReadModel(user_id=1))
+            execute(p, "read", UserReadModel(user_id=1))
 
     def test_read_with_logger_and_event_bus(self) -> None:
         logger = spy_port(Logger)()
         bus = spy_port(EventBus)()
         p = GetUserProjection(logger=logger, event_bus=bus)
-        p.read(UserReadModel(user_id=1))
+        execute(p, "read", UserReadModel(user_id=1))
         completions = [c for c in logger.info.call_args_list if "completed" in str(c.args[0])]
         assert len(completions) >= 1
 
@@ -219,19 +232,19 @@ class TestReadProjection:
 
         session = _TestSession()
         p = WithSession(session=session)
-        p.read(UserReadModel(user_id=1))
+        execute(p, "read", UserReadModel(user_id=1))
         assert isinstance(p.session, _TestSession)
 
 
 class TestWriteProjection:
     def test_write_returns_result(self) -> None:
         p = CreateUserProjection()
-        result = p.write(UserWriteModel(user_id=1, name="Alice"))
+        result = execute(p, "write", UserWriteModel(user_id=1, name="Alice"))
         assert result == "created"
 
     def test_write_captures_events(self) -> None:
         p = CreateUserProjection()
-        p.write(UserWriteModel(user_id=1, name="Alice"))
+        execute(p, "write", UserWriteModel(user_id=1, name="Alice"))
         assert len(p.events) == 1
         assert p.events[0].name == "Alice"
 
@@ -242,7 +255,7 @@ class TestWriteProjection:
                 return "ok"
 
         p = CheckContext()
-        p.write(UserWriteModel(user_id=1, name="test"))
+        execute(p, "write", UserWriteModel(user_id=1, name="test"))
 
     def test_write_rolls_back_on_error(self) -> None:
         session = _TestSession()
@@ -255,7 +268,7 @@ class TestWriteProjection:
 
         p = FailingWrite(session=session)
         with pytest.raises(ValueError, match="write failed"):
-            p.write(UserWriteModel(user_id=1, name="Alice"))
+            execute(p, "write", UserWriteModel(user_id=1, name="Alice"))
         assert session._rolled_back
 
     def test_write_without_session_does_not_crash_on_error(self) -> None:
@@ -265,7 +278,7 @@ class TestWriteProjection:
 
         p = FailingWrite()
         with pytest.raises(ValueError, match="write failed"):
-            p.write(UserWriteModel(user_id=1, name="Alice"))
+            execute(p, "write", UserWriteModel(user_id=1, name="Alice"))
 
     def test_commit_context_reset_after_error(self) -> None:
         class FailingWrite(WriteProjection):
@@ -274,14 +287,14 @@ class TestWriteProjection:
 
         p = FailingWrite()
         with pytest.raises(ValueError):
-            p.write(UserWriteModel(user_id=1, name="Alice"))
+            execute(p, "write", UserWriteModel(user_id=1, name="Alice"))
         assert _CommitContext.get(False) is False
 
     def test_write_with_logger_and_event_bus(self) -> None:
         logger = spy_port(Logger)()
         bus = spy_port(EventBus)()
         p = CreateUserProjection(logger=logger, event_bus=bus)
-        p.write(UserWriteModel(user_id=1, name="Alice"))
+        execute(p, "write", UserWriteModel(user_id=1, name="Alice"))
         assert bus.publish.call_count >= 1
         completions = [c for c in logger.info.call_args_list if "completed" in str(c.args[0])]
         assert len(completions) >= 1
@@ -290,19 +303,19 @@ class TestWriteProjection:
 class TestFullProjection:
     def test_read_and_write(self) -> None:
         p = FullUserProjection()
-        read_result = p.read(UserReadModel(user_id=42))
+        read_result = execute(p, "read", UserReadModel(user_id=42))
         assert read_result == {"id": 42}
-        write_result = p.write(UserWriteModel(user_id=1, name="Alice"))
+        write_result = execute(p, "write", UserWriteModel(user_id=1, name="Alice"))
         assert write_result == "ok"
 
     def test_read_captures_events(self) -> None:
         p = FullUserProjection()
-        p.read(UserReadModel(user_id=1))
+        execute(p, "read", UserReadModel(user_id=1))
         assert len(p.events) == 0
 
     def test_write_captures_events(self) -> None:
         p = FullUserProjection()
-        p.write(UserWriteModel(user_id=1, name="Alice"))
+        execute(p, "write", UserWriteModel(user_id=1, name="Alice"))
         assert len(p.events) == 1
 
     def test_commit_context_inactive_during_write_only(self) -> None:
@@ -316,14 +329,14 @@ class TestFullProjection:
                 return "ok"
 
         p = CheckContext()
-        p.read(UserReadModel(user_id=1))
-        p.write(UserWriteModel(user_id=1, name="test"))
+        execute(p, "read", UserReadModel(user_id=1))
+        execute(p, "write", UserWriteModel(user_id=1, name="test"))
 
 
 class TestAsyncReadProjection:
     async def test_read_returns_result(self) -> None:
         p = AsyncGetUserProjection()
-        result = await p.read(UserReadModel(user_id=42))
+        result = await execute_async(p, "read", UserReadModel(user_id=42))
         assert result == {"id": 42, "name": "Async Alice"}
 
     async def test_read_captures_events(self) -> None:
@@ -333,7 +346,7 @@ class TestAsyncReadProjection:
                 return "ok"
 
         p = Emitting()
-        await p.read(UserReadModel(user_id=1))
+        await execute_async(p, "read", UserReadModel(user_id=1))
         assert len(p.events) == 1
 
     async def test_read_exception_is_logged_and_re_raised(self) -> None:
@@ -343,18 +356,18 @@ class TestAsyncReadProjection:
 
         p = Failing()
         with pytest.raises(ValueError, match="async read failed"):
-            await p.read(UserReadModel(user_id=1))
+            await execute_async(p, "read", UserReadModel(user_id=1))
 
 
 class TestAsyncWriteProjection:
     async def test_write_returns_result(self) -> None:
         p = AsyncCreateUserProjection()
-        result = await p.write(UserWriteModel(user_id=1, name="Alice"))
+        result = await execute_async(p, "write", UserWriteModel(user_id=1, name="Alice"))
         assert result == "async-created"
 
     async def test_write_captures_events(self) -> None:
         p = AsyncCreateUserProjection()
-        await p.write(UserWriteModel(user_id=1, name="Alice"))
+        await execute_async(p, "write", UserWriteModel(user_id=1, name="Alice"))
         assert len(p.events) == 1
 
     async def test_write_commit_context_inactive_during_body(self) -> None:
@@ -364,7 +377,7 @@ class TestAsyncWriteProjection:
                 return "ok"
 
         p = CheckContext()
-        await p.write(UserWriteModel(user_id=1, name="test"))
+        await execute_async(p, "write", UserWriteModel(user_id=1, name="test"))
 
     async def test_write_rolls_back_on_error(self) -> None:
         class Failing(AsyncWriteProjection):
@@ -376,7 +389,7 @@ class TestAsyncWriteProjection:
         session = _TestAsyncSession()
         p = Failing(session=session)
         with pytest.raises(ValueError, match="async write failed"):
-            await p.write(UserWriteModel(user_id=1, name="Alice"))
+            await execute_async(p, "write", UserWriteModel(user_id=1, name="Alice"))
         assert session._rolled_back
 
     async def test_commit_context_reset_after_error(self) -> None:
@@ -386,21 +399,21 @@ class TestAsyncWriteProjection:
 
         p = Failing()
         with pytest.raises(ValueError):
-            await p.write(UserWriteModel(user_id=1, name="Alice"))
+            await execute_async(p, "write", UserWriteModel(user_id=1, name="Alice"))
         assert _CommitContext.get(False) is False
 
 
 class TestAsyncFullProjection:
     async def test_read_and_write(self) -> None:
         p = AsyncFullUserProjection()
-        read_result = await p.read(UserReadModel(user_id=42))
+        read_result = await execute_async(p, "read", UserReadModel(user_id=42))
         assert read_result == {"id": 42}
-        write_result = await p.write(UserWriteModel(user_id=1, name="Alice"))
+        write_result = await execute_async(p, "write", UserWriteModel(user_id=1, name="Alice"))
         assert write_result == "async-ok"
 
     async def test_write_captures_events(self) -> None:
         p = AsyncFullUserProjection()
-        await p.write(UserWriteModel(user_id=1, name="Alice"))
+        await execute_async(p, "write", UserWriteModel(user_id=1, name="Alice"))
         assert len(p.events) == 1
 
 
@@ -466,7 +479,7 @@ class TestProjectionInjection:
             event_bus=bus,
         )
         p = container.adapt(TestP)
-        p.read(UserReadModel(user_id=1))
+        execute(p, "read", UserReadModel(user_id=1))
         completions = [c for c in logger.info.call_args_list if "completed" in str(c.args[0])]
         assert len(completions) >= 1
 
@@ -477,4 +490,4 @@ class TestProjectionInjection:
 
         container = AdapterContainer()
         p = container.adapt(TestP)
-        p.read(UserReadModel(user_id=1))
+        execute(p, "read", UserReadModel(user_id=1))

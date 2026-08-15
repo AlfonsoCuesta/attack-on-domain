@@ -7,6 +7,7 @@ from aod._internal.application.event_bus.null_event_bus import NullEventBus
 from aod._internal.application.logger import Logger
 from aod._internal.application.logger.null_logger import NullLogger
 from aod._internal.application.port import Port
+from aod._internal.application.transaction import Transaction
 from aod._internal.application.use_case import UseCase
 from aod._internal.core.domain_exception import MutationForbiddenException
 from aod._internal.core.event_emitter import Event
@@ -23,6 +24,12 @@ from aod._internal.infrastructure.session import Session
 from aod._internal.testing.doubles.spies import spy_port
 from aod._internal.testing.faker import FakeDomain
 from aod._internal.testing.helpers import assert_event_emitted, build, events_of
+
+
+def execute(use_case: UseCase) -> object:
+    with Transaction(operation=use_case):
+        return use_case.run()
+
 
 # ---------------------------------------------------------------------------
 # Domain Layer — E-commerce domain
@@ -394,7 +401,7 @@ class TestUseCase:
             logger=NullLogger(),
             event_bus=NullEventBus(),
         )
-        uc.run()
+        execute(uc)
         assert len(inventory.reserved) == 1
         assert len(email_sender.sent) == 1
         assert "Confirmed" in email_sender.sent[0][1]
@@ -408,7 +415,7 @@ class TestUseCase:
             logger=NullLogger(),
             event_bus=NullEventBus(),
         )
-        uc.run()
+        execute(uc)
         assert len(uc.events) >= 1
 
     def test_use_case_with_uow_logger_event_bus(self) -> None:
@@ -422,7 +429,7 @@ class TestUseCase:
             logger=logger,
             event_bus=bus,
         )
-        uc.run()
+        execute(uc)
         completions = [c for c in logger.info.call_args_list if "completed" in str(c.args[0])]
         assert len(completions) == 1
         assert bus.publish.call_count >= 1
@@ -434,7 +441,7 @@ class TestUseCase:
             logger=NullLogger(),
             event_bus=NullEventBus(),
         )
-        uc.run()
+        execute(uc)
         assert len(uc.events) >= 1
 
         with pytest.raises(MutationForbiddenException):
@@ -478,7 +485,7 @@ class TestContainerAndInjection:
             event_bus=NullEventBus(),
         )
         uc = container.adapt(PlaceOrderUseCase)
-        uc.run()
+        execute(uc)
         assert len(uc.events) >= 1
 
     def test_full_integration_via_container(self) -> None:
@@ -494,7 +501,7 @@ class TestContainerAndInjection:
             event_bus=bus,
         )
         uc = container.adapt(PlaceOrderUseCase)
-        uc.run()
+        execute(uc)
         assert len(inventory.reserved) == 1
         assert len(email_sender.sent) == 1
         assert len(uc.events) >= 1

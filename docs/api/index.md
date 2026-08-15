@@ -380,20 +380,18 @@ Base class for synchronous application use cases.
 | Field | Type | Default | Description |
 |-------|------|---------|-------------|
 | `events` | `list[Event]` | `[]` | Events collected during the last `run()` call. `init=False`. |
-| `_loggers` | `list[Logger \| AsyncLogger]` | `[]` | Collected logger ports. Private. |
-| `_event_buses` | `list[EventBus \| AsyncEventBus]` | `[]` | Collected event bus ports. Private. |
 
 #### Methods
 
 | Method | Signature | Description |
 |--------|-----------|-------------|
-| `run` | `abstractmethod run(self, *args, **kwargs) -> Any` | Execute the use case. Auto-wrapped with `EventCollector`, transaction, logging, and event publishing. |
+| `run` | `abstractmethod run(self, *args, **kwargs) -> Any` | Execute the use case. Surround with `Transaction(use_case)` for lifecycle, events, logging, and publishing. |
 
-#### Auto-Wrapping Behavior
+#### Transaction Usage
 
-When `run()` is called:
+When `Transaction(use_case)` surrounds `run()`:
 
-1. `uow.begin()` starts a transaction.
+1. Transaction begins all sessions discovered from the operation.
 2. Events are collected via `EventCollector` during execution.
 3. On success: `uow.commit()`, events logged on each declared logger, events published on each declared event bus.
 4. On failure: `uow.rollback()`, exception logged on each declared logger, exception re-raised.
@@ -577,10 +575,11 @@ from aod.application.cache import CacheManager
 
 ```python
 with CacheManager(cache):
-    result = use_case.run(...)  # handler reads through cache
+    with Transaction(use_case):
+        result = use_case.run(...)
 ```
 
-The `AdapterContainer.adapt()` method wraps operations with `CacheManager` automatically when `caches` are configured — you rarely need it directly.
+`AdapterContainer.cache_context()` is a convenience factory for the same context. `adapt()` only injects dependencies.
 
 ### AsyncCache
 
@@ -786,7 +785,7 @@ Synchronous write projection.
 
 | Method | Signature | Description |
 |--------|-----------|-------------|
-| `write` | `abstractmethod write(self, model: Any) -> Any` | Execute write logic. Auto-wrapped with `CommitContext`, transaction begin, event collection, rollback on failure, logging, and event bus publish. |
+| `write` | `abstractmethod write(self, model: Any) -> Any` | Execute write logic. Surround with `Transaction(projection)` for lifecycle, events, logging, and publishing. |
 
 ### Projection
 

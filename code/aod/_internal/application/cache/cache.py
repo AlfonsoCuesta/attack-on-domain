@@ -52,15 +52,19 @@ class Cache(BaseCache):
         key = self._resolve_key(key_material)
         return self.get(key)
 
-    def _flush(self) -> None:
-        if self._to_delete:
-            for key in self._to_delete:
-                self.delete(key)
-        if self._to_set:
-            for entry in self._to_set:
-                self.set(entry.key, entry.value, entry.ttl)
-        self._to_delete.clear()
+    def _flush_sets(self) -> None:
+        for entry in self._to_set:
+            self.set(entry.key, entry.value, entry.ttl)
         self._to_set.clear()
+
+    def _flush_deletes(self) -> None:
+        for key in self._to_delete:
+            self.delete(key)
+        self._to_delete.clear()
+
+    def _flush(self) -> None:
+        self._flush_deletes()
+        self._flush_sets()
 
     @abstractmethod
     def get(self, key: str) -> Any:
@@ -80,15 +84,19 @@ class AsyncCache(BaseCache):
         key = self._resolve_key(key_material)
         return await self.get(key)
 
-    async def _flush(self) -> None:
-        if self._to_delete:
-            for key in self._to_delete:
-                await self.delete(key)
-        if self._to_set:
-            for entry in self._to_set:
-                await self.set(entry.key, entry.value, entry.ttl)
-        self._to_delete.clear()
+    async def _flush_sets(self) -> None:
+        for entry in self._to_set:
+            await self.set(entry.key, entry.value, entry.ttl)
         self._to_set.clear()
+
+    async def _flush_deletes(self) -> None:
+        for key in self._to_delete:
+            await self.delete(key)
+        self._to_delete.clear()
+
+    async def _flush(self) -> None:
+        await self._flush_deletes()
+        await self._flush_sets()
 
     @abstractmethod
     async def get(self, key: str) -> Any:

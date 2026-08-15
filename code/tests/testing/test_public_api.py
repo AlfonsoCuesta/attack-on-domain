@@ -81,6 +81,7 @@ def test_aod_application_exports_documented_api() -> None:
         "Port",
         "Query",
         "QueryPort",
+        "Transaction",
         "UseCase",
     ]
     assert aod.application.ApplicationException.__name__ == "ApplicationException"
@@ -105,6 +106,7 @@ def test_aod_application_exports_documented_api() -> None:
         "PolicyManager",
         "PolicyPort",
         "QueryPort",
+        "Transaction",
         "UseCase",
     ]
 

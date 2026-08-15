@@ -1,4 +1,4 @@
-"""Integration test for AutoDoc — runs only with RUN_INTEGRATION=1.
+"""Integration tests for AutoDoc.
 
 Generates a real zensical site into a temp directory and verifies
 the complete output structure and key content.
@@ -97,8 +97,6 @@ class OrderUseCase(UseCase):
     logger: Port
     email: EmailSender
 
-
-# ---- skip unless flag is set ----
 
 _run_integration = os.environ.get("RUN_INTEGRATION")
 

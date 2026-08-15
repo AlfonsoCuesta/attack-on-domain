@@ -18,7 +18,7 @@ from aod.infrastructure import AdapterContainer
 |-----------|------|-------------|
 | `sessions` | `set[type[Session] \| type[AsyncSession]]` | Session classes (not instances) to manage. Default: `set()`. |
 | `handlers` | `list[AnyHandler]` | Handler classes to register. Default: `[]`. |
-| `caches` | `list[Cache \| AsyncCache]` | Cache instances whose `CacheManager` context is activated when adapting operations. Default: `[]`. |
+| `caches` | `list[Cache \| AsyncCache]` | Cache instances available through `cache_context()`. Default: `[]`. |
 | `ports` | `dict[type[Port], Port]` | Type-based port resolution fallback. When a port field type is not found by name, the container checks this dict. Default: `{}`. |
 | `**fields` | `Port` | Custom ports registered by field name. Any keyword argument that is a `Port` instance is registered by name. |
 
@@ -86,8 +86,7 @@ Create a use case or projection instance with all dependencies wired automatical
 For use cases:
 - Injects matching handler ports (`CommandPort[C]`, `QueryPort[Q]`) by contract type.
 - Injects custom ports by field name, with type-based fallback from `ports` dict.
-- Wraps the operation's entry points with `CacheManager` context if `caches` are configured.
-- The UseCase creates its own Transaction internally -- the container does not inject it.
+- `adapt()` only injects dependencies. Open `cache_context()` and `Transaction` explicitly around execution.
 
 For projections:
 - Injects sessions by type annotation for any field with a `Session`/`AsyncSession` annotation.
@@ -120,32 +119,31 @@ The container enforces:
 
 ### Cache Activation
 
-Cache instances passed via the `caches` parameter are activated when adapting operations via `adapt()`:
+Cache instances passed via the `caches` parameter are activated with `cache_context()`:
 
 - Each cache instance carries `CacheKey` definitions that declare which `Query` and `Command` types they intercept.
-- When `adapt()` creates a use case or projection, it wraps the operation's entry points (`run`/`read`/`write`) with a `CacheManager` context.
+- `cache_context()` opens a `CacheManager` context around the operation.
 - Inside the context, handler-level read-through caching and command-level invalidation happen automatically via `get_cache_context()`.
-- Read-through, invalidation, and cache flushing happen inside the `Transaction`, which the UseCase creates internally.
-- The spy container (`spy_adapter_container`) overrides `_wrap_with_cache` as a no-op — cache context is never activated during tests.
+- Query read-through values are written immediately. Command invalidations are flushed by `Transaction` after commit.
 
 **Manual usage without container:**
 ```python
 from aod.application.cache import CacheManager
 
 cache = RedisCache(keys=[UserById()])
-with CacheManager(cache):
-    result = use_case.run(user_id=1)  # cache context active inside this block
+with CacheManager(cache), Transaction(use_case):
+    result = use_case.run(user_id=1)
 ```
 
 > **Warning:** `AsyncCache` instances are silently ignored in sync `UseCase`/`Projection` — cache reads return `None` and writes are skipped. Use `Cache` (sync) with sync operations and `AsyncCache` only with `AsyncUseCase`/`AsyncReadProjection`/`AsyncWriteProjection`.
 
 ## Session Caching
 
-Once a session is instantiated via `get_session()`, the same instance is returned on subsequent calls. This ensures all handlers and projections share the same session within a request.
+Once a session is instantiated via `get_session()`, the same instance is returned on subsequent calls. Transaction discovers the sessions attached to the adapted operation, so handlers sharing a session use the same instance.
 
 ## Multi-Session Support
 
-The container supports both sync and async sessions simultaneously. The UseCase's internal Transaction automatically detects session types and handles transactions appropriately.
+The container supports both sync and async sessions simultaneously. Use `Transaction` for sync operations and `AsyncTransaction` for async operations.
 
 ## Auto-Wiring Logic
 
@@ -158,7 +156,7 @@ When adapting a `UseCase` or `AsyncUseCase`:
 | `CommandPort[C]` / `QueryPort[Q]` | `container.get_handler(contract_type)` |
 | Custom ports | Named ports or `ports` dict (see Port Resolution Order) |
 
-The UseCase's Transaction is created internally -- the container never injects it.
+The container does not create a transaction during adaptation. Use `container.transaction(use_case)` as a convenience factory or construct `Transaction(use_case)` directly.
 
 ### Projection Wiring
 
@@ -200,7 +198,7 @@ class MyAsyncUseCase(UseCase):
 use_case = container.adapt(MyAsyncUseCase)
 ```
 
-The UseCase internally creates an `AsyncTransaction` when async handlers or sessions are present.
+Use `AsyncTransaction(use_case)` around an async use case. `container.transaction(use_case)` selects the async variant from the operation entrypoint.
 
 ## Common Patterns
 
@@ -216,7 +214,8 @@ container = AdapterContainer(
 )
 
 use_case = container.adapt(CreateUser)
-use_case.run(user_id=42, name="Alice")
+with container.cache_context(), container.transaction(use_case):
+    use_case.run(user_id=42, name="Alice")
 ```
 
 ### Named Ports

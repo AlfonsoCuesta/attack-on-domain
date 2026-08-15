@@ -2,8 +2,6 @@ from __future__ import annotations
 
 from typing import Any, ClassVar, get_args, get_origin, get_type_hints
 
-from aod._internal.application.event_bus import AsyncEventBus, EventBus
-from aod._internal.application.logger import AsyncLogger, Logger
 from aod._internal.application.port import Port
 from aod._internal.core.application_exception import (
     InvalidUseCasePortFieldError,
@@ -11,14 +9,6 @@ from aod._internal.core.application_exception import (
 from aod._internal.core.base_behaviour import BaseBehaviour
 from aod._internal.core.event_emitter import Event, EventEmitter
 from aod._internal.core.fields.fields import Field, PrivateField
-
-
-_SPECIAL_PORT_TYPES = (
-    Logger,
-    AsyncLogger,
-    EventBus,
-    AsyncEventBus,
-)
 
 
 def _resolve_port_class(tp: Any) -> type | None:
@@ -41,12 +31,9 @@ class BaseOperation(BaseBehaviour):
     __not_allowed_port_types__ = ()
     _event_emitter: EventEmitter = PrivateField(default_factory=EventEmitter)
     events: list[Event] = Field(default_factory=list, init=False)
-    _loggers: list[Logger | AsyncLogger] = PrivateField(default_factory=list)
-    _event_buses: list[EventBus | AsyncEventBus] = PrivateField(default_factory=list)
 
     def __init__(self, **kwargs: Any) -> None:
         super().__init__(**kwargs)
-        self._collect_special_ports()
 
     def __init_subclass__(cls, **kwargs: object) -> None:
         super().__init_subclass__(**kwargs)
@@ -79,23 +66,3 @@ class BaseOperation(BaseBehaviour):
                     cls.__name__,
                     str(tp),
                 )
-
-    def add_logger(self, logger: Logger | AsyncLogger) -> None:
-        self._loggers.append(logger)
-
-    def add_event_bus(self, event_bus: EventBus | AsyncEventBus) -> None:
-        self._event_buses.append(event_bus)
-
-    def _collect_special_ports(self) -> None:
-        loggers: list[Logger | AsyncLogger] = []
-        event_buses: list[EventBus | AsyncEventBus] = []
-
-        for field_name in self.__model_fields__:
-            value = object.__getattribute__(self, field_name)
-            if isinstance(value, (Logger, AsyncLogger)):
-                loggers.append(value)
-            elif isinstance(value, (EventBus, AsyncEventBus)):
-                event_buses.append(value)
-
-        object.__setattr__(self, "_loggers", loggers)
-        object.__setattr__(self, "_event_buses", event_buses)

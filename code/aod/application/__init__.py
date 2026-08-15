@@ -18,6 +18,7 @@ from aod._internal.application.policy import (
     PolicyManager,
 )
 from aod._internal.application.port import Port
+from aod._internal.application.transaction import Transaction
 from aod._internal.application.use_case import UseCase
 from aod._internal.core.application_exception import ApplicationException
 
@@ -42,5 +43,6 @@ __all__ = [
     "Port",
     "Query",
     "QueryPort",
+    "Transaction",
     "UseCase",
 ]

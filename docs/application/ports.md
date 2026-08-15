@@ -164,7 +164,7 @@ Interface for caching query results with automatic invalidation.
 
 **Import:** `from aod.application.cache import Cache`
 
-`Cache` provides the backing store interface. Higher-level cache behavior (read-through, invalidation, deferred writes) is built on top and activated via `CacheManager` context — the container wraps operations automatically when `caches` are configured.
+`Cache` provides the backing store interface. Higher-level cache behavior is activated via `CacheManager` or `AdapterContainer.cache_context()`.
 
 **Constructor:**
 
@@ -220,7 +220,7 @@ Interface for caching query results with automatic invalidation.
 
 #### Applying Cache
 
-Cache is activated via `CacheManager` context — the container wraps operations automatically when `caches` are configured in `AdapterContainer`:
+Cache is activated via `CacheManager` or `container.cache_context()`; the transaction flushes command invalidations after a successful commit:
 
 ```python
 from aod.application.cache import Cache, ContractCacheKey, ContractCacheInvalidation, OperationCacheKey, OperationCacheInvalidation
@@ -261,32 +261,18 @@ class GetUserHandler(QueryHandler[GetUser]):
     def handle(self, query: GetUser) -> User | None:
         return self.session.query(query)
 
-# ── Operation-level: cache the entire use case result ──
-
-class LookupUser(OperationCacheKey[LookupUserUseCase]):
-    def key(self, user_id: int) -> str:
-        return f"lookup:{user_id}"
-
-    def invalidate(self) -> list[CacheInvalidation]:
-        return [
-            OperationCacheInvalidation(
-                target_type=UpdateUserUseCase,
-                key_fn=lambda user_id, name: f"lookup:{user_id}",
-            ),
-        ]
-
-# Both key types in the same cache instance
-cache = RedisCache(keys=[UserCacheKey(), LookupUser()])
+cache = RedisCache(keys=[UserCacheKey()])
 
 container = AdapterContainer(
     caches=[cache],
     handlers=[GetUserHandler],
 )
 use_case = container.adapt(MyUseCase)
-use_case.run(...)  # cache context active automatically
+with container.cache_context(), container.transaction(use_case):
+    use_case.run(...)
 ```
 
-When `container.adapt()` is called, the container wraps `run()`/`read()`/`write()` with a `CacheManager` context. Inside that context, handler calls check the cache before executing — read-through for queries, invalidation for commands.
+`container.adapt()` only injects dependencies. Inside `cache_context()`, handler calls check the cache before executing — read-through for queries, invalidation for commands. Query misses are stored immediately; command invalidations wait for `Transaction` commit.
 
 > **Warning:** `AsyncCache` instances (with async `get`, `set`, `delete`) are only compatible with async operations (`AsyncUseCase`, `AsyncReadProjection`, `AsyncWriteProjection`). If you pass an `AsyncCache` to a sync `UseCase` or sync `Projection`, cache reads silently return `None` and cache writes are skipped — the framework cannot `await` in a sync context.
 

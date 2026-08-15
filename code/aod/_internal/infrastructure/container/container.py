@@ -6,10 +6,14 @@ from inspect import iscoroutinefunction
 
 from aod._internal.application.cache.cache import BaseCache
 from aod._internal.application.cache.cache_manager import CacheManager
+from aod._internal.application.event_bus import AsyncEventBus, EventBus
+from aod._internal.application.logger import AsyncLogger, Logger
 from aod._internal.application.port import Port
 from aod._internal.application.policy import AsyncPolicyManager, PolicyManager
+from aod._internal.application.transaction import AsyncTransaction, Transaction
 from aod._internal.application.use_case import AsyncUseCase, UseCase
 from aod._internal.core.base_behaviour import BaseBehaviour
+from aod._internal.core.base_operation import BaseOperation
 from aod._internal.core.fields.fields import Field, PrivateField
 from aod._internal.infrastructure.container.handler_manager import HandlerManager
 from aod._internal.infrastructure.container.port_manager import PortManager
@@ -89,6 +93,34 @@ class AdapterContainer(BaseBehaviour):
     def get_handler(self, contract: Any) -> Any:
         return self._handler_manager.get_handler(contract)
 
+    def cache_context(self) -> CacheManager:
+        return CacheManager(*self.caches)
+
+    def transaction(
+        self,
+        operation: BaseOperation,
+        *,
+        loggers: list[Logger | AsyncLogger] | None = None,
+        event_buses: list[EventBus | AsyncEventBus] | None = None,
+    ) -> Transaction | AsyncTransaction:
+        entrypoint = next(
+            (
+                getattr(operation, name)
+                for name in ("run", "read", "write")
+                if callable(getattr(operation, name, None))
+            ),
+            None,
+        )
+        transaction_type: type[Transaction | AsyncTransaction]
+        transaction_type = (
+            AsyncTransaction if entrypoint and iscoroutinefunction(entrypoint) else Transaction
+        )
+        return transaction_type(
+            operation=operation,
+            loggers=loggers or [],
+            event_buses=event_buses or [],
+        )
+
     def adapt(
         self,
         operation_cls: type[TOperation],
@@ -103,40 +135,6 @@ class AdapterContainer(BaseBehaviour):
             f"got {operation_cls.__name__}"
         )
 
-    @staticmethod
-    def _wrap_with_cache(
-        operation: TOperation,
-        caches: list[BaseCache],
-    ) -> TOperation:
-        if not caches:
-            return operation
-
-        for method_name in ("run", "read", "write"):
-            original = getattr(operation, method_name, None)
-            if original is None:
-                continue
-            if not callable(original):
-                continue
-
-            if iscoroutinefunction(original):
-
-                async def async_wrapper(
-                    *args: Any, _original=original, _caches=caches, **kwargs: Any
-                ) -> Any:
-                    with CacheManager(*_caches):
-                        return await _original(*args, **kwargs)
-
-                object.__setattr__(operation, method_name, async_wrapper)
-            else:
-
-                def wrapper(*args: Any, _original=original, _caches=caches, **kwargs: Any) -> Any:
-                    with CacheManager(*_caches):
-                        return _original(*args, **kwargs)
-
-                object.__setattr__(operation, method_name, wrapper)
-
-        return operation
-
     def _adapt_use_case(self, use_case_cls: type[TUseCase], **overrides: Any) -> TUseCase:
         container = self.with_adapters(**overrides) if overrides else self
 
@@ -145,7 +143,7 @@ class AdapterContainer(BaseBehaviour):
         container._port_manager.inject_ports(use_case_cls, kwargs)
         container._handler_manager.inject_handlers(use_case_cls, kwargs)
         operation = use_case_cls(**kwargs)
-        return self._wrap_with_cache(operation, container.caches)
+        return operation
 
     def policy_manager(self) -> PolicyManager:
         return PolicyManager(*self._handler_manager.get_policy_handlers(async_=False))
@@ -161,7 +159,7 @@ class AdapterContainer(BaseBehaviour):
         self._inject_projection(container, projection_cls, kwargs)
         container._port_manager.inject_ports(projection_cls, kwargs)
         operation = projection_cls(**kwargs)
-        return self._wrap_with_cache(operation, container.caches)
+        return operation
 
     @staticmethod
     def _inject_projection(

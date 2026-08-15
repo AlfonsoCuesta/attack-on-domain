@@ -184,7 +184,7 @@ class GetUser(Query[User, User | None]):
 
 **DDD:** Orchestrates domain objects to fulfill a user goal. Coordinates domain logic, transactions, and infrastructure.
 
-**AoD:** `UseCase` with auto-wired dependencies, internal transaction management, event collection, logging, and cache invalidation via `handler.add_cache()` with `CacheKey`/`CacheInvalidation`.
+**AoD:** `UseCase` with auto-wired dependencies, an external `Transaction` context, event collection, logging, and cache invalidation via `CacheKey`/`CacheInvalidation`.
 
 | DDD | AoD |
 |-----|-----|

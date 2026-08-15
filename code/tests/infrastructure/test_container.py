@@ -11,6 +11,7 @@ from aod._internal.application.handler import (
     QueryPort,
 )
 from aod._internal.application.port import Port
+from aod._internal.application.transaction import AsyncTransaction, Transaction
 from aod._internal.application.use_case import AsyncUseCase
 from aod._internal.core.fields.fields import Field
 from aod._internal.core.infrastructure_exception import (
@@ -654,7 +655,8 @@ def test_adapt_use_case_activates_cache_context() -> None:
     cache = SpyCache(keys=[_UserKey()])
     container = AdapterContainer(caches=[cache])
     uc = container.adapt(_CachedUseCase)
-    assert uc.run() is True
+    with container.cache_context(), Transaction(operation=uc):
+        assert uc.run() is True
 
 
 def test_adapt_use_case_no_caches() -> None:
@@ -667,14 +669,16 @@ def test_adapt_projection_read_activates_cache_context() -> None:
     cache = SpyCache(keys=[_UserKey()])
     container = AdapterContainer(caches=[cache])
     proj = container.adapt(_CachedReadProjection)
-    assert proj.read() is True
+    with container.cache_context(), Transaction(operation=proj):
+        assert proj.read() is True
 
 
 def test_adapt_projection_write_activates_cache_context() -> None:
     cache = SpyCache(keys=[_UserKey()])
     container = AdapterContainer(caches=[cache])
     proj = container.adapt(_CachedWriteProjection)
-    assert proj.write() is True
+    with container.cache_context(), Transaction(operation=proj):
+        assert proj.write() is True
 
 
 @pytest.mark.asyncio
@@ -682,7 +686,9 @@ async def test_adapt_async_use_case_activates_cache_context() -> None:
     cache = SpyCache(keys=[_UserKey()])
     container = AdapterContainer(caches=[cache])
     uc = container.adapt(_CachedAsyncUseCase)
-    result = await uc.run()
+    with container.cache_context():
+        async with AsyncTransaction(operation=uc):
+            result = await uc.run()
     assert result is True
 
 

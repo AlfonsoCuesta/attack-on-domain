@@ -1,6 +1,6 @@
 # Projections
 
-Projections provide a structured way to read and write data efficiently. They handle event collection, logging, event bus publishing, and transactional commit/rollback automatically.
+Projections provide a structured way to read and write data efficiently. Callers open a `Transaction` explicitly when they need event collection, logging, event bus publishing, and commit/rollback.
 
 ## Data Models
 
@@ -40,7 +40,7 @@ from aod.infrastructure import ReadProjection
 
 | Method | Signature | Description |
 |--------|-----------|-------------|
-| `read` | `read(self, *args, **kwargs) -> Any` | Abstract. Execute a read operation. Auto-wrapped with `EventCollector`, logging, and event bus publish. |
+| `read` | `read(self, *args, **kwargs) -> Any` | Abstract. Execute a read operation. Use `Transaction(projection)` for collection and publishing. |
 
 #### `read` Parameters
 
@@ -51,7 +51,7 @@ from aod.infrastructure import ReadProjection
 
 #### Auto-Wrapping Behavior
 
-When `read()` is called:
+When `Transaction(projection)` surrounds `read()`:
 
 1. Events are collected via `EventCollector` during execution.
 2. On success: events are logged on each declared logger, events are published on each declared event bus.
@@ -97,7 +97,7 @@ from aod.infrastructure import WriteProjection
 
 | Method | Signature | Description |
 |--------|-----------|-------------|
-| `write` | `write(self, *args, **kwargs) -> Any` | Abstract. Execute a write operation. Auto-wrapped with `CommitContext`, `EventCollector`, logging, rollback, and event bus publish. |
+| `write` | `write(self, *args, **kwargs) -> Any` | Abstract. Execute a write operation. Use `Transaction(projection)` for commit, collection, and publishing. |
 
 #### `write` Parameters
 
@@ -108,7 +108,7 @@ from aod.infrastructure import WriteProjection
 
 #### Auto-Wrapping Behavior
 
-When `write()` is called:
+When `Transaction(projection)` surrounds `write()`:
 
 1. A `CommitContext` is set (enabling `session.commit()`).
 2. Events are collected via `EventCollector` during execution.
@@ -183,7 +183,7 @@ Projections enforce these rules at class creation time:
 
 ## Event Collection
 
-Events emitted during `read()` or `write()` are automatically collected:
+Events emitted during `read()` or `write()` are collected while a transaction is active:
 
 - Collected events are stored on `self.events` after execution completes.
 - Events are published on the event bus after a successful operation.

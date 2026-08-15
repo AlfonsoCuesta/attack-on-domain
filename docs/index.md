@@ -33,7 +33,7 @@ Build maintainable domain models with entities, value objects, aggregates, CQRS,
 
 <div class="feature-card">
 <h3>Use Cases</h3>
-<p>Application-layer operations with auto-wired ports, event collection, logging, and transaction management.</p>
+<p>Application-layer operations with auto-wired ports, explicit transaction contexts, event collection, and logging.</p>
 </div>
 
 <div class="feature-card">

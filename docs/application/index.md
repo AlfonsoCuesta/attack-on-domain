@@ -137,15 +137,16 @@ class CreateUserUseCase(UseCase):
 
 ### Auto-Wired Fields
 
-Use cases do not expose a transaction field. A fresh `Transaction` is created internally for each `run()` call:
+Use cases do not expose a transaction field. The caller opens one transaction for each operation:
 
 ```python
 class CreateUser(UseCase):
-    # A Transaction is created internally for each run() call,
-    # managing begin/commit/rollback and cache flushing automatically.
-
     def run(self) -> None:
         pass
+
+use_case = container.adapt(CreateUser)
+with container.cache_context(), container.transaction(use_case):
+    use_case.run()
 ```
 
 `Logger` and `EventBus` are not auto-wired. Declare them as normal ports when you need them:
@@ -161,11 +162,10 @@ class CreateUser(UseCase):
 
 ### Cache
 
-Cache is activated via `CacheManager` context and wired automatically by the container. The framework supports two caching strategies:
+Cache is activated via `CacheManager` or `container.cache_context()`. The framework supports handler-level caching:
 
 **Handler-level** (recommended): `ContractCacheKey[TQuery]` maps a Query to a cache key and lists which Commands invalidate it. Read-through on QueryHandlers, invalidation on CommandHandlers — no code changes needed in handlers.
 
-**Operation-level**: `OperationCacheKey[TOperation]` maps a UseCase/Projection entry-point call to a cache key, for caching the entire operation result.
 
 ```python
 from aod.application.cache import (
@@ -183,35 +183,24 @@ class UserById(ContractCacheKey[GetUser]):
             ContractCacheInvalidation(target_type=CreateUser, key_fn=lambda c: f"user:{c.name}"),
         ]
 
-# Operation-level: cache the entire use case result
-class UserLookup(OperationCacheKey[GetUserUseCase]):
-    def key(self, user_id: int) -> str:
-        return f"lookup:{user_id}"
-    def invalidate(self) -> list[CacheInvalidation]:
-        return [
-            OperationCacheInvalidation(
-                target_type=UpdateUserUseCase,
-                key_fn=lambda user_id, name: f"lookup:{user_id}",
-            ),
-        ]
-
 class MyCache(Cache):
     def get(self, key: str) -> object | None: ...
     def set(self, key: str, value: object, ttl: int | None = None) -> None: ...
     def delete(self, key: str) -> None: ...
 
-# Both key types live in the same cache
-cache = MyCache(keys=[UserById(), UserLookup()])
+# Query keys and command invalidations live in the same cache
+cache = MyCache(keys=[UserById()])
 container = AdapterContainer(caches=[cache])
 use_case = container.adapt(MyUseCase)
-use_case.run(...)  # cache context active automatically
+with container.cache_context(), container.transaction(use_case):
+    use_case.run(...)
 ```
 
 > **Warning:** `AsyncCache` solo funciona en contextos async (`AsyncUseCase`, `AsyncReadProjection`, `AsyncWriteProjection`). En use cases y projections sincrónos, las lecturas devuelven `None` y las escrituras se descartan silenciosamente.
 
 ### Event Collection
 
-Events emitted during `run()` are automatically collected:
+Events emitted during `run()` are collected while `Transaction(use_case)` is active:
 
 ```python
 class CreateUserUseCase(UseCase):

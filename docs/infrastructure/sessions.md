@@ -84,12 +84,12 @@ class AsyncRedisSession(AsyncSession):
 
 ## Transaction Pattern
 
-A session must **never** call `begin()`, `commit()`, or `rollback()` directly. The UseCase creates a `Transaction` internally (not injected by the container) and wraps `run()` with automatic transaction management.
+A session must **never** call `begin()`, `commit()`, or `rollback()` directly. The caller opens `Transaction(use_case)` or `Transaction(projection)` around the operation.
 
-### The Transaction Flow (Internal to UseCase)
+### The Transaction Flow
 
 ```python
-# This is what happens inside use_case.run():
+# This is what happens inside with Transaction(use_case):
 tx.begin()                              # calls session.begin() on ALL sessions
     # Your run() code executes here
     # CommandHandlers write via session.execute()
@@ -97,7 +97,7 @@ tx.begin()                              # calls session.begin() on ALL sessions
 if run() succeeds:
     tx.commit()                         # calls session.commit() ONLY on dirty sessions
     # caches flushed (via CacheContext.flush())
-    for bus in _event_buses:
+    for bus in transaction.event_buses:
         bus.publish(*events)            # publishes collected events
 if run() fails:
     tx.rollback()                       # calls session.rollback() ONLY on dirty sessions
