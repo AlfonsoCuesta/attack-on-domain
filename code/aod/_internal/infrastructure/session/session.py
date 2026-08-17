@@ -42,11 +42,10 @@ class Session(Port):
         cls.commit = check_commit_context(cls.commit)
 
     def _begin(self) -> None:
-        if self._is_begun:
-            return
         transaction = get_active_transaction()
-        self.begin()
-        object.__setattr__(self, "_is_begun", True)
+        if not self._is_begun:
+            self.begin()
+            object.__setattr__(self, "_is_begun", True)
         if transaction is not None:
             transaction.register_session(self)
 
@@ -74,11 +73,10 @@ class AsyncSession(Port):
         cls.commit = check_async_commit_context(cls.commit)
 
     async def _begin(self) -> None:
-        if self._is_begun:
-            return
         transaction = get_active_transaction()
-        await self.begin()
-        object.__setattr__(self, "_is_begun", True)
+        if not self._is_begun:
+            await self.begin()
+            object.__setattr__(self, "_is_begun", True)
         if transaction is not None:
             transaction.register_session(self)
 

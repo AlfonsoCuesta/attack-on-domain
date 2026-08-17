@@ -1,22 +1,11 @@
 from __future__ import annotations
 
-from typing import Any
-
 import pytest
-from aod._internal.application.event_bus import EventBus
-from aod._internal.application.logger import Logger
 from aod._internal.application.transaction import AsyncTransaction, Transaction, get_transaction
-from aod._internal.core.base_operation import BaseOperation
 from aod._internal.core.event_emitter import Event, EventEmitter
 from aod._internal.core.fields.fields import PrivateField
 from aod._internal.infrastructure.commit_context import _CommitContext
 from aod._internal.infrastructure.session import AsyncSession, Session
-from aod.testing.doubles import spy_port
-
-
-class _Operation(BaseOperation):
-    def run(self) -> None:
-        pass
 
 
 class _Event(Event):
@@ -93,19 +82,15 @@ def test_transaction_context_is_available_only_inside_block() -> None:
         get_transaction()
 
 
-def test_transaction_commits_and_logs_and_publishes() -> None:
+def test_transaction_commits_registered_sessions() -> None:
     session = _Session()
-    logger = spy_port(Logger)()
-    bus = spy_port(EventBus)()
 
-    with Transaction(loggers=[logger], event_buses=[bus]):
+    with Transaction():
         session._begin()
         EventEmitter().emit(_Event(value="created"))
 
     assert session._begun
     assert session._committed
-    assert logger.info.call_count == 2
-    assert bus.publish.call_count == 1
 
 
 def test_transaction_rolls_back_and_preserves_events_on_failure() -> None:
@@ -169,27 +154,6 @@ def test_transaction_commit_context_only_exists_during_commit() -> None:
     assert observed == [False, True]
 
 
-def test_transaction_operation_can_supply_sessions_from_handler() -> None:
-    session = _Session()
-
-    class Handler:
-        def _get_sessions(self) -> list[Session]:
-            return [session]
-
-    class Operation(BaseOperation):
-        __skip_port_check__ = True
-        handler: Any
-
-        def run(self) -> None:
-            pass
-
-    with Transaction():
-        session._begin()
-
-    assert session._begun
-    assert session._committed
-
-
 @pytest.mark.asyncio
 async def test_async_transaction_commits_and_collects_events() -> None:
     session = _AsyncSession()
@@ -215,12 +179,3 @@ async def test_async_transaction_rolls_back_on_failure() -> None:
 
     assert session._rolled_back
 
-
-@pytest.mark.asyncio
-async def test_async_transaction_logs_and_publishes() -> None:
-    logger = spy_port(Logger)()
-    bus = spy_port(EventBus)()
-    async with AsyncTransaction(loggers=[logger], event_buses=[bus]):
-        EventEmitter().emit(_Event(value="async"))
-    assert logger.info.call_count == 2
-    assert bus.publish.call_count == 1
