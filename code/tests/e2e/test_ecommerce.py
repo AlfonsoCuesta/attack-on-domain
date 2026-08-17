@@ -27,7 +27,7 @@ from aod._internal.testing.helpers import assert_event_emitted, build, events_of
 
 
 def execute(use_case: UseCase) -> object:
-    with Transaction(operation=use_case):
+    with Transaction():
         return use_case.run()
 
 

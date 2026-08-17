@@ -575,7 +575,7 @@ class TestUseCaseWithCache:
 
         uc = GetUserUC(get_user=GetUserHandlerLocal())
         with CacheManager(cache):
-            with Transaction(operation=uc):
+            with Transaction():
                 result = uc.run(user_id=1)
         assert result is not None
         assert result.name == "cached"
@@ -596,7 +596,7 @@ class TestUseCaseWithCache:
 
         uc = CreateUserUC(create_user=CreateUserHandlerLocal())
         with CacheManager(cache):
-            with Transaction(operation=uc):
+            with Transaction():
                 result = uc.run(name="Alice")
         assert result.name == "Alice"
         assert cache.get("user:Alice") is None
@@ -618,7 +618,7 @@ class TestUseCaseWithCache:
         uc = FailingCreateUserUC(create_user=CreateUserHandlerLocal())
 
         with pytest.raises(ValueError, match="failed"):
-            with CacheManager(cache), Transaction(operation=uc):
+            with CacheManager(cache), Transaction():
                 uc.run(name="Alice")
 
         assert cache.get("user:Alice") is not None
@@ -641,7 +641,7 @@ class TestAsyncUseCaseWithCache:
 
         uc = GetUserUC(get_user=GetUserHandlerLocal())
         with CacheManager(cache):
-            async with AsyncTransaction(operation=uc):
+            async with AsyncTransaction():
                 result = await uc.run(user_id=1)
         assert result is not None
         assert result.name == "cached"
@@ -661,7 +661,7 @@ class TestAsyncUseCaseWithCache:
 
         uc = GetUserUC(get_user=GetUserHandlerLocal())
         with CacheManager(cache):
-            async with AsyncTransaction(operation=uc):
+            async with AsyncTransaction():
                 result = await uc.run(user_id=2)
         assert result is not None
         assert result.name == "from-db"
@@ -685,7 +685,7 @@ class TestAsyncUseCaseWithCache:
 
         uc = CreateUserUC(create_user=CreateUserHandlerLocal())
         with CacheManager(cache):
-            async with AsyncTransaction(operation=uc):
+            async with AsyncTransaction():
                 result = await uc.run(name="Alice")
         assert result.name == "Alice"
         assert await cache.get("user:Alice") is None

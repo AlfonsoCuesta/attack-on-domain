@@ -71,6 +71,13 @@ class EventCollector:
         _event_collector.reset(self._token)
 
 
+def get_active_events() -> list[Event] | None:
+    collector = _event_collector.get(None)
+    if collector is None:
+        return None
+    return list(collector)
+
+
 _event_collector: contextvars.ContextVar[EventsListened] = contextvars.ContextVar(
     "_event_collector"
 )

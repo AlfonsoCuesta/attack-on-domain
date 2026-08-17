@@ -42,6 +42,17 @@ class ProjectionBase(BaseOperation):
                 sessions.append(value)
         object.__setattr__(self, "_sessions", sessions)
 
+    def _begin_sessions(self) -> None:
+        for session in self._sessions:
+            session._begin()
+
+    async def _begin_sessions_async(self) -> None:
+        for session in self._sessions:
+            if isinstance(session, AsyncSession):
+                await session._begin()
+            else:
+                session._begin()
+
 
 class ReadProjectionBase(ProjectionBase):
     __skip_port_check__ = True

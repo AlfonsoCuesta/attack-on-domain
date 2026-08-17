@@ -23,7 +23,7 @@ class CreateUser(UseCase):
 
 
 def execute(use_case: UseCase, *args: object, **kwargs: object) -> object:
-    with Transaction(operation=use_case):
+    with Transaction():
         return use_case.run(*args, **kwargs)
 
 
@@ -132,6 +132,9 @@ class _Session(Session):
 class _Handler(BaseHandler):
     session: _Session
 
+    def handle(self) -> None:
+        self.session.execute("operation")
+
 
 class _CommitHandler(_Handler):
     def handle(self) -> None:
@@ -147,7 +150,7 @@ def test_transaction_discovers_handler_sessions() -> None:
         save: _Handler
 
         def run(self) -> None:
-            pass
+            self.save.handle()
 
     use_case = Save(save=handler)
     execute(use_case)

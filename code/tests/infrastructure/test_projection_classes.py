@@ -90,7 +90,7 @@ def test_write_projection_uses_transaction() -> None:
             return "ok"
 
     projection = Write()
-    with Transaction(operation=projection):
+    with Transaction():
         assert projection.write() == "ok"
     assert len(projection.events) == 1
 
@@ -105,7 +105,7 @@ def test_projection_sessions_are_discovered() -> None:
             pass
 
     projection = Write(session=session)
-    with Transaction(operation=projection):
+    with Transaction():
         projection.write()
     assert session._committed
 
@@ -121,7 +121,7 @@ def test_projection_uses_logger_and_event_bus() -> None:
     logger = spy_port(Logger)()
     bus = spy_port(EventBus)()
     projection = Read(logger=logger, event_bus=bus)
-    with Transaction(operation=projection):
+    with Transaction():
         projection.read()
     assert logger.info.call_count == 2
     assert bus.publish.call_count == 1
@@ -135,7 +135,7 @@ async def test_async_read_projection_uses_async_transaction() -> None:
             return "ok"
 
     projection = Read()
-    async with AsyncTransaction(operation=projection):
+    async with AsyncTransaction():
         assert await projection.read() == "ok"
     assert len(projection.events) == 1
 
@@ -151,7 +151,7 @@ async def test_async_write_projection_discovers_session() -> None:
             pass
 
     projection = Write(session=session)
-    async with AsyncTransaction(operation=projection):
+    async with AsyncTransaction():
         await projection.write()
     assert session._committed
 

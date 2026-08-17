@@ -4,6 +4,7 @@ from contextvars import Token
 from typing import Any, cast
 
 from aod._internal.core.async_utils import should_await
+from aod._internal.application.cache.cache_manager import get_cache_context
 from aod._internal.core.base_behaviour import BaseBehaviour
 from aod._internal.core.event_emitter import Event, EventCollector, EventsListened
 from aod._internal.core.fields import PrivateField
@@ -92,6 +93,7 @@ class Transaction(TransactionBase):
             return False
         try:
             self._commit_sessions()
+            get_cache_context().flush_invalidations()
         except Exception:
             self._handle_failure()
             raise
@@ -133,14 +135,17 @@ class AsyncTransaction(TransactionBase):
         if exc_value is not None:
             try:
                 await self._async_rollback_sessions()
+                get_cache_context().discard()
             finally:
                 self._reset()
             return False
         try:
             await self._async_commit_sessions()
+            await get_cache_context().flush_invalidations_async()
         except Exception:
             try:
                 await self._async_rollback_sessions()
+                get_cache_context().discard()
             finally:
                 self._reset()
             raise

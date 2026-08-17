@@ -55,7 +55,7 @@ class Create(AsyncUseCase):
 
 
 async def execute(use_case: AsyncUseCase) -> None:
-    async with AsyncTransaction(operation=use_case):
+    async with AsyncTransaction():
         await use_case.run()
 
 
@@ -91,7 +91,7 @@ async def test_async_transaction_discovers_handler_sessions() -> None:
             pass
 
     use_case = Save(save=handler)
-    async with AsyncTransaction(operation=use_case):
+    async with AsyncTransaction():
         await use_case.run()
     assert session._committed
 
@@ -110,7 +110,7 @@ async def test_async_handler_cannot_commit_session_during_operation() -> None:
 
     use_case = Save(save=handler)
     with pytest.raises(CommitOutsideUnitOfWorkError):
-        async with AsyncTransaction(operation=use_case):
+        async with AsyncTransaction():
             await use_case.run()
     assert session._rolled_back
     assert not session._committed
@@ -125,6 +125,6 @@ async def test_async_transaction_rolls_back_and_preserves_events() -> None:
 
     use_case = Failing()
     with pytest.raises(ValueError, match="boom"):
-        async with AsyncTransaction(operation=use_case):
+        async with AsyncTransaction():
             await use_case.run()
     assert len(use_case.events) == 1

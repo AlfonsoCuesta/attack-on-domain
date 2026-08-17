@@ -655,7 +655,7 @@ def test_adapt_use_case_activates_cache_context() -> None:
     cache = SpyCache(keys=[_UserKey()])
     container = AdapterContainer(caches=[cache])
     uc = container.adapt(_CachedUseCase)
-    with container.cache_context(), Transaction(operation=uc):
+    with container.cache_context(), Transaction():
         assert uc.run() is True
 
 
@@ -669,7 +669,7 @@ def test_adapt_projection_read_activates_cache_context() -> None:
     cache = SpyCache(keys=[_UserKey()])
     container = AdapterContainer(caches=[cache])
     proj = container.adapt(_CachedReadProjection)
-    with container.cache_context(), Transaction(operation=proj):
+    with container.cache_context(), Transaction():
         assert proj.read() is True
 
 
@@ -677,7 +677,7 @@ def test_adapt_projection_write_activates_cache_context() -> None:
     cache = SpyCache(keys=[_UserKey()])
     container = AdapterContainer(caches=[cache])
     proj = container.adapt(_CachedWriteProjection)
-    with container.cache_context(), Transaction(operation=proj):
+    with container.cache_context(), Transaction():
         assert proj.write() is True
 
 
@@ -687,7 +687,7 @@ async def test_adapt_async_use_case_activates_cache_context() -> None:
     container = AdapterContainer(caches=[cache])
     uc = container.adapt(_CachedAsyncUseCase)
     with container.cache_context():
-        async with AsyncTransaction(operation=uc):
+        async with AsyncTransaction():
             result = await uc.run()
     assert result is True
 

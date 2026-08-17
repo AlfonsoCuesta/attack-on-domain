@@ -25,12 +25,12 @@ from pydantic import BaseModel as DTO
 
 
 def execute(projection: BaseOperation, method: str, *args: object) -> object:
-    with Transaction(operation=projection):
+    with Transaction():
         return getattr(projection, method)(*args)
 
 
 async def execute_async(projection: BaseOperation, method: str, *args: object) -> object:
-    async with AsyncTransaction(operation=projection):
+    async with AsyncTransaction():
         return await getattr(projection, method)(*args)
 
 
