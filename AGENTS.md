@@ -511,7 +511,7 @@ make typecheck      # pyright (when configured)
 - If you change async counterparts (aggregated in `aod.application.async_` / `aod.infrastructure.async_`), update both sync and async test files
 - If you change the container, update files in `container/` package (container.py, port_manager.py, session_manager.py, handler_manager.py, types.py) and verify `test_container.py`, `test_inject.py`, and container-related e2e tests
 - Always add `__all__` to every `__init__.py` and `async_.py` to avoid `F401` lint warnings
-- Always run `make check` before committing
+- Run `make check` before committing code changes. Documentation-only, configuration-only, and analysis-only changes do not require `make check`.
 - Event.emitted_at is the timestamp field.
 - **No inline imports in tests** -- every import must be at the top of the file. Test-local classes are fine, but imports from `aod`, `pydantic`, `unittest`, `types`, etc. must be at module level.
 - **`@field_validator` without `@classmethod`** -- Pydantic v2 field validators use `def name(cls, v)` without the `@classmethod` decorator. The `cls` parameter is passed automatically.
@@ -530,7 +530,7 @@ make typecheck      # pyright (when configured)
 
 ## At the end of a task
 
-Update docs, AGENTS.md and SKILL.md. Run `make check` to verify.
+Update docs, AGENTS.md and SKILL.md. Run `make check` to verify code changes; documentation-only changes do not require it.
 
 ## No `patch` in tests
 
