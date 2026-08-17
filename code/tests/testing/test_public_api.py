@@ -4,6 +4,7 @@ import inspect
 
 import aod.application
 import aod.application.async_
+import aod.application.cache
 import aod.application.exceptions
 import aod.domain
 import aod.domain.exceptions
@@ -13,9 +14,11 @@ import aod.exceptions
 import aod.infrastructure
 import aod.infrastructure.async_
 import aod.infrastructure.exceptions
+import aod.schema
 from aod._internal.core.application_exception import UnresolvableEntityError
 from aod._internal.core.event_emitter import Event, IntegrationEvent
 from aod._internal.core.infrastructure_exception import HandlerResultTypeError
+from aod._internal.testing.doubles import async_ as async_doubles
 
 
 def test_aod_domain_exports_documented_api() -> None:
@@ -227,3 +230,28 @@ def test_handler_result_type_error() -> None:
 def test_unresolvable_entity_error() -> None:
     exc = UnresolvableEntityError("Command", "TestCommand")
     assert "TestCommand" in str(exc)
+
+
+def test_aod_application_cache_module_exposes_cache_types() -> None:
+    for name in (
+        "AsyncCache",
+        "Cache",
+        "CacheInvalidation",
+        "CacheKey",
+        "CacheManager",
+        "ContractCacheInvalidation",
+        "ContractCacheKey",
+        "OperationCacheInvalidation",
+        "OperationCacheKey",
+    ):
+        assert isinstance(getattr(aod.application.cache, name), type)
+
+
+def test_aod_schema_module_exposes_schema_types() -> None:
+    for name in ("App", "AutoDoc", "BoundedContext", "Infrastructure", "Module"):
+        assert isinstance(getattr(aod.schema, name), type)
+
+
+def test_internal_async_doubles_module_exposes_async_spies() -> None:
+    for name in ("AsyncSpyCache", "AsyncSpyEventBus", "AsyncSpyLogger"):
+        assert isinstance(getattr(async_doubles, name), type)

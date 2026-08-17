@@ -382,7 +382,7 @@ Policies are independent application services. Their enforcement is explicit, bu
 **Public API**:
 - `PolicyContract(BaseSealed)` — immutable authorization input defined by the caller.
 - `PolicyPort[PolicyContract]` / `AsyncPolicyPort` — application handler ports.
-- `PolicyHandler[PolicyContract]` / `AsyncPolicyHandler` — infrastructure `BaseOperation` implementations resolved by contract. They can depend on `QueryPort`, `CommandPort`, ports, and concrete sessions.
+- `PolicyHandler[PolicyContract]` / `AsyncPolicyHandler` — infrastructure `BaseOperation` implementations resolved by contract. They can depend on `QueryPort`, `CommandPort`, and other ports.
 - `PolicyManager` / `AsyncPolicyManager` — runtime collections of registered policy handlers.
 - `PolicyExpression` — immutable `BaseSealed` AND/OR expression built with `&` and `|`.
 

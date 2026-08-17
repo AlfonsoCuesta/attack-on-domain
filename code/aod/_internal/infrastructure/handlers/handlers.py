@@ -87,6 +87,7 @@ class AsyncCommandHandler(AsyncBaseHandler, AsyncCommandPort, Generic[TCommand])
 
 class PolicyHandler(BaseOperation, PolicyPort[TPolicyContract], Generic[TPolicyContract]):
     __allow_handler_ports__ = True
+    __not_allowed_port_types__ = (Session, AsyncSession)
 
     @abstractmethod
     def handle(self, contract: TPolicyContract) -> None: ...
@@ -98,6 +99,7 @@ class AsyncPolicyHandler(
     Generic[TPolicyContract],
 ):
     __allow_handler_ports__ = True
+    __not_allowed_port_types__ = (Session, AsyncSession)
 
     @abstractmethod
     async def handle(self, contract: TPolicyContract) -> None: ...

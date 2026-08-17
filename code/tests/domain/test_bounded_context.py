@@ -231,7 +231,7 @@ def test_entity_with_optional_root_entity_field_raises_error() -> None:
         id: int = Field(id=True)
         lines: list[OrderLine]
 
-    with pytest.raises(InvalidNestedTypeError, match="references 'Product'"):
+    with pytest.raises(InvalidNestedTypeError, match=r"references '.*Product \| None'"):
         BoundedContext(aggregate_roots=[Order, Product])
 
 

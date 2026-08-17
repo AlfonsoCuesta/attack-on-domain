@@ -27,7 +27,7 @@ from aod.infrastructure import (
 from aod.infrastructure.async_ import PolicyHandler as AsyncPolicyHandler
 from aod.infrastructure.async_ import QueryHandler as AsyncQueryHandler
 from aod.infrastructure.async_ import Session as AsyncSession
-from aod.exceptions import PolicyEnforcementError
+from aod.exceptions import InvalidUseCasePortFieldError, PolicyEnforcementError
 
 
 class AccessContract(PolicyContract):
@@ -42,6 +42,16 @@ class AccessHandler(PolicyHandler[AccessContract]):
 
 class AsyncAccessHandler(AsyncPolicyHandler[AccessContract]):
     async def handle(self, contract: AccessContract) -> None:
+        if contract.user_id != "allowed":
+            raise PermissionError("access denied")
+
+
+class ReportAccessContract(PolicyContract):
+    user_id: str
+
+
+class AsyncReportAccessHandler(AsyncPolicyHandler[ReportAccessContract]):
+    async def handle(self, contract: ReportAccessContract) -> None:
         if contract.user_id != "allowed":
             raise PermissionError("access denied")
 
@@ -200,6 +210,41 @@ def test_container_builds_async_policy_manager_from_policy_handlers() -> None:
         await manager.enforce(AccessContract(user_id="allowed"))
 
     asyncio.run(run())
+
+
+def test_manager_filters_policy_handlers_by_syncness() -> None:
+    container = AdapterContainer(handlers=[AccessHandler, AsyncReportAccessHandler])
+
+    sync_manager = container.policy_manager()
+    sync_manager.enforce(AccessContract(user_id="allowed"))
+
+    async def run() -> None:
+        async_manager = container.async_policy_manager()
+        await async_manager.enforce(ReportAccessContract(user_id="allowed"))
+
+    asyncio.run(run())
+
+
+def test_container_adapts_policy_handler_directly() -> None:
+    container = AdapterContainer(
+        sessions={DocumentSession},
+        handlers=[DocumentQueryHandler, OwnerPolicyHandler],
+    )
+    handler = container.adapt(OwnerPolicyHandler)
+    manager = PolicyManager(handler)
+
+    with Transaction():
+        manager.enforce(OwnerContract(user_id="owner-1", document_id="doc-1"))
+
+
+def test_policy_handler_cannot_declare_session_fields() -> None:
+    with pytest.raises(InvalidUseCasePortFieldError):
+
+        class InvalidPolicyHandler(PolicyHandler[OwnerContract]):
+            session: DocumentSession
+
+            def handle(self, contract: OwnerContract) -> None:
+                pass
 
 
 def test_policy_can_use_query_handler_before_use_case_in_one_transaction() -> None:

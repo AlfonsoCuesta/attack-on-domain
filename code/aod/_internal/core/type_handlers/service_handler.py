@@ -7,7 +7,6 @@ from functools import lru_cache
 from aod._internal.core.domain_exception import InvalidServiceParameterError
 from aod._internal.core.fields import is_public_field
 from aod._internal.core.type_checking.extractors import extract_types_from_annotation
-from aod._internal.core.type_utils import type_name
 from aod._internal.domain.entity import Entity, RootEntity
 from aod._internal.domain.service import Service
 
@@ -62,7 +61,7 @@ class ServiceTypeHandler:
                         service_cls.__name__,
                         method_name,
                         param_name,
-                        type_name(resolved),
+                        getattr(resolved, "__name__", str(resolved)),
                     )
 
             if sig.return_annotation is not inspect.Parameter.empty:
@@ -72,5 +71,5 @@ class ServiceTypeHandler:
                         service_cls.__name__,
                         method_name,
                         "return",
-                        type_name(resolved),
+                        getattr(resolved, "__name__", str(resolved)),
                     )

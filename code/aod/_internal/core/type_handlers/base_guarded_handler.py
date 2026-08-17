@@ -5,7 +5,6 @@ from aod._internal.core.domain_exception import (
 )
 from aod._internal.core.fields import is_public_field
 from aod._internal.core.type_checking.extractors import extract_types_from_annotation
-from aod._internal.core.type_utils import type_name
 from aod._internal.domain.entity import Entity, RootEntity
 from aod._internal.domain.value_object import ValueObject
 
@@ -27,7 +26,11 @@ class BaseGuardedTypeHandler:
             if field_type is None:
                 continue
             if _references_base(field_type, RootEntity):
-                raise InvalidNestedTypeError(entity_cls.__name__, field_name, type_name(field_type))
+                raise InvalidNestedTypeError(
+                    entity_cls.__name__,
+                    field_name,
+                    getattr(field_type, "__name__", str(field_type)),
+                )
 
     @staticmethod
     def check_root_entity(entity_cls: type[Entity]) -> None:
@@ -42,7 +45,11 @@ class BaseGuardedTypeHandler:
             if field_type is None:
                 continue
             if _references_base(field_type, Entity):
-                raise InvalidNestedTypeError(vo_cls.__name__, field_name, type_name(field_type))
+                raise InvalidNestedTypeError(
+                    vo_cls.__name__,
+                    field_name,
+                    getattr(field_type, "__name__", str(field_type)),
+                )
 
     @staticmethod
     def discover_types(

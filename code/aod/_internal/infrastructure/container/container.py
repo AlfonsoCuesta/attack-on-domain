@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Any, Self, cast, get_type_hints
+from typing import Any, Self, cast
 
 
 from aod._internal.application.cache.cache import BaseCache
@@ -134,11 +134,6 @@ class AdapterContainer(BaseBehaviour):
         kwargs: dict[str, Any] = {}
         container._port_manager.inject_ports(policy_cls, kwargs)
         container._handler_manager.inject_handlers(policy_cls, kwargs)
-        for field_name, field_type in get_type_hints(policy_cls).items():
-            if field_name in kwargs or not _is_session_annotation(field_type):
-                continue
-            _validate_concrete_session(field_name, field_type, policy_cls.__name__)
-            kwargs[field_name] = container._session_manager.get_session(field_type)
         return policy_cls(**kwargs)
 
     def policy_manager(self) -> PolicyManager:
@@ -166,8 +161,6 @@ class AdapterContainer(BaseBehaviour):
         if not container.sessions:
             return
         for field_name, field_info in projection_cls.__model_fields__.items():
-            if field_name in kwargs:
-                continue
             field_type = field_info.annotation
             if not _is_session_annotation(field_type):
                 continue

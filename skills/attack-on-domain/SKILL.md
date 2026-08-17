@@ -674,7 +674,7 @@ uc.run(PlaceOrderInput(order_id="1", product_id="p1", quantity=2, price=9.99))
 
 ### Policies
 
-Authorization as independent application services. A `PolicyContract` carries the data needed to authorize one decision; a `PolicyHandler` implements the check and may declare required `QueryPort`, `CommandPort`, other ports, or concrete sessions.
+Authorization as independent application services. A `PolicyContract` carries the data needed to authorize one decision; a `PolicyHandler` implements the check and may declare required `QueryPort`, `CommandPort`, or other ports.
 
 ```python
 from aod.application import PolicyContract, PolicyManager

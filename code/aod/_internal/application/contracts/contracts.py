@@ -13,7 +13,6 @@ from aod._internal.core.type_handlers.generic_utils import (
     get_generic_arg_from_orig_bases,
     validate_generic_arg_is_subclass,
 )
-from aod._internal.core.type_utils import type_name
 from aod._internal.domain.entity import Entity, RootEntity
 
 TEntity = TypeVar("TEntity")
@@ -72,7 +71,10 @@ def _validate_result_contains_root_entity(cls: type, query_type: type) -> None:
 
     all_types = extract_types_from_annotation(result_type)
     if not any(isinstance(t, type) and issubclass(t, RootEntity) for t in all_types):
-        raise InvalidQueryResultTypeError(cls.__name__, type_name(result_type))
+        raise InvalidQueryResultTypeError(
+            cls.__name__,
+            getattr(result_type, "__name__", str(result_type)),
+        )
 
 
 class Command(BaseSealed, Generic[TEntity, TResult]):

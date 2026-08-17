@@ -22,7 +22,7 @@ class AuthHandler(PolicyHandler[AuthContract]):
 
 `PolicyPort` is the application-facing handler port. `PolicyHandler` is its
 infrastructure implementation and may declare required dependencies such as
-`QueryPort`, `CommandPort`, other ports, or concrete sessions. Async variants are
+`QueryPort`, `CommandPort`, or other ports. Async variants are
 available as `AsyncPolicyPort` and `AsyncPolicyHandler`.
 
 ## Manager
