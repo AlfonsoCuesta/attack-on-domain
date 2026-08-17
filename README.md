@@ -106,9 +106,19 @@ container = AdapterContainer(
     handlers=[PlaceOrderHandler],
 )
 use_case = container.adapt(PlaceOrderUseCase)
-use_case.run(order_id="1", total=99.99)
+with container.transaction():
+    use_case.run(order_id="1", total=99.99)
 # Events are auto-collected: use_case.events -> [OrderPlaced(...)]
 ```
+
+Transactions can own a cache context so commit and rollback agree on cache invalidations:
+
+```python
+with container.transaction(cache=container.cache_context()):
+    use_case.run(order_id="1", total=99.99)
+```
+
+Use `container.async_transaction(cache=...)` for asynchronous use cases and projections.
 
 ## FastAPI? You Bet.
 

@@ -391,7 +391,7 @@ Base class for synchronous application use cases.
 
 When `Transaction()` surrounds `run()`:
 
-1. Handlers begin their sessions through `_begin()` when they are used.
+1. Handlers start their sessions when they are used.
 2. Events are collected via `EventCollector` during execution.
 3. On success: `uow.commit()`, events logged on each declared logger, events published on each declared event bus.
 4. On failure: `uow.rollback()`, exception logged on each declared logger, exception re-raised.

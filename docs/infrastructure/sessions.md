@@ -84,14 +84,13 @@ class AsyncRedisSession(AsyncSession):
 
 ## Transaction Pattern
 
-The application implements the lifecycle methods. Handler and projection entrypoints call the internal `_begin()` coordinator automatically; callers open `Transaction()` around the work. `Transaction` does not receive or inspect operations.
+The application implements the lifecycle methods. The framework starts each session once when a handler or projection uses it; callers open `Transaction()` around the work. `Transaction` does not receive or inspect operations.
 
 ### The Transaction Flow
 
 ```python
 # This is what happens inside with Transaction():
-handler.handle(...)                     # calls session._begin()
-                                         # _begin() calls user begin() once and registers the session
+handler.handle(...)                     # the framework starts the session once
     # Your operation code executes here
 if the block succeeds:
     tx.commit()                         # calls session.commit() ONLY on dirty sessions
@@ -104,8 +103,8 @@ Key points:
 - The caller constructs the Transaction explicitly. It may contain several handlers, use cases, or projections.
 - Pass `CacheManager` to the transaction when cache invalidations belong to the same unit of work: `Transaction(cache=container.cache_context())`. A standalone `CacheManager` flushes on successful exit and discards on failure.
 - Only dirty sessions are committed/rolled back (checked via `is_dirty()`)
-- `commit()` is guarded by `_CommitContext` ContextVar -- raises `CommitOutsideUnitOfWorkError` if called outside a Transaction
-- `begin()` and `rollback()` are not commit-guarded. The framework calls `begin()` through `_begin()` when a handler or projection uses the session.
+- `commit()` raises `CommitOutsideUnitOfWorkError` if called outside a Transaction
+- The framework calls `begin()` when a handler or projection uses the session.
 - QueryHandlers participate in session registration when they use a session; read-only sessions can report `is_dirty() == False` and will not commit.
 
 ### Commit Guard

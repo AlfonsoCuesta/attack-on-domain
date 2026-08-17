@@ -139,7 +139,7 @@ with Transaction(cache=CacheManager(cache)):
 
 ## Session Caching
 
-Once a session is instantiated via `get_session()`, the same instance is returned on subsequent calls. Handlers and projections register sessions when their entrypoints call `_begin()`, so handlers sharing a session type use the same instance.
+Once a session is instantiated via `get_session()`, the same instance is returned on subsequent calls. Handlers and projections register sessions when they use them, so handlers sharing a session type use the same instance.
 
 ## Multi-Session Support
 

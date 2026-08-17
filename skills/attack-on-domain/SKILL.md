@@ -88,7 +88,7 @@ Create the concrete Handler implementations and Sessions.
 
 **Session** is the data access abstraction. There are no repositories, no stores — the Session IS how you read and write. Each handler declares a `session` field with the concrete session type it needs, and the container injects the matching instance.
 
-**Session lifecycle is managed by `Transaction`** — implement `begin()`, `commit()`, `rollback()`, `close()`, and `is_dirty()` on the session. Handler and projection entrypoints call the internal `_begin()` coordinator automatically; callers open `Transaction()` around the work.
+**Session lifecycle is managed by `Transaction`** — implement `begin()`, `commit()`, `rollback()`, `close()`, and `is_dirty()` on the session. The framework starts sessions automatically when handlers and projections use them; callers open `Transaction()` around the work.
 
 ```python
 from aod.infrastructure import CommandHandler, QueryHandler, Session
@@ -742,11 +742,11 @@ Add any domain-specific methods (e.g. `execute()`, `query()`, `get()`, `set()`) 
 
 #### Transaction flow
 
-The caller manages the transaction lifecycle explicitly. Handler and projection entrypoints call `_begin()` automatically; never call `commit()` or `rollback()` directly on a session.
+The caller manages the transaction lifecycle explicitly. The framework starts sessions automatically; never call `commit()` or `rollback()` directly on a session.
 
 ```python
 with Transaction():
-    # Handler.handle() calls session._begin(), which calls begin() once
+    # Handler.handle() starts its session once
     # Your run() code executes here
     # CommandHandler.handle() writes through session.execute()
     # QueryHandler.handle() reads through session.query()
@@ -754,7 +754,7 @@ with Transaction():
 # On failure Transaction calls session.rollback() only on dirty sessions.
 ```
 
-The `commit()` method on every Session subclass is auto-decorated at class creation time. It checks a `ContextVar` flag (`_CommitContext`) that is set to `True` only inside `uow.commit()`. If someone calls `session.commit()` directly outside a UseCase, it raises `CommitOutsideUnitOfWorkError` immediately.
+The framework only permits `session.commit()` during the transaction commit phase. Calling it directly outside a transaction raises `CommitOutsideUnitOfWorkError` immediately.
 
 ```python
 class PostgresSession(Session):
