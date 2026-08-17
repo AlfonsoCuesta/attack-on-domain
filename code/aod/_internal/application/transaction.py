@@ -45,7 +45,7 @@ class TransactionBase(BaseBehaviour):
 
     def _reset(self) -> None:
         for session in self.sessions:
-            object.__setattr__(session, "_is_begun", False)
+            session._reset_begin()
         if self._token is not None:
             _active_transaction.reset(self._token)
             object.__setattr__(self, "_token", None)

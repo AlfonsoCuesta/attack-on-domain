@@ -45,9 +45,12 @@ class Session(Port):
         transaction = get_active_transaction()
         if not self._is_begun:
             self.begin()
-            object.__setattr__(self, "_is_begun", True)
+            self._is_begun = True
         if transaction is not None:
             transaction.register_session(self)
+
+    def _reset_begin(self) -> None:
+        self._is_begun = False
 
     @abstractmethod
     def begin(self) -> None: ...
@@ -78,9 +81,12 @@ class AsyncSession(Port):
         transaction = get_active_transaction()
         if not self._is_begun:
             await self.begin()
-            object.__setattr__(self, "_is_begun", True)
+            self._is_begun = True
         if transaction is not None:
             transaction.register_session(self)
+
+    def _reset_begin(self) -> None:
+        self._is_begun = False
 
     @abstractmethod
     async def begin(self) -> None: ...
