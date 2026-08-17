@@ -515,7 +515,36 @@ class TestCacheManager:
             assert ctx is not None
         ctx = get_cache_context()
         assert ctx is not None
-        assert ctx.get_for(_op) is None
+
+    def test_standalone_cache_context_flushes_on_success(self) -> None:
+        cache = ConcreteCache(keys=[_make_user_key()])
+        cache.set("user:Alice", User(id=1, name="old"))
+
+        with CacheManager(cache):
+            get_cache_context().delete(CreateUser(name="Alice"))
+
+        assert cache.get("user:Alice") is None
+
+    def test_standalone_cache_context_discards_on_failure(self) -> None:
+        cache = ConcreteCache(keys=[_make_user_key()])
+        cache.set("user:Alice", User(id=1, name="old"))
+
+        with pytest.raises(ValueError, match="cache failed"):
+            with CacheManager(cache):
+                get_cache_context().delete(CreateUser(name="Alice"))
+                raise ValueError("cache failed")
+
+        assert cache.get("user:Alice") is not None
+        assert cache._to_delete == []
+
+    def test_transaction_owns_explicit_cache_context(self) -> None:
+        cache = ConcreteCache(keys=[_make_user_key()])
+        cache.set("user:Alice", User(id=1, name="old"))
+
+        with Transaction(cache=CacheManager(cache)):
+            get_cache_context().delete(CreateUser(name="Alice"))
+
+        assert cache.get("user:Alice") is None
 
     def test_cache_context_with_multiple_caches(self) -> None:
         cache1 = ConcreteCache(keys=[_make_user_key()])
@@ -740,3 +769,12 @@ class TestAsyncUseCaseWithCache:
 
         assert await cache.get("user:Alice") is not None
         assert cache._to_delete == []
+
+    async def test_async_transaction_owns_explicit_cache_context(self) -> None:
+        cache = ConcreteAsyncCache(keys=[_make_user_key()])
+        await cache.set("user:Alice", User(id=1, name="old"))
+
+        async with AsyncTransaction(cache=CacheManager(cache)):
+            get_cache_context().delete(CreateUser(name="Alice"))
+
+        assert await cache.get("user:Alice") is None

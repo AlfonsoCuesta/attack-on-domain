@@ -95,11 +95,13 @@ class AdapterContainer(BaseBehaviour):
 
     def transaction(
         self,
+        *,
+        cache: CacheManager | None = None,
     ) -> Transaction:
-        return Transaction()
+        return Transaction(cache=cache)
 
-    def async_transaction(self) -> AsyncTransaction:
-        return AsyncTransaction()
+    def async_transaction(self, *, cache: CacheManager | None = None) -> AsyncTransaction:
+        return AsyncTransaction(cache=cache)
 
     def adapt(
         self,

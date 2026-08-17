@@ -65,7 +65,8 @@ class CacheContext:
 
     def flush_invalidations(self) -> None:
         for cache in self._caches:
-            cache._flush_deletes()
+            if isinstance(cache, Cache):
+                cache._flush_deletes()
 
     async def flush_invalidations_async(self) -> None:
         for cache in self._caches:
@@ -85,10 +86,36 @@ class CacheManager:
         self._token = _cache_context.set(cache_context)
         return self
 
-    def __exit__(self, *args: Any) -> None:
+    def _finish(self, *, success: bool) -> None:
         if self._token is None:
             return
+        context = get_cache_context()
+        if success:
+            context.flush_invalidations()
+        else:
+            context.discard()
         _cache_context.reset(self._token)
+        self._token = None
+
+    async def _finish_async(self, *, success: bool) -> None:
+        if self._token is None:
+            return
+        context = get_cache_context()
+        if success:
+            await context.flush_invalidations_async()
+        else:
+            context.discard()
+        _cache_context.reset(self._token)
+        self._token = None
+
+    def __exit__(self, *args: Any) -> None:
+        self._finish(success=args[0] is None if args else True)
+
+    async def __aenter__(self) -> CacheManager:
+        return self.__enter__()
+
+    async def __aexit__(self, *args: Any) -> None:
+        await self._finish_async(success=args[0] is None if args else True)
 
 
 def get_cache_context() -> CacheContext:
