@@ -40,7 +40,7 @@ from aod.infrastructure import ReadProjection
 
 | Method | Signature | Description |
 |--------|-----------|-------------|
-| `read` | `read(self, *args, **kwargs) -> Any` | Abstract. Execute a read operation. Use `Transaction(projection)` for collection and publishing. |
+| `read` | `read(self, *args, **kwargs) -> Any` | Abstract. Execute a read operation. Use `Transaction()` for session coordination and event collection. |
 
 #### `read` Parameters
 
@@ -51,7 +51,7 @@ from aod.infrastructure import ReadProjection
 
 #### Auto-Wrapping Behavior
 
-When `Transaction(projection)` surrounds `read()`:
+When `Transaction()` surrounds `read()`:
 
 1. Events are collected via `EventCollector` during execution.
 2. On success: events are logged on each declared logger, events are published on each declared event bus.
@@ -97,7 +97,7 @@ from aod.infrastructure import WriteProjection
 
 | Method | Signature | Description |
 |--------|-----------|-------------|
-| `write` | `write(self, *args, **kwargs) -> Any` | Abstract. Execute a write operation. Use `Transaction(projection)` for commit, collection, and publishing. |
+| `write` | `write(self, *args, **kwargs) -> Any` | Abstract. Execute a write operation. Use `Transaction()` for session coordination and event collection. |
 
 #### `write` Parameters
 
@@ -108,7 +108,7 @@ from aod.infrastructure import WriteProjection
 
 #### Auto-Wrapping Behavior
 
-When `Transaction(projection)` surrounds `write()`:
+When `Transaction()` surrounds `write()`:
 
 1. A `CommitContext` is set (enabling `session.commit()`).
 2. Events are collected via `EventCollector` during execution.

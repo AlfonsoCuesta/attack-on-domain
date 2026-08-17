@@ -88,7 +88,7 @@ Create the concrete Handler implementations and Sessions.
 
 **Session** is the data access abstraction. There are no repositories, no stores — the Session IS how you read and write. Each handler declares a `session` field with the concrete session type it needs, and the container injects the matching instance.
 
-**Session lifecycle is managed by `Transaction`** — never call `begin()`, `commit()`, or `rollback()` manually on a session. Open the transaction around the operation.
+**Session lifecycle is managed by `Transaction`** — implement `begin()`, `commit()`, `rollback()`, `close()`, and `is_dirty()` on the session. Handler and projection entrypoints call the internal `_begin()` coordinator automatically; callers open `Transaction()` around the work.
 
 ```python
 from aod.infrastructure import CommandHandler, QueryHandler, Session
@@ -147,7 +147,7 @@ container = AdapterContainer(
     caches=[RedisCache(keys=[OrderById()])],
 )
 place_order = container.adapt(PlaceOrderUseCase)
-with container.cache_context(), container.transaction(place_order):
+with container.transaction(cache=container.cache_context()):
     place_order.run(PlaceOrderInput(order_id="1", product_id="p1", quantity=2, price=9.99))
 ```
 
@@ -164,7 +164,7 @@ with container.cache_context(), container.transaction(place_order):
 | `from aod.domain.validation import field_invariance, invariance, mutable` | Validation decorators |
 | `from aod.domain.validation import AfterValidator, BeforeValidator` | Pydantic validators |
 | `from aod.application import UseCase` | UseCase base class |
-| `from aod.application import Transaction` | Explicit transaction context for one operation |
+| `from aod.application import Transaction` | Explicit transaction context for one or more operations |
 | `from aod.application import Port` | Abstract port/gateway base class |
 | `from aod.application import Logger, EventBus` | Built-in port types (sync) |
 | `from aod.application.async_ import EventBus, Logger` | Async versions |
@@ -258,7 +258,7 @@ container.stub_projection(MyProjection, write_raises=ValueError("fail"))
 
 **`adapt(**overrides)` does not inject custom ports through the spy.** The spy replaces all port instances with stubs in its `FakePortManager`. While the parent `_adapt_use_case` accepts overrides, the spy's manager replaces them with stubs during injection. If you need a specific fake port, use Level 2 (manual DI) instead.
 
-**Spy container does not open cache contexts.** Test cache behavior with `with CacheManager(cache), Transaction(operation=use_case):` or through the real container.
+**Spy container does not open cache contexts.** Test cache behavior with `Transaction(cache=CacheManager(cache))` or through the real container.
 
 ### Port Stubs — When to Use
 
@@ -670,7 +670,7 @@ uc.run(PlaceOrderInput(order_id="1", product_id="p1", quantity=2, price=9.99))
 
 ### Cache
 
-Caching uses a **contextvar-based** system activated by `CacheManager`. The framework intercepts Query/Command handlers at the `HandlerProtocol` level and applies read-through caching and write-through invalidation automatically when the cache context is active. The container wraps operations with `CacheManager` automatically when `caches` are configured.
+Caching uses a **contextvar-based** system activated by `CacheManager`. The framework intercepts Query/Command handlers at the `HandlerProtocol` level and applies read-through caching and write-through invalidation automatically when the cache context is active. Pass the cache manager to the transaction when it belongs to the same unit of work.
 
 **How it works**: Define a `ContractCacheKey[Query]` subclass mapping a Query to a cache key and listing which Commands invalidate it. Create a `Cache` implementation (Redis, Memcached, in-memory) with those keys. Pass the cache to the container via `caches=[...]`. When `container.adapt(MyUseCase)` is called, the operation's entry point (`run`/`read`/`write`) is wrapped with a `CacheManager` context — all handler calls within that operation will use the cache.
 
@@ -700,7 +700,7 @@ class RedisCache(Cache):
     def set(self, key: str, value: Any, ttl: float | None = None) -> None: ...
     def delete(self, key: str) -> None: ...
 
-# 3. Register on the container — adapt() activates CacheManager automatically
+# 3. Register on the container
 cache = RedisCache(keys=[UserById()])
 
 container = AdapterContainer(
@@ -708,22 +708,21 @@ container = AdapterContainer(
     handlers=[GetUserHandler, CreateUserHandler],
 )
 use_case = container.adapt(MyUseCase)
-with container.cache_context(), container.transaction(use_case):
+with container.transaction(cache=container.cache_context()):
     use_case.run(...)
 ```
 
-**Cache flow**: On QueryHandler, the framework checks the cache before executing `handle()`. If cached, returns immediately. Otherwise executes the handler and stores the result immediately. On CommandHandler, it queues stale-cache invalidations. `Transaction` flushes invalidations on commit and discards them on rollback.
+**Cache flow**: On QueryHandler, the framework checks the cache before executing `handle()`. If cached, returns immediately. Otherwise executes the handler and stores the result immediately. On CommandHandler, it queues stale-cache invalidations. The owning transaction flushes invalidations on commit and discards them on rollback.
 
 > **Warning:** `AsyncCache` instances only work in async contexts (`AsyncUseCase`, `AsyncReadProjection`, `AsyncWriteProjection`). Sync `UseCase`/`Projection` cannot `await` async cache operations — cache reads silently return `None` and writes are skipped.
 
 **`CacheManager` context:** Outside a `CacheManager` block, `get_cache_context()` returns an empty context (all operations are no-ops). You can also nest `CacheManager` manually:
 ```python
-with CacheManager(cache):
-    with Transaction(operation=use_case):
-        result = use_case.run(user_id=1)
+with Transaction(cache=CacheManager(cache)):
+    result = use_case.run(user_id=1)
 ```
 
-**Spy container:** Cache contexts are explicit. Use `with CacheManager(cache), Transaction(operation=use_case):` when testing cache behavior.
+**Spy container:** Cache contexts are explicit. Use `Transaction(cache=CacheManager(cache))` when testing cache behavior.
 
 ### Session
 
@@ -743,11 +742,11 @@ Add any domain-specific methods (e.g. `execute()`, `query()`, `get()`, `set()`) 
 
 #### Transaction flow
 
-The caller manages the transaction lifecycle explicitly. Never call `begin()`, `commit()`, or `rollback()` directly on a session.
+The caller manages the transaction lifecycle explicitly. Handler and projection entrypoints call `_begin()` automatically; never call `commit()` or `rollback()` directly on a session.
 
 ```python
-with Transaction(use_case):
-    # Transaction calls session.begin() on all handler sessions
+with Transaction():
+    # Handler.handle() calls session._begin(), which calls begin() once
     # Your run() code executes here
     # CommandHandler.handle() writes through session.execute()
     # QueryHandler.handle() reads through session.query()
@@ -958,16 +957,16 @@ container = AdapterContainer(
 
 Creates a UseCase or Projection instance with all dependencies injected. This is the single public entry point — it dispatches to the appropriate internal method:
 
-- **UseCases**: `adapt()` injects handler and custom ports. Open `Transaction(operation=use_case)` around execution.
+- **UseCases**: `adapt()` injects handler and custom ports. Open `Transaction()` around execution.
 - **Projections**: Session fields injected by type annotation. Custom ports resolved by field name (with type-based fallback from `ports` dict).
 
 ```python
 use_case = container.adapt(PlaceOrderUseCase)
-with container.cache_context(), container.transaction(use_case):
+with container.transaction(cache=container.cache_context()):
     use_case.run(order_id="1", product_id="p1", quantity=2, price=9.99)
 
 projection = container.adapt(UserListProjection)
-with container.transaction(projection):
+with container.transaction():
     users = projection.read(UserSearch(user_id="1"))
 ```
 

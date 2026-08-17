@@ -268,7 +268,7 @@ container = AdapterContainer(
     handlers=[GetUserHandler],
 )
 use_case = container.adapt(MyUseCase)
-with container.cache_context(), container.transaction(use_case):
+with container.transaction(cache=container.cache_context()):
     use_case.run(...)
 ```
 

@@ -51,7 +51,7 @@ class CreateUserUseCase(UseCase):
 
 ```python
 uc = container.adapt(CreateUserUseCase)
-with container.cache_context(), Transaction(uc):
+with Transaction(cache=container.cache_context()):
     user = uc.run(CreateUserInput(user_id="1", name="Alice", email="alice@example.com"))
 ```
 
@@ -90,10 +90,10 @@ class CreateUserUseCase(UseCase):
 
 Abstract method. Subclasses define specific parameters. Values are passed here, not as class fields. The method is not wrapped:
 
-1. Open `Transaction(self)` around the call when transactional behavior is needed
-2. Invoke the `run()` body
-3. Let the transaction collect emitted events into `self.events`
-4. On success, the transaction commits, logs, and publishes events
+1. Open `Transaction()` around the call when transactional behavior is needed
+2. Invoke the wrapped `run()` body
+3. The entrypoint captures events into `self.events`
+4. On success, the transaction commits registered sessions
 5. On failure, the transaction rolls back and re-raises
 
 **Parameters:** Defined by the subclass — any number of positional and keyword arguments representing input values.
@@ -114,7 +114,7 @@ Base class for asynchronous use cases. Inherits from `BaseOperation`.
 
 #### `async run(self, *args, **kwargs) -> Any`
 
-Async abstract method. Surround the call with `AsyncTransaction(self)`; sync/async adapters are bridged via `should_await` internally.
+Async abstract method. Surround the call with `AsyncTransaction(cache=...)`; sync/async adapters are bridged via `should_await` internally.
 
 ## Field Validation
 
@@ -154,7 +154,7 @@ class CreateUserUseCase(UseCase):
 
 ## Event Collection
 
-Events emitted during `run()` are collected while `Transaction(self)` is active. This includes events emitted directly by the UseCase via `self._event_emitter.emit(...)` and events emitted by any entity, value object, or service touched during execution.
+Events emitted during `run()` are collected while `Transaction()` is active. This includes events emitted directly by the UseCase via `self._event_emitter.emit(...)` and events emitted by any entity, value object, or service touched during execution.
 
 ```python
 class CreateUserUseCase(UseCase):
@@ -167,7 +167,7 @@ class CreateUserUseCase(UseCase):
         self._event_emitter.emit(UserCreated(user_id=dto.user_id))
 
 uc = CreateUserUseCase(save_user=handler)
-with Transaction(uc):
+with Transaction():
     uc.run(CreateUserInput(user_id="1", name="Alice", email="alice@example.com"))
 assert len(uc.events) == 2  # UserRegistered + UserCreated
 assert isinstance(uc.events[0], UserRegistered)
@@ -176,9 +176,9 @@ assert isinstance(uc.events[1], UserCreated)
 
 The transaction:
 1. Opens an `EventCollector` context before `run()` executes
-2. Collects all emitted events into `self.events`
-3. Publishes events on the event bus after a successful commit
-4. Replaces `self.events` on each transaction
+2. The wrapped entrypoint captures its emitted events into `self.events`
+3. The operation notifies its logger and event bus after success
+4. Replaces `self.events` on each entrypoint call
 
 If `run()` raises an exception, the transaction rolls back and `self.events` still contains the events emitted before the failure:
 
@@ -216,7 +216,7 @@ class CreateUserUseCase(UseCase):
 
 uc = CreateUserUseCase(save_user=handler)
 try:
-with Transaction(uc):
+with Transaction():
     uc.run()
 except ValueError:
     pass

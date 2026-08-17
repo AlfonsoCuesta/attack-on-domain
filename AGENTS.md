@@ -349,11 +349,11 @@ All framework exceptions re-exported from `aod.exceptions`. Per-layer base excep
 
 ### `UseCase` Base Class (internals)
 `UseCase` extends `BaseOperation`. Key mechanics:
-- **Transaction is external** -- callers open `Transaction(use_case)` around one `run()` call. The transaction discovers handler sessions and copies collected events to `use_case.events`.
-- **`run()` is not wrapped** -- UseCase only contains application logic and emits domain events.
+- **Transaction is external** -- callers open `Transaction()` around one or more operation calls. It coordinates only sessions registered through `Session._begin()`.
+- **Entry points are wrapped** -- concrete `run()`, `read()`, and `write()` methods capture their own events and initialize handler/projection sessions without registering the operation in the transaction.
 - **Field validation**: `BaseOperation.__init_subclass__` checks fields. Only `Port` subclasses allowed. `BaseHandler`/`AsyncBaseHandler` and `Session`/`AsyncSession` rejected. `AppCommandHandler[T]`/`AppQueryHandler[T]` accepted (inherit from `HandlerProtocol(Port)`). Non-Port fields raise `InvalidUseCasePortFieldError`.
 - **`__skip_port_check__`** check uses `cls.__dict__.get("__skip_port_check__")` -- only current class's own dict, not inherited
-- **Container sessions**: `AdapterContainer.sessions` holds session **classes**, not instances. `get_session()` instantiates and caches. `HandlerManager` creates handler instances with session instances; Transaction extracts sessions from handlers at context entry.
+- **Container sessions**: `AdapterContainer.sessions` holds session **classes**, not instances. `get_session()` instantiates and caches. Handler entrypoint wrappers call `_begin()` on concrete sessions; `_begin()` registers them in the active transaction and is idempotent.
 
 ### `Port` Base Class (internals)
 `Port` extends `BaseGuarded`:
@@ -422,14 +422,14 @@ Two concrete subclasses serve different invalidation strategies:
 
 No ClassVar pre-computation. Both `get_invalidation_key_fn()` and `get_command_types()` iterate `self.invalidate()` at runtime, keeping the invalidation info in a single source of truth.
 
-**Read-through cache flow**: Query handlers check the active CacheContext before executing and store non-None misses immediately. Command invalidations are buffered and flushed by Transaction only after a successful commit. CacheManager is opened separately from the transaction.
+**Read-through cache flow**: Query handlers check the active CacheContext before executing and store non-None misses immediately. Command invalidations are buffered and flushed after a successful commit, or discarded on rollback. Prefer passing the cache manager to the transaction: `Transaction(cache=container.cache_context())`.
 
 **`BaseCache._delete(command)`** iterates `self.keys` and calls `key_obj.get_invalidation_key_fn(type(command))` on each key instance to compute invalidation keys. The `_to_delete` batch is flushed on `_flush()`.
 
 ### Projection System (tech details)
 `ProjectionBase(BaseOperation)` inherits `_event_emitter`, `events`, `logger`, `event_bus`. Fields must be `Port` subclasses (except session fields). `HandlerProtocol` rejected via `__not_allowed_port_types__ = (HandlerProtocol,)`. Multiple session fields allowed with concrete types. `ProjectionBase.__init_subclass__` calls `typing.get_type_hints(cls)` and raises `AbstractSessionTypeError` for direct `Session`/`AsyncSession` fields.
 
-`ReadProjectionBase`/`WriteProjectionBase` do not wrap `read()`/`write()`. Callers open `Transaction(projection)` explicitly; it discovers projection sessions and collects events for `projection.events`.
+`ReadProjectionBase`/`WriteProjectionBase` entrypoints initialize their declared sessions. Callers open `Transaction()` explicitly; sessions register themselves when `_begin()` runs and events are captured by the operation entrypoint.
 
 Async variants (`AsyncReadProjectionBase`, `AsyncWriteProjectionBase`) use `AsyncTransaction` with `await should_await(session.commit())`.
 

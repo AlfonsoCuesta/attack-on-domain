@@ -124,14 +124,14 @@ Cache instances passed via the `caches` parameter are activated with `cache_cont
 - Each cache instance carries `CacheKey` definitions that declare which `Query` and `Command` types they intercept.
 - `cache_context()` opens a `CacheManager` context around the operation.
 - Inside the context, handler-level read-through caching and command-level invalidation happen automatically via `get_cache_context()`.
-- Query read-through values are written immediately. Command invalidations are flushed by `Transaction` after commit.
+- Query read-through values are written immediately. Command invalidations are flushed after a successful transaction commit and discarded on rollback.
 
 **Manual usage without container:**
 ```python
 from aod.application.cache import CacheManager
 
 cache = RedisCache(keys=[UserById()])
-with CacheManager(cache), Transaction(use_case):
+with Transaction(cache=CacheManager(cache)):
     result = use_case.run(user_id=1)
 ```
 
@@ -139,7 +139,7 @@ with CacheManager(cache), Transaction(use_case):
 
 ## Session Caching
 
-Once a session is instantiated via `get_session()`, the same instance is returned on subsequent calls. Transaction discovers the sessions attached to the adapted operation, so handlers sharing a session use the same instance.
+Once a session is instantiated via `get_session()`, the same instance is returned on subsequent calls. Handlers and projections register sessions when their entrypoints call `_begin()`, so handlers sharing a session type use the same instance.
 
 ## Multi-Session Support
 
@@ -156,7 +156,7 @@ When adapting a `UseCase` or `AsyncUseCase`:
 | `CommandPort[C]` / `QueryPort[Q]` | `container.get_handler(contract_type)` |
 | Custom ports | Named ports or `ports` dict (see Port Resolution Order) |
 
-The container does not create a transaction during adaptation. Use `container.transaction(use_case)` as a convenience factory or construct `Transaction(use_case)` directly.
+The container does not create a transaction during adaptation. Use `container.transaction(cache=...)` or `container.async_transaction(cache=...)` as convenience factories; transactions do not receive operations.
 
 ### Projection Wiring
 
@@ -198,7 +198,7 @@ class MyAsyncUseCase(UseCase):
 use_case = container.adapt(MyAsyncUseCase)
 ```
 
-Use `AsyncTransaction(use_case)` around an async use case. `container.transaction(use_case)` selects the async variant from the operation entrypoint.
+Use `AsyncTransaction(cache=...)` around async work, or `container.async_transaction(cache=...)`. The async transaction is selected explicitly because the transaction coordinates the context, not an operation entrypoint.
 
 ## Common Patterns
 
@@ -214,7 +214,7 @@ container = AdapterContainer(
 )
 
 use_case = container.adapt(CreateUser)
-with container.cache_context(), container.transaction(use_case):
+with container.transaction(cache=container.cache_context()):
     use_case.run(user_id=42, name="Alice")
 ```
 

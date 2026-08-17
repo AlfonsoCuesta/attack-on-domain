@@ -145,7 +145,7 @@ class CreateUser(UseCase):
         pass
 
 use_case = container.adapt(CreateUser)
-with container.cache_context(), container.transaction(use_case):
+with container.transaction(cache=container.cache_context()):
     use_case.run()
 ```
 
@@ -192,7 +192,7 @@ class MyCache(Cache):
 cache = MyCache(keys=[UserById()])
 container = AdapterContainer(caches=[cache])
 use_case = container.adapt(MyUseCase)
-with container.cache_context(), container.transaction(use_case):
+with container.transaction(cache=container.cache_context()):
     use_case.run(...)
 ```
 
@@ -200,7 +200,7 @@ with container.cache_context(), container.transaction(use_case):
 
 ### Event Collection
 
-Events emitted during `run()` are collected while `Transaction(use_case)` is active:
+Events emitted during `run()` are collected while `Transaction()` is active:
 
 ```python
 class CreateUserUseCase(UseCase):

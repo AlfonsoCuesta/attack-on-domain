@@ -84,34 +84,29 @@ class AsyncRedisSession(AsyncSession):
 
 ## Transaction Pattern
 
-A session must **never** call `begin()`, `commit()`, or `rollback()` directly. The caller opens `Transaction(use_case)` or `Transaction(projection)` around the operation.
+The application implements the lifecycle methods. Handler and projection entrypoints call the internal `_begin()` coordinator automatically; callers open `Transaction()` around the work. `Transaction` does not receive or inspect operations.
 
 ### The Transaction Flow
 
 ```python
-# This is what happens inside with Transaction(use_case):
-tx.begin()                              # calls session.begin() on ALL sessions
-    # Your run() code executes here
-    # CommandHandlers write via session.execute()
-    # QueryHandlers read via session.query()
-if run() succeeds:
+# This is what happens inside with Transaction():
+handler.handle(...)                     # calls session._begin()
+                                         # _begin() calls user begin() once and registers the session
+    # Your operation code executes here
+if the block succeeds:
     tx.commit()                         # calls session.commit() ONLY on dirty sessions
-    # caches flushed (via CacheContext.flush())
-    for bus in transaction.event_buses:
-        bus.publish(*events)            # publishes collected events
-if run() fails:
+if the block fails:
     tx.rollback()                       # calls session.rollback() ONLY on dirty sessions
-    # caches discarded (via CacheContext.discard())
     error re-raised                     # exception propagates to caller
 ```
 
 Key points:
-- The Transaction is created internally by the UseCase -- you never construct or inject one.
-- Caches are managed via `CacheContext` (activated by `CacheManager`). The container wraps operations with `CacheManager` automatically. Flush happens after commit, discard happens on rollback.
+- The caller constructs the Transaction explicitly. It may contain several handlers, use cases, or projections.
+- Pass `CacheManager` to the transaction when cache invalidations belong to the same unit of work: `Transaction(cache=container.cache_context())`. A standalone `CacheManager` flushes on successful exit and discards on failure.
 - Only dirty sessions are committed/rolled back (checked via `is_dirty()`)
 - `commit()` is guarded by `_CommitContext` ContextVar -- raises `CommitOutsideUnitOfWorkError` if called outside a Transaction
-- `begin()` and `rollback()` are NOT guarded -- they can be called anywhere (though you should never need to)
-- QueryHandlers don't participate in transactions -- they read data without begin/commit/rollback
+- `begin()` and `rollback()` are not commit-guarded. The framework calls `begin()` through `_begin()` when a handler or projection uses the session.
+- QueryHandlers participate in session registration when they use a session; read-only sessions can report `is_dirty() == False` and will not commit.
 
 ### Commit Guard
 
@@ -121,9 +116,10 @@ The `commit()` method on every Session subclass is auto-wrapped at class creatio
 postgres = PostgresSession()
 postgres.commit()  # CommitOutsideUnitOfWorkError!
 
-# Inside a UseCase it works fine:
+# Inside a Transaction it works fine:
 use_case = container.adapt(PlaceOrderUseCase)
-use_case.run(...)  # tx.commit() sets the flag -> session.commit() succeeds
+with Transaction():
+    use_case.run(...)  # transaction commit sets the flag -> session.commit() succeeds
 ```
 
 This guarantees that transaction control stays in the framework -- session implementations focus only on data operations, not transaction management.

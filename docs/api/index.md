@@ -385,13 +385,13 @@ Base class for synchronous application use cases.
 
 | Method | Signature | Description |
 |--------|-----------|-------------|
-| `run` | `abstractmethod run(self, *args, **kwargs) -> Any` | Execute the use case. Surround with `Transaction(use_case)` for lifecycle, events, logging, and publishing. |
+| `run` | `abstractmethod run(self, *args, **kwargs) -> Any` | Execute the use case. Surround with `Transaction()` for session lifecycle and event collection. |
 
 #### Transaction Usage
 
-When `Transaction(use_case)` surrounds `run()`:
+When `Transaction()` surrounds `run()`:
 
-1. Transaction begins all sessions discovered from the operation.
+1. Handlers begin their sessions through `_begin()` when they are used.
 2. Events are collected via `EventCollector` during execution.
 3. On success: `uow.commit()`, events logged on each declared logger, events published on each declared event bus.
 4. On failure: `uow.rollback()`, exception logged on each declared logger, exception re-raised.
@@ -571,12 +571,11 @@ from aod.application import CacheManager
 from aod.application.cache import CacheManager
 ```
 
-`CacheManager` is a context manager that activates cache context for the duration of a block. Wraps a list of `Cache`/`AsyncCache` instances. Inside the context, `get_cache_context()` returns a context that routes cache operations to the registered caches.
+`CacheManager` is a context manager that activates cache context for the duration of a block. It flushes invalidations on successful exit and discards them on failure. When passed to a transaction, the transaction owns that lifecycle.
 
 ```python
-with CacheManager(cache):
-    with Transaction(use_case):
-        result = use_case.run(...)
+with Transaction(cache=CacheManager(cache)):
+    result = use_case.run(...)
 ```
 
 `AdapterContainer.cache_context()` is a convenience factory for the same context. `adapt()` only injects dependencies.
@@ -785,7 +784,7 @@ Synchronous write projection.
 
 | Method | Signature | Description |
 |--------|-----------|-------------|
-| `write` | `abstractmethod write(self, model: Any) -> Any` | Execute write logic. Surround with `Transaction(projection)` for lifecycle, events, logging, and publishing. |
+| `write` | `abstractmethod write(self, model: Any) -> Any` | Execute write logic. Surround with `Transaction()` for session lifecycle and event collection. |
 
 ### Projection
 
