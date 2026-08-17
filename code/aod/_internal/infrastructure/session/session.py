@@ -39,7 +39,7 @@ class Session(Port):
 
     def __init_subclass__(cls, **kwargs: Any) -> None:
         super().__init_subclass__(**kwargs)
-        cls.commit = check_commit_context(cls.commit)
+        cls.commit: Callable[..., None] = check_commit_context(cls.commit)
 
     def _begin(self) -> None:
         transaction = get_active_transaction()
@@ -70,7 +70,9 @@ class AsyncSession(Port):
 
     def __init_subclass__(cls, **kwargs: Any) -> None:
         super().__init_subclass__(**kwargs)
-        cls.commit = check_async_commit_context(cls.commit)
+        cls.commit: Callable[..., Coroutine[Any, Any, None]] = check_async_commit_context(
+            cls.commit
+        )
 
     async def _begin(self) -> None:
         transaction = get_active_transaction()

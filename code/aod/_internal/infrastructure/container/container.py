@@ -95,7 +95,7 @@ class AdapterContainer(BaseBehaviour):
 
     def transaction(
         self,
-    ) -> Transaction | AsyncTransaction:
+    ) -> Transaction:
         return Transaction()
 
     def async_transaction(self) -> AsyncTransaction:

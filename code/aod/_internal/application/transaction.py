@@ -1,13 +1,13 @@
 from __future__ import annotations
 
 from contextvars import Token
-from typing import Any
+from typing import Any, cast
 
 from aod._internal.core.async_utils import should_await
 from aod._internal.core.base_behaviour import BaseBehaviour
 from aod._internal.core.event_emitter import Event, EventCollector, EventsListened
 from aod._internal.core.fields import PrivateField
-from aod._internal.core.transaction_context import _active_transaction
+from aod._internal.core.transaction_context import _active_transaction, TransactionContext
 from aod._internal.infrastructure.commit_context import commit_context
 from aod._internal.infrastructure.session import AsyncSession, Session
 
@@ -17,7 +17,7 @@ class TransactionBase(BaseBehaviour):
     _events: list[Event] = PrivateField(default_factory=list)
     _collector: EventCollector | None = PrivateField(default=None)
     _listened: EventsListened | None = PrivateField(default=None)
-    _token: Token[object | None] | None = PrivateField(default=None)
+    _token: Token[TransactionContext | None] | None = PrivateField(default=None)
 
     @property
     def sessions(self) -> list[Session | AsyncSession]:
@@ -27,7 +27,9 @@ class TransactionBase(BaseBehaviour):
     def events(self) -> list[Event]:
         return self._events
 
-    def register_session(self, session: Session | AsyncSession) -> None:
+    def register_session(self, session: object) -> None:
+        if not isinstance(session, (Session, AsyncSession)):
+            raise TypeError(f"Expected a session, got {type(session).__name__}")
         self._sessions.setdefault(id(session), session)
 
     def _start(self) -> None:
@@ -151,9 +153,9 @@ def get_transaction() -> TransactionBase:
     transaction = _active_transaction.get()
     if transaction is None:
         raise RuntimeError("No active transaction")
-    return transaction  # type: ignore[return-value]
+    return cast(TransactionBase, transaction)
 
 
 def get_active_transaction() -> TransactionBase | None:
     transaction = _active_transaction.get()
-    return transaction  # type: ignore[return-value]
+    return cast(TransactionBase | None, transaction)
