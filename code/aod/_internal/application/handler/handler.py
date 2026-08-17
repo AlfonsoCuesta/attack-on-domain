@@ -49,6 +49,9 @@ def _wrap_handler_validation(cls: type) -> None:
 def _make_validate_handle(original_handle: Callable, expected_type: type) -> Callable:
     @wraps(original_handle)
     def validate_handle(self: Any, contract: Any, **kwargs: Any) -> Any:
+        begin_sessions = getattr(self, "_begin_sessions", None)
+        if callable(begin_sessions):
+            begin_sessions()
         if not isinstance(contract, expected_type):
             raise TypeError(f"Expected {expected_type.__name__}, got {type(contract).__name__}")
         return original_handle(self, contract, **kwargs)
@@ -59,6 +62,9 @@ def _make_validate_handle(original_handle: Callable, expected_type: type) -> Cal
 def _make_async_validate_handle(original_handle: Callable, expected_type: type) -> Callable:
     @wraps(original_handle)
     async def validate_handle(self: Any, contract: Any, **kwargs: Any) -> Any:
+        begin_sessions = getattr(self, "_begin_sessions_async", None)
+        if callable(begin_sessions):
+            await begin_sessions()
         if not isinstance(contract, expected_type):
             raise TypeError(f"Expected {expected_type.__name__}, got {type(contract).__name__}")
         return await original_handle(self, contract, **kwargs)
