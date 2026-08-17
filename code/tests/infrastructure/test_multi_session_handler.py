@@ -5,6 +5,7 @@ from typing import Any, cast
 from aod._internal.application.contracts import Command, Query
 from aod._internal.application.handler import CommandPort as AppCommandPort
 from aod._internal.application.handler import QueryPort as AppQueryPort
+from aod._internal.application.transaction import Transaction
 from aod._internal.application.use_case import UseCase
 from aod._internal.core.fields.fields import Field, PrivateField
 from aod._internal.domain.entity import RootEntity
@@ -201,3 +202,29 @@ def test_handlers_use_different_sessions() -> None:
 
     assert isinstance(save_handler, SaveUserHandler)
     assert isinstance(get_handler, GetUserHandler)
+
+
+def test_handlers_register_a_shared_session_once_per_transaction() -> None:
+    session = InMemoryMongoSession()
+    first = SaveUserHandler(session=session)
+    second = SaveUserHandler(session=session)
+
+    with Transaction() as transaction:
+        assert transaction.sessions == []
+
+        first.handle(SaveUser(user_id="u1", name="Alice", email="alice@test.com"))
+        assert transaction.sessions == [session]
+        assert session._is_begun
+
+        second.handle(SaveUser(user_id="u2", name="Bob", email="bob@test.com"))
+        assert transaction.sessions == [session]
+
+
+def test_instantiating_a_handler_does_not_register_its_session() -> None:
+    session = InMemoryMongoSession()
+
+    with Transaction() as transaction:
+        SaveUserHandler(session=session)
+
+        assert transaction.sessions == []
+        assert not session._is_begun
