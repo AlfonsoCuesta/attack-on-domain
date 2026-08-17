@@ -118,11 +118,35 @@ def test_transaction_resets_context_when_begin_fails() -> None:
         def begin(self) -> None:
             raise RuntimeError("begin failed")
 
+    session = FailingBegin()
     with Transaction():
         with pytest.raises(RuntimeError, match="begin failed"):
-            FailingBegin().begin()
+            session._begin()
+        assert not session._is_begun
     with pytest.raises(RuntimeError, match="No active transaction"):
         get_transaction()
+
+
+def test_begin_is_idempotent_and_registers_the_session_once() -> None:
+    session = _Session()
+
+    with Transaction() as transaction:
+        session._begin()
+        session._begin()
+
+    assert transaction.sessions == [session]
+    assert session._committed
+
+
+def test_already_begun_session_is_registered_in_a_new_transaction() -> None:
+    session = _Session()
+    session._begin()
+
+    with Transaction() as transaction:
+        session._begin()
+
+    assert transaction.sessions == [session]
+    assert session._committed
 
 
 def test_transaction_rolls_back_when_commit_fails() -> None:
@@ -178,4 +202,3 @@ async def test_async_transaction_rolls_back_on_failure() -> None:
             raise ValueError("boom")
 
     assert session._rolled_back
-
