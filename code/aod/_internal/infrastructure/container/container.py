@@ -1,19 +1,15 @@
 from __future__ import annotations
 
-from typing import Any, Self, cast
+from typing import Any, Self, cast, get_type_hints
 
-from inspect import iscoroutinefunction
 
 from aod._internal.application.cache.cache import BaseCache
 from aod._internal.application.cache.cache_manager import CacheManager
-from aod._internal.application.event_bus import AsyncEventBus, EventBus
-from aod._internal.application.logger import AsyncLogger, Logger
 from aod._internal.application.port import Port
 from aod._internal.application.policy import AsyncPolicyManager, PolicyManager
 from aod._internal.application.transaction import AsyncTransaction, Transaction
 from aod._internal.application.use_case import AsyncUseCase, UseCase
 from aod._internal.core.base_behaviour import BaseBehaviour
-from aod._internal.core.base_operation import BaseOperation
 from aod._internal.core.fields.fields import Field, PrivateField
 from aod._internal.infrastructure.container.handler_manager import HandlerManager
 from aod._internal.infrastructure.container.port_manager import PortManager
@@ -26,6 +22,7 @@ from aod._internal.infrastructure.container.types import (
     _is_session_annotation,
     _validate_concrete_session,
 )
+from aod._internal.infrastructure.handlers import AsyncPolicyHandler, PolicyHandler
 from aod._internal.infrastructure.projection import ProjectionBase
 from aod._internal.infrastructure.session import AsyncSession, Session
 
@@ -98,28 +95,11 @@ class AdapterContainer(BaseBehaviour):
 
     def transaction(
         self,
-        operation: BaseOperation,
-        *,
-        loggers: list[Logger | AsyncLogger] | None = None,
-        event_buses: list[EventBus | AsyncEventBus] | None = None,
     ) -> Transaction | AsyncTransaction:
-        entrypoint = next(
-            (
-                getattr(operation, name)
-                for name in ("run", "read", "write")
-                if callable(getattr(operation, name, None))
-            ),
-            None,
-        )
-        transaction_type: type[Transaction | AsyncTransaction]
-        transaction_type = (
-            AsyncTransaction if entrypoint and iscoroutinefunction(entrypoint) else Transaction
-        )
-        return transaction_type(
-            operation=operation,
-            loggers=loggers or [],
-            event_buses=event_buses or [],
-        )
+        return Transaction()
+
+    def async_transaction(self) -> AsyncTransaction:
+        return AsyncTransaction()
 
     def adapt(
         self,
@@ -130,8 +110,10 @@ class AdapterContainer(BaseBehaviour):
             return cast(TOperation, self._adapt_use_case(operation_cls, **overrides))
         if issubclass(operation_cls, ProjectionBase):
             return cast(TOperation, self._adapt_projection(operation_cls, **overrides))
+        if issubclass(operation_cls, (PolicyHandler, AsyncPolicyHandler)):
+            return cast(TOperation, self._adapt_policy(operation_cls, **overrides))
         raise TypeError(
-            f"Expected UseCase, AsyncUseCase, or ProjectionBase subclass, "
+            f"Expected UseCase, AsyncUseCase, ProjectionBase, or PolicyHandler subclass, "
             f"got {operation_cls.__name__}"
         )
 
@@ -144,6 +126,18 @@ class AdapterContainer(BaseBehaviour):
         container._handler_manager.inject_handlers(use_case_cls, kwargs)
         operation = use_case_cls(**kwargs)
         return operation
+
+    def _adapt_policy(self, policy_cls: type[TOperation], **overrides: Any) -> TOperation:
+        container = self.with_adapters(**overrides) if overrides else self
+        kwargs: dict[str, Any] = {}
+        container._port_manager.inject_ports(policy_cls, kwargs)
+        container._handler_manager.inject_handlers(policy_cls, kwargs)
+        for field_name, field_type in get_type_hints(policy_cls).items():
+            if field_name in kwargs or not _is_session_annotation(field_type):
+                continue
+            _validate_concrete_session(field_name, field_type, policy_cls.__name__)
+            kwargs[field_name] = container._session_manager.get_session(field_type)
+        return policy_cls(**kwargs)
 
     def policy_manager(self) -> PolicyManager:
         return PolicyManager(*self._handler_manager.get_policy_handlers(async_=False))
