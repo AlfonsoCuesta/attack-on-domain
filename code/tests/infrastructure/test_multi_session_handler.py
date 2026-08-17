@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from typing import Any, cast
 
+import pytest
+
 from aod._internal.application.contracts import Command, Query
 from aod._internal.application.handler import CommandPort as AppCommandPort
 from aod._internal.application.handler import QueryPort as AppQueryPort
@@ -32,6 +34,10 @@ class GetUser(Query[User, User | None]):
 
 
 class MongoSession(Session):
+    _begin_count: int = PrivateField(default=0)
+    _commit_count: int = PrivateField(default=0)
+    _rollback_count: int = PrivateField(default=0)
+
     def execute(self, operation: object) -> object:
         return None
 
@@ -39,22 +45,26 @@ class MongoSession(Session):
         return None
 
     def begin(self) -> None:
-        pass
+        self._begin_count += 1
 
     def commit(self) -> None:
-        pass
+        self._commit_count += 1
 
     def rollback(self) -> None:
-        pass
+        self._rollback_count += 1
 
     def close(self) -> None:
         pass
 
     def is_dirty(self) -> bool:
-        return False
+        return True
 
 
 class PSQLSession(Session):
+    _begin_count: int = PrivateField(default=0)
+    _commit_count: int = PrivateField(default=0)
+    _rollback_count: int = PrivateField(default=0)
+
     def execute(self, operation: object) -> object:
         return None
 
@@ -62,19 +72,19 @@ class PSQLSession(Session):
         return None
 
     def begin(self) -> None:
-        pass
+        self._begin_count += 1
 
     def commit(self) -> None:
-        pass
+        self._commit_count += 1
 
     def rollback(self) -> None:
-        pass
+        self._rollback_count += 1
 
     def close(self) -> None:
         pass
 
     def is_dirty(self) -> bool:
-        return False
+        return True
 
 
 class InMemoryMongoSession(MongoSession):
@@ -135,6 +145,14 @@ class SyncUserUseCase(UseCase):
         self.save_handler.handle(SaveUser(user_id=user_id, name=name, email=email))
 
 
+class ContainerSaveUserHandler(SaveUserHandler):
+    session: InMemoryMongoSession
+
+
+class ContainerGetUserHandler(GetUserHandler):
+    session: InMemoryPSQLSession
+
+
 def test_multi_session_handlers_with_real_sessions() -> None:
     mongo = InMemoryMongoSession()
     psql = InMemoryPSQLSession()
@@ -185,8 +203,13 @@ def test_spy_bundle_tracks_handler_calls() -> None:
     save_handler = container.get_handler(SaveUser)
     get_handler = container.get_handler(GetUser)
 
+    save_handler.handle(SaveUser(user_id="u1", name="Alice", email="alice@test.com"))
+    get_handler.handle(GetUser(user_id="u1"))
+
     assert isinstance(save_handler, SaveUserHandler)
     assert isinstance(get_handler, GetUserHandler)
+    assert save_handler.handle.call_count == 1
+    assert get_handler.handle.call_count == 1
 
 
 def test_handlers_use_different_sessions() -> None:
@@ -202,6 +225,9 @@ def test_handlers_use_different_sessions() -> None:
 
     assert isinstance(save_handler, SaveUserHandler)
     assert isinstance(get_handler, GetUserHandler)
+    assert object.__getattribute__(save_handler, "session") is not object.__getattribute__(
+        get_handler, "session"
+    )
 
 
 def test_handlers_register_a_shared_session_once_per_transaction() -> None:
@@ -219,6 +245,10 @@ def test_handlers_register_a_shared_session_once_per_transaction() -> None:
         second.handle(SaveUser(user_id="u2", name="Bob", email="bob@test.com"))
         assert transaction.sessions == [session]
 
+    assert session._begin_count == 1
+    assert session._commit_count == 1
+    assert session._rollback_count == 0
+
 
 def test_instantiating_a_handler_does_not_register_its_session() -> None:
     session = InMemoryMongoSession()
@@ -227,4 +257,51 @@ def test_instantiating_a_handler_does_not_register_its_session() -> None:
         SaveUserHandler(session=session)
 
         assert transaction.sessions == []
+        assert not session._is_begun
+
+
+def test_container_handlers_share_one_transaction_with_distinct_sessions() -> None:
+    container = AdapterContainer(
+        sessions={InMemoryMongoSession, InMemoryPSQLSession},
+        handlers=[ContainerSaveUserHandler, ContainerGetUserHandler],
+    )
+    save_handler = container.get_handler(SaveUser)
+    get_handler = container.get_handler(GetUser)
+
+    with container.transaction() as transaction:
+        save_handler.handle(SaveUser(user_id="u1", name="Alice", email="alice@test.com"))
+        get_handler.handle(GetUser(user_id="u1"))
+
+        assert len(transaction.sessions) == 2
+        assert object.__getattribute__(save_handler, "session") is not object.__getattribute__(
+            get_handler, "session"
+        )
+
+    assert save_handler.session._begin_count == 1
+    assert save_handler.session._commit_count == 1
+    assert save_handler.session._rollback_count == 0
+    assert get_handler.session._begin_count == 1
+    assert get_handler.session._commit_count == 1
+    assert get_handler.session._rollback_count == 0
+
+
+def test_container_handlers_roll_back_all_distinct_sessions_on_failure() -> None:
+    container = AdapterContainer(
+        sessions={InMemoryMongoSession, InMemoryPSQLSession},
+        handlers=[ContainerSaveUserHandler, ContainerGetUserHandler],
+    )
+    save_handler = container.get_handler(SaveUser)
+    get_handler = container.get_handler(GetUser)
+
+    with pytest.raises(ValueError, match="transaction failed"):
+        with container.transaction():
+            save_handler.handle(SaveUser(user_id="u1", name="Alice", email="alice@test.com"))
+            get_handler.handle(GetUser(user_id="u1"))
+            raise ValueError("transaction failed")
+
+    for handler in (save_handler, get_handler):
+        session = object.__getattribute__(handler, "session")
+        assert session._begin_count == 1
+        assert session._commit_count == 0
+        assert session._rollback_count == 1
         assert not session._is_begun

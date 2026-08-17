@@ -15,6 +15,7 @@ from aod._internal.application.handler import (
 )
 from aod._internal.application.policy.policy_contract import PolicyContract
 from aod._internal.core.base_behaviour import BaseBehaviour
+from aod._internal.core.base_operation import BaseOperation
 from aod._internal.core.infrastructure_exception import AbstractSessionTypeError
 from aod._internal.infrastructure.session import AsyncSession, Session
 
@@ -48,6 +49,17 @@ class BaseHandler(BaseBehaviour):
                 sessions.append(value)
         return sessions
 
+    def _begin_sessions(self) -> None:
+        for session in self._get_sessions():
+            session._begin()
+
+    async def _begin_sessions_async(self) -> None:
+        for session in self._get_sessions():
+            if isinstance(session, AsyncSession):
+                await session._begin()
+            else:
+                session._begin()
+
 
 class AsyncBaseHandler(BaseHandler):
     pass
@@ -73,15 +85,19 @@ class AsyncCommandHandler(AsyncBaseHandler, AsyncCommandPort, Generic[TCommand])
     async def handle(self, command: TCommand) -> object: ...  # ty:ignore[invalid-method-override]
 
 
-class PolicyHandler(BaseHandler, PolicyPort[TPolicyContract], Generic[TPolicyContract]):
+class PolicyHandler(BaseOperation, PolicyPort[TPolicyContract], Generic[TPolicyContract]):
+    __allow_handler_ports__ = True
+
     @abstractmethod
     def handle(self, contract: TPolicyContract) -> None: ...
 
 
 class AsyncPolicyHandler(
-    AsyncBaseHandler,
+    BaseOperation,
     AsyncPolicyPort[TPolicyContract],
     Generic[TPolicyContract],
 ):
+    __allow_handler_ports__ = True
+
     @abstractmethod
     async def handle(self, contract: TPolicyContract) -> None: ...

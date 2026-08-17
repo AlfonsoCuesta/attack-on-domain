@@ -41,17 +41,23 @@ class _Session(Session):
 
 class _AsyncSession(AsyncSession):
     _begun: bool = PrivateField(default=False)
+    _begin_count: int = PrivateField(default=0)
     _committed: bool = PrivateField(default=False)
+    _commit_count: int = PrivateField(default=0)
     _rolled_back: bool = PrivateField(default=False)
+    _rollback_count: int = PrivateField(default=0)
 
     async def begin(self) -> None:
         self._begun = True
+        self._begin_count += 1
 
     async def commit(self) -> None:
         self._committed = True
+        self._commit_count += 1
 
     async def rollback(self) -> None:
         self._rolled_back = True
+        self._rollback_count += 1
 
     async def close(self) -> None:
         pass
@@ -103,6 +109,7 @@ def test_transaction_rolls_back_and_preserves_events_on_failure() -> None:
             raise ValueError("boom")
 
     assert session._rolled_back
+    assert not session._is_begun
     assert transaction.events[0].value == "before-failure"
 
 
@@ -159,6 +166,25 @@ def test_transaction_rolls_back_when_commit_fails() -> None:
         with Transaction():
             session._begin()
     assert session._rolled_back
+    assert not session._is_begun
+    assert not session._is_begun
+
+
+def test_session_can_be_reused_after_rollback() -> None:
+    session = _Session()
+
+    with pytest.raises(ValueError, match="boom"):
+        with Transaction():
+            session._begin()
+            raise ValueError("boom")
+
+    assert not session._is_begun
+
+    with Transaction():
+        session._begin()
+
+    assert session._committed
+    assert not session._is_begun
 
 
 def test_transaction_commit_context_only_exists_during_commit() -> None:
@@ -202,3 +228,55 @@ async def test_async_transaction_rolls_back_on_failure() -> None:
             raise ValueError("boom")
 
     assert session._rolled_back
+    assert not session._is_begun
+
+
+@pytest.mark.asyncio
+async def test_async_begin_is_idempotent_and_transaction_resets_it() -> None:
+    session = _AsyncSession()
+
+    async with AsyncTransaction():
+        await session._begin()
+        await session._begin()
+        assert session._begin_count == 1
+
+    assert session._commit_count == 1
+    assert not session._is_begun
+
+
+@pytest.mark.asyncio
+async def test_async_session_can_be_reused_after_rollback() -> None:
+    session = _AsyncSession()
+
+    with pytest.raises(ValueError, match="boom"):
+        async with AsyncTransaction():
+            await session._begin()
+            raise ValueError("boom")
+
+    assert session._rollback_count == 1
+    assert not session._is_begun
+
+    async with AsyncTransaction():
+        await session._begin()
+
+    assert session._begin_count == 2
+    assert session._commit_count == 1
+    assert not session._is_begun
+
+
+@pytest.mark.asyncio
+async def test_async_commit_failure_rolls_back_and_resets_context() -> None:
+    class FailingCommit(_AsyncSession):
+        async def commit(self) -> None:
+            self._commit_count += 1
+            raise RuntimeError("commit failed")
+
+    session = FailingCommit()
+    with pytest.raises(RuntimeError, match="commit failed"):
+        async with AsyncTransaction():
+            await session._begin()
+
+    assert session._rollback_count == 1
+    assert not session._is_begun
+    with pytest.raises(RuntimeError, match="No active transaction"):
+        get_transaction()

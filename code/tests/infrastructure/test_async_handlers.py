@@ -7,6 +7,7 @@ from aod._internal.domain.entity import RootEntity
 from aod._internal.application.transaction import AsyncTransaction
 from aod._internal.core.fields.fields import PrivateField
 from aod._internal.infrastructure.session import AsyncSession
+from aod._internal.infrastructure.container import AdapterContainer
 from aod.application import Command, Query
 from aod.infrastructure.async_ import CommandHandler, QueryHandler
 
@@ -37,22 +38,24 @@ class GetUserHandler(QueryHandler[GetUser]):
 
 
 class _AsyncSession(AsyncSession):
-    _begun: bool = PrivateField(default=False)
+    _begin_count: int = PrivateField(default=0)
+    _commit_count: int = PrivateField(default=0)
+    _rollback_count: int = PrivateField(default=0)
 
     async def begin(self) -> None:
-        self._begun = True
+        self._begin_count += 1
 
     async def commit(self) -> None:
-        pass
+        self._commit_count += 1
 
     async def rollback(self) -> None:
-        pass
+        self._rollback_count += 1
 
     async def close(self) -> None:
         pass
 
     def is_dirty(self) -> bool:
-        return False
+        return True
 
     async def query(self, operation: object) -> object:
         return operation
@@ -110,7 +113,28 @@ async def test_async_handlers_register_a_shared_session_once_per_transaction() -
 
         await first.handle(GetUser(user_id=1))
         assert transaction.sessions == [session]
-        assert session._is_begun
+        assert session._begin_count == 1
 
         await second.handle(GetUser(user_id=2))
         assert transaction.sessions == [session]
+
+
+@pytest.mark.asyncio
+async def test_container_async_handler_commits_its_session() -> None:
+    container = AdapterContainer(
+        sessions={_AsyncSession},
+        handlers=[SessionAwareGetUserHandler],
+    )
+    first = container.get_handler(GetUser)
+    second = container.get_handler(GetUser)
+
+    async with container.async_transaction() as transaction:
+        await first.handle(GetUser(user_id=1))
+        await second.handle(GetUser(user_id=2))
+        assert transaction.sessions == [object.__getattribute__(first, "session")]
+
+    session = object.__getattribute__(first, "session")
+    assert session is object.__getattribute__(second, "session")
+    assert session._begin_count == 1
+    assert session._commit_count == 1
+    assert session._rollback_count == 0

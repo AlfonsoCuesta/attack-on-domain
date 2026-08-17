@@ -25,6 +25,7 @@ from aod._internal.application.handler import (
 )
 from aod._internal.application.use_case import AsyncUseCase, UseCase
 from aod._internal.core.base_operation import BaseOperation
+from aod._internal.core.domain_exception import MutationForbiddenException
 from aod._internal.core.fields.fields import Field, PrivateField
 from aod._internal.domain.entity import RootEntity
 from aod._internal.infrastructure.handlers.handlers import (
@@ -189,6 +190,8 @@ class TestCacheInvalidation:
         inv = ContractCacheInvalidation(target_type=CreateUser, key_fn=lambda c: "key")
         assert inv.target_type is CreateUser
         assert inv.key_fn(CreateUser(name="Alice")) == "key"
+        with pytest.raises(MutationForbiddenException):
+            inv.target_type = DeleteUser
 
 
 class TestCacheKey:
@@ -601,6 +604,29 @@ class TestUseCaseWithCache:
         assert result.name == "Alice"
         assert cache.get("user:Alice") is None
 
+    def test_read_through_miss_stores_result(self) -> None:
+        class GetUserUC(UseCase):
+            get_user: QueryPort[GetUser]
+
+            def run(self, user_id: int) -> User | None:
+                return self.get_user.handle(GetUser(user_id=user_id))
+
+        class GetUserHandlerLocal(QueryHandler[GetUser]):
+            def handle(self, query: GetUser) -> User | None:
+                return User(id=query.user_id, name="from-db")
+
+        cache = ConcreteCache(keys=[_make_user_key()])
+        uc = GetUserUC(get_user=GetUserHandlerLocal())
+
+        with CacheManager(cache), Transaction():
+            result = uc.run(user_id=2)
+
+        assert result is not None
+        assert result.name == "from-db"
+        stored = cache.get("user:2")
+        assert isinstance(stored, User)
+        assert stored.name == "from-db"
+
     def test_command_invalidation_is_discarded_on_rollback(self) -> None:
         class FailingCreateUserUC(UseCase):
             create_user: CommandPort[CreateUser]
@@ -622,6 +648,7 @@ class TestUseCaseWithCache:
                 uc.run(name="Alice")
 
         assert cache.get("user:Alice") is not None
+        assert cache._to_delete == []
 
 
 class TestAsyncUseCaseWithCache:
@@ -689,3 +716,27 @@ class TestAsyncUseCaseWithCache:
                 result = await uc.run(name="Alice")
         assert result.name == "Alice"
         assert await cache.get("user:Alice") is None
+
+    async def test_command_invalidation_is_discarded_on_rollback(self) -> None:
+        class FailingCreateUserUC(AsyncUseCase):
+            create_user: AsyncCommandPort[CreateUser]
+
+            async def run(self, name: str) -> None:
+                await self.create_user.handle(CreateUser(name=name))
+                raise ValueError("failed")
+
+        class CreateUserHandlerLocal(AsyncCommandHandler[CreateUser]):
+            async def handle(self, command: CreateUser) -> User:
+                return User(id=1, name=command.name)
+
+        cache = ConcreteAsyncCache(keys=[_make_user_key()])
+        await cache.set("user:Alice", User(id=1, name="old"))
+        uc = FailingCreateUserUC(create_user=CreateUserHandlerLocal())
+
+        with pytest.raises(ValueError, match="failed"):
+            with CacheManager(cache):
+                async with AsyncTransaction():
+                    await uc.run(name="Alice")
+
+        assert await cache.get("user:Alice") is not None
+        assert cache._to_delete == []

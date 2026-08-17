@@ -72,7 +72,7 @@ class _AsyncSession(AsyncSession):
         return operation
 
 
-def test_read_projection_requires_explicit_transaction() -> None:
+def test_read_projection_without_transaction_does_not_collect_events() -> None:
     class Read(ReadProjection):
         def read(self) -> str:
             self._event_emitter.emit(_Event(value="read"))
@@ -108,6 +108,7 @@ def test_projection_sessions_are_discovered() -> None:
     with Transaction():
         projection.write()
     assert session._committed
+    assert not session._is_begun
 
 
 def test_projection_uses_logger_and_event_bus() -> None:
@@ -154,6 +155,7 @@ async def test_async_write_projection_discovers_session() -> None:
     async with AsyncTransaction():
         await projection.write()
     assert session._committed
+    assert not session._is_begun
 
 
 def test_combined_projection_stays_unwrapped() -> None:

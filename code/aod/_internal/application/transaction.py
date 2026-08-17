@@ -65,6 +65,7 @@ class TransactionBase(BaseBehaviour):
     def _handle_failure(self) -> None:
         try:
             self._rollback_sessions()
+            get_cache_context().discard()
         finally:
             self._reset()
 

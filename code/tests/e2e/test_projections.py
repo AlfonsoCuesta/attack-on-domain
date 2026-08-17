@@ -208,12 +208,16 @@ class TestReadProjection:
 
     def test_read_exception_is_logged_and_re_raised(self) -> None:
         class FailingRead(ReadProjection):
+            logger: Logger
+
             def read(self, model: UserReadModel) -> str:
                 raise ValueError("read failed")
 
-        p = FailingRead()
+        logger = spy_port(Logger)()
+        p = FailingRead(logger=logger)
         with pytest.raises(ValueError, match="read failed"):
             execute(p, "read", UserReadModel(user_id=1))
+        assert logger.error.call_count == 1
 
     def test_read_with_logger_and_event_bus(self) -> None:
         logger = spy_port(Logger)()
@@ -351,12 +355,16 @@ class TestAsyncReadProjection:
 
     async def test_read_exception_is_logged_and_re_raised(self) -> None:
         class Failing(AsyncReadProjection):
+            logger: Logger
+
             async def read(self, model: UserReadModel) -> str:
                 raise ValueError("async read failed")
 
-        p = Failing()
+        logger = spy_port(Logger)()
+        p = Failing(logger=logger)
         with pytest.raises(ValueError, match="async read failed"):
             await execute_async(p, "read", UserReadModel(user_id=1))
+        assert logger.error.call_count == 1
 
 
 class TestAsyncWriteProjection:
@@ -490,4 +498,4 @@ class TestProjectionInjection:
 
         container = AdapterContainer()
         p = container.adapt(TestP)
-        execute(p, "read", UserReadModel(user_id=1))
+        assert execute(p, "read", UserReadModel(user_id=1)) == "ok"

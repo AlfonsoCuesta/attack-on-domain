@@ -329,10 +329,11 @@ class TestEntities:
         with pytest.raises(ValueError, match="Cannot cancel shipped order"):
             order.cancel("oops")
 
-    def test_cannot_place_twice(self) -> None:
+    def test_place_emits_an_event_each_time(self) -> None:
         order = Order(id="ORD-001", customer_id="CUST-001", lines=[])
         order.place()
         order.place()
+        assert len(events_of(order)) == 2
 
     def test_product_entity(self) -> None:
         product = Product(id="PROD-001", sku="PROD-001", name="Widget", price=Money(amount=999))
@@ -345,6 +346,7 @@ class TestDomainService:
         service = InventoryService()
         assert service.check_availability("PROD-001", 5) is True
         service.reserve("PROD-001", 5)
+        assert len(events_of(service)) == 1
 
 
 class TestBoundedContext:
@@ -474,13 +476,12 @@ class TestContainerAndInjection:
         assert isinstance(uc.email_sender, FakeEmailSender)
         assert isinstance(uc.inventory, FakeInventoryClient)
 
-    def test_inject_with_session(self) -> None:
+    def test_inject_and_execute_use_case(self) -> None:
         email_sender = FakeEmailSender()
         inventory = FakeInventoryClient()
         container = AdapterContainer(
             email_sender=email_sender,
             inventory=inventory,
-            sessions={_SyncSession},
             logger=NullLogger(),
             event_bus=NullEventBus(),
         )
@@ -496,7 +497,6 @@ class TestContainerAndInjection:
         container = AdapterContainer(
             email_sender=email_sender,
             inventory=inventory,
-            sessions={_SyncSession},
             logger=logger,
             event_bus=bus,
         )
