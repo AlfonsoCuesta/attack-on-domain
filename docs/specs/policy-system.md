@@ -1,7 +1,8 @@
 # Policy System
 
-Policies are independent application services. They do not depend on a
-`UseCase`, `Projection`, operation arguments, or a mapper.
+Policies are independent application services. Enforcement is explicit and does
+not belong to a `UseCase` or `Projection`, but a policy handler runs inside the
+caller's transaction when one is active.
 
 ## Contracts And Handlers
 
@@ -20,8 +21,9 @@ class AuthHandler(PolicyHandler[AuthContract]):
 ```
 
 `PolicyPort` is the application-facing handler port. `PolicyHandler` is its
-infrastructure implementation. Async variants are available as
-`AsyncPolicyPort` and `AsyncPolicyHandler`.
+infrastructure implementation and may declare required dependencies such as
+`QueryPort`, `CommandPort`, other ports, or concrete sessions. Async variants are
+available as `AsyncPolicyPort` and `AsyncPolicyHandler`.
 
 ## Manager
 
@@ -64,3 +66,17 @@ policies = container.policy_manager()
 The manager resolves each contract by its concrete type and invokes the
 matching handler. It does not alter `UseCase` or `Projection` construction and
 does not run policies implicitly.
+
+Handlers can be constructed without a container:
+
+```python
+policy = OwnerHandler(documents=document_query_handler)
+policies = PolicyManager(policy)
+
+with Transaction():
+    policies.enforce(owner_contract)
+    use_case.run()
+```
+
+The container is an optional convenience that adapts policy handlers and their
+handler dependencies before the manager is created.

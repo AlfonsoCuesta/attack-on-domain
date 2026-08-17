@@ -77,7 +77,8 @@ class _PolicyManagerBase:
 
     async def _enforce_node_async(self, node: PolicyInput) -> None:
         if isinstance(node, PolicyContract):
-            await should_await(self._handler_for(node).handle(node))
+            handler = self._handler_for(node)
+            await should_await(handler.handle(node))
             return
         if node.operator is _PolicyOperator.AND:
             try:

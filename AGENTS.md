@@ -377,16 +377,16 @@ Each wrapper dispatches to separate maker functions per sync/async variant: `_ma
 `Command[TEntity, TResult]` / `Query[TEntity, TResult]` extend `BaseSealed`. Validate `TEntity` is `RootEntity` subclass at class creation. Field types checked: any field referencing non-root `Entity` raises `DomainException`. `Query` additionally requires `TResult` to contain at least one `RootEntity`.
 
 ### Policy System (mechanism)
-Policies are independent application services. They do not belong to `UseCase`, `Projection`, transactions, or operation signatures.
+Policies are independent application services. Their enforcement is explicit, but `PolicyHandler` is a `BaseOperation`, so it may receive required handler/port dependencies and participate in the caller's `Transaction`.
 
 **Public API**:
 - `PolicyContract(BaseSealed)` — immutable authorization input defined by the caller.
 - `PolicyPort[PolicyContract]` / `AsyncPolicyPort` — application handler ports.
-- `PolicyHandler[PolicyContract]` / `AsyncPolicyHandler` — infrastructure implementations resolved by contract.
+- `PolicyHandler[PolicyContract]` / `AsyncPolicyHandler` — infrastructure `BaseOperation` implementations resolved by contract. They can depend on `QueryPort`, `CommandPort`, ports, and concrete sessions.
 - `PolicyManager` / `AsyncPolicyManager` — runtime collections of registered policy handlers.
 - `PolicyExpression` — immutable `BaseSealed` AND/OR expression built with `&` and `|`.
 
-The container creates the manager from registered policy handlers:
+The manager can be created manually from fully constructed handlers or by the container:
 
 ```python
 manager = container.policy_manager()
@@ -395,6 +395,14 @@ manager.enforce(auth_contract | admin_contract)  # OR
 ```
 
 Multiple contracts passed directly to `enforce()` are joined with AND. Contracts can be combined with `&` and `|`, including nested expressions. The manager resolves each contract by its concrete type and invokes the matching handler. If all OR branches fail, `PolicyEnforcementError` is raised. Enforcement is explicit and never runs from `UseCase`, `Projection`, or an operation wrapper.
+
+When a policy uses query or command handlers, construct or adapt the manager inside the same transaction as the protected operation:
+
+```python
+with Transaction():
+    manager.enforce(can_edit_contract)
+    use_case.run()
+```
 
 ### Cache Key Hierarchy (mechanism)
 `CacheKey(BaseGuarded)` is the abstract base. It declares:

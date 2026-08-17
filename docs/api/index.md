@@ -729,7 +729,7 @@ Synchronous database session abstraction.
 | `execute` | `abstractmethod execute(self, operation: object) -> object` | Execute a write operation. |
 | `query` | `abstractmethod query(self, operation: object) -> object` | Execute a read operation. |
 | `begin` | `abstractmethod begin(self) -> None` | Start a new transaction. |
-| `commit` | `abstractmethod commit(self) -> None` | Commit the transaction. Wrapped to raise `CommitOutsideUnitOfWorkError` if no `_CommitContext`. |
+| `commit` | `abstractmethod commit(self) -> None` | Commit the transaction. Wrapped to raise `CommitOutsideUnitOfWorkError` when called outside a Transaction. |
 | `rollback` | `abstractmethod rollback(self) -> None` | Roll back the transaction. |
 | `close` | `abstractmethod close(self) -> None` | Release resources. |
 | `is_dirty` | `abstractmethod is_dirty(self) -> bool` | Check for uncommitted changes. |

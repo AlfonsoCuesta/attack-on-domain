@@ -20,6 +20,7 @@ You have a complex domain. Your codebase is turning into a big ball of mud. Your
 - **CQRS** that's built-in, not bolted on — `Command[TEntity, TResult]` and `Query[TEntity, TResult]` with compile-time generic validation
 - **Event collection** that Just Works — emit from entities, VOs, services; UseCases collect them automatically; `EventCollector` context manager catches cross-aggregate events
 - **Ports & adapters** — `CommandPort[T]` / `QueryPort[T]` on UseCases, infrastructure handlers implement them, `AdapterContainer` wires everything. No service locator, no global state, no singletons.
+- **Policies** — authorization as independent application services: explicit `enforce()` before the protected operation, combinable with AND/OR, and sharing the caller's transaction.
 
 ## AI-Native by Design
 
@@ -119,6 +120,32 @@ with container.transaction(cache=container.cache_context()):
 ```
 
 Use `container.async_transaction(cache=...)` for asynchronous use cases and projections.
+
+Policies are independent application services, enforced explicitly before the protected operation:
+
+```python
+from aod.application import PolicyContract
+from aod.infrastructure import PolicyHandler
+
+class CanEditDocument(PolicyContract):
+    user_id: str
+    document_id: str
+
+class CanEditDocumentHandler(PolicyHandler[CanEditDocument]):
+    def handle(self, contract: CanEditDocument) -> None:
+        if contract.user_id != "owner":
+            raise PermissionError("not the document owner")
+
+container = AdapterContainer(
+    sessions={SqlSession},
+    handlers=[PlaceOrderHandler, CanEditDocumentHandler],
+)
+with container.transaction():
+    container.policy_manager().enforce(CanEditDocument(user_id="owner", document_id="1"))
+    use_case.run(order_id="1", total=99.99)
+```
+
+Combine contracts with `|` (OR) and `&` (AND). `enforce()` raises `PolicyEnforcementError` when every OR branch fails.
 
 ## FastAPI? You Bet.
 

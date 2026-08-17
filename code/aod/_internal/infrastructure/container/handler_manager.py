@@ -18,7 +18,7 @@ from aod._internal.infrastructure.container.types import (
     AnyHandler,
     _is_session_annotation,
 )
-from aod._internal.infrastructure.handlers.handlers import AsyncBaseHandler
+from aod._internal.infrastructure.handlers.handlers import AsyncBaseHandler, AsyncPolicyHandler
 
 
 class HandlerManager:
@@ -69,6 +69,7 @@ class HandlerManager:
             for field_name, tp in cls_hints.items():
                 if _is_session_annotation(tp):
                     kwargs[field_name] = self._session_manager.get_session(tp)
+        self.inject_handlers(handler, kwargs)
 
         instance = self._instantiate_handler(handler, kwargs)
         return instance
@@ -82,11 +83,10 @@ class HandlerManager:
         for handler in self._handlers:
             contract = self.contract_from_handler(handler)
             if isinstance(contract, type) and issubclass(contract, PolicyContract):
-                if issubclass(handler, AsyncBaseHandler) != async_:
+                if issubclass(handler, (AsyncBaseHandler, AsyncPolicyHandler)) != async_:
                     continue
-                policy_handlers.append(
-                    cast(PolicyPort[Any] | AsyncPolicyPort[Any], self.get_handler(contract))
-                )
+                instance = self.get_handler(contract)
+                policy_handlers.append(cast(PolicyPort[Any] | AsyncPolicyPort[Any], instance))
         return policy_handlers
 
     def _instantiate_handler(

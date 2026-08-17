@@ -173,6 +173,10 @@ with container.transaction(cache=container.cache_context()):
 | `from aod.domain.validation import get_base_model` | Get BaseModel from a Entity, RootEntity or ValueObject |
 | `from aod.application import Command, Query` | Application contracts (internal — created by UseCase, not the user) |
 | `from aod.application import CommandPort, QueryPort` | Application handler protocols |
+| `from aod.application import PolicyContract, PolicyExpression` | Immutable authorization inputs, combinable with `&` and `|` |
+| `from aod.application import PolicyManager` | Runtime collection of policy handlers |
+| `from aod.infrastructure import PolicyHandler` | Infrastructure policy implementation (sync) |
+| `from aod.infrastructure.async_ import PolicyHandler` | Async policy implementation |
 | `from aod.infrastructure import CommandHandler, QueryHandler` | Infrastructure handler implementations |
 | `from aod.infrastructure import Session` | Database abstraction base |
 | `from aod.infrastructure.async_ import Session` | Async database abstraction |
@@ -667,6 +671,46 @@ uc.run(PlaceOrderInput(order_id="1", product_id="p1", quantity=2, price=9.99))
 **Application layer** (`aod.application`): `CommandPort[Command]` / `QueryPort[Query]` — protocol definitions that UseCases depend on.
 
 **Infrastructure layer** (`aod.infrastructure`): `CommandHandler[C]` / `QueryHandler[Q]` — concrete implementations.
+
+### Policies
+
+Authorization as independent application services. A `PolicyContract` carries the data needed to authorize one decision; a `PolicyHandler` implements the check and may declare required `QueryPort`, `CommandPort`, other ports, or concrete sessions.
+
+```python
+from aod.application import PolicyContract, PolicyManager
+from aod.infrastructure import PolicyHandler
+
+class CanEditDocument(PolicyContract):
+    user_id: str
+    document_id: str
+
+class CanEditDocumentHandler(PolicyHandler[CanEditDocument]):
+    documents: QueryPort[GetDocument]
+
+    def handle(self, contract: CanEditDocument) -> None:
+        document = self.documents.handle(GetDocument(document_id=contract.document_id))
+        if document is None or document.owner_id != contract.user_id:
+            raise PermissionError("not the document owner")
+```
+
+Enforcement is explicit — call `enforce()` before the protected operation, inside the same transaction:
+
+```python
+with container.transaction(cache=container.cache_context()):
+    policies = container.policy_manager()
+    policies.enforce(
+        IsAdministrator(user_id=user_id)
+        | CanEditDocument(user_id=user_id, document_id=document_id)
+    )
+    use_case.run(...)
+```
+
+**Rules**:
+- Each contract is resolved to the matching `PolicyHandler` by its concrete type.
+- Contracts passed to `enforce()` are joined with AND; combine with `|` for OR and `&` for AND, including nested expressions.
+- If every OR branch fails, `PolicyEnforcementError` is raised.
+- Policies never run implicitly from a `UseCase` or `Projection` — call `enforce()` explicitly.
+- Without a container, construct the manager manually: `PolicyManager(CanEditDocumentHandler(documents=query_handler))`.
 
 ### Cache
 
@@ -1231,6 +1275,31 @@ class BookAppointmentUseCase(UseCase):
         professional = self.get_professional.handle(GetProfessional(id=professional_id))
         appointment = Appointment(professional_id=professional_id, start_time=start_time)
         self.save_appointment.handle(SaveAppointment(...))
+```
+
+### WRONG: Checking authorization inside the UseCase
+
+Policies are independent — enforcement must be explicit and live outside the operation:
+
+```python
+# WRONG — authorization baked into the UseCase
+class UpdateDocumentUseCase(UseCase):
+    documents: QueryPort[GetDocument]
+
+    def run(self, dto: UpdateDocumentInput) -> None:
+        document = self.documents.handle(GetDocument(document_id=dto.document_id))
+        if document.owner_id != dto.user_id:  # NO! not the UseCase's job
+            raise PermissionError("not the document owner")
+        ...
+```
+
+```python
+# CORRECT — enforce the policy before the operation, in the same transaction
+with container.transaction():
+    container.policy_manager().enforce(
+        CanEditDocument(user_id=user_id, document_id=document_id)
+    )
+    use_case.run(dto)
 ```
 
 ### WRONG: Defining __init__ manually

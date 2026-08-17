@@ -5,6 +5,7 @@ from typing import TypeVar, get_origin
 from aod._internal.application.handler.handler import HandlerProtocol
 from aod._internal.application.port import Port
 from aod._internal.application.use_case import AsyncUseCase, UseCase
+from aod._internal.core.base_operation import BaseOperation
 from aod._internal.infrastructure.handlers import (
     AsyncCommandHandler,
     AsyncPolicyHandler,
@@ -32,7 +33,7 @@ AnyHandler = (
 )
 TUseCase = TypeVar("TUseCase", bound=UseCase | AsyncUseCase)
 TProjection = TypeVar("TProjection", bound=ProjectionBase)
-TOperation = TypeVar("TOperation", bound=UseCase | AsyncUseCase | ProjectionBase)
+TOperation = TypeVar("TOperation", bound=BaseOperation)
 
 
 def _is_port_type(tp: object) -> bool:

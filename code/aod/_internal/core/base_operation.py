@@ -153,7 +153,7 @@ class BaseOperation(BaseBehaviour):
 
     def __init_subclass__(cls, **kwargs: object) -> None:
         super().__init_subclass__(**kwargs)
-        for method_name in ("run", "read", "write"):
+        for method_name in ("run", "read", "write", "handle"):
             method = cls.__dict__.get(method_name)
             if (
                 callable(method)
@@ -186,7 +186,7 @@ class BaseOperation(BaseBehaviour):
                 )
             if issubclass(resolved, cls.__not_allowed_port_types__) or (
                 getattr(resolved, "__aod_handler__", False)
-                and not cls.__dict__.get("__allow_handler_ports__", False)
+                and not getattr(cls, "__allow_handler_ports__", False)
             ):
                 raise InvalidUseCasePortFieldError(
                     field_name,

@@ -109,7 +109,7 @@ Key points:
 
 ### Commit Guard
 
-The `commit()` method on every Session subclass is auto-wrapped at class creation time with a check against a `_CommitContext` flag. This flag is set to `True` only inside a Transaction `commit()`. Any direct call to `session.commit()` outside a Transaction immediately raises `CommitOutsideUnitOfWorkError`:
+The `commit()` method on every Session subclass is auto-wrapped at class creation time so it only succeeds while a Transaction is committing. Any direct call to `session.commit()` outside a Transaction immediately raises `CommitOutsideUnitOfWorkError`:
 
 ```python
 postgres = PostgresSession()
