@@ -43,6 +43,25 @@ class OrderUseCase(UseCase):
 
 Infrastructure provides concrete implementations via `CommandHandler[C]` and `QueryHandler[Q]`.
 
+### PolicyPort
+
+`PolicyPort[T]` is a handler port for authorization decisions. PolicyHandlers implement this port and are managed by `PolicyManager`.
+
+**Import:** `from aod.application.policies import PolicyPort`
+
+```python
+from aod.application.policies import PolicyPort, PolicyContract
+
+class OwnerContract(PolicyContract):
+    user_id: str
+    document_id: str
+
+class OwnerPort(PolicyPort[OwnerContract]):
+    def handle(self, contract: OwnerContract) -> None: ...
+```
+
+Infrastructure provides concrete implementations via `PolicyHandler[T]` and `AsyncPolicyHandler[T]`.
+
 ### Service Ports
 
 Service ports abstract cross-cutting infrastructure concerns. Subclass `Port` and define abstract methods:

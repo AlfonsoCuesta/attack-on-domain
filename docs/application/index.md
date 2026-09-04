@@ -11,6 +11,7 @@ The application layer orchestrates domain objects through use cases. It defines 
 | [Command](contracts.md) | Write operation | Request to change state |
 | [Query](contracts.md) | Read operation | Request to read state |
 | [Handler](../infrastructure/handlers.md) | Command/Query processor | Execute contracts |
+| [Policy](../specs/policy-system.md) | Authorization service | Enforce access rules |
 
 ## Imports
 
@@ -25,6 +26,12 @@ from aod.application import (
     QueryPort,
     Logger,
     EventBus,
+)
+from aod.application.policies import (
+    PolicyContract,
+    PolicyExpression,
+    PolicyManager,
+    PolicyPort,
 )
 from aod.application.cache import Cache, AsyncCache
 ```
@@ -197,6 +204,36 @@ with container.transaction(cache=container.cache_context()):
 ```
 
 > **Warning:** `AsyncCache` solo funciona en contextos async (`AsyncUseCase`, `AsyncReadProjection`, `AsyncWriteProjection`). En use cases y projections sincrónos, las lecturas devuelven `None` y las escrituras se descartan silenciosamente.
+
+### Policy Authorization
+
+Policies are independent application services for authorization. A `PolicyContract` carries the data needed to decide one authorization check; a `PolicyHandler` implements the check.
+
+```python
+from aod.application.policies import PolicyContract, PolicyManager
+from aod.application.policies import PolicyPort
+from aod.infrastructure.policies import PolicyHandler
+
+class OwnerContract(PolicyContract):
+    user_id: str
+    document_id: str
+
+class OwnerPolicyHandler(PolicyHandler[OwnerContract]):
+    documents: QueryPort[GetDocument]
+
+    def handle(self, contract: OwnerContract) -> None:
+        doc = self.documents.handle(GetDocument(document_id=contract.document_id))
+        if doc.owner_id != contract.user_id:
+            raise PermissionError("not the document owner")
+
+# Enforcement is explicit — before or after a UseCase, inside the same Transaction
+manager = PolicyManager(OwnerPolicyHandler(documents=query_handler))
+with Transaction():
+    manager.enforce(owner_contract)
+    use_case.run()
+```
+
+See the [Policy System](../specs/policy-system.md) spec for full details.
 
 ### Event Collection
 

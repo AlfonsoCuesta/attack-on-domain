@@ -353,7 +353,8 @@ from aod.domain.validation import field_invariance, invariance, AfterValidator, 
 
 ```python
 from aod.application import UseCase, Port, Logger, EventBus, Cache, CacheManager, CacheKey, CacheInvalidation, ContractCacheKey, OperationCacheKey, ContractCacheInvalidation, OperationCacheInvalidation, Command, Query
-from aod.application import CommandPort, QueryPort
+from aod.application.policies import PolicyPort
+from aod.application.policies import PolicyContract, PolicyExpression, PolicyManager
 from aod.application import ApplicationException
 from aod.application.async_ import UseCase, Logger, EventBus, Cache
 from aod.application.async_ import CommandPort, QueryPort
@@ -479,6 +480,28 @@ Application-layer handler port for read operations. UseCases declare `QueryPort[
 | `TQuery` | Must be a `Query` subclass | The query type this port handles. |
 
 Infrastructure provides concrete implementations via `QueryHandler[Q]`.
+
+### PolicyPort
+
+```python
+class PolicyPort(HandlerProtocol, Generic[TPolicyContract])
+```
+
+Application-layer handler port for authorization decisions. PolicyHandlers implement this port.
+
+#### Methods
+
+| Method | Signature | Description |
+|--------|-----------|-------------|
+| `handle` | `abstractmethod handle(self, contract: TPolicyContract) -> None` | Enforce an authorization decision. Raise to deny. |
+
+#### Type Parameters
+
+| Parameter | Constraint | Description |
+|-----------|------------|-------------|
+| `TPolicyContract` | Must be a `PolicyContract` subclass | The policy contract type this port handles. |
+
+Infrastructure provides concrete implementations via `PolicyHandler[T]`.
 
 ### Logger
 
@@ -700,6 +723,23 @@ Immutable query contract for read operations.
 - Same field restrictions as `Command`.
 - `TResult` is validated to contain at least one `RootEntity` type.
 
+### PolicyContract
+
+```python
+class PolicyContract(BaseSealed)
+```
+
+Immutable authorization contract for policy decisions.
+
+#### Constructor
+
+`PolicyContract(**fields)`
+
+#### Constraints
+
+- Always immutable (`BaseSealed`). Any mutation raises `MutationForbiddenException`.
+- Declared fields become keyword constructor parameters.
+
 ---
 
 ## Infrastructure Layer
@@ -708,8 +748,9 @@ Immutable query contract for read operations.
 from aod.infrastructure import Session, AsyncSession
 from aod.infrastructure import ReadProjection, WriteProjection, Projection
 from aod.infrastructure import AsyncReadProjection, AsyncWriteProjection, AsyncProjection
-from aod.infrastructure import CommandHandler, QueryHandler
+from aod.infrastructure.policies import PolicyHandler
 from aod.infrastructure import AsyncCommandHandler, AsyncQueryHandler
+from aod.infrastructure.policies.async_ import PolicyHandler as AsyncPolicyHandler
 from aod.infrastructure import AdapterContainer
 from aod.infrastructure import InfrastructureException
 ```
@@ -921,6 +962,72 @@ class AsyncQueryHandler(AsyncBaseHandler, AppAsyncQueryHandler, Generic[TQuery])
 | Method | Signature | Description |
 |--------|-----------|-------------|
 | `handle` | `abstractmethod async handle(self, query: TQuery) -> object` | Async handle a query. |
+
+### PolicyHandler
+
+```python
+class PolicyHandler(BaseOperation, PolicyPort[TPolicyContract], Generic[TPolicyContract])
+```
+
+Sync policy handler. Unlike command/query handlers, `PolicyHandler` does not have a `session` field — it accesses data via `QueryPort`/`CommandPort` fields.
+
+#### Constructor
+
+`PolicyHandler(**fields)`
+
+#### Methods
+
+| Method | Signature | Description |
+|--------|-----------|-------------|
+| `handle` | `abstractmethod handle(self, contract: TPolicyContract) -> None` | Enforce an authorization decision. Raise to deny. |
+
+#### Type Parameters
+
+| Parameter | Constraint | Description |
+|-----------|------------|-------------|
+| `TPolicyContract` | Must be a `PolicyContract` subclass | The policy contract type this handler processes. |
+
+### AsyncPolicyHandler
+
+```python
+class AsyncPolicyHandler(BaseOperation, AsyncPolicyPort[TPolicyContract], Generic[TPolicyContract])
+```
+
+Async policy handler. Same as `PolicyHandler` but with an async `handle` method.
+
+#### Constructor
+
+`AsyncPolicyHandler(**fields)`
+
+#### Methods
+
+| Method | Signature | Description |
+|--------|-----------|-------------|
+| `handle` | `abstractmethod async handle(self, contract: TPolicyContract) -> None` | Async enforce an authorization decision. |
+
+### PolicyManager
+
+```python
+class PolicyManager
+```
+
+Collects policy handlers and enforces authorization decisions.
+
+#### Constructor
+
+`PolicyManager(*handlers: PolicyHandler | AsyncPolicyHandler)`
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `*handlers` | `PolicyHandler \| AsyncPolicyHandler` | One or more policy handler instances. |
+
+#### Methods
+
+| Method | Signature | Description |
+|--------|-----------|-------------|
+| `enforce` | `enforce(self, *contracts: PolicyContract) -> None` | Enforce all contracts with AND logic. Raise `PolicyEnforcementError` if any fails. |
+
+Contracts can also be combined with `&` (AND) and `|` (OR) operators before passing to `enforce()`.
 
 ### AdapterContainer
 
@@ -1216,6 +1323,7 @@ from aod.exceptions import (
 | `CommitOutsideUnitOfWorkError` | `ApplicationException` | Commit outside a Transaction context. |
 | `InvalidUseCasePortFieldError` | `ApplicationException` | UseCase field is not a Port subclass. |
 | `InvalidHandlerPortFieldError` | `ApplicationException` | HandlerProtocol port missing generic type argument. |
+| `PolicyEnforcementError` | `ApplicationException` | All OR policy groups failed during enforcement. |
 
 ### InfrastructureException Hierarchy
 

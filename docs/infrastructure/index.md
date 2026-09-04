@@ -8,6 +8,7 @@ The infrastructure layer provides concrete implementations of ports and handles 
 |-------|-------------|---------|
 | [Session](sessions.md) | Database abstraction | Handle connections and transactions |
 | [Handler](handlers.md) | Command/Query processor | Implement `CommandPort` / `QueryPort` |
+| [PolicyHandler](handlers.md) | Authorization handler | Implement `PolicyPort` |
 | [Projection](projections.md) | Read/write models | Query data efficiently |
 | [Container](container.md) | Dependency injection | Wire ports, handlers, sessions into use cases and projections |
 
@@ -24,6 +25,8 @@ from aod.infrastructure import (
     CommandHandler,
     QueryHandler,
 )
+from aod.infrastructure.policies import PolicyHandler
+from aod.infrastructure.policies.async_ import PolicyHandler as AsyncPolicyHandler
 ```
 
 ## Quick Example

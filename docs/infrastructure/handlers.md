@@ -119,6 +119,36 @@ Async query handler. Inherits from `AsyncBaseHandler`, `AsyncQueryPort` (which i
 
 Async abstract method. Implement to process a query asynchronously.
 
+### `PolicyHandler[TPolicyContract]`
+
+Sync policy handler. Inherits from `BaseOperation`, `PolicyPort` (which is `HandlerProtocol(Port)`), and `Generic[TPolicyContract]`. Unlike command/query handlers, `PolicyHandler` does **not** declare a `session` field — it accesses data via `QueryPort`/`CommandPort` fields.
+
+**Type Parameters:**
+
+| Parameter | Constraint | Description |
+|-----------|------------|-------------|
+| `TPolicyContract` | Must be a `PolicyContract` subclass | The policy contract type this handler processes |
+
+#### `handle(self, contract: TPolicyContract) -> None`
+
+Abstract method. Implement to enforce an authorization decision. Raise an exception to deny access.
+
+**Parameters:**
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `contract` | `TPolicyContract` | The policy contract instance to evaluate |
+
+**Returns:** `None`.
+
+### `AsyncPolicyHandler[TPolicyContract]`
+
+Async policy handler. Same as `PolicyHandler` but with an async `handle` method.
+
+#### `async handle(self, contract: TPolicyContract) -> None`
+
+Async abstract method. Implement to enforce an authorization decision asynchronously.
+
 ## Generic Type Binding
 
 Handlers are generic over their contract type. The generic argument is used at runtime to match commands/queries:

@@ -42,6 +42,11 @@ Build maintainable domain models with entities, value objects, aggregates, CQRS,
 </div>
 
 <div class="feature-card">
+<h3>Policy Authorization</h3>
+<p>Independent authorization services with explicit enforcement, AND/OR expressions, and container integration.</p>
+</div>
+
+<div class="feature-card">
 <h3>Testing</h3>
 <p>Spy containers, session stubs, fakers, and event assertions — everything you need to test your domain, application, and infrastructure layers.</p>
 </div>

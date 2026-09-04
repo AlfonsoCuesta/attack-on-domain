@@ -102,6 +102,16 @@ Create a copy of the container with overridden fields.
 |-----------|------|-------------|
 | `**overrides` | `Any` | Field values to override in the copy. |
 
+#### `policy_manager() -> PolicyManager`
+
+Create a `PolicyManager` from all registered `PolicyHandler` and `AsyncPolicyHandler` instances.
+
+```python
+container = AdapterContainer(handlers=[OwnerPolicyHandler, AdminPolicyHandler])
+manager = container.policy_manager()
+manager.enforce(owner_contract)
+```
+
 ### Port Resolution Order
 
 When injecting ports into a use case or projection, the container resolves each port field in this order:

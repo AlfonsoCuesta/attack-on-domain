@@ -86,6 +86,28 @@ query.user_id = "2"  # MutationForbiddenException!
 | `*fields` | As declared | Every declared field becomes a required or optional keyword argument |
 | *(default values)* | As declared | Fields with `= value` are optional in the constructor |
 
+### `PolicyContract`
+
+Authorization contract for policy decisions. Always immutable.
+
+**Import:** `from aod.application.policies import PolicyContract`
+
+```python
+from aod.application.policies import PolicyContract
+
+class OwnerContract(PolicyContract):
+    user_id: str
+    document_id: str
+
+contract = OwnerContract(user_id="u1", doc_id="d1")
+```
+
+**Parameters (constructor):**
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `*fields` | As declared | Every declared field becomes a required or optional keyword argument |
+
 ## Type Parameter Rules
 
 ### TEntity: Must be RootEntity
