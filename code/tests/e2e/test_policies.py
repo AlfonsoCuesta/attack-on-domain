@@ -8,25 +8,24 @@ import pytest
 from aod.application import (
     Command,
     CommandPort,
-    PolicyContract,
-    PolicyManager,
     Query,
     QueryPort,
     Transaction,
     UseCase,
 )
 from aod.application.async_ import QueryPort as AsyncQueryPort
+from aod.application.policies import PolicyContract, PolicyManager
 from aod.domain import Field, PrivateField, RootEntity
 from aod.infrastructure import (
     AdapterContainer,
     CommandHandler,
-    PolicyHandler,
     QueryHandler,
     Session,
 )
-from aod.infrastructure.async_ import PolicyHandler as AsyncPolicyHandler
 from aod.infrastructure.async_ import QueryHandler as AsyncQueryHandler
 from aod.infrastructure.async_ import Session as AsyncSession
+from aod.infrastructure.policies import PolicyHandler
+from aod.infrastructure.policies.async_ import PolicyHandler as AsyncPolicyHandler
 from aod.exceptions import InvalidUseCasePortFieldError, PolicyEnforcementError
 
 

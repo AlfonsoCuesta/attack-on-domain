@@ -1,5 +1,4 @@
 from aod._internal.infrastructure.handlers import AsyncCommandHandler as CommandHandler
-from aod._internal.infrastructure.handlers import AsyncPolicyHandler as PolicyHandler
 from aod._internal.infrastructure.handlers import AsyncQueryHandler as QueryHandler
 from aod._internal.infrastructure.projection import (
     AsyncProjection as Projection,
@@ -15,7 +14,6 @@ from aod._internal.infrastructure.session import AsyncSession as Session
 __all__ = [
     "CommandHandler",
     "Projection",
-    "PolicyHandler",
     "QueryHandler",
     "ReadProjection",
     "Session",

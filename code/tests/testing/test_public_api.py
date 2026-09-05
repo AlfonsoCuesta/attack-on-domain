@@ -6,6 +6,8 @@ import aod.application
 import aod.application.async_
 import aod.application.cache
 import aod.application.exceptions
+import aod.application.policies
+import aod.application.policies.async_
 import aod.domain
 import aod.domain.exceptions
 import aod.domain.validation
@@ -14,6 +16,8 @@ import aod.exceptions
 import aod.infrastructure
 import aod.infrastructure.async_
 import aod.infrastructure.exceptions
+import aod.infrastructure.policies
+import aod.infrastructure.policies.async_
 import aod.schema
 from aod._internal.core.application_exception import UnresolvableEntityError
 from aod._internal.core.event_emitter import Event, IntegrationEvent
@@ -77,10 +81,6 @@ def test_aod_application_exports_documented_api() -> None:
         "Logger",
         "OperationCacheInvalidation",
         "OperationCacheKey",
-        "PolicyContract",
-        "PolicyExpression",
-        "PolicyManager",
-        "PolicyPort",
         "Port",
         "Query",
         "QueryPort",
@@ -104,10 +104,6 @@ def test_aod_application_exports_documented_api() -> None:
         "CommandPort",
         "EventBus",
         "Logger",
-        "PolicyContract",
-        "PolicyExpression",
-        "PolicyManager",
-        "PolicyPort",
         "QueryPort",
         "Transaction",
         "UseCase",
@@ -132,7 +128,6 @@ def test_aod_infrastructure_exports_documented_api() -> None:
         "InfrastructureException",
         "Projection",
         "ProjectionBase",
-        "PolicyHandler",
         "QueryHandler",
         "ReadProjection",
         "Session",
@@ -143,11 +138,40 @@ def test_aod_infrastructure_exports_documented_api() -> None:
     assert aod.infrastructure.async_.__all__ == [
         "CommandHandler",
         "Projection",
-        "PolicyHandler",
         "QueryHandler",
         "ReadProjection",
         "Session",
         "WriteProjection",
+    ]
+
+
+def test_aod_application_policies_exports() -> None:
+    assert aod.application.policies.__all__ == [
+        "PolicyContract",
+        "PolicyExpression",
+        "PolicyManager",
+        "PolicyPort",
+    ]
+    assert aod.application.policies.PolicyContract.__name__ == "PolicyContract"
+    assert aod.application.policies.PolicyManager.__name__ == "PolicyManager"
+    assert aod.application.policies.PolicyPort.__name__ == "PolicyPort"
+
+    assert aod.application.policies.async_.__all__ == [
+        "PolicyContract",
+        "PolicyExpression",
+        "PolicyManager",
+        "PolicyPort",
+    ]
+
+
+def test_aod_infrastructure_policies_exports() -> None:
+    assert aod.infrastructure.policies.__all__ == [
+        "PolicyHandler",
+    ]
+    assert aod.infrastructure.policies.PolicyHandler.__name__ == "PolicyHandler"
+
+    assert aod.infrastructure.policies.async_.__all__ == [
+        "PolicyHandler",
     ]
 
 

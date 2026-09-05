@@ -1,6 +1,6 @@
 from aod._internal.core.infrastructure_exception import InfrastructureException
 from aod._internal.infrastructure.container import AdapterContainer
-from aod._internal.infrastructure.handlers import CommandHandler, PolicyHandler, QueryHandler
+from aod._internal.infrastructure.handlers import CommandHandler, QueryHandler
 from aod._internal.infrastructure.projection import (
     Projection,
     ProjectionBase,
@@ -15,7 +15,6 @@ __all__ = [
     "InfrastructureException",
     "Projection",
     "ProjectionBase",
-    "PolicyHandler",
     "QueryHandler",
     "ReadProjection",
     "Session",

@@ -124,8 +124,8 @@ Use `container.async_transaction(cache=...)` for asynchronous use cases and proj
 Policies are independent application services, enforced explicitly before the protected operation:
 
 ```python
-from aod.application import PolicyContract
-from aod.infrastructure import PolicyHandler
+from aod.application.policies import PolicyContract
+from aod.infrastructure.policies import PolicyHandler
 
 class CanEditDocument(PolicyContract):
     user_id: str

@@ -173,10 +173,10 @@ with container.transaction(cache=container.cache_context()):
 | `from aod.domain.validation import get_base_model` | Get BaseModel from a Entity, RootEntity or ValueObject |
 | `from aod.application import Command, Query` | Application contracts (internal — created by UseCase, not the user) |
 | `from aod.application import CommandPort, QueryPort` | Application handler protocols |
-| `from aod.application import PolicyContract, PolicyExpression` | Immutable authorization inputs, combinable with `&` and `|` |
-| `from aod.application import PolicyManager` | Runtime collection of policy handlers |
-| `from aod.infrastructure import PolicyHandler` | Infrastructure policy implementation (sync) |
-| `from aod.infrastructure.async_ import PolicyHandler` | Async policy implementation |
+| `from aod.application.policies import PolicyContract, PolicyExpression` | Immutable authorization inputs, combinable with `&` and `|` |
+| `from aod.application.policies import PolicyManager` | Runtime collection of policy handlers |
+| `from aod.infrastructure.policies import PolicyHandler` | Infrastructure policy implementation (sync) |
+| `from aod.infrastructure.policies.async_ import PolicyHandler` | Async policy implementation |
 | `from aod.infrastructure import CommandHandler, QueryHandler` | Infrastructure handler implementations |
 | `from aod.infrastructure import Session` | Database abstraction base |
 | `from aod.infrastructure.async_ import Session` | Async database abstraction |
@@ -677,8 +677,8 @@ uc.run(PlaceOrderInput(order_id="1", product_id="p1", quantity=2, price=9.99))
 Authorization as independent application services. A `PolicyContract` carries the data needed to authorize one decision; a `PolicyHandler` implements the check and may declare required `QueryPort`, `CommandPort`, or other ports.
 
 ```python
-from aod.application import PolicyContract, PolicyManager
-from aod.infrastructure import PolicyHandler
+from aod.application.policies import PolicyContract, PolicyManager
+from aod.infrastructure.policies import PolicyHandler
 
 class CanEditDocument(PolicyContract):
     user_id: str
