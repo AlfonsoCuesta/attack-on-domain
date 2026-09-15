@@ -1,4 +1,5 @@
-from typing import Any, Literal
+import asyncio
+from typing import Any
 
 import pytest
 from aod._internal.core.base_guarded import (
@@ -11,23 +12,8 @@ from aod._internal.core.base_sealed import BaseSealed
 from aod._internal.core.domain_exception import MutationForbiddenException
 
 
-def test_base_guarded_uses_same_mutating_context_across_inheritance_levels() -> None:
-    events = []
-
-    class RecordingContext(MutatingContext):
-        def __init__(self) -> None:
-            super().__init__()
-
-        def enter(self, state: Literal[MutatingState.PASS, MutatingState.INHERIT]) -> None:
-            events.append(("enter", state))
-            super().enter(state)
-
-        def exit(self, state: Literal[MutatingState.PASS, MutatingState.INHERIT]) -> None:
-            events.append(("exit", state))
-            super().exit(state)
-
+def test_base_guarded_uses_the_context_var_across_inheritance_levels() -> None:
     class Inner(BaseGuarded):
-        __mutating_context_class__ = RecordingContext
         age: int
 
         def inner_set(self, value: int) -> None:
@@ -40,23 +26,8 @@ def test_base_guarded_uses_same_mutating_context_across_inheritance_levels() -> 
     obj = Outer(age=1)
     obj.outer_set(2)
     obj.inner_set(3)
-    assert events == [
-        # __init__
-        ("enter", MutatingState.INHERIT),
-        ("exit", MutatingState.INHERIT),
-        # outer_set calling
-        ("enter", MutatingState.PASS),  # outer_set
-        ("enter", MutatingState.PASS),  # inner_set
-        ("enter", MutatingState.INHERIT),  # _can_mutate
-        ("exit", MutatingState.INHERIT),  # _can_mutate
-        ("exit", MutatingState.PASS),  # inner_set
-        ("exit", MutatingState.PASS),  # outer_set
-        # inner_set calling
-        ("enter", MutatingState.PASS),  # inner_set
-        ("enter", MutatingState.INHERIT),  # _can_mutate
-        ("exit", MutatingState.INHERIT),  # _can_mutate
-        ("exit", MutatingState.PASS),  # inner_set
-    ]
+    assert obj.age == 3
+    assert MutatingContext.status(id(obj)) == MutatingState.BLOCK
 
 
 def test_base_guarded_blocks_direct_attribute_mutation() -> None:
@@ -170,6 +141,30 @@ def test_base_guarded_works_with_inherit_context() -> None:
 
     user.super_set_age(7)
     assert user.age == 7
+
+
+async def test_mutation_context_is_isolated_between_async_tasks() -> None:
+    class User(BaseGuarded):
+        age: int
+
+        async def set_age_after_wait(self, started: asyncio.Event, release: asyncio.Event) -> None:
+            started.set()
+            await release.wait()
+            self.age = 10
+
+    user = User(age=1)
+    assert "__mutating_context__" not in vars(user)
+    started = asyncio.Event()
+    release = asyncio.Event()
+    task = asyncio.create_task(user.set_age_after_wait(started, release))
+    await started.wait()
+
+    with pytest.raises(MutationForbiddenException, match="Cannot mutate this object User"):
+        user.age = 3
+
+    release.set()
+    await task
+    assert user.age == 10
 
 
 # ---------------------------------------------------------------------------

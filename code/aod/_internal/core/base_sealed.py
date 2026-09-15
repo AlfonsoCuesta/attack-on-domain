@@ -1,6 +1,7 @@
 from typing import ClassVar
 
-from .base_guarded import BaseGuarded, MutatingState
+from .base_guarded import BaseGuarded
+from .base_guarded.mutating_context import MutatingContext, MutatingState
 
 
 class BaseSealed(BaseGuarded):
@@ -11,5 +12,5 @@ class BaseSealed(BaseGuarded):
 
     @property
     def _mutation_status(self) -> MutatingState:
-        status = self.__mutating_context__.status
+        status = MutatingContext.status(id(self))
         return status if status == MutatingState.INHERIT else MutatingState.BLOCK

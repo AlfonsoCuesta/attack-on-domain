@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import inspect
 from functools import wraps
-from typing import Any, Callable, ClassVar, Literal, Type
+from typing import Any, Callable, ClassVar, Literal
 
 from ..base_validator import BaseValidator
 from ..domain_exception import MutationForbiddenException
@@ -32,26 +32,32 @@ def mutate(fn: Callable, *, inherit_mutate: bool = False) -> Callable:
     return mark_mutable(wrap(fn, mutation), state=mutation)
 
 
-def _build_sync_wrapper(fn: Callable, mutation: MutatingState) -> Callable:
+def _build_sync_wrapper(
+    fn: Callable,
+    mutation: Literal[MutatingState.PASS, MutatingState.INHERIT],
+) -> Callable:
     @wraps(fn)
     def wrapper(self: BaseGuarded, *args: Any, **kwargs: Any) -> Any:
-        self.__mutating_context__.enter(mutation)
+        MutatingContext.enter(id(self), mutation)
         try:
             return fn(self, *args, **kwargs)
         finally:
-            self.__mutating_context__.exit(mutation)
+            MutatingContext.exit(id(self), mutation)
 
     return wrapper
 
 
-def _build_async_wrapper(fn: Callable, mutation: MutatingState) -> Callable:
+def _build_async_wrapper(
+    fn: Callable,
+    mutation: Literal[MutatingState.PASS, MutatingState.INHERIT],
+) -> Callable:
     @wraps(fn)
     async def wrapper(self: BaseGuarded, *args: Any, **kwargs: Any) -> Any:
-        self.__mutating_context__.enter(mutation)
+        MutatingContext.enter(id(self), mutation)
         try:
             return await fn(self, *args, **kwargs)
         finally:
-            self.__mutating_context__.exit(mutation)
+            MutatingContext.exit(id(self), mutation)
 
     return wrapper
 
@@ -88,7 +94,6 @@ def _wrap_public_methods(cls: type) -> None:
 
 
 class BaseGuarded(BaseValidator):
-    __mutating_context_class__: ClassVar[Type[MutatingContext]] = MutatingContext
     __skip_method_wrapping__: ClassVar[bool] = True
 
     def __init_subclass__(cls, **kwargs: Any) -> None:
@@ -96,12 +101,11 @@ class BaseGuarded(BaseValidator):
         _wrap_public_methods(cls)
 
     def __init__(self, **kwargs: Any) -> None:
-        object.__setattr__(self, "__mutating_context__", self.__mutating_context_class__())
-        self.__mutating_context__.enter(MutatingState.INHERIT)
+        MutatingContext.enter(id(self), MutatingState.INHERIT)
         try:
             super().__init__(**kwargs)
         finally:
-            self.__mutating_context__.exit(MutatingState.INHERIT)
+            MutatingContext.exit(id(self), MutatingState.INHERIT)
 
     @inherit_context
     def _can_mutate(self) -> bool:
@@ -109,7 +113,7 @@ class BaseGuarded(BaseValidator):
 
     @property
     def _mutation_status(self) -> MutatingState:
-        return self.__mutating_context__.status
+        return MutatingContext.status(id(self))
 
     @property
     def _is_mutation_allowed(self) -> bool:

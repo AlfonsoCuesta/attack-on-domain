@@ -1,6 +1,7 @@
 from typing import ClassVar
 
-from .base_guarded import BaseGuarded, MutatingState
+from .base_guarded import BaseGuarded
+from .base_guarded.mutating_context import MutatingContext, MutatingState
 
 
 class BaseBehaviour(BaseGuarded):
@@ -8,5 +9,5 @@ class BaseBehaviour(BaseGuarded):
 
     @property
     def _mutation_status(self) -> MutatingState:
-        status = self.__mutating_context__.status
+        status = MutatingContext.status(id(self))
         return MutatingState.INHERIT if status != MutatingState.BLOCK else MutatingState.BLOCK
